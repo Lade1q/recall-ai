@@ -2,7 +2,7 @@
 
 > **Module:** Account Management — Authentication  
 > **Use Cases tham chiếu:** UC-01 (Đăng ký), UC-02 (Đăng nhập)  
-> **Ngày tạo:** 2026-07-23  
+> **Ngày tạo:** 2026-07-24  
 > **Phiên bản:** 1.0  
 > **Loại kiểm thử:** Integration (API) + Functionality
 
@@ -57,7 +57,7 @@
 | **Dữ liệu đầu vào**      | `email: "newuser@example.com"`<br>`password: "SecurePass1"`<br>`name: "Nguyen Van A"`                                                                                                                                                                                                                                    |
 | **Kết quả mong đợi**     | - HTTP Status: **201 Created**<br>- Response body có `"success": true`<br>- `data.user` có `id`, `email`, `name` đúng<br>- `data.accessToken` là chuỗi JWT khác rỗng<br>- `data.refreshToken` là chuỗi JWT khác rỗng<br>- `password` **không** xuất hiện trong response<br>- Database có bản ghi user mới với email trên |
 | **Kết quả thực tế**      | HTTP 201 Created. `success: true`. `data.user` có đúng 3 trường `id`, `email`, `name`. `accessToken` và `refreshToken` là JWT hợp lệ. `password` không lộ trong response.                                                                                                                                                |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                                                                                                  |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                                                     |
 | **Ghi chú**              | Đây là happy path chính. Nếu TC này Fail, các TC khác của UC-01 có thể không chạy được.                                                                                                                                                                                                                                  |
 
 ---
@@ -77,7 +77,7 @@
 | **Dữ liệu đầu vào**      | `email: "existing@example.com"` _(email đã tồn tại)_<br>`password: "AnotherPass1"`<br>`name: "Nguyen Van B"`                                                                                                                                         |
 | **Kết quả mong đợi**     | - HTTP Status: **409 Conflict**<br>- Response body có `"success": false`<br>- `error.code` = `"EMAIL_CONFLICT"`<br>- `error.message` chứa nội dung thông báo lỗi email đã tồn tại<br>- **Không** tạo thêm bản ghi mới trong DB                       |
 | **Kết quả thực tế**      | HTTP 409 Conflict. `success: false`. `error.code: "EMAIL_CONFLICT"`. `error.message` mô tả lỗi email đã tồn tại. Không tạo thêm bản ghi trùng trong DB.                                                                                              |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                              |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                 |
 | **Ghi chú**              | Quan trọng: Kiểm tra thêm DB để chắc chắn không có duplicate record.                                                                                                                                                                                 |
 
 ---
@@ -97,7 +97,7 @@
 | **Dữ liệu đầu vào**      | `email: "shortpass@example.com"`<br>`password: "Pass123"` _(7 ký tự)_<br>`name: "Test User"`                                                                                                                                              |
 | **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request**<br>- Response body có `"success": false`<br>- `error.code` = `"VALIDATION_ERROR"`<br>- `error.details` chứa thông tin lỗi trường `password`<br>- **Không** tạo bản ghi trong DB                        |
 | **Kết quả thực tế**      | HTTP 400 Bad Request. `success: false`. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ trường `password` không đủ độ dài.                                                                                                       |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                   |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                      |
 | **Ghi chú**              | Test boundary: password đúng 7 ký tự (< 8). Cũng nên test password đúng 8 ký tự → phải Pass (xem TC-AM-01-01).                                                                                                                            |
 
 ---
@@ -117,7 +117,7 @@
 | **Dữ liệu đầu vào**      | Bộ test tách thành 4 sub-case độc lập (TC-AM-01-04a đến 04d):<br>• **04a** `"spaces in@email.com"` _(có khoảng trắng)_<br>• **04b** `"notanemail"` _(không có @)_<br>• **04c** `"missing@"` _(thiếu domain)_<br>• **04d** `"@nodomain.com"` _(thiếu local part)_ |
 | **Kết quả mong đợi**     | Với mỗi email không hợp lệ:<br>- HTTP Status: **400 Bad Request**<br>- Response body có `"success": false`<br>- `error.code` = `"VALIDATION_ERROR"`<br>- `error.details` chứa thông tin lỗi trường `email`<br>- **Không** tạo bản ghi trong DB                   |
 | **Kết quả thực tế**      | Tất cả 4 sub-case đều trả về HTTP 400 Bad Request. `success: false`. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ trường `email` không hợp lệ.                                                                                                       |
-| **Trạng thái**           | ✅ Pass (4/4 sub-cases)                                                                                                                                                                                                                                          |
+| **Trạng thái**           | Pass (4/4 sub-cases)                                                                                                                                                                                                                                             |
 | **Ghi chú**              | Bộ test được tách thành 4 file `.request.yaml` riêng lẻ (TC-AM-01-04a đến 04d) để báo cáo chi tiết hơn.                                                                                                                                                          |
 
 ---
@@ -137,7 +137,7 @@
 | **Dữ liệu đầu vào**      | Bộ test tách thành 4 sub-case độc lập (TC-AM-01-05a đến 05d):<br>• **05a** — Thiếu `email`: `{ "password": "SecurePass1", "name": "Test" }`<br>• **05b** — Thiếu `password`: `{ "email": "test@example.com", "name": "Test" }`<br>• **05c** — Thiếu `name`: `{ "email": "test@example.com", "password": "SecurePass1" }`<br>• **05d** — Body rỗng: `{}` |
 | **Kết quả mong đợi**     | Mỗi case:<br>- HTTP Status: **400 Bad Request**<br>- `"success": false`<br>- `error.code` = `"VALIDATION_ERROR"`<br>- `error.details` nêu rõ trường nào bị thiếu                                                                                                                                                                                        |
 | **Kết quả thực tế**      | Tất cả 4 sub-case đều trả về HTTP 400 Bad Request. `success: false`. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ trường bị thiếu trong từng case.                                                                                                                                                                                          |
-| **Trạng thái**           | ✅ Pass (4/4 sub-cases)                                                                                                                                                                                                                                                                                                                                 |
+| **Trạng thái**           | Pass (4/4 sub-cases)                                                                                                                                                                                                                                                                                                                                    |
 | **Ghi chú**              | Bộ test được tách thành 4 file `.request.yaml` riêng lẻ (TC-AM-01-05a đến 05d) để báo cáo chi tiết hơn.                                                                                                                                                                                                                                                 |
 
 ---
@@ -157,7 +157,7 @@
 | **Dữ liệu đầu vào**      | `email: "shortname@example.com"`<br>`password: "SecurePass1"`<br>`name: "A"` _(1 ký tự)_                                                                                                     |
 | **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request**<br>- `"success": false`<br>- `error.code` = `"VALIDATION_ERROR"`<br>- `error.details` chứa thông tin lỗi trường `name`                                    |
 | **Kết quả thực tế**      | HTTP 400 Bad Request. `success: false`. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ trường `name` không đủ độ dài tối thiểu 2 ký tự.                                            |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                      |
+| **Trạng thái**           | Pass                                                                                                                                                                                         |
 | **Ghi chú**              | Boundary test: name = 1 char (fail) vs name = 2 chars (pass).                                                                                                                                |
 
 ---
@@ -177,7 +177,7 @@
 | **Dữ liệu đầu vào**      | `email: "schema@example.com"`<br>`password: "SecurePass1"`<br>`name: "Schema Test"`                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Kết quả mong đợi**     | - HTTP Status: **201 Created**<br>- `data.user` có đúng 3 trường: `id`, `email`, `name`<br>- `data.user.password` **không tồn tại**<br>- `data.accessToken` và `data.refreshToken` đều là JWT hợp lệ (có thể decode được header/payload)                                                                                                                                                                                                                                                                                           |
 | **Kết quả thực tế**      | HTTP 201 Created. `data.user` có đúng 3 trường `id`, `email`, `name`. `password` và `passwordHash` không xuất hiện trong response. `accessToken` và `refreshToken` là JWT hợp lệ.                                                                                                                                                                                                                                                                                                                                                  |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | **Ghi chú**              | Security check: mật khẩu tuyệt đối không được lộ trong response.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ---
@@ -197,7 +197,7 @@
 | **Dữ liệu đầu vào**      | `email: "spacepass@example.com"`<br>`password: "        "` _(8 ký tự khoảng trắng)_<br>`name: "Space Test"`                                                          |
 | **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request** _(nên reject vì lý do bảo mật)_                                                                                                   |
 | **Kết quả thực tế**      | **HTTP 201 Created**. Server chấp nhận password toàn khoảng trắng và tạo tài khoản thành công. Đây là **lỗi bảo mật (Security Bug)** cần được sửa ở Backend.         |
-| **Trạng thái**           | ❌ Fail — Bug                                                                                                                                                        |
+| **Trạng thái**           | Fail — Bug                                                                                                                                                           |
 | **Ghi chú**              | **BUG:** Zod schema thiếu `.trim().min(8)` hoặc `.refine(v => v.trim().length >= 8)` để từ chối password chỉ gồm khoảng trắng. Cần thêm rule `trim()` vào validator. |
 
 ---
@@ -224,7 +224,7 @@
 | **Dữ liệu đầu vào**      | `email: "logintest@example.com"`<br>`password: "SecurePass1"`                                                                                                                                                                                                    |
 | **Kết quả mong đợi**     | - HTTP Status: **200 OK**<br>- Response body có `"success": true`<br>- `data.user` có `id`, `email`, `name`<br>- `data.accessToken` là chuỗi JWT hợp lệ<br>- `data.refreshToken` là chuỗi JWT hợp lệ<br>- `password` **không** xuất hiện trong response          |
 | **Kết quả thực tế**      | HTTP 200 OK. `success: true`. `data.user` có `id`, `email`, `name`. `accessToken` và `refreshToken` là JWT hợp lệ. `password` không lộ trong response. Script tự động lưu token vào Postman Environment.                                                         |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                                          |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                             |
 | **Ghi chú**              | **Lưu accessToken & refreshToken** từ response — script tự động thực hiện việc này vào Postman Environment để dùng cho các TC tiếp theo.                                                                                                                         |
 
 ---
@@ -244,7 +244,7 @@
 | **Dữ liệu đầu vào**      | `email: "logintest@example.com"` _(email đúng)_<br>`password: "WrongPassword"` _(password sai)_                                                                                                                                                               |
 | **Kết quả mong đợi**     | - HTTP Status: **401 Unauthorized**<br>- Response body có `"success": false`<br>- `error.code` = `"UNAUTHORIZED"`<br>- `error.message` = `"Email or password incorrect"` _(thông báo chung, không tiết lộ email đúng/sai)_<br>- Response **không** chứa token |
 | **Kết quả thực tế**      | HTTP 401 Unauthorized. `success: false`. `error.code: "UNAUTHORIZED"`. `error.message: "Email or password incorrect"` — thông báo chung, không phân biệt nguyên nhân để tránh User Enumeration Attack.                                                        |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                                       |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                          |
 | **Ghi chú**              | Security check: message lỗi phải giống hệt TC-AM-02-03 để ngăn User Enumeration. Đã xác nhận 2 message này giống nhau.                                                                                                                                        |
 
 ---
@@ -264,7 +264,7 @@
 | **Dữ liệu đầu vào**      | `email: "notexist@example.com"` _(email không tồn tại)_<br>`password: "SomePassword1"`                                                                                                                                             |
 | **Kết quả mong đợi**     | - HTTP Status: **401 Unauthorized**<br>- `"success": false`<br>- `error.code` = `"UNAUTHORIZED"`<br>- `error.message` = `"Email or password incorrect"` _(thông báo **giống hệt** TC-AM-02-02)_<br>- Response **không** chứa token |
 | **Kết quả thực tế**      | HTTP 401 Unauthorized. `success: false`. `error.code: "UNAUTHORIZED"`. `error.message: "Email or password incorrect"` — giống hệt TC-AM-02-02, xác nhận Server không phân biệt email sai hay password sai.                         |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                            |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                               |
 | **Ghi chú**              | **Critical Security Check:** message của TC-AM-02-02 và TC-AM-02-03 **giống nhau hoàn toàn** — đã xác nhận, không có User Enumeration Vulnerability.                                                                               |
 
 ---
@@ -284,7 +284,7 @@
 | **Dữ liệu đầu vào**      | Không có (request không có Authorization header)                                                                                                                  |
 | **Kết quả mong đợi**     | - HTTP Status: **401 Unauthorized**<br>- `"success": false`<br>- `error.code` = `"UNAUTHORIZED"`<br>- `error.message` = `"Token not provided"` (hoặc tương đương) |
 | **Kết quả thực tế**      | HTTP 401 Unauthorized. `success: false`. `error.code: "UNAUTHORIZED"`. Middleware Auth chặn request thành công trước khi vào logic handler.                       |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                           |
+| **Trạng thái**           | Pass                                                                                                                                                              |
 | **Ghi chú**              | Test cả trường hợp header `Authorization` có nhưng rỗng.                                                                                                          |
 
 ---
@@ -304,7 +304,7 @@
 | **Dữ liệu đầu vào**      | Header: `Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...` _(expired token — hardcoded JWT với exp trong quá khứ)_                                                           |
 | **Kết quả mong đợi**     | - HTTP Status: **401 Unauthorized**<br>- `"success": false`<br>- `error.code` = `"UNAUTHORIZED"`<br>- `error.message` = `"Invalid or expired token"`                      |
 | **Kết quả thực tế**      | HTTP 401 Unauthorized. `success: false`. `error.code: "UNAUTHORIZED"`. `error.message: "Invalid or expired token"`. Middleware từ chối token hết hạn thành công.          |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                   |
+| **Trạng thái**           | Pass                                                                                                                                                                      |
 | **Ghi chú**              | Token giả được hardcode trực tiếp trong test file để đảm bảo tính ổn định của test case (không phụ thuộc vào thời gian chờ).                                              |
 
 ---
@@ -324,7 +324,7 @@
 | **Dữ liệu đầu vào**      | Case A: `{ "email": "logintest@example.com" }` _(thiếu password)_<br>Case B: `{}` _(body rỗng)_<br>Case C: `{ "password": "SecurePass1" }` _(thiếu email)_                          |
 | **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request**<br>- `"success": false`<br>- `error.code` = `"VALIDATION_ERROR"`<br>- `error.details` chỉ rõ trường bị thiếu                                     |
 | **Kết quả thực tế**      | Tất cả 3 sub-case đều trả về HTTP 400 Bad Request. `success: false`. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ trường bị thiếu trong từng case.                      |
-| **Trạng thái**           | ✅ Pass (3/3 sub-cases)                                                                                                                                                             |
+| **Trạng thái**           | Pass (3/3 sub-cases)                                                                                                                                                                |
 | **Ghi chú**              | —                                                                                                                                                                                   |
 
 ---
@@ -344,7 +344,7 @@
 | **Dữ liệu đầu vào**      | Header: `Authorization: Bearer <accessToken từ TC-AM-02-01>`                                                                                                                                                               |
 | **Kết quả mong đợi**     | - HTTP Status: **200 OK**<br>- `"success": true`<br>- `data.id` khớp với user đã đăng nhập<br>- `data.email` = `"logintest@example.com"`<br>- `data.name` đúng với tên đã đăng ký<br>- `data.password` **không** xuất hiện |
 | **Kết quả thực tế**      | HTTP 200 OK. `success: true`. `data.email: "logintest@example.com"`. `data.name` và `data.id` tồn tại. `password` không lộ trong response.                                                                                 |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                    |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                       |
 | **Ghi chú**              | TC này xác nhận luồng end-to-end: Register → Login → Dùng token.                                                                                                                                                           |
 
 ---
@@ -364,28 +364,28 @@
 | **Dữ liệu đầu vào**      | `refreshToken: "<refreshToken từ TC-AM-02-01>"`                                                                                                                                                                                                                     |
 | **Kết quả mong đợi**     | - HTTP Status: **200 OK**<br>- `"success": true`<br>- `data.accessToken` là chuỗi JWT mới, hợp lệ<br>- `data.accessToken` **khác** với accessToken cũ                                                                                                               |
 | **Kết quả thực tế**      | HTTP 200 OK. `success: true`. `accessToken` mới được cấp thành công và khác với token cũ (nhờ pre-request delay 1s).                                                                                                                                                |
-| **Trạng thái**           | ✅ Pass                                                                                                                                                                                                                                                             |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                |
 | **Ghi chú**              | - Dùng `accessToken` mới từ TC này để gọi lại `GET /api/v1/auth/me` — phải trả về 200. <br> - Delay 1s trước khi tạo token tránh token bị tạo trùng do test chạy quá nhanh.                                                                                         |
 
 ---
 
 ### TC-AM-02-09: Refresh Token thất bại khi token không hợp lệ
 
-| Trường                   | Nội dung                                                                                                                                                                                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | UC-02 — Token Refresh / Security                                                                                                                                                                                                                                        |
-| **Mã TC**                | TC-AM-02-09                                                                                                                                                                                                                                                             |
-| **Tiêu đề**              | Refresh Token thất bại khi `refreshToken` không hợp lệ hoặc đã hết hạn                                                                                                                                                                                                  |
-| **Mô tả**                | Gửi request Refresh với token giả, token hết hạn, hoặc token bị thiếu. Hệ thống phải từ chối với HTTP 401.                                                                                                                                                              |
-| **Loại kiểm thử**        | Security / Functionality                                                                                                                                                                                                                                                |
-| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                    |
-| **Điều kiện tiên quyết** | - Server đang chạy                                                                                                                                                                                                                                                      |
-| **Các bước thực hiện**   | 1. Mở Postman, tạo request `POST /api/v1/auth/refresh`<br>2. Set Header: `Content-Type: application/json`<br>3. Nhập Request Body với token không hợp lệ<br>4. Gửi request và kiểm tra response                                                                         |
-| **Dữ liệu đầu vào**      | Bộ test tách thành 2 sub-case độc lập (TC-AM-02-09a và 09b):<br>• **09a** — Token giả: `{ "refreshToken": "invalid.token.string" }` → kỳ vọng **401**<br>• **09b** — Thiếu field: `{}` → kỳ vọng **400 VALIDATION_ERROR** (Zod chặn trước middleware Auth)              |
-| **Kết quả mong đợi**     | **09a:** HTTP 401, `error.code: "UNAUTHORIZED"`, `error.message: "Invalid or expired refresh token"`<br>**09b:** HTTP 400, `error.code: "VALIDATION_ERROR"`, `error.details` chỉ rõ `refreshToken` bị thiếu                                                             |
-| **Kết quả thực tế**      | **09a:** HTTP 401 Unauthorized. `error.code: "UNAUTHORIZED"`. `error.message: "Invalid or expired refresh token"`. ✅<br>**09b:** HTTP 400 Bad Request. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ `refreshToken` expected string, received undefined. ✅ |
-| **Trạng thái**           | ✅ Pass (2/2 sub-cases)                                                                                                                                                                                                                                                 |
-| **Ghi chú**              | **Lưu ý thiết kế:** Case B (body rỗng) trả về 400 chứ không phải 401 vì Zod Validation ở tầng middleware chặn trước khi request vào Auth logic. Đây là hành vi đúng theo thiết kế RESTful — test đã được điều chỉnh để phản ánh đúng hành vi thực tế.                   |
+| Trường                   | Nội dung                                                                                                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | UC-02 — Token Refresh / Security                                                                                                                                                                                                                                   |
+| **Mã TC**                | TC-AM-02-09                                                                                                                                                                                                                                                        |
+| **Tiêu đề**              | Refresh Token thất bại khi `refreshToken` không hợp lệ hoặc đã hết hạn                                                                                                                                                                                             |
+| **Mô tả**                | Gửi request Refresh với token giả, token hết hạn, hoặc token bị thiếu. Hệ thống phải từ chối với HTTP 401.                                                                                                                                                         |
+| **Loại kiểm thử**        | Security / Functionality                                                                                                                                                                                                                                           |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                               |
+| **Điều kiện tiên quyết** | - Server đang chạy                                                                                                                                                                                                                                                 |
+| **Các bước thực hiện**   | 1. Mở Postman, tạo request `POST /api/v1/auth/refresh`<br>2. Set Header: `Content-Type: application/json`<br>3. Nhập Request Body với token không hợp lệ<br>4. Gửi request và kiểm tra response                                                                    |
+| **Dữ liệu đầu vào**      | Bộ test tách thành 2 sub-case độc lập (TC-AM-02-09a và 09b):<br>• **09a** — Token giả: `{ "refreshToken": "invalid.token.string" }` → kỳ vọng **401**<br>• **09b** — Thiếu field: `{}` → kỳ vọng **400 VALIDATION_ERROR** (Zod chặn trước middleware Auth)         |
+| **Kết quả mong đợi**     | **09a:** HTTP 401, `error.code: "UNAUTHORIZED"`, `error.message: "Invalid or expired refresh token"`<br>**09b:** HTTP 400, `error.code: "VALIDATION_ERROR"`, `error.details` chỉ rõ `refreshToken` bị thiếu                                                        |
+| **Kết quả thực tế**      | **09a:** HTTP 401 Unauthorized. `error.code: "UNAUTHORIZED"`. `error.message: "Invalid or expired refresh token"`. <br>**09b:** HTTP 400 Bad Request. `error.code: "VALIDATION_ERROR"`. `error.details` chỉ rõ `refreshToken` expected string, received undefined. |
+| **Trạng thái**           | Pass (2/2 sub-cases)                                                                                                                                                                                                                                               |
+| **Ghi chú**              | **Lưu ý thiết kế:** Case B (body rỗng) trả về 400 chứ không phải 401 vì Zod Validation ở tầng middleware chặn trước khi request vào Auth logic. Đây là hành vi đúng theo thiết kế RESTful — test đã được điều chỉnh để phản ánh đúng hành vi thực tế.              |
 
 ---
 
@@ -404,7 +404,7 @@
 | **Dữ liệu đầu vào**      | Bộ test tách thành 3 sub-case độc lập (TC-AM-02-10a đến 10c):<br>• **10a** — Sai prefix: `Authorization: Token {{accessToken}}`<br>• **10b** — Thiếu "Bearer": `Authorization: {{accessToken}}` _(token trực tiếp không có prefix)_<br>• **10c** — Token giả: `Authorization: Bearer fake.token.xyz` |
 | **Kết quả mong đợi**     | Mỗi case:<br>- HTTP Status: **401 Unauthorized**<br>- `"success": false`<br>- `error.code` = `"UNAUTHORIZED"`                                                                                                                                                                                        |
 | **Kết quả thực tế**      | Tất cả 3 sub-case đều trả về HTTP 401 Unauthorized. `success: false`. `error.code: "UNAUTHORIZED"`. Middleware từ chối token không đúng định dạng Bearer.                                                                                                                                            |
-| **Trạng thái**           | ✅ Pass (3/3 sub-cases)                                                                                                                                                                                                                                                                              |
+| **Trạng thái**           | Pass (3/3 sub-cases)                                                                                                                                                                                                                                                                                 |
 | **Ghi chú**              | Bộ test được tách thành 3 file `.request.yaml` riêng lẻ (TC-AM-02-10a đến 10c) để báo cáo chi tiết hơn.                                                                                                                                                                                              |
 
 ---
@@ -413,26 +413,26 @@
 
 > **Lần chạy cuối:** 2026-07-25 | **Công cụ:** Postman CLI v1.44.0 | **Tổng requests:** 29 | **Tổng assertions:** 123 | **Thời gian:** 2.6s
 
-| Mã TC          | Use Case | Tiêu đề                                                   | Loại                     | Độ ưu tiên | Happy/Negative | Trạng thái                |
-| -------------- | -------- | --------------------------------------------------------- | ------------------------ | ---------- | -------------- | ------------------------- |
-| TC-AM-01-01    | UC-01    | Register thành công với dữ liệu hợp lệ                    | Functionality            | High       | Happy          | ✅ Pass                   |
-| TC-AM-01-02    | UC-01    | Register thất bại — Email đã tồn tại (409)                | Functionality / Database | High       | Negative       | ✅ Pass                   |
-| TC-AM-01-03    | UC-01    | Register thất bại — Password < 8 ký tự (400)              | Functionality            | High       | Negative       | ✅ Pass                   |
-| TC-AM-01-04a~d | UC-01    | Register thất bại — Email format sai (400) [4 cases]      | Functionality            | High       | Negative       | ✅ Pass (4/4)             |
-| TC-AM-01-05a~d | UC-01    | Register thất bại — Thiếu trường bắt buộc (400) [4 cases] | Functionality            | Medium     | Negative       | ✅ Pass (4/4)             |
-| TC-AM-01-06    | UC-01    | Register thất bại — `name` < 2 ký tự (400)                | Functionality            | Medium     | Negative       | ✅ Pass                   |
-| TC-AM-01-07    | UC-01    | Register thành công — Validate response schema            | Interface / Security     | High       | Happy          | ✅ Pass                   |
-| TC-AM-01-08    | UC-01    | Register thất bại — Password chỉ là khoảng trắng          | Security                 | Medium     | Negative       | ❌ **Fail — Bug Backend** |
-| TC-AM-02-01    | UC-02    | Login thành công với dữ liệu hợp lệ                       | Functionality            | High       | Happy          | ✅ Pass                   |
-| TC-AM-02-02    | UC-02    | Login thất bại — Sai password (401)                       | Functionality / Security | High       | Negative       | ✅ Pass                   |
-| TC-AM-02-03    | UC-02    | Login thất bại — Email không tồn tại (401)                | Functionality / Security | High       | Negative       | ✅ Pass                   |
-| TC-AM-02-04    | UC-02    | Protected route — Không có token (401)                    | Security                 | High       | Negative       | ✅ Pass                   |
-| TC-AM-02-05    | UC-02    | Protected route — Token hết hạn (401)                     | Security                 | High       | Negative       | ✅ Pass                   |
-| TC-AM-02-06a~c | UC-02    | Login thất bại — Thiếu trường bắt buộc (400) [3 cases]    | Functionality            | Medium     | Negative       | ✅ Pass (3/3)             |
-| TC-AM-02-07    | UC-02    | Protected route — Token hợp lệ → 200 OK                   | Functionality            | High       | Happy          | ✅ Pass                   |
-| TC-AM-02-08    | UC-02    | Refresh Token thành công (200)                            | Functionality            | High       | Happy          | ✅ Pass                   |
-| TC-AM-02-09a~b | UC-02    | Refresh Token thất bại — Token giả/Body rỗng [2 cases]    | Security                 | High       | Negative       | ✅ Pass (2/2)             |
-| TC-AM-02-10a~c | UC-02    | Protected route — Sai định dạng Bearer (401) [3 cases]    | Security                 | Medium     | Negative       | ✅ Pass (3/3)             |
+| Mã TC          | Use Case | Tiêu đề                                                   | Loại                     | Độ ưu tiên | Happy/Negative | Trạng thái             |
+| -------------- | -------- | --------------------------------------------------------- | ------------------------ | ---------- | -------------- | ---------------------- |
+| TC-AM-01-01    | UC-01    | Register thành công với dữ liệu hợp lệ                    | Functionality            | High       | Happy          | Pass                   |
+| TC-AM-01-02    | UC-01    | Register thất bại — Email đã tồn tại (409)                | Functionality / Database | High       | Negative       | Pass                   |
+| TC-AM-01-03    | UC-01    | Register thất bại — Password < 8 ký tự (400)              | Functionality            | High       | Negative       | Pass                   |
+| TC-AM-01-04a~d | UC-01    | Register thất bại — Email format sai (400) [4 cases]      | Functionality            | High       | Negative       | Pass (4/4)             |
+| TC-AM-01-05a~d | UC-01    | Register thất bại — Thiếu trường bắt buộc (400) [4 cases] | Functionality            | Medium     | Negative       | Pass (4/4)             |
+| TC-AM-01-06    | UC-01    | Register thất bại — `name` < 2 ký tự (400)                | Functionality            | Medium     | Negative       | Pass                   |
+| TC-AM-01-07    | UC-01    | Register thành công — Validate response schema            | Interface / Security     | High       | Happy          | Pass                   |
+| TC-AM-01-08    | UC-01    | Register thất bại — Password chỉ là khoảng trắng          | Security                 | Medium     | Negative       | **Fail — Bug Backend** |
+| TC-AM-02-01    | UC-02    | Login thành công với dữ liệu hợp lệ                       | Functionality            | High       | Happy          | Pass                   |
+| TC-AM-02-02    | UC-02    | Login thất bại — Sai password (401)                       | Functionality / Security | High       | Negative       | Pass                   |
+| TC-AM-02-03    | UC-02    | Login thất bại — Email không tồn tại (401)                | Functionality / Security | High       | Negative       | Pass                   |
+| TC-AM-02-04    | UC-02    | Protected route — Không có token (401)                    | Security                 | High       | Negative       | Pass                   |
+| TC-AM-02-05    | UC-02    | Protected route — Token hết hạn (401)                     | Security                 | High       | Negative       | Pass                   |
+| TC-AM-02-06a~c | UC-02    | Login thất bại — Thiếu trường bắt buộc (400) [3 cases]    | Functionality            | Medium     | Negative       | Pass (3/3)             |
+| TC-AM-02-07    | UC-02    | Protected route — Token hợp lệ → 200 OK                   | Functionality            | High       | Happy          | Pass                   |
+| TC-AM-02-08    | UC-02    | Refresh Token thành công (200)                            | Functionality            | High       | Happy          | Pass                   |
+| TC-AM-02-09a~b | UC-02    | Refresh Token thất bại — Token giả/Body rỗng [2 cases]    | Security                 | High       | Negative       | Pass (2/2)             |
+| TC-AM-02-10a~c | UC-02    | Protected route — Sai định dạng Bearer (401) [3 cases]    | Security                 | Medium     | Negative       | Pass (3/3)             |
 
 **Tổng cộng:** 18 test cases gốc → **29 requests** (do tách sub-cases) | Happy Path: 5 | Negative: 13 | **Pass: 28** | **Fail: 1 (Bug)** | **Warning: 0**
 
