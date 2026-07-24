@@ -11,6 +11,16 @@ body:
       "refreshToken": "{{refreshToken}}"
     }
 scripts:
+  - type: preRequest
+    code: |-
+      // Delay 1s to ensure the new token's 'iat' and 'exp' timestamps are different
+      // from the token generated during login (avoiding identical token strings)
+      const date = Date.now();
+      let currentDate = null;
+      do {
+        currentDate = Date.now();
+      } while (currentDate - date < 1000);
+    language: text/javascript
   - type: afterResponse
     code: |-
       pm.test('TC-AM-02-08: Status code là 200 OK', function () { pm.response.to.have.status(200); });
