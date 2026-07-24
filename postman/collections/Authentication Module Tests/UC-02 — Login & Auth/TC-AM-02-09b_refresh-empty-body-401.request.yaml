@@ -1,5 +1,5 @@
 $kind: http-request
-name: TC-AM-02-09b — Refresh Token thất bại — Body rỗng (401)
+name: TC-AM-02-09b — Refresh Token thất bại — Thiếu field refreshToken (400)
 url: '{{baseURL}}/api/v1/auth/refresh'
 method: POST
 headers:
@@ -10,9 +10,10 @@ body:
 scripts:
   - type: afterResponse
     code: |-
-      pm.test('TC-AM-02-09b: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      pm.test('TC-AM-02-09b: Status code là 400 Bad Request', function () { pm.response.to.have.status(400); });
       const body = pm.response.json();
       pm.test('TC-AM-02-09b: success = false', function () { pm.expect(body.success).to.be.false; });
-      pm.test('TC-AM-02-09b: error.code = UNAUTHORIZED', function () { pm.expect(body.error.code).to.equal('UNAUTHORIZED'); });
+      pm.test('TC-AM-02-09b: error.code = VALIDATION_ERROR', function () { pm.expect(body.error.code).to.equal('VALIDATION_ERROR'); });
+      pm.test('TC-AM-02-09b: error.details chỉ rõ trường refreshToken bị thiếu', function () { pm.expect(body.error.details).to.be.an('array').and.not.empty; });
     language: text/javascript
 order: 9200
