@@ -2,17 +2,11 @@
   "name": "planning-ai",
   "private": true,
   "scripts": {
-    "prepare": "husky",
-    "test:api:build": "node postman/scripts/build-collection.js",
-    "test:api": "npm run test:api:build && newman run \"postman/dist/Authentication Module Tests.collection.json\" -e \"postman/dist/Local Dev.environment.json\" --color on",
-    "test:api:report": "npm run test:api:build && newman run \"postman/dist/Authentication Module Tests.collection.json\" -e \"postman/dist/Local Dev.environment.json\" --reporters cli,htmlextra --reporter-htmlextra-export postman/dist/report.html --color on"
+    "prepare": "husky"
   },
   "devDependencies": {
     "husky": "^9.1.7",
-    "js-yaml": "^4.1.0",
     "lint-staged": "^15.5.2",
-    "newman": "^6.2.1",
-    "newman-reporter-htmlextra": "^1.23.1",
     "prettier": "^3.9.5",
     "prettier-plugin-tailwindcss": "^0.6.14"
   }
