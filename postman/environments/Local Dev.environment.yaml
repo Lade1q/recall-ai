@@ -1,0 +1,8 @@
+name: Local Dev
+values:
+  - key: baseURL
+    value: 'http://localhost:3001'
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
