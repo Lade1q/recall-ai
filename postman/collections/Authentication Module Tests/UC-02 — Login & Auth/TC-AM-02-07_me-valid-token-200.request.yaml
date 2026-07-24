@@ -1,0 +1,18 @@
+$kind: http-request
+name: TC-AM-02-07 — Protected route — Token hợp lệ (200)
+url: '{{baseURL}}/api/v1/auth/me'
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-07: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-07: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-AM-02-07: email đúng với user đã login', function () { pm.expect(body.data.email).to.equal('logintest@example.com'); });
+      pm.test('TC-AM-02-07: data.name tồn tại', function () { pm.expect(body.data.name).to.be.a('string').and.not.empty; });
+      pm.test('TC-AM-02-07: data.id tồn tại', function () { pm.expect(body.data.id).to.be.a('string').and.not.empty; });
+      pm.test('TC-AM-02-07: password KHÔNG lộ trong response', function () { pm.expect(body.data).to.not.have.property('password'); });
+    language: text/javascript
+order: 7000

@@ -1,0 +1,24 @@
+$kind: http-request
+name: TC-AM-01-04c — Register thất bại — Email thiếu domain (400)
+url: '{{baseURL}}/api/v1/auth/register'
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "missing@",
+      "password": "SecurePass1",
+      "name": "Test User"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-01-04c: Status code là 400 Bad Request', function () { pm.response.to.have.status(400); });
+      const body = pm.response.json();
+      pm.test('TC-AM-01-04c: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-01-04c: error.code = VALIDATION_ERROR', function () { pm.expect(body.error.code).to.equal('VALIDATION_ERROR'); });
+      pm.test('TC-AM-01-04c: error.details chứa lỗi trường email', function () { pm.expect(body.error.details).to.be.an('array').and.not.empty; });
+    language: text/javascript
+order: 4300

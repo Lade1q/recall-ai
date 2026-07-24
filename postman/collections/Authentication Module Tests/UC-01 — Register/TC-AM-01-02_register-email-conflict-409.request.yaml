@@ -1,0 +1,24 @@
+$kind: http-request
+name: TC-AM-01-02 — Register thất bại — Email đã tồn tại (409)
+url: '{{baseURL}}/api/v1/auth/register'
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "existing@example.com",
+      "password": "AnotherPass1",
+      "name": "Nguyen Van B"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-01-02: Status code là 409 Conflict', function () { pm.response.to.have.status(409); });
+      const body = pm.response.json();
+      pm.test('TC-AM-01-02: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-01-02: error.code = EMAIL_CONFLICT', function () { pm.expect(body.error.code).to.equal('EMAIL_CONFLICT'); });
+      pm.test('TC-AM-01-02: error.message tồn tại', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
+    language: text/javascript
+order: 2000

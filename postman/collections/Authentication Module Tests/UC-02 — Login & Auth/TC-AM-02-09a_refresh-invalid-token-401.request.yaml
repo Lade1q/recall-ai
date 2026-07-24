@@ -1,0 +1,22 @@
+$kind: http-request
+name: TC-AM-02-09a — Refresh Token thất bại — Token giả (401)
+url: '{{baseURL}}/api/v1/auth/refresh'
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "refreshToken": "invalid.refresh.token"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-09a: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-09a: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-02-09a: error.code = UNAUTHORIZED', function () { pm.expect(body.error.code).to.equal('UNAUTHORIZED'); });
+      pm.test('TC-AM-02-09a: error.message = "Invalid or expired refresh token"', function () { pm.expect(body.error.message).to.equal('Invalid or expired refresh token'); });
+    language: text/javascript
+order: 9100

@@ -1,0 +1,30 @@
+$kind: http-request
+name: TC-AM-02-01 — Login thành công với dữ liệu hợp lệ (200)
+url: '{{baseURL}}/api/v1/auth/login'
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "logintest@example.com",
+      "password": "SecurePass1"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-01: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-01: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-AM-02-01: data.user có id, email, name', function () { pm.expect(body.data.user).to.include.all.keys('id', 'email', 'name'); });
+      pm.test('TC-AM-02-01: accessToken là JWT hợp lệ', function () { pm.expect(body.data.accessToken).to.be.a('string').and.not.empty; });
+      pm.test('TC-AM-02-01: refreshToken là JWT hợp lệ', function () { pm.expect(body.data.refreshToken).to.be.a('string').and.not.empty; });
+      pm.test('TC-AM-02-01: password KHÔNG lộ trong response', function () { pm.expect(body.data.user).to.not.have.property('password'); });
+      if (body.data && body.data.accessToken) {
+          pm.environment.set('accessToken', body.data.accessToken);
+          pm.environment.set('refreshToken', body.data.refreshToken);
+          console.log('✅ Auto-saved accessToken & refreshToken to environment');
+      }
+    language: text/javascript
+order: 1000

@@ -1,0 +1,13 @@
+$kind: http-request
+name: TC-AM-02-04 — Protected route — Không có token (401)
+url: '{{baseURL}}/api/v1/auth/me'
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-04: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-04: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-02-04: error.code = UNAUTHORIZED', function () { pm.expect(body.error.code).to.equal('UNAUTHORIZED'); });
+    language: text/javascript
+order: 4000

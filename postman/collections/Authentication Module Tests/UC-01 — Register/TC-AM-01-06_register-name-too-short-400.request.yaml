@@ -1,0 +1,24 @@
+$kind: http-request
+name: TC-AM-01-06 — Register thất bại — name < 2 ký tự (400)
+url: '{{baseURL}}/api/v1/auth/register'
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "shortname@example.com",
+      "password": "SecurePass1",
+      "name": "A"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-01-06: Status code là 400 Bad Request', function () { pm.response.to.have.status(400); });
+      const body = pm.response.json();
+      pm.test('TC-AM-01-06: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-01-06: error.code = VALIDATION_ERROR', function () { pm.expect(body.error.code).to.equal('VALIDATION_ERROR'); });
+      pm.test('TC-AM-01-06: error.details chứa lỗi trường name', function () { pm.expect(body.error.details).to.be.an('array').and.not.empty; });
+    language: text/javascript
+order: 6000

@@ -1,0 +1,18 @@
+$kind: http-request
+name: TC-AM-02-05 — Protected route — Token hết hạn (401)
+url: '{{baseURL}}/api/v1/auth/me'
+method: GET
+headers:
+  # Dùng biến {{expiredToken}} — set thủ công trong environment bằng jwt.io
+  # Tạo JWT với exp trong quá khứ, sign bằng APP_SECRET của môi trường test
+  Authorization: Bearer {{expiredToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-05: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-05: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-02-05: error.code = UNAUTHORIZED', function () { pm.expect(body.error.code).to.equal('UNAUTHORIZED'); });
+      pm.test('TC-AM-02-05: error.message = "Invalid or expired token"', function () { pm.expect(body.error.message).to.equal('Invalid or expired token'); });
+    language: text/javascript
+order: 5000

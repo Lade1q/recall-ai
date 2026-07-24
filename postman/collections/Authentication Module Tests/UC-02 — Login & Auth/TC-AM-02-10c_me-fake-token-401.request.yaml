@@ -1,0 +1,15 @@
+$kind: http-request
+name: TC-AM-02-10c — Protected route — Token giả (401)
+url: '{{baseURL}}/api/v1/auth/me'
+method: GET
+headers:
+  Authorization: Bearer fake.token.xyz
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-AM-02-10c: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      const body = pm.response.json();
+      pm.test('TC-AM-02-10c: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-AM-02-10c: error.code = UNAUTHORIZED', function () { pm.expect(body.error.code).to.equal('UNAUTHORIZED'); });
+    language: text/javascript
+order: 10300
