@@ -77,29 +77,38 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
  * Fetches details of a specific study plan by ID with ownership verification.
  */
 export async function getPlanById(planId: string, userId: string): Promise<PlanDetailResponse> {
-  const plan = await prisma.studyPlan.findUnique({
-    where: { id: planId },
-    include: {
-      concepts: {
-        select: {
-          id: true,
-          name: true,
-          difficulty: true,
-          masteryScore: true,
-          source: true,
-          status: true,
-          createdAt: true,
+  // AnalysisJob has no FK relation to StudyPlan (async draft flow), so its status
+  // is fetched separately — latest job by createdAt, since SP-05 re-analyze can add more.
+  const [plan, latestJob] = await Promise.all([
+    prisma.studyPlan.findUnique({
+      where: { id: planId },
+      include: {
+        concepts: {
+          select: {
+            id: true,
+            name: true,
+            difficulty: true,
+            masteryScore: true,
+            source: true,
+            status: true,
+            createdAt: true,
+          },
+        },
+        conceptEdges: {
+          select: {
+            id: true,
+            fromConceptId: true,
+            toConceptId: true,
+          },
         },
       },
-      conceptEdges: {
-        select: {
-          id: true,
-          fromConceptId: true,
-          toConceptId: true,
-        },
-      },
-    },
-  });
+    }),
+    prisma.analysisJob.findFirst({
+      where: { planDraftId: planId },
+      orderBy: { createdAt: 'desc' },
+      select: { status: true },
+    }),
+  ]);
 
   if (!plan) {
     throw new AppError('Study plan not found', 404, 'NOT_FOUND');
@@ -115,6 +124,7 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
     name: plan.name,
     deadline: plan.deadline,
     status: plan.status,
+    analysisStatus: latestJob?.status ?? null,
     dagAutoFixed: plan.dagAutoFixed,
     tracebackEnabled: plan.tracebackEnabled,
     createdAt: plan.createdAt,

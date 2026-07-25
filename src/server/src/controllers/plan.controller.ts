@@ -5,6 +5,7 @@ import fs from 'fs';
 import { createPlanInDb, getUserPlans, getPlanById } from '../services/plan.service';
 import { createPlanSchema } from '../schemas/plan.schema';
 import { createStorageService } from '../services/storage.service';
+import { triggerAnalysis } from '../services/analysis.service';
 import { AppError } from '../middleware/errorHandler';
 
 const storageService = createStorageService();
@@ -41,6 +42,11 @@ export async function createPlanController(req: Request, res: Response): Promise
     // 4. Lưu metadata vào DB
     const plan = await createPlanInDb(req.userId, planId, input, uploadedFileKey);
 
+    // 5. Kích hoạt phân tích Gemini chạy nền — response không đợi (SP-06 polling).
+    void triggerAnalysis(planId).catch((err) =>
+      console.error(`[analysis] trigger failed for plan ${planId}:`, err)
+    );
+
     res.status(201).json({
       success: true,
       data: {
@@ -49,7 +55,7 @@ export async function createPlanController(req: Request, res: Response): Promise
       },
     });
   } catch (error) {
-    // 5. Cleanup orphaned files on any error (validation, DB, etc.)
+    // 6. Cleanup orphaned files on any error (validation, DB, etc.)
 
     // Delete staging file if it hasn't been moved yet
     try {

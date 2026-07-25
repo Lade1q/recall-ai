@@ -1,4 +1,4 @@
-import { StudyPlanStatus, ConceptSource, ConceptStatus } from '@prisma/client';
+import { StudyPlanStatus, ConceptSource, ConceptStatus, AnalysisJobStatus } from '@prisma/client';
 
 export interface PlanItemResponse {
   id: string;
@@ -38,6 +38,7 @@ export interface PlanDetailResponse {
   name: string;
   deadline: Date | null;
   status: StudyPlanStatus;
+  analysisStatus: AnalysisJobStatus | null;
   dagAutoFixed: boolean;
   tracebackEnabled: boolean;
   createdAt: Date;
