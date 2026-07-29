@@ -204,21 +204,21 @@
 
 ### TC-AM-01-08: Register thất bại khi password chỉ có khoảng trắng
 
-| Trường                   | Nội dung                                                                                                                                                             |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | UC-01 — Validation (edge case)                                                                                                                                       |
-| **Mã TC**                | TC-AM-01-08                                                                                                                                                          |
-| **Tiêu đề**              | Register thất bại khi password chỉ gồm khoảng trắng                                                                                                                  |
-| **Mô tả**                | Password `"        "` (8 khoảng trắng) về mặt kỹ thuật đủ 8 ký tự nhưng về mặt bảo mật không nên được chấp nhận. Kiểm tra hệ thống xử lý edge case này như thế nào.  |
-| **Loại kiểm thử**        | Security / Functionality                                                                                                                                             |
-| **Độ ưu tiên**           | Medium                                                                                                                                                               |
-| **Điều kiện tiên quyết** | - Server đang chạy<br>- Email `spacepass@example.com` chưa tồn tại                                                                                                   |
-| **Các bước thực hiện**   | 1. Gửi request Register với password là 8 khoảng trắng<br>2. Kiểm tra HTTP status và response                                                                        |
-| **Dữ liệu đầu vào**      | `email: "spacepass@example.com"`<br>`password: "        "` _(8 ký tự khoảng trắng)_<br>`name: "Space Test"`                                                          |
-| **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request** _(nên reject vì lý do bảo mật)_                                                                                                   |
-| **Kết quả thực tế**      | **HTTP 201 Created**. Server chấp nhận password toàn khoảng trắng và tạo tài khoản thành công. Đây là **lỗi bảo mật (Security Bug)** cần được sửa ở Backend.         |
-| **Trạng thái**           | Fail — Bug                                                                                                                                                           |
-| **Ghi chú**              | **BUG:** Zod schema thiếu `.trim().min(8)` hoặc `.refine(v => v.trim().length >= 8)` để từ chối password chỉ gồm khoảng trắng. Cần thêm rule `trim()` vào validator. |
+| Trường                   | Nội dung                                                                                                                                                            |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-01 — Validation (edge case)                                                                                                                                      |
+| **Mã TC**                | TC-AM-01-08                                                                                                                                                         |
+| **Tiêu đề**              | Register thất bại khi password chỉ gồm khoảng trắng                                                                                                                 |
+| **Mô tả**                | Password `"        "` (8 khoảng trắng) về mặt kỹ thuật đủ 8 ký tự nhưng về mặt bảo mật không nên được chấp nhận. Kiểm tra hệ thống xử lý edge case này như thế nào. |
+| **Loại kiểm thử**        | Security / Functionality                                                                                                                                            |
+| **Độ ưu tiên**           | Medium                                                                                                                                                              |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Email `spacepass@example.com` chưa tồn tại                                                                                                  |
+| **Các bước thực hiện**   | 1. Gửi request Register với password là 8 khoảng trắng<br>2. Kiểm tra HTTP status và response                                                                       |
+| **Dữ liệu đầu vào**      | `email: "spacepass@example.com"`<br>`password: "        "` _(8 ký tự khoảng trắng)_<br>`name: "Space Test"`                                                         |
+| **Kết quả mong đợi**     | - HTTP Status: **400 Bad Request** _(nên reject vì lý do bảo mật)_                                                                                                  |
+| **Kết quả thực tế**      | **HTTP 400 Bad Request**. Server từ chối request với password toàn khoảng trắng và trả về lỗi validation.                                                           |
+| **Trạng thái**           | Pass                                                                                                                                                                |
+| **Ghi chú**              | Security check: Zod validator xử lý loại bỏ/kiểm tra khoảng trắng (`trim()`) thành công, không cho phép mật khẩu chỉ chứa khoảng trắng.                             |
 
 ---
 
@@ -652,28 +652,28 @@
 
 ### API Tests
 
-| Mã TC          | Use Case | Tiêu đề                                                   | Loại                     | Độ ưu tiên | Happy/Negative | Trạng thái             |
-| -------------- | -------- | --------------------------------------------------------- | ------------------------ | ---------- | -------------- | ---------------------- |
-| TC-AM-01-01    | UC-01    | Register thành công với dữ liệu hợp lệ                    | Functionality            | High       | Happy          | Pass                   |
-| TC-AM-01-02    | UC-01    | Register thất bại — Email đã tồn tại (409)                | Functionality / Database | High       | Negative       | Pass                   |
-| TC-AM-01-03    | UC-01    | Register thất bại — Password < 8 ký tự (400)              | Functionality            | High       | Negative       | Pass                   |
-| TC-AM-01-04a~d | UC-01    | Register thất bại — Email format sai (400) [4 cases]      | Functionality            | High       | Negative       | Pass (4/4)             |
-| TC-AM-01-05a~d | UC-01    | Register thất bại — Thiếu trường bắt buộc (400) [4 cases] | Functionality            | Medium     | Negative       | Pass (4/4)             |
-| TC-AM-01-06    | UC-01    | Register thất bại — `name` < 2 ký tự (400)                | Functionality            | Medium     | Negative       | Pass                   |
-| TC-AM-01-07    | UC-01    | Register thành công — Validate response schema            | Interface / Security     | High       | Happy          | Pass                   |
-| TC-AM-01-08    | UC-01    | Register thất bại — Password chỉ là khoảng trắng          | Security                 | Medium     | Negative       | **Fail — Bug Backend** |
-| TC-AM-02-01    | UC-02    | Login thành công với dữ liệu hợp lệ                       | Functionality            | High       | Happy          | Pass                   |
-| TC-AM-02-02    | UC-02    | Login thất bại — Sai password (401)                       | Functionality / Security | High       | Negative       | Pass                   |
-| TC-AM-02-03    | UC-02    | Login thất bại — Email không tồn tại (401)                | Functionality / Security | High       | Negative       | Pass                   |
-| TC-AM-02-04    | UC-02    | Protected route — Không có token (401)                    | Security                 | High       | Negative       | Pass                   |
-| TC-AM-02-05    | UC-02    | Protected route — Token hết hạn (401)                     | Security                 | High       | Negative       | Pass                   |
-| TC-AM-02-06a~c | UC-02    | Login thất bại — Thiếu trường bắt buộc (400) [3 cases]    | Functionality            | Medium     | Negative       | Pass (3/3)             |
-| TC-AM-02-07    | UC-02    | Protected route — Token hợp lệ → 200 OK                   | Functionality            | High       | Happy          | Pass                   |
-| TC-AM-02-08    | UC-02    | Refresh Token thành công (200)                            | Functionality            | High       | Happy          | Pass                   |
-| TC-AM-02-09a~b | UC-02    | Refresh Token thất bại — Token giả/Body rỗng [2 cases]    | Security                 | High       | Negative       | Pass (2/2)             |
-| TC-AM-02-10a~c | UC-02    | Protected route — Sai định dạng Bearer (401) [3 cases]    | Security                 | Medium     | Negative       | Pass (3/3)             |
+| Mã TC          | Use Case | Tiêu đề                                                   | Loại                     | Độ ưu tiên | Happy/Negative | Trạng thái |
+| -------------- | -------- | --------------------------------------------------------- | ------------------------ | ---------- | -------------- | ---------- |
+| TC-AM-01-01    | UC-01    | Register thành công với dữ liệu hợp lệ                    | Functionality            | High       | Happy          | Pass       |
+| TC-AM-01-02    | UC-01    | Register thất bại — Email đã tồn tại (409)                | Functionality / Database | High       | Negative       | Pass       |
+| TC-AM-01-03    | UC-01    | Register thất bại — Password < 8 ký tự (400)              | Functionality            | High       | Negative       | Pass       |
+| TC-AM-01-04a~d | UC-01    | Register thất bại — Email format sai (400) [4 cases]      | Functionality            | High       | Negative       | Pass (4/4) |
+| TC-AM-01-05a~d | UC-01    | Register thất bại — Thiếu trường bắt buộc (400) [4 cases] | Functionality            | Medium     | Negative       | Pass (4/4) |
+| TC-AM-01-06    | UC-01    | Register thất bại — `name` < 2 ký tự (400)                | Functionality            | Medium     | Negative       | Pass       |
+| TC-AM-01-07    | UC-01    | Register thành công — Validate response schema            | Interface / Security     | High       | Happy          | Pass       |
+| TC-AM-01-08    | UC-01    | Register thất bại — Password chỉ là khoảng trắng          | Security                 | Medium     | Negative       | Pass       |
+| TC-AM-02-01    | UC-02    | Login thành công với dữ liệu hợp lệ                       | Functionality            | High       | Happy          | Pass       |
+| TC-AM-02-02    | UC-02    | Login thất bại — Sai password (401)                       | Functionality / Security | High       | Negative       | Pass       |
+| TC-AM-02-03    | UC-02    | Login thất bại — Email không tồn tại (401)                | Functionality / Security | High       | Negative       | Pass       |
+| TC-AM-02-04    | UC-02    | Protected route — Không có token (401)                    | Security                 | High       | Negative       | Pass       |
+| TC-AM-02-05    | UC-02    | Protected route — Token hết hạn (401)                     | Security                 | High       | Negative       | Pass       |
+| TC-AM-02-06a~c | UC-02    | Login thất bại — Thiếu trường bắt buộc (400) [3 cases]    | Functionality            | Medium     | Negative       | Pass (3/3) |
+| TC-AM-02-07    | UC-02    | Protected route — Token hợp lệ → 200 OK                   | Functionality            | High       | Happy          | Pass       |
+| TC-AM-02-08    | UC-02    | Refresh Token thành công (200)                            | Functionality            | High       | Happy          | Pass       |
+| TC-AM-02-09a~b | UC-02    | Refresh Token thất bại — Token giả/Body rỗng [2 cases]    | Security                 | High       | Negative       | Pass (2/2) |
+| TC-AM-02-10a~c | UC-02    | Protected route — Sai định dạng Bearer (401) [3 cases]    | Security                 | Medium     | Negative       | Pass (3/3) |
 
-**Tổng cộng API:** 18 test cases gốc → **29 requests** | Happy Path: 5 | Negative: 13 | **Pass: 28** | **Fail: 1 (Bug Backend)** | **Warning: 0**
+**Tổng cộng API:** 18 test cases gốc → **29 requests** | Happy Path: 5 | Negative: 13 | **Pass: 29** | **Fail: 0** | **Warning: 0**
 
 ### UI / E2E Tests
 
@@ -698,9 +698,9 @@
 
 | Loại kiểm thử | Tổng TC | Pass   | Fail  | Warning |
 | ------------- | ------- | ------ | ----- | ------- |
-| API           | 18      | 17     | 1     | 0       |
+| API           | 18      | 18     | 0     | 0       |
 | UI / E2E      | 10      | 9      | 1     | 0       |
-| **Tổng**      | **28**  | **26** | **2** | **0**   |
+| **Tổng**      | **28**  | **27** | **1** | **0**   |
 
 ---
 

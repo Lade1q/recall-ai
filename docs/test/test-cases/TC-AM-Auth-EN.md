@@ -216,9 +216,9 @@
 | **Steps to Reproduce** | 1. Send a Register request with a password of 8 whitespaces<br>2. Check HTTP status and response                                                                                  |
 | **Test Data**          | `email: "spacepass@example.com"`<br>`password: "        "` _(8 whitespace characters)_<br>`name: "Space Test"`                                                                    |
 | **Expected Result**    | - HTTP Status: **400 Bad Request** _(should reject for security reasons)_                                                                                                         |
-| **Actual Result**      | **HTTP 201 Created**. The server accepts the whitespace-only password and successfully creates an account. This is a **Security Bug** that needs to be fixed in the Backend.      |
-| **Status**             | Fail — Bug                                                                                                                                                                        |
-| **Notes**              | **BUG:** Zod schema lacks `.trim().min(8)` or `.refine(v => v.trim().length >= 8)` to reject whitespace-only passwords. Need to add the `trim()` rule into the validator.         |
+| **Actual Result**      | **HTTP 400 Bad Request**. The server rejects requests with whitespace-only passwords and returns a validation error.                                                              |
+| **Status**             | Pass                                                                                                                                                                              |
+| **Notes**              | Security check: Zod validator successfully rejects whitespace-only passwords using `trim()` / whitespace validation.                                                              |
 
 ---
 
@@ -652,28 +652,28 @@
 
 ### API Tests
 
-| TC ID          | Use Case | Title                                                         | Type                     | Priority | Happy/Negative | Status                 |
-| -------------- | -------- | ------------------------------------------------------------- | ------------------------ | -------- | -------------- | ---------------------- |
-| TC-AM-01-01    | UC-01    | Successful registration with valid data                       | Functionality            | High     | Happy          | Pass                   |
-| TC-AM-01-02    | UC-01    | Registration failed — Email already exists (409)              | Functionality / Database | High     | Negative       | Pass                   |
-| TC-AM-01-03    | UC-01    | Registration failed — Password < 8 characters (400)           | Functionality            | High     | Negative       | Pass                   |
-| TC-AM-01-04a~d | UC-01    | Registration failed — Invalid email format (400) [4 cases]    | Functionality            | High     | Negative       | Pass (4/4)             |
-| TC-AM-01-05a~d | UC-01    | Registration failed — Missing required fields (400) [4 cases] | Functionality            | Medium   | Negative       | Pass (4/4)             |
-| TC-AM-01-06    | UC-01    | Registration failed — `name` < 2 characters (400)             | Functionality            | Medium   | Negative       | Pass                   |
-| TC-AM-01-07    | UC-01    | Successful registration — Validate response schema            | Interface / Security     | High     | Happy          | Pass                   |
-| TC-AM-01-08    | UC-01    | Registration failed — Password is only whitespace             | Security                 | Medium   | Negative       | **Fail — Backend Bug** |
-| TC-AM-02-01    | UC-02    | Successful login with valid data                              | Functionality            | High     | Happy          | Pass                   |
-| TC-AM-02-02    | UC-02    | Login failed — Incorrect password (401)                       | Functionality / Security | High     | Negative       | Pass                   |
-| TC-AM-02-03    | UC-02    | Login failed — Email does not exist (401)                     | Functionality / Security | High     | Negative       | Pass                   |
-| TC-AM-02-04    | UC-02    | Protected route — No token (401)                              | Security                 | High     | Negative       | Pass                   |
-| TC-AM-02-05    | UC-02    | Protected route — Expired token (401)                         | Security                 | High     | Negative       | Pass                   |
-| TC-AM-02-06a~c | UC-02    | Login failed — Missing required fields (400) [3 cases]        | Functionality            | Medium   | Negative       | Pass (3/3)             |
-| TC-AM-02-07    | UC-02    | Protected route — Valid token → 200 OK                        | Functionality            | High     | Happy          | Pass                   |
-| TC-AM-02-08    | UC-02    | Successful Refresh Token (200)                                | Functionality            | High     | Happy          | Pass                   |
-| TC-AM-02-09a~b | UC-02    | Refresh Token failed — Fake token/Empty body [2 cases]        | Security                 | High     | Negative       | Pass (2/2)             |
-| TC-AM-02-10a~c | UC-02    | Protected route — Invalid Bearer format (401) [3 cases]       | Security                 | Medium   | Negative       | Pass (3/3)             |
+| TC ID          | Use Case | Title                                                         | Type                     | Priority | Happy/Negative | Status     |
+| -------------- | -------- | ------------------------------------------------------------- | ------------------------ | -------- | -------------- | ---------- |
+| TC-AM-01-01    | UC-01    | Successful registration with valid data                       | Functionality            | High     | Happy          | Pass       |
+| TC-AM-01-02    | UC-01    | Registration failed — Email already exists (409)              | Functionality / Database | High     | Negative       | Pass       |
+| TC-AM-01-03    | UC-01    | Registration failed — Password < 8 characters (400)           | Functionality            | High     | Negative       | Pass       |
+| TC-AM-01-04a~d | UC-01    | Registration failed — Invalid email format (400) [4 cases]    | Functionality            | High     | Negative       | Pass (4/4) |
+| TC-AM-01-05a~d | UC-01    | Registration failed — Missing required fields (400) [4 cases] | Functionality            | Medium   | Negative       | Pass (4/4) |
+| TC-AM-01-06    | UC-01    | Registration failed — `name` < 2 characters (400)             | Functionality            | Medium   | Negative       | Pass       |
+| TC-AM-01-07    | UC-01    | Successful registration — Validate response schema            | Interface / Security     | High     | Happy          | Pass       |
+| TC-AM-01-08    | UC-01    | Registration failed — Password is only whitespace             | Security                 | Medium   | Negative       | Pass       |
+| TC-AM-02-01    | UC-02    | Successful login with valid data                              | Functionality            | High     | Happy          | Pass       |
+| TC-AM-02-02    | UC-02    | Login failed — Incorrect password (401)                       | Functionality / Security | High     | Negative       | Pass       |
+| TC-AM-02-03    | UC-02    | Login failed — Email does not exist (401)                     | Functionality / Security | High     | Negative       | Pass       |
+| TC-AM-02-04    | UC-02    | Protected route — No token (401)                              | Security                 | High     | Negative       | Pass       |
+| TC-AM-02-05    | UC-02    | Protected route — Expired token (401)                         | Security                 | High     | Negative       | Pass       |
+| TC-AM-02-06a~c | UC-02    | Login failed — Missing required fields (400) [3 cases]        | Functionality            | Medium   | Negative       | Pass (3/3) |
+| TC-AM-02-07    | UC-02    | Protected route — Valid token → 200 OK                        | Functionality            | High     | Happy          | Pass       |
+| TC-AM-02-08    | UC-02    | Successful Refresh Token (200)                                | Functionality            | High     | Happy          | Pass       |
+| TC-AM-02-09a~b | UC-02    | Refresh Token failed — Fake token/Empty body [2 cases]        | Security                 | High     | Negative       | Pass (2/2) |
+| TC-AM-02-10a~c | UC-02    | Protected route — Invalid Bearer format (401) [3 cases]       | Security                 | Medium   | Negative       | Pass (3/3) |
 
-**API Total:** 18 root test cases → **29 requests** | Happy Path: 5 | Negative: 13 | **Pass: 28** | **Fail: 1 (Backend Bug)** | **Warning: 0**
+**API Total:** 18 root test cases → **29 requests** | Happy Path: 5 | Negative: 13 | **Pass: 29** | **Fail: 0** | **Warning: 0**
 
 ### UI / E2E Tests
 
@@ -698,9 +698,9 @@
 
 | Test Type | Total TCs | Pass   | Fail  | Warning |
 | --------- | --------- | ------ | ----- | ------- |
-| API       | 18        | 17     | 1     | 0       |
+| API       | 18        | 18     | 0     | 0       |
 | UI / E2E  | 10        | 9      | 1     | 0       |
-| **Total** | **28**    | **26** | **2** | **0**   |
+| **Total** | **28**    | **27** | **1** | **0**   |
 
 ---
 
