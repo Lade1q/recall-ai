@@ -4,12 +4,12 @@
 
 ## 1. Danh sách Actors
 
-| #   | Actor                               | Loại                  | Mô tả                                                                                                         | UC tham gia                                     |
-| --- | ----------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 1   | **Student**                         | Primary Actor (Human) | Người dùng cuối duy nhất - sinh viên năm 1-2 ngành kỹ thuật/KHTN                                              | Hầu hết 42 UC                                   |
-| 2   | **AI Service (Google Gemini)**      | External System Actor | LLM bên ngoài, 3 calls cố định: `extract_concepts`, `generate_question`, `grade_answer` + `summarize_session` | SP-01, AE-02, AE-06, AE-09                      |
-| 3   | **Scheduling & Remediation Engine** | Internal System Actor | Module thuật toán tất định: priority queue (lập lịch) + BFS ngược (traceback) - unit-testable, không gọi AI   | SP-01, SP-07, FS-01, FS-06, AE-07, DB-01, DB-04 |
-| 4   | **Google OAuth**                    | External System Actor | Dịch vụ xác thực Google - dùng trong luồng thay thế đăng ký/đăng nhập                                         | AM-01, AM-02                                    |
+| #   | Actor                               | Loại                  | Mô tả                                                                                                            | UC tham gia                                     |
+| --- | ----------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | **Student**                         | Primary Actor (Human) | Người dùng cuối duy nhất - sinh viên năm 1-2 ngành kỹ thuật/KHTN                                                 | Hầu hết 42 UC                                   |
+| 2   | **AI Service (Google Gemini)**      | External System Actor | LLM bên ngoài, **4 calls cố định**: `extract_concepts`, `generate_question`, `grade_answer`, `summarize_session` | SP-01, AE-02, AE-06, AE-09                      |
+| 3   | **Scheduling & Remediation Engine** | Internal System Actor | Module thuật toán tất định: priority queue (lập lịch) + BFS ngược (traceback) - unit-testable, không gọi AI      | SP-01, SP-07, FS-01, FS-06, AE-07, DB-01, DB-04 |
+| 4   | **Google OAuth**                    | External System Actor | Dịch vụ xác thực Google - dùng trong luồng thay thế đăng ký/đăng nhập                                            | AM-01, AM-02                                    |
 
 ---
 
@@ -281,4 +281,4 @@ ALTER TABLE users ADD COLUMN pomodoro_config JSONB DEFAULT '{"work":25,"short_br
 
 - AM-06: Liên kết/Hủy liên kết Google - chỉ cần silent merge email trong MVP
 - SP-10: Import kế hoạch từ file
-- Voice Input (đề cập trong proposal nhưng không có UC chính thức)
+- ~~Voice Input (đề cập trong proposal nhưng không có UC chính thức)~~ → **SỬA:** Voice Input **có** UC chính thức (trong `Use-case_Specification.pdf` mục 2.3, nằm ở basic flow: TTS đọc câu hỏi, trả lời qua micro, STT). Sprint 4 chốt làm **luồng text trước**, tách tầng voice thành issue riêng (I6.9) — hoãn sang Sprint 5, không phải "ngoài MVP".

@@ -228,3 +228,94 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
     }
   }
   ```
+
+---
+
+### 4. Lưu Đồ thị Khái niệm (Save Concept Graph)
+
+- **Endpoint:** `PUT /api/v1/plans/:id/graph`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Dùng để:** Lưu đồ thị mà Sinh viên đã review/chỉnh sửa trong Edit mode (UC Spec SP-01, basic flow bước 8-9) — ví dụ nút "Confirm Graph" ở [I3.5](https://github.com/Lade1q/planning-ai/issues/79). Cũng dùng cho việc thêm/xóa 1 edge/node đơn lẻ trong lúc chỉnh sửa: FE gửi lại **toàn bộ** trạng thái canvas hiện tại mỗi lần.
+
+- **Semantics:** Đây là **full replace**, không phải patch từng phần. Body chứa toàn bộ tập concepts + edges mong muốn của đồ thị:
+  - Concept được khớp theo **tên** (`name`) với concept đã có trong DB — tên trùng thì giữ nguyên `id`, `masteryScore` và lịch sử; tên biến mất thì bị xóa (cascade xóa các edge liên quan); tên mới thì được tạo với `source: "manual"`.
+  - `edges[].from` / `edges[].to` tham chiếu tới `concepts[].name` (không phải id) — vì FE có thể vừa thêm 1 node mới chưa có id từ server.
+
+- **DAG validation (I3.3):** Trước khi ghi bất cứ gì vào DB, server chạy Kahn's Algorithm trên đồ thị gửi lên. Nếu tạo thành chu trình (kể cả self-loop) → **toàn bộ request bị từ chối**, DB giữ nguyên trạng thái cũ (không tự động loại cạnh như luồng AI extraction ở mục 1.1 — theo SDP §4.3.2 rủi ro R03: _"edges causing cycles are rejected with user notification and logged"_).
+
+- **Request body:**
+
+  ```json
+  {
+    "concepts": [
+      { "name": "Giới hạn (Limit)", "difficulty": 2 },
+      { "name": "Đạo hàm (Derivative)", "difficulty": 3 }
+    ],
+    "edges": [{ "from": "Giới hạn (Limit)", "to": "Đạo hàm (Derivative)" }]
+  }
+  ```
+
+- **Response thành công (HTTP 200 OK):**
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "c1f8a8b1-3e4d-4b5a-9a8b-1c2d3e4f5a6b",
+      "status": "active",
+      "dagAutoFixed": false,
+      "concepts": [
+        {
+          "id": "a1...",
+          "name": "Giới hạn (Limit)",
+          "difficulty": 2,
+          "masteryScore": null,
+          "source": "ai_generated",
+          "status": "active",
+          "createdAt": "2026-07-20T21:00:05.000Z"
+        }
+      ],
+      "edges": [{ "id": "e1...", "fromConceptId": "a1...", "toConceptId": "a2..." }]
+    }
+  }
+  ```
+
+  - `status` chuyển từ `"draft"` sang `"active"` nếu đây là lần confirm đầu tiên (đồ thị có ít nhất 1 concept).
+
+- **Lỗi tạo chu trình (HTTP 409 Conflict):**
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "DAG_CYCLE",
+      "message": "Adding this edge would create a cycle"
+    }
+  }
+  ```
+
+- **Lỗi edge tham chiếu concept không tồn tại trong body (HTTP 400 Bad Request):**
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "INVALID_EDGE_REFERENCE",
+      "message": "Edge references a concept not in the graph: \"A\" -> \"Ghost\""
+    }
+  }
+  ```
+
+- **Lỗi tên concept trùng lặp trong body (HTTP 400 Bad Request):**
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "DUPLICATE_CONCEPT",
+      "message": "Duplicate concept name: \"A\""
+    }
+  }
+  ```
+
+- **Lỗi không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.

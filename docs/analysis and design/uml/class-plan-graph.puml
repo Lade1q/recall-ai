@@ -1,0 +1,95 @@
+@startuml RecallAI-Class-PlanGraph
+!pragma layout smetana
+' SAD §4.x — Class Diagram: Study-Plan & Concept-Graph component (back end). Issue #85 / I5.2.
+' Extracted from src/server/src/{controllers,services,utils}.
+skinparam shadowing false
+skinparam roundcorner 5
+skinparam linetype ortho
+skinparam classBackgroundColor #FDFDFF
+skinparam classBorderColor #6A6AC0
+title Recall AI — Class Diagram: Study-Plan & Concept-Graph Component (back end)
+
+class PlanController <<module>> {
+  -{static} storageService : StorageService
+  +{static} createPlanController(req, res) : void
+  +{static} listPlansController(req, res) : void
+  +{static} getPlanByIdController(req, res) : void
+}
+class GraphController <<module>> {
+  +{static} updatePlanGraphController(req, res) : void
+}
+class PlanService <<service>> {
+  +{static} createPlanInDb(userId, planId, input, fileKey) : CreatePlanResponse
+  +{static} getUserPlans(userId) : PlanItemResponse[]
+  +{static} getPlanById(planId, userId) : PlanDetailResponse
+}
+class GraphService <<service>> {
+  +{static} validateDAG(planId) : DagValidationResult
+  +{static} replacePlanGraph(planId, userId, input) : PlanGraphResponse
+}
+class AnalysisService <<service>> {
+  -{static} MAX_ATTEMPTS : number
+  -{static} BACKOFF_BASE_MS : number
+  +{static} processAnalysisJob(jobId) : void
+  +{static} triggerAnalysis(planId) : void
+  -{static} callAi(fileKey) : AiExtractResponse
+  -{static} callAiWithRetry(fileKey) : AiExtractResponse
+  -{static} markFailed(jobId) : void
+}
+class GeminiService <<service>> {
+  -{static} MODEL : string
+  -{static} SYSTEM_INSTRUCTION : string
+  +{static} uploadFile(absolutePath, mimeType) : FileRef
+  +{static} extractConcepts(source) : AiExtractResponse
+  -{static} waitForFileActive(fileName) : void
+}
+class DagUtil <<util>> {
+  +{static} validateAndFixDag(nodeIds, edges) : DagFixResult
+}
+interface GraphEdge {
+  +from : string
+  +to : string
+}
+interface DagFixResult {
+  +edges : E[]
+  +removedEdges : E[]
+  +autoFixed : boolean
+}
+interface StorageService {
+  +upload(localFilePath, destinationKey) : string
+  +delete(fileKey) : void
+}
+class LocalStorageService {
+  +upload(localFilePath, destinationKey) : string
+  +delete(fileKey) : void
+}
+class StorageFactory <<factory>> {
+  +{static} createStorageService() : StorageService
+}
+class PrismaClient <<external>> {
+  +studyPlan
+  +concept
+  +conceptEdge
+  +analysisJob
+  +$transaction()
+}
+class GoogleGenAI <<external>>
+
+StorageService <|.. LocalStorageService : implements
+StorageFactory ..> LocalStorageService : creates
+PlanController o--> StorageService : uses
+PlanController ..> PlanService
+PlanController ..> AnalysisService
+PlanController ..> StorageFactory
+GraphController ..> GraphService
+PlanService ..> PrismaClient
+GraphService ..> PrismaClient
+GraphService ..> DagUtil
+AnalysisService ..> GeminiService
+AnalysisService ..> GraphService : re-checks DAG
+AnalysisService ..> DagUtil
+AnalysisService ..> PrismaClient
+GeminiService ..> GoogleGenAI
+DagUtil ..> GraphEdge
+DagUtil ..> DagFixResult
+@enduml

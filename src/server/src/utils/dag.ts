@@ -1,22 +1,37 @@
-import { ConceptExtract, EdgeExtract } from '../schemas/ai-extract.schema';
+/**
+ * An edge between two node keys. Callers pick the key space: concept names for the
+ * AI extraction flow (I3.2, names not yet persisted), concept UUIDs for a graph
+ * already stored in the DB (I3.3).
+ */
+export interface GraphEdge {
+  from: string;
+  to: string;
+}
 
-export interface DagFixResult {
-  edges: EdgeExtract[];
-  removedEdges: EdgeExtract[];
+export interface DagFixResult<E extends GraphEdge> {
+  edges: E[];
+  removedEdges: E[];
   autoFixed: boolean;
 }
 
 /**
- * Drops self-loops and edges referencing unknown concepts, then breaks any
+ * Drops self-loops and edges referencing unknown nodes, then breaks any
  * remaining cycles via Kahn's algorithm so the result is always a valid DAG.
- * Pure function (no AI, no I/O) — unit-testable with mock data, per C4.
+ * Pure function (no AI, no I/O) — unit-testable with mock data, per C4 and SDP risk R05.
+ *
+ * The caller decides what `removedEdges` means:
+ * - AI extraction (SP-01 AF3): accept the fix and flag `plan.dag_auto_fixed`.
+ * - Manual edit (SDP 4.3.2 R03): reject the whole change, keep the stored graph.
  */
-export function validateAndFixDag(concepts: ConceptExtract[], edges: EdgeExtract[]): DagFixResult {
-  const names = new Set(concepts.map((c) => c.name));
-  const removedEdges: EdgeExtract[] = [];
+export function validateAndFixDag<E extends GraphEdge>(
+  nodeIds: string[],
+  edges: E[]
+): DagFixResult<E> {
+  const nodes = new Set(nodeIds);
+  const removedEdges: E[] = [];
 
   const sane = edges.filter((e) => {
-    const valid = e.from !== e.to && names.has(e.from) && names.has(e.to);
+    const valid = e.from !== e.to && nodes.has(e.from) && nodes.has(e.to);
     if (!valid) removedEdges.push(e);
     return valid;
   });
@@ -30,10 +45,10 @@ export function validateAndFixDag(concepts: ConceptExtract[], edges: EdgeExtract
   });
 
   const inDegree = new Map<string, number>();
-  const outgoing = new Map<string, EdgeExtract[]>();
-  for (const name of names) {
-    inDegree.set(name, 0);
-    outgoing.set(name, []);
+  const outgoing = new Map<string, E[]>();
+  for (const node of nodes) {
+    inDegree.set(node, 0);
+    outgoing.set(node, []);
   }
   for (const e of deduped) {
     inDegree.set(e.to, (inDegree.get(e.to) ?? 0) + 1);
@@ -42,7 +57,7 @@ export function validateAndFixDag(concepts: ConceptExtract[], edges: EdgeExtract
 
   const remaining = new Set(deduped);
   const processed = new Set<string>();
-  const queue: string[] = [...names].filter((n) => inDegree.get(n) === 0);
+  const queue: string[] = [...nodes].filter((n) => inDegree.get(n) === 0);
 
   while (remaining.size > 0) {
     while (queue.length > 0) {
@@ -62,7 +77,7 @@ export function validateAndFixDag(concepts: ConceptExtract[], edges: EdgeExtract
 
     // Cycle: every node still unprocessed has inDegree > 0. Break it by
     // dropping one incoming edge of the first such node (deterministic order).
-    const stuckNode = [...names].find((n) => !processed.has(n) && (inDegree.get(n) ?? 0) > 0);
+    const stuckNode = [...nodes].find((n) => !processed.has(n) && (inDegree.get(n) ?? 0) > 0);
     const incoming = stuckNode ? [...remaining].find((e) => e.to === stuckNode) : undefined;
     if (!stuckNode || !incoming) break; // safety net — should be unreachable
 

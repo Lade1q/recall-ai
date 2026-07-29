@@ -15,6 +15,10 @@ Rules:
 - "edges": {from, to} means "from" is a prerequisite of "to" (learn 'from' before 'to').
 - The graph MUST be acyclic. Do not create cycles.
 - "difficulty" is an integer from 1 (easiest) to 5 (hardest).
+- "source_excerpt": a short verbatim quote (a sentence or two, at most ~300 characters) copied
+  exactly from the material where this concept is defined or introduced. Do not paraphrase.
+- "source_page": the 1-based page number where that excerpt appears. For PDFs give the real page;
+  for plain text or images with no page structure, use null.
 - Return ONLY the JSON object matching the provided schema.`;
 
 const EXTRACT_PROMPT = 'Extract the concept prerequisite graph from this document.';

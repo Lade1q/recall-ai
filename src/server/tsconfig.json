@@ -13,6 +13,8 @@
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*"],
+  // Tests run through ts-jest, they must not be emitted into the deployed dist/
+  "exclude": ["node_modules", "dist", "src/__tests__"],
   "ts-node": {
     "files": true
   }

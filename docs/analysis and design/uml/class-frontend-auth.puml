@@ -1,0 +1,82 @@
+@startuml RecallAI-Class-FrontendAuth
+!pragma layout smetana
+' SAD §4.x — Class Diagram: Front-end Auth feature. Issue #85 / I5.2.
+' Extracted from src/client/src/{features/auth,components/shared,lib}.
+skinparam shadowing false
+skinparam roundcorner 5
+skinparam linetype ortho
+skinparam classBackgroundColor #FDFDFF
+skinparam classBorderColor #6A6AC0
+title Recall AI — Class Diagram: Front-end Auth Feature
+
+interface AuthContextValue {
+  +user : User | null
+  +isAuthenticated : boolean
+  +isLoading : boolean
+  +login(email, password) : Promise
+  +logout() : void
+  +register(email, password, name) : Promise
+}
+class AuthProvider <<component>> {
+  -user : User | null
+  -isLoading : boolean
+  +login(email, password) : Promise
+  +logout() : void
+  +register(email, password, name) : Promise
+}
+class "AuthContext" as AuthContext <<React.Context>>
+class useAuth <<hook>> {
+  +call() : AuthContextValue
+}
+class AuthApi <<module>> {
+  +{static} loginApi(data) : AuthResponse
+  +{static} registerApi(data) : AuthResponse
+}
+class ApiClient <<singleton>> {
+  -isRefreshing : boolean
+  +get(url)
+  +post(url, body)
+}
+class LoginForm <<component>> {
+  -showPassword : boolean
+  +onSubmit(data) : Promise
+}
+class SignupForm <<component>> {
+  +onSubmit(data) : Promise
+}
+class ProtectedRoute <<component>> {
+  +render()
+}
+class User <<DTO>> {
+  +id : string
+  +email : string
+  +name : string | null
+}
+class ConceptGraph <<planned>>
+class PlanForm <<planned>>
+
+AuthProvider ..|> AuthContextValue : provides
+AuthProvider *--> AuthContext
+useAuth ..> AuthContext : consumes
+AuthProvider ..> AuthApi
+AuthProvider ..> ApiClient : GET /auth/me
+AuthApi ..> ApiClient
+AuthApi ..> User
+LoginForm ..> useAuth
+SignupForm ..> useAuth
+ProtectedRoute ..> useAuth
+PlanForm ..> useAuth
+ConceptGraph ..> ApiClient
+
+note bottom of ConceptGraph
+  Named in #85 but not yet implemented —
+  CreatePlanPage.tsx is a Placeholder.
+  Drawn as a stub per the brief:
+  "go as far as you know".
+end note
+note bottom of PlanForm
+  Same status as ConceptGraph — planned,
+  not built. LoginForm/SignupForm show
+  the concrete form pattern it will follow.
+end note
+@enduml

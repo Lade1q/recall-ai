@@ -1,61 +1,78 @@
 # Use Case Specification: AE-02 Thực hiện Phiên Kiểm tra
 
 ## 1. Use case Name
+
 **AE-02:** Thực hiện Phiên Kiểm tra (Vấn đáp nhiều lượt)
 
 ## 2. Brief description
+
 Use case này cho phép Sinh viên thực hiện một phiên kiểm tra kiến thức dưới hình thức vấn đáp hội thoại nhiều lượt. Hệ thống sử dụng AI (Google Gemini) để đóng vai trò giám khảo, sinh câu hỏi và chấm điểm trực tiếp dựa trên đúng tài liệu gốc mà Sinh viên đã tải lên. Luồng hoạt động được điều khiển bởi một máy trạng thái (state machine) giới hạn số lượt hỏi-đáp, giúp phân loại mức độ hiểu bài thực sự và tự động kích hoạt truy ngược kiến thức tiên quyết nếu phát hiện Sinh viên bị hổng kiến thức nền.
 
 ## 3. Actors
+
 - **Sinh viên (Student):** Người học trực tiếp tham gia tương tác, trả lời các câu hỏi vấn đáp.
 - **AI Service (Google Gemini):** Dịch vụ ngoại vi chịu trách nhiệm xử lý ngôn ngữ, bao gồm sinh câu hỏi (`generate_question`) và chấm điểm câu trả lời (`grade_answer`) dựa trên rubric.
+- **Scheduling & Remediation Engine (SRE):** Module tất định của hệ thống, tính `mastery_score` và kích hoạt Truy ngược Lỗ hổng (AE-07) sau khi mỗi khái niệm được đánh giá xong.
 
 ## 4. Pre-conditions
+
 - Sinh viên đã đăng nhập và đã hoàn thành bước cấu hình phiên kiểm tra (AE-01).
 - Danh sách các khái niệm (concepts) cần ôn tập đã được hệ thống nạp vào hàng đợi.
 - Hệ thống có kết nối mạng ổn định tới dịch vụ AI (Google Gemini).
-- Sinh viên đã cấp quyền sử dụng micro (microphone) cho trình duyệt hoặc thiết bị.
+- (Tùy chọn) Sinh viên đã cấp quyền sử dụng micro (microphone) — chỉ cần khi bật chế độ trả lời bằng giọng nói (tầng voice, xem I6.9). Luồng mặc định của Sprint 4 là gõ văn bản, không bắt buộc micro.
 
 ## 5. Basic Flow
+
 1. **Sinh viên** bắt đầu phiên kiểm tra từ hàng đợi các khái niệm cần ôn tập.
 2. **Hệ thống** tải khái niệm ưu tiên cao nhất, thiết lập giới hạn lượt hỏi-đáp (ví dụ: 3 lượt) và gửi yêu cầu (`generate_question`) tới **AI Service**.
-3. **AI Service** sinh câu hỏi vấn đáp dựa trên rubric và tài liệu gốc, đồng thời tạo dữ liệu âm thanh giọng đọc (Text-to-Speech).
-4. **Hệ thống** phát âm thanh giọng đọc AI cho Sinh viên nghe (giao tiếp bằng giọng nói). Văn bản câu hỏi mặc định bị ẩn đi (chỉ tự động hiển thị nếu câu hỏi có cấu trúc phức tạp, hoặc khi Sinh viên chủ động nhấn nút "Hiện câu hỏi").
-5. **Sinh viên** trả lời câu hỏi bằng Giọng nói (Speech) thông qua micro của thiết bị.
-6. **Hệ thống** ghi âm, tự động chuyển đổi thành văn bản (Speech-to-Text) để Sinh viên có thể xem lướt lại nội dung.
+3. **AI Service** sinh câu hỏi vấn đáp (`generate_question`) dựa trên rubric và tài liệu gốc mà Sinh viên đã tải lên.
+4. **Hệ thống** hiển thị câu hỏi cho Sinh viên dưới **dạng văn bản**. (Tùy chọn) Nếu bật tầng giọng nói, hệ thống đọc câu hỏi bằng Text-to-Speech xử lý phía trình duyệt/client (không phải một lệnh gọi tới **AI Service** — theo `UC-Overview.md` §5.1, AI Service chỉ có đúng 4 schema cố định, không có schema âm thanh) và có thể ẩn văn bản cho tới khi Sinh viên nhấn "Hiện câu hỏi" — xem Alternative flow 5 nếu quyền micro bị từ chối.
+5. **Sinh viên** gõ câu trả lời cho câu hỏi. (Tùy chọn) Sinh viên có thể trả lời bằng giọng nói qua micro nếu bật tầng voice.
+6. **Hệ thống** tiếp nhận văn bản câu trả lời. Khi dùng giọng nói, câu trả lời được chuyển thành văn bản (Speech-to-Text) để Sinh viên xem và sửa lại trước khi gửi.
 7. **Hệ thống** gửi văn bản câu trả lời tới **AI Service** để đối chiếu, chấm điểm (`grade_answer`).
 8. **AI Service** phân tích và trả về kết quả điểm số, nhận xét, và phân loại mức độ hiểu bài.
 9. **Hệ thống** xử lý phản hồi từ AI:
    - Nếu trả lời **hiểu sâu**, hệ thống yêu cầu AI tạo câu hỏi đào sâu hơn (vòng lại bước 3).
    - Nếu trả lời **hời hợt**, hệ thống yêu cầu AI đặt câu hỏi phụ buộc Sinh viên giải thích rõ hơn (vòng lại bước 3).
-   - Nếu trả lời **sai/hổng kiến thức**, AI giải thích nhanh lỗi sai. Hệ thống lập tức **include AE-07 (Truy ngược Lỗ hổng)** để tìm khái niệm gốc.
-10. **Hệ thống** lưu lại kết quả đánh giá của khái niệm hiện tại sau khi hết số lượt tối đa hoặc kết thúc chu trình xử lý ở bước 9.
+   - Nếu trả lời **sai/hổng kiến thức**, nhận xét chấm điểm (`feedback` từ `grade_answer`) giải thích lỗi sai và khái niệm kết thúc sớm. Việc **có kích hoạt AE-07 (Truy ngược Lỗ hổng) hay không được quyết định sau khi tính `mastery_score` cuối cùng của khái niệm** (per-concept), không phải ngay từng lượt.
+10. **Hệ thống** lưu lại kết quả đánh giá của khái niệm hiện tại sau khi hết số lượt tối đa hoặc kết thúc chu trình xử lý ở bước 9. `mastery_score` được tính bằng trung bình có trọng số (weighted average) điểm các lượt.
 11. **Hệ thống** lặp lại quy trình từ Bước 2 cho khái niệm tiếp theo trong hàng đợi, cho đến khi hoàn tất danh sách.
-12. **Hệ thống** thông báo kết thúc phiên kiểm tra bằng giọng nói và tự động chuyển Sinh viên tới màn hình Xem Tổng hợp Cuối phiên.
+12. **Hệ thống** thông báo kết thúc phiên kiểm tra và tự động chuyển Sinh viên tới màn hình Xem Tổng hợp Cuối phiên. (Khi bật tầng giọng nói, thông báo này được phát kèm giọng đọc, cùng cơ chế Text-to-Speech phía client như bước 4 — không qua AI Service.)
 
 ## 6. Alternative Flows
 
 **Alternative flow 1: AI Service Timeout hoặc Lỗi (AI Fail/Timeout)**
+
 1. Từ bước #3 hoặc #7 của basic flow, nếu AI Service phản hồi chậm, hết quota hoặc báo lỗi.
 2. Hệ thống ghi log lỗi và tự động **extend Use Case AE-03 (Sử dụng Fallback)**. Hệ thống dừng gọi AI, chuyển sang giao diện flashcard tĩnh (lấy các câu hỏi đã được pre-generate trước đó). Sinh viên tự đánh giá đúng/sai.
 3. Continue step #11.
 
 **Alternative flow 2: Sinh viên Tạm dừng phiên kiểm tra**
+
 1. Từ bước #5 của basic flow, nếu Sinh viên chọn tùy chọn "Tạm dừng".
 2. Hệ thống lưu lại trạng thái hiện tại (bao gồm lịch sử hội thoại, số lượt còn lại) và thoát giao diện. (Khi Sinh viên quay lại, hệ thống sẽ phát lại câu hỏi từ Bước #4).
 3. The use case terminates.
 
 **Alternative flow 3: Sinh viên Bỏ qua khái niệm (Skip)**
+
 1. Từ bước #4 hoặc #5 của basic flow, nếu Sinh viên chọn tùy chọn "Bỏ qua".
 2. Hệ thống hủy các lượt hỏi còn lại của khái niệm này và bỏ qua chấm điểm.
 3. Continue step #10.
 
 **Alternative flow 4: Sinh viên Khiếu nại kết quả chấm**
+
 1. Từ bước #9 của basic flow, nếu sau khi nghe nhận xét từ AI, Sinh viên không đồng ý và chọn "Khiếu nại".
 2. Hệ thống tạm dừng luồng hội thoại giọng nói, hiển thị form nhập lý do khiếu nại. Kết quả khái niệm được lưu tạm kèm cờ "Đang khiếu nại".
 3. Continue step #10.
 
+**Alternative flow 5: Không cấp được quyền micro (chế độ giọng nói)**
+
+1. Từ bước #4 hoặc #5 của basic flow, nếu Sinh viên đã bật tầng giọng nói nhưng trình duyệt từ chối quyền micro, thiết bị không có micro, hoặc quyền bị thu hồi giữa chừng.
+2. Hệ thống thông báo ngắn gọn ngay tại chỗ và tự động chuyển về chế độ gõ văn bản. Lượt hỏi-đáp hiện tại, số lượt còn lại và lịch sử hội thoại được giữ nguyên — đây **không** phải một lần gián đoạn phiên (khác Alternative flow 2).
+3. Continue step #5 (ở chế độ gõ văn bản).
+
 ## 7. Post-conditions
+
 - Điểm số hiểu bài (`mastery_score`) của từng khái niệm tham gia trong phiên được cập nhật đầy đủ vào cơ sở dữ liệu (bảng `concepts`).
 - Nếu phát hiện lỗ hổng kiến thức, các khái niệm nền (tiên quyết) đã được tự động chèn vào hàng đợi của phiên học tiếp theo thông qua thuật toán của Concept Graph Engine.
 - Toàn bộ lịch sử hội thoại (văn bản được chuyển đổi từ giọng nói và/hoặc âm thanh) được lưu trữ thành công để làm dữ liệu hiển thị cho màn hình tổng hợp và quá trình học tập sau này.

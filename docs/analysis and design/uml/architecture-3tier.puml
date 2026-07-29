@@ -1,0 +1,64 @@
+@startuml RecallAI-Architecture-3Tier
+!pragma layout smetana
+' SAD Section 4 — Architectural Representation (3-tier). Issue #84 / I5.1.
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam linetype ortho
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam component {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — 3-Tier Architecture Overview
+
+package "Presentation Tier" #F5F5FF {
+  [React SPA\n(Vite + TypeScript)] as SPA
+  note right of SPA
+    Tailwind CSS + shadcn/ui (Radix)
+    react-hook-form + Zod
+    React Router · Axios client
+  end note
+}
+
+package "Application Tier" #F5FFF5 {
+  [Express.js REST API\n(Controllers -> Services)] as API
+  [Scheduling & Remediation\nEngine (SRE)] as SRE
+  note bottom of SRE
+    Deterministic software logic only — no AI calls.
+    Today: DAG validation (DagUtil, Kahn's algorithm).
+    Planned (Sprint 4-5): priority scheduling +
+    reverse-BFS concept traceback over review_queue_items.
+  end note
+}
+
+package "Data Tier" #FFF8F0 {
+  database "PostgreSQL" as DB
+  [Prisma ORM] as ORM
+}
+
+package "External AI Service" #FFF0F0 {
+  [Google Gemini API] as Gemini
+  note bottom of Gemini
+    4 fixed-schema calls only:
+    extract_concepts, generate_question,
+    grade_answer, summarize_session.
+    No free-form responses (constraint C4/C5).
+  end note
+}
+
+SPA --> API : HTTPS REST\n(JSON, JWT Bearer)
+API --> ORM : Prisma Client
+ORM --> DB : SQL (TCP)
+API ..> SRE : invokes\n(deterministic routing, C4)
+API --> Gemini : HTTPS REST\n(fixed JSON schema)
+
+legend right
+  |= Tier |= Responsibility |
+  | Presentation | UI rendering, client-side validation, routing |
+  | Application  | Business logic, auth, orchestration, SRE |
+  | Data         | Persistent storage (PostgreSQL via Prisma) |
+  | External     | Gemini API — called only for narrow, schema-\nconstrained extraction/generation/grading tasks |
+endlegend
+
+@enduml

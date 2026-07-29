@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { DocumentKind } from '@prisma/client';
 import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
@@ -6,9 +7,19 @@ import { createPlanInDb, getUserPlans, getPlanById } from '../services/plan.serv
 import { createPlanSchema } from '../schemas/plan.schema';
 import { createStorageService } from '../services/storage.service';
 import { triggerAnalysis } from '../services/analysis.service';
+import { getPdfPageCount } from '../utils/pdf';
+import { DocumentMeta } from '../types/plan.types';
 import { AppError } from '../middleware/errorHandler';
 
 const storageService = createStorageService();
+
+/** Maps an uploaded file's extension to a DocumentKind (SP-01 accepts pdf/image/text). */
+function documentKindFromExt(ext: string): DocumentKind {
+  const e = ext.toLowerCase();
+  if (e === '.pdf') return 'pdf';
+  if (e === '.png' || e === '.jpg' || e === '.jpeg') return 'image';
+  return 'text';
+}
 
 /**
  * POST /api/v1/plans
@@ -36,13 +47,25 @@ export async function createPlanController(req: Request, res: Response): Promise
     const ext = path.extname(req.file.originalname);
     uploadedFileKey = `plans/${planId}/${Date.now()}${ext}`;
 
-    // 3. Upload lên Storage Service ngoài DB transaction
+    // 3. Thu thập metadata tài liệu. page_count đọc từ file cục bộ TRƯỚC khi upload
+    //    (upload sẽ move/unlink file staging) — best-effort, chỉ cho PDF.
+    const kind = documentKindFromExt(ext);
+    const pageCount = kind === 'pdf' ? await getPdfPageCount(localFilePath) : null;
+    const documentMeta: DocumentMeta = {
+      filename: req.file.originalname,
+      fileKey: uploadedFileKey,
+      kind,
+      pageCount,
+      byteSize: req.file.size ?? null,
+    };
+
+    // 4. Upload lên Storage Service ngoài DB transaction
     await storageService.upload(localFilePath, uploadedFileKey);
 
-    // 4. Lưu metadata vào DB
-    const plan = await createPlanInDb(req.userId, planId, input, uploadedFileKey);
+    // 5. Lưu metadata vào DB (plan + document + analysis job)
+    const plan = await createPlanInDb(req.userId, planId, input, documentMeta);
 
-    // 5. Kích hoạt phân tích Gemini chạy nền — response không đợi (SP-06 polling).
+    // 6. Kích hoạt phân tích Gemini chạy nền — response không đợi (SP-06 polling).
     void triggerAnalysis(planId).catch((err) =>
       console.error(`[analysis] trigger failed for plan ${planId}:`, err)
     );
@@ -55,7 +78,7 @@ export async function createPlanController(req: Request, res: Response): Promise
       },
     });
   } catch (error) {
-    // 6. Cleanup orphaned files on any error (validation, DB, etc.)
+    // 7. Cleanup orphaned files on any error (validation, DB, etc.)
 
     // Delete staging file if it hasn't been moved yet
     try {

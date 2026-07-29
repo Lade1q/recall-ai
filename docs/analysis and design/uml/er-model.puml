@@ -1,0 +1,179 @@
+@startuml RecallAI-ER-Model
+!pragma layout smetana
+' =====================================================================
+' Recall AI — Entity-Relationship Model (PlantUML, crow's-foot)
+' SAD Database component. Issue #86 / I5.3. Source: schema.prisma (post-#138).
+' Render:  java -jar plantuml.jar -tpng -Sdpi=200 er-model.puml
+' =====================================================================
+hide circle
+skinparam linetype ortho
+skinparam roundcorner 6
+skinparam shadowing false
+skinparam entity {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Database ER Model (PostgreSQL)
+
+entity "users" as users {
+  * id : uuid <<PK>>
+  --
+  * email : varchar(255) <<UK>>
+  * password_hash : varchar(255)
+  name : varchar(100)
+  * pomodoro_config : jsonb
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+entity "study_plans" as study_plans {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * name : varchar(255)
+  deadline : timestamp
+  * status : study_plan_status
+  * dag_auto_fixed : boolean
+  * traceback_enabled : boolean
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+entity "concepts" as concepts {
+  * id : uuid <<PK>>
+  --
+  * plan_id : uuid <<FK>>
+  * name : varchar(255)
+  difficulty : integer
+  mastery_score : double
+  last_tested_at : timestamp
+  * source : concept_source
+  * status : concept_status
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+entity "concept_edges" as concept_edges {
+  * id : uuid <<PK>>
+  --
+  * plan_id : uuid <<FK>>
+  * from_concept_id : uuid <<FK>>
+  * to_concept_id : uuid <<FK>>
+  .. unique(plan_id, from, to) ..
+}
+
+entity "analysis_jobs" as analysis_jobs {
+  * id : uuid <<PK>>
+  --
+  plan_draft_id : uuid  (soft)
+  file_key : text
+  * status : analysis_job_status
+  * retry_count : integer
+  * created_at : timestamp
+  completed_at : timestamp
+}
+
+entity "question_cache" as question_cache {
+  * id : uuid <<PK>>
+  --
+  * concept_id : uuid <<FK>>
+  * question_text : text
+  question_type : varchar(50)
+  answer_hint : text
+  * generated_at : timestamp
+}
+
+entity "interview_sessions" as interview_sessions {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  * plan_id : uuid <<FK>>
+  * status : interview_session_status
+  * concept_queue : jsonb
+  * current_concept_idx : integer
+  * max_turns_per_concept : integer
+  * fallback_mode : boolean
+  summary_text : text
+  * started_at : timestamp
+  ended_at : timestamp
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+entity "interview_turns" as interview_turns {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * concept_id : uuid <<FK>>
+  * turn_index : integer
+  * question_text : text
+  question_type : question_type
+  answer_text : text
+  score : double
+  feedback : text
+  verdict : turn_verdict
+  * source : turn_source
+  * asked_at : timestamp
+  answered_at : timestamp
+  .. unique(session_id, concept_id, turn_index) ..
+}
+
+entity "focus_sessions" as focus_sessions {
+  * id : uuid <<PK>>
+  --
+  * user_id : uuid <<FK>>
+  plan_id : uuid <<FK>>
+  * concept_ids : jsonb
+  * status : focus_session_status
+  * duration_minutes : integer
+  * started_at : timestamp
+  ended_at : timestamp
+}
+
+entity "review_queue_items" as review_queue_items {
+  * id : uuid <<PK>>
+  --
+  * plan_id : uuid <<FK>>
+  * concept_id : uuid <<FK>>
+  * priority : double
+  * reason : review_reason
+  source_concept_id : uuid  (soft)
+  source_session_id : uuid  (soft)
+  depth : integer
+  * status : review_item_status
+  scheduled_for : timestamp
+  * created_at : timestamp
+  .. unique(source_session_id, concept_id) ..
+}
+
+' ---- Foreign-key relationships (crow's foot, ON DELETE CASCADE) ----
+users              ||--o{ study_plans        : owns
+users              ||--o{ interview_sessions : starts
+users              ||--o{ focus_sessions     : starts
+study_plans        ||--o{ concepts           : contains
+study_plans        ||--o{ concept_edges      : contains
+study_plans        ||--o{ interview_sessions : examined in
+study_plans        |o--o{ focus_sessions     : studied in
+study_plans        ||--o{ review_queue_items : queues
+concepts           ||--o{ concept_edges      : from (prereq)
+concepts           ||--o{ concept_edges      : to (dependent)
+concepts           ||--o{ question_cache     : caches
+concepts           ||--o{ interview_turns    : tested by
+concepts           ||--o{ review_queue_items : reviewed as
+interview_sessions ||--o{ interview_turns    : has
+
+' ---- Soft references (no FK constraint) ----
+analysis_jobs      }o..|| study_plans        : soft
+review_queue_items }o..|| concepts           : soft (source)
+review_queue_items }o..|| interview_sessions : soft (source)
+
+legend right
+  |= Notation |= Meaning |
+  | ||--o{ | one to zero-or-many (FK, cascade) |
+  | |o--o{ | zero-or-one to zero-or-many |
+  | ..     | soft reference (no FK) |
+  | <<PK>> / <<FK>> / <<UK>> | primary / foreign / unique key |
+  | *      | NOT NULL |
+endlegend
+
+@enduml

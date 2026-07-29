@@ -110,32 +110,36 @@ END
 ```text
 FUNCTION traceback(C):
   Q = empty queue
-  ENQUEUE các tiên quyết trực tiếp của C (từ concept_edges WHERE to = C)
+  # Queue chứa tuple (concept_id, depth). depth CHỈ tăng khi enqueue node con.
+  ENQUEUE (P, depth=1) cho mỗi tiên quyết trực tiếp của C (concept_edges WHERE to = C)
   visited = {C}
-  depth = 0
+  results = []
 
-  WHILE Q not empty AND depth <= 2:
-    P = DEQUEUE(Q)
+  WHILE Q not empty:
+    (P, depth) = DEQUEUE(Q)
     IF P in visited: CONTINUE
     visited.add(P)
 
     IF mastery_score(P) is null OR mastery_score(P) < 0.6:
-      CHÈN P vào đầu hàng đợi phiên học kế tiếp (ưu tiên trước C)
+      results.add(P)   # P yếu -> chèn vào đầu hàng đợi phiên kế tiếp (ưu tiên trước C)
+      IF depth < 2:    # giới hạn cứng max_depth = 2
+        ENQUEUE (P', depth+1) cho mỗi tiên quyết trực tiếp của P
     ELSE:
-      // P đã vững, không cần ôn lại
+      # PRUNING: P đã vững (>= 0.6) -> bỏ qua P VÀ KHÔNG duyệt tiếp tiên quyết của P
       PASS
 
-    ENQUEUE các tiên quyết trực tiếp của P
-    depth += 1 (tăng khi chuyển tầng)
-
-  IF không tìm thấy P nào cần ôn:
-    Áp dụng spaced repetition thông thường cho C
-    Hẹn ôn lại C sau X ngày (dựa vào deadline và mastery_score)
+  IF results rỗng:
+    Áp dụng spaced repetition thông thường cho C (hẹn ôn lại C sau X ngày)
+  RETURN results
 ```
+
+> ⚠️ **Đã sửa 2 lỗi so với bản cũ (đồng bộ với `UC-Overview.md` §5.3):**
+> (1) Queue chứa tuple `(id, depth)`, depth chỉ tăng khi enqueue con — bản cũ viết `depth += 1` trong vòng `WHILE` khiến thuật toán dừng sau đúng 3 node bất kể hình dạng đồ thị.
+> (2) Bổ sung **PRUNING**: gặp tiên quyết đã vững thì cắt nhánh, không duyệt sâu tiếp (theo `Use-case_Specification.pdf` mục 2.5 AF1) — bản markdown cũ thiếu quy tắc này.
 
 ### Luồng chính
 
-1. Sau mỗi lượt chấm trong UC-11, Scheduling & Remediation Engine kiểm tra `mastery_score(C)`
+1. Sau khi khái niệm `C` được đánh giá **xong** (hết các lượt) trong UC-11, Scheduling & Remediation Engine tính `mastery_score(C)` (weighted average) và kiểm tra — chạy per-concept, **không** sau mỗi lượt
 2. Nếu `mastery_score < 0.6`: chạy thuật toán BFS ngược
 3. Tìm các tiên quyết P cần ôn lại (tối đa 2 tầng)
 4. Chèn P vào đầu hàng đợi phiên học kế tiếp (trước C)

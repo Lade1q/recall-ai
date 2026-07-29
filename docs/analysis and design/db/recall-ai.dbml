@@ -1,0 +1,335 @@
+// =====================================================================
+// Recall AI — Entity-Relationship Model (dbdiagram.io DBML source)
+// =====================================================================
+// Purpose : ER model for the SAD "Database" component (issue #86 / I5.3).
+// Source  : src/server/prisma/schema.prisma (PostgreSQL + Prisma ORM),
+//           authoritative as of main after PR #138 (Sprint 4 schema).
+// How to render a high-res image for the Word SAD:
+//   1. Open https://dbdiagram.io  ->  paste this file.
+//   2. Export  ->  PNG (2x) or PDF, then insert into the SAD.
+// Notation: crow's-foot. `>` = many-to-one, `<` = one-to-many.
+// Type mapping (Prisma -> PostgreSQL): String=text, String @db.VarChar(n)=
+//   varchar(n), Int=integer, Float=double, Boolean=boolean, DateTime=
+//   timestamp, Json=jsonb, @db.Uuid=uuid, enum X=enum type.
+// ---------------------------------------------------------------------
+
+// ===================== Enumerations =====================
+
+Enum study_plan_status {
+  draft
+  active
+  archived
+}
+
+Enum concept_source {
+  ai_generated
+  manual
+  imported
+}
+
+Enum concept_status {
+  active
+  deprecated
+}
+
+Enum analysis_job_status {
+  pending
+  processing
+  done
+  failed
+}
+
+Enum interview_session_status {
+  active
+  paused
+  completed
+  abandoned
+}
+
+Enum turn_verdict {
+  deep
+  shallow
+  wrong
+}
+
+Enum question_type {
+  recall
+  application
+  why
+}
+
+Enum turn_source {
+  ai
+  cache_fallback
+}
+
+Enum focus_session_status {
+  running
+  completed
+  cancelled
+}
+
+Enum review_reason {
+  traceback
+  spaced_repetition
+  deadline_priority
+  manual
+}
+
+Enum review_item_status {
+  pending
+  accepted
+  skipped
+  done
+}
+
+Enum document_kind {
+  pdf
+  image
+  text
+}
+
+// ===================== Core entities =====================
+
+Table users {
+  id            uuid         [pk]
+  email         varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  name          varchar(100)
+  pomodoro_config jsonb      [not null, note: 'work/short_break/long_break/cycles/sound']
+  created_at    timestamp    [not null, default: `now()`]
+  updated_at    timestamp    [not null]
+
+  Note: 'Student account. Root aggregate of all user-owned data.'
+}
+
+Table study_plans {
+  id                uuid              [pk]
+  user_id           uuid              [not null]
+  name              varchar(255)      [not null]
+  deadline          timestamp
+  status            study_plan_status [not null, default: 'active']
+  dag_auto_fixed    boolean           [not null, default: false]
+  traceback_enabled boolean           [not null, default: true]
+  created_at        timestamp         [not null, default: `now()`]
+  updated_at        timestamp         [not null]
+
+  indexes {
+    user_id
+  }
+  Note: 'A revision plan; owns a DAG of Concepts + ConceptEdges.'
+}
+
+Table concepts {
+  id             uuid           [pk]
+  plan_id        uuid           [not null]
+  name           varchar(255)   [not null]
+  difficulty     integer        [default: 1, note: 'app-layer range 1..5']
+  mastery_score  double         [note: 'app-layer range 0.0..1.0']
+  last_tested_at timestamp      [note: 'set only by AI Examiner (AE-02)']
+  source         concept_source [not null, default: 'ai_generated']
+  status         concept_status [not null, default: 'active']
+  created_at     timestamp      [not null, default: `now()`]
+  updated_at     timestamp      [not null]
+
+  indexes {
+    plan_id
+  }
+  Note: 'A node in the knowledge graph.'
+}
+
+Table concept_edges {
+  id              uuid [pk]
+  plan_id         uuid [not null]
+  from_concept_id uuid [not null, note: 'prerequisite']
+  to_concept_id   uuid [not null, note: 'dependent']
+
+  indexes {
+    (plan_id, from_concept_id, to_concept_id) [unique]
+    plan_id
+    from_concept_id
+    to_concept_id
+  }
+  Note: 'Associative entity resolving the N:M prerequisite self-relation on concepts (directed acyclic — DAG enforced at app layer).'
+}
+
+Table analysis_jobs {
+  id            uuid                [pk]
+  plan_draft_id uuid                [note: 'SOFT ref to a plan draft — no FK (async flow, draft may not exist yet)']
+  file_key      text
+  status        analysis_job_status [not null, default: 'pending']
+  retry_count   integer             [not null, default: 0]
+  created_at    timestamp           [not null, default: `now()`]
+  completed_at  timestamp
+
+  indexes {
+    plan_draft_id
+    status
+  }
+  Note: 'Async document-analysis job (SP-06). Standalone — no enforced FK.'
+}
+
+Table question_cache {
+  id            uuid         [pk]
+  concept_id    uuid         [not null]
+  question_text text         [not null]
+  question_type varchar(50)
+  answer_hint   text
+  generated_at  timestamp    [not null, default: `now()`]
+
+  indexes {
+    concept_id
+  }
+  Note: 'Pre-generated questions for AI Examiner fallback (AE-05, AE-06).'
+}
+
+// ===================== Sprint 4 entities =====================
+
+Table interview_sessions {
+  id                    uuid                     [pk]
+  user_id               uuid                     [not null]
+  plan_id               uuid                     [not null]
+  status                interview_session_status [not null, default: 'active']
+  concept_queue         jsonb                    [not null, note: 'ordered conceptId[]']
+  current_concept_idx   integer                  [not null, default: 0]
+  max_turns_per_concept integer                  [not null, default: 3, note: 'constraint C6']
+  fallback_mode         boolean                  [not null, default: false]
+  summary_text          text
+  started_at            timestamp                [not null, default: `now()`]
+  ended_at              timestamp
+  created_at            timestamp                [not null, default: `now()`]
+  updated_at            timestamp                [not null]
+
+  indexes {
+    user_id
+    plan_id
+    status
+  }
+  Note: 'AI Examiner oral-exam session (AE-01/02/03).'
+}
+
+Table interview_turns {
+  id            uuid          [pk]
+  session_id    uuid          [not null]
+  concept_id    uuid          [not null]
+  turn_index    integer       [not null, note: '1..max_turns_per_concept']
+  question_text text          [not null]
+  question_type question_type
+  answer_text   text
+  score         double        [note: 'app-layer range 0.0..1.0']
+  feedback      text
+  verdict       turn_verdict
+  source        turn_source   [not null, default: 'ai']
+  asked_at      timestamp     [not null, default: `now()`]
+  answered_at   timestamp
+
+  indexes {
+    (session_id, concept_id, turn_index) [unique, note: 'idempotency for POST /answers (A2)']
+    session_id
+    concept_id
+  }
+  Note: 'One question-answer turn inside an interview session (AE-02).'
+}
+
+Table focus_sessions {
+  id               uuid                 [pk]
+  user_id          uuid                 [not null]
+  plan_id          uuid                 [note: 'optional — a focus session need not belong to a plan']
+  concept_ids      jsonb                [not null, note: 'conceptId[]']
+  status           focus_session_status [not null, default: 'running']
+  duration_minutes integer              [not null, default: 0, note: 'actual study time, excludes pauses']
+  started_at       timestamp            [not null, default: `now()`]
+  ended_at         timestamp
+
+  indexes {
+    user_id
+  }
+  Note: 'Pomodoro study session (FS-01, FS-03). Writes study stats only, never mastery_score.'
+}
+
+Table review_queue_items {
+  id                uuid               [pk]
+  plan_id           uuid               [not null]
+  concept_id        uuid               [not null]
+  priority          double             [not null, default: 0]
+  reason            review_reason      [not null]
+  source_concept_id uuid               [note: 'SOFT ref to concepts.id (concept C that triggered traceback) — no FK']
+  source_session_id uuid               [note: 'SOFT ref to interview_sessions.id — no FK']
+  depth             integer            [note: '1 or 2 (max_depth = 2)']
+  status            review_item_status [not null, default: 'pending']
+  scheduled_for     timestamp
+  created_at        timestamp          [not null, default: `now()`]
+
+  indexes {
+    (source_session_id, concept_id) [unique, note: 'de-dupe per session (A1)']
+    (plan_id, status)
+  }
+  Note: 'Remediation/review queue produced by the Scheduling & Remediation Engine (AE-07, DB-04, FS-06).'
+}
+
+// ===================== Source-document anchor =====================
+
+Table documents {
+  id         uuid          [pk]
+  plan_id    uuid          [not null]
+  filename   varchar(255)  [not null, note: 'original filename, for display']
+  file_key   text          [not null, note: 'object-storage key']
+  kind       document_kind [not null, default: 'pdf']
+  page_count integer       [note: 'total pages; null for non-paginated (text)']
+  byte_size  integer
+  created_at timestamp     [not null, default: `now()`]
+
+  indexes {
+    plan_id
+  }
+  Note: 'Uploaded source document (SP-01). Durable home for file_key — survives past the transient analysis_jobs record.'
+}
+
+Table concept_sources {
+  id          uuid      [pk]
+  concept_id  uuid      [not null]
+  document_id uuid      [not null]
+  page_from   integer   [note: 'null for non-paginated documents']
+  page_to     integer
+  excerpt     text      [note: 'source passage — renders/verifies without re-parsing the file']
+  created_at  timestamp [not null, default: `now()`]
+
+  indexes {
+    concept_id
+    document_id
+  }
+  Note: 'Associative entity anchoring a concept to the document passage it came from (N:M concepts<->documents). Unlocks FS-04 excerpt view, AE-02 citations, C5 verification. Prisma model ConceptSourceRef (avoids clash with concept_source enum).'
+}
+
+// ===================== Referential integrity (all ON DELETE CASCADE) =====================
+
+Ref: study_plans.user_id > users.id [delete: cascade]
+
+Ref: concepts.plan_id > study_plans.id [delete: cascade]
+
+Ref: concept_edges.plan_id > study_plans.id [delete: cascade]
+Ref: concept_edges.from_concept_id > concepts.id [delete: cascade]
+Ref: concept_edges.to_concept_id > concepts.id [delete: cascade]
+
+Ref: question_cache.concept_id > concepts.id [delete: cascade]
+
+Ref: interview_sessions.user_id > users.id [delete: cascade]
+Ref: interview_sessions.plan_id > study_plans.id [delete: cascade]
+
+Ref: interview_turns.session_id > interview_sessions.id [delete: cascade]
+Ref: interview_turns.concept_id > concepts.id [delete: cascade]
+
+Ref: focus_sessions.user_id > users.id [delete: cascade]
+Ref: focus_sessions.plan_id > study_plans.id [delete: cascade]
+
+Ref: review_queue_items.plan_id > study_plans.id [delete: cascade]
+Ref: review_queue_items.concept_id > concepts.id [delete: cascade]
+
+Ref: documents.plan_id > study_plans.id [delete: cascade]
+Ref: concept_sources.concept_id > concepts.id [delete: cascade]
+Ref: concept_sources.document_id > documents.id [delete: cascade]
+
+// Soft references (documented, NOT enforced by FK — do not add as Ref):
+//   analysis_jobs.plan_draft_id      ~ study_plans.id
+//   review_queue_items.source_concept_id ~ concepts.id
+//   review_queue_items.source_session_id ~ interview_sessions.id

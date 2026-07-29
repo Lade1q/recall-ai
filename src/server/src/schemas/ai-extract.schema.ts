@@ -4,6 +4,12 @@ export const conceptExtractSchema = z.object({
   name: z.string().min(1).max(255),
   difficulty: z.number().int().min(1).max(5).catch(1),
   description: z.string().max(2000).optional(),
+  // Source anchor (concept_sources): where in the material this concept was found.
+  // Best-effort and independent — a bad/absent value degrades to null (`.catch`) so it
+  // never fails the whole extraction. `source_page` is null for non-paginated input
+  // (plain text/images); `source_excerpt` is the verbatim passage used to ground it (C5).
+  source_page: z.number().int().min(1).nullish().catch(null),
+  source_excerpt: z.string().min(1).max(2000).nullish().catch(null),
 });
 
 export const edgeExtractSchema = z.object({

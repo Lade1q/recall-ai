@@ -1,16 +1,23 @@
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { CreatePlanInput } from '../schemas/plan.schema';
-import { CreatePlanResponse, PlanItemResponse, PlanDetailResponse } from '../types/plan.types';
+import {
+  CreatePlanResponse,
+  PlanItemResponse,
+  PlanDetailResponse,
+  DocumentMeta,
+} from '../types/plan.types';
 
 /**
- * Creates a new StudyPlan (draft status) and associated AnalysisJob (pending status) atomically.
+ * Creates a new StudyPlan (draft), its source Document, and the pending AnalysisJob
+ * atomically. The Document is the durable home for the uploaded file (it outlives the
+ * transient AnalysisJob); concept_sources are anchored to it later during analysis.
  */
 export async function createPlanInDb(
   userId: string,
   planId: string,
   input: CreatePlanInput,
-  fileKey: string
+  document: DocumentMeta
 ): Promise<CreatePlanResponse> {
   const deadlineDate = new Date(input.deadline);
 
@@ -25,10 +32,21 @@ export async function createPlanInDb(
       },
     });
 
+    await tx.document.create({
+      data: {
+        planId: plan.id,
+        filename: document.filename,
+        fileKey: document.fileKey,
+        kind: document.kind,
+        pageCount: document.pageCount,
+        byteSize: document.byteSize,
+      },
+    });
+
     await tx.analysisJob.create({
       data: {
         planDraftId: plan.id,
-        fileKey,
+        fileKey: document.fileKey,
         status: 'pending',
       },
     });

@@ -4,6 +4,8 @@ import prisma from '../config/prisma';
 import { extractConcepts, uploadFile } from './gemini.service';
 import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
 import { validateAndFixDag } from '../utils/dag';
+import { buildConceptSourceRows } from '../utils/concept-source';
+import { validateDAG } from './graph.service';
 import { AiExtractResponse } from '../schemas/ai-extract.schema';
 
 const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
@@ -80,7 +82,11 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
 
   try {
     const extracted = await callAiWithRetry(job.fileKey);
-    const { edges, autoFixed } = validateAndFixDag(extracted.concepts, extracted.edges);
+    // Concepts aren't persisted yet, so the graph is keyed by concept name here.
+    const { edges, autoFixed } = validateAndFixDag(
+      extracted.concepts.map((c) => c.name),
+      extracted.edges
+    );
 
     await prisma.$transaction(async (tx) => {
       // Concept names are assumed unique within one extraction — edges below are wired by name.
@@ -100,6 +106,21 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
         await tx.conceptEdge.create({ data: { planId, fromConceptId: fromId, toConceptId: toId } });
       }
 
+      // Anchor each concept to the passage it came from (concept_sources). One document per
+      // plan in the SP-01 flow. Page/excerpt are best-effort from the AI — a concept with
+      // neither is simply not anchored. All routing is deterministic; the AI only extracts (C4).
+      const document = await tx.document.findFirst({
+        where: { planId },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      if (document) {
+        const anchors = buildConceptSourceRows(extracted.concepts, conceptIdByName, document.id);
+        if (anchors.length > 0) {
+          await tx.conceptSourceRef.createMany({ data: anchors });
+        }
+      }
+
       await tx.studyPlan.update({
         where: { id: planId },
         data: { status: 'active', dagAutoFixed: autoFixed },
@@ -112,7 +133,13 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
   } catch (error) {
     console.error(`[analysis] job ${jobId} failed:`, error);
     await markFailed(jobId);
+    return;
   }
+
+  // The check above ran on concept names; if the AI returned two concepts sharing a
+  // name, the edges actually persisted can differ from the set that was validated.
+  // Re-check what landed in the DB, by concept id, and repair it if needed (I3.3).
+  await validateDAG(planId);
 }
 
 /** Looks up the pending job created alongside a plan and runs it. */

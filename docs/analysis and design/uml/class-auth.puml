@@ -1,0 +1,64 @@
+@startuml RecallAI-Class-Auth
+!pragma layout smetana
+' SAD §4.x — Class Diagram: Authentication component (back end). Issue #85 / I5.2.
+' Extracted from src/server/src/{controllers,services,middleware,utils}.
+skinparam shadowing false
+skinparam roundcorner 5
+skinparam linetype ortho
+skinparam classBackgroundColor #FDFDFF
+skinparam classBorderColor #6A6AC0
+title Recall AI — Class Diagram: Authentication Component (back end)
+
+class AuthController <<module>> {
+  +{static} registerController(req, res) : void
+  +{static} loginController(req, res) : void
+  +{static} refreshController(req, res) : void
+  +{static} getMeController(req, res) : void
+}
+class AuthService <<service>> {
+  -{static} SALT_ROUNDS : number
+  +{static} register(data) : AuthResponse
+  +{static} login(data) : AuthResponse
+  +{static} refresh(data) : RefreshResponse
+  +{static} getMe(userId) : UserResponse
+}
+class AuthMiddleware <<module>> {
+  +{static} authMiddleware(req, res, next) : void
+}
+class JwtUtil <<util>> {
+  +{static} generateAccessToken(payload) : string
+  +{static} generateRefreshToken(payload) : string
+  +{static} verifyToken(token, secret) : JwtPayload
+}
+interface JwtPayload {
+  +userId : string
+  +email : string
+}
+class AppError {
+  +message : string
+  +statusCode : number
+  +code? : string
+  +constructor(message, statusCode, code?)
+}
+class PrismaClient <<external>> {
+  +user
+  +$transaction()
+}
+interface AuthResponse
+interface RefreshResponse
+interface UserResponse
+
+Error <|-- AppError
+AuthController ..> AuthService : delegates
+AuthController ..> AppError
+AuthService ..> PrismaClient : user.*
+AuthService ..> JwtUtil
+AuthService ..> AppError
+AuthService ..> AuthResponse
+AuthService ..> RefreshResponse
+AuthService ..> UserResponse
+AuthMiddleware ..> JwtUtil
+AuthMiddleware ..> AppError
+JwtUtil ..> JwtPayload
+JwtUtil ..> AppError
+@enduml

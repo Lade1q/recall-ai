@@ -13,6 +13,11 @@ export default [
   ...tseslint.configs.recommended,
   // Tắt ESLint format rules để tránh conflict với Prettier
   prettier,
+  // Config files ở root của server chạy dưới CommonJS (module, require)
+  {
+    files: ['*.config.js'],
+    languageOptions: { sourceType: 'commonjs' },
+  },
   // Custom rules áp dụng riêng cho .ts files
   {
     files: ['src/**/*.ts'],

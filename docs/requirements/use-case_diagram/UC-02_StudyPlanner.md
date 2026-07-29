@@ -2,7 +2,7 @@
 
 > **Module:** AI Study Planner
 > **Sprint:** 3
-> **DB liên quan:** `study_plans`, `concepts`, `concept_edges`
+> **DB liên quan:** `study_plans`, `concepts`, `concept_edges`, `analysis_jobs`
 > **AI calls:** `extract_concepts` (JSON schema cố định)
 
 ---
@@ -62,7 +62,11 @@
   3. Hiển thị cảnh báo cho Student: "Một số quan hệ tiên quyết đã được điều chỉnh do phát hiện chu trình"
 - **[E3] File quá lớn / định dạng không hỗ trợ:** Từ chối upload, hiển thị giới hạn và định dạng hợp lệ
 - **[E4] AI Service timeout / lỗi quota:** Hiển thị thông báo lỗi rõ, cung cấp nút "Thử lại"
-- **[E5] Student rời trang giữa chừng (trước bước 8):** Không lưu bất kỳ dữ liệu nào vào DB (toàn bộ là transient state)
+- **[E5] Student rời trang giữa chừng (trước bước 8):** Bản nháp **đã được ghi vào DB** từ trước, không phải transient state:
+  1. Ngay tại bước 4, hệ thống upload tài liệu lên Storage Service rồi ghi `study_plans` (`status = draft`) + `analysis_jobs` (`status = pending`, giữ `file_key` trỏ tới file đã upload) trong cùng một transaction, **trước khi** gọi AI Service
+  2. Việc lưu bản nháp trước là điều kiện bắt buộc để phân tích chạy nền và Student polling tiến độ (SP-06); `concepts` / `concept_edges` chỉ được ghi khi job phân tích hoàn tất, và khi đó plan mới chuyển `draft → active`
+  3. Nếu Student hủy hoặc rời trang trước bước 8: hệ thống dọn dẹp bản nháp — xóa bản ghi `study_plans` (kèm `concepts` / `concept_edges` theo cascade), `analysis_jobs` tương ứng và file trong Storage Service
+  4. Nếu bước tạo bản nháp thất bại (validate lỗi, DB lỗi): hệ thống tự xóa file staging và file đã upload, không để lại file mồ côi
 
 ---
 

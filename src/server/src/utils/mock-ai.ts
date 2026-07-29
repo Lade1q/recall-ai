@@ -4,11 +4,16 @@ import { AiExtractResponse } from '../schemas/ai-extract.schema';
 // USE_MOCK_AI=true, so frontend/backend dev and demos don't consume Gemini quota.
 export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
   concepts: [
-    { name: 'Variable', difficulty: 1, description: 'Basic variables and data types' },
-    { name: 'Loop', difficulty: 2, description: 'for/while loops' },
-    { name: 'Array', difficulty: 2, description: 'Arrays and indexing' },
-    { name: 'Recursion', difficulty: 4, description: 'Functions that call themselves' },
-    { name: 'Sorting', difficulty: 3, description: 'Sorting algorithms' },
+    // prettier-ignore
+    { name: 'Variable', difficulty: 1, description: 'Basic variables and data types', source_page: 1, source_excerpt: 'A variable is a named location in memory that holds a value of a given type.' },
+    // prettier-ignore
+    { name: 'Loop', difficulty: 2, description: 'for/while loops', source_page: 3, source_excerpt: 'A loop repeatedly executes a block of statements while a condition holds.' },
+    // prettier-ignore
+    { name: 'Array', difficulty: 2, description: 'Arrays and indexing', source_page: 5, source_excerpt: 'An array stores a fixed-size sequence of elements accessed by a zero-based index.' },
+    // prettier-ignore
+    { name: 'Recursion', difficulty: 4, description: 'Functions that call themselves', source_page: 9, source_excerpt: 'A recursive function solves a problem by calling itself on a smaller subproblem.' },
+    // prettier-ignore
+    { name: 'Sorting', difficulty: 3, description: 'Sorting algorithms', source_page: 7, source_excerpt: 'Sorting arranges the elements of a collection into a defined order.' },
   ],
   edges: [
     { from: 'Variable', to: 'Loop' },
