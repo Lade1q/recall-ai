@@ -13,6 +13,7 @@ import {
   User,
   Plus,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -75,6 +76,12 @@ export function MainLayout() {
         : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
     ].join(' ');
 
+  // Nút đổi dark mode được style như một hàng sidebar (full-width, canh trái) để
+  // đứng cặp với link "Sign Out" ngay dưới — không phải icon-button. Dùng
+  // <Button variant="ghost"> theo đúng idiom shadcn cho sidebar item.
+  const sidebarRowClass =
+    'h-auto w-full cursor-pointer justify-start gap-3 px-3.5 py-2.5 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground';
+
   return (
     <div className="bg-background text-foreground flex min-h-screen transition-colors duration-200">
       {/* ========== DESKTOP SIDEBAR ========== */}
@@ -96,13 +103,14 @@ export function MainLayout() {
 
         {/* Sidebar footer: dark mode + sign out */}
         <div className="border-sidebar-border space-y-1.5 border-t p-4">
-          <button
+          <Button
+            variant="ghost"
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all"
+            className={sidebarRowClass}
           >
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-          </button>
+          </Button>
 
           <Link
             to="/login"
@@ -128,12 +136,14 @@ export function MainLayout() {
               <span className="text-sidebar-primary text-lg font-bold tracking-tight">
                 Recall AI
               </span>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1"
+                className="text-sidebar-foreground hover:bg-sidebar-accent"
               >
-                <X className="h-5 w-5" />
-              </button>
+                <X className="size-5" />
+              </Button>
             </div>
 
             <nav className="flex-1 space-y-1.5 px-4 py-6">
@@ -151,13 +161,14 @@ export function MainLayout() {
             </nav>
 
             <div className="border-sidebar-border space-y-1.5 border-t p-4">
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => setIsDarkMode(!isDarkMode)}
-                className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex w-full cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all"
+                className={sidebarRowClass}
               >
                 {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
-              </button>
+              </Button>
               <Link
                 to="/login"
                 className="text-destructive hover:bg-destructive/10 flex cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all"
@@ -176,12 +187,14 @@ export function MainLayout() {
         <header className="border-border bg-card sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 md:px-8">
           <div className="flex items-center gap-4">
             {/* Hamburger cho mobile */}
-            <button
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground -ml-2 cursor-pointer rounded-md p-2 lg:hidden"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground -ml-2 lg:hidden"
             >
-              <Menu className="h-5 w-5" />
-            </button>
+              <Menu className="size-5" />
+            </Button>
             <h2 className="text-foreground text-lg font-semibold tracking-tight">
               {getPageTitle()}
             </h2>

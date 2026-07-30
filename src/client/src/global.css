@@ -2,24 +2,35 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource/noto-serif/400.css";
+@import "@fontsource/noto-serif/500.css";
+@import "@fontsource/noto-serif/600.css";
+@import "@fontsource/noto-serif/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
 /*
-   TAILWIND v4 THEME — Recall AI Design System v2
-   
-   Based on shadcn preset bPJV3d2hv
-   Extended with Recall AI-specific tokens for:
-   - Mastery levels (concept graph coloring)
-   - Remediate state (agentic schedule adjustment)
-   - Focus session (Pomodoro timer)
-   - AI Examiner (interview/chat)
+   TAILWIND v4 THEME — Recall AI Design System v3
+   "Warm Editorial Minimalism"
+
+   Warm monochrome canvas (never pure black/white) + a single scarce
+   accent per meaning. Replaces the v2 saturated Indigo/Slate SaaS
+   palette. Same semantic tokens as v2 (mastery-*, remediate,
+   focus-session) so component code barely changes — only the
+   underlying oklch values move from vivid to muted.
+
+   Hard constraints carried over unchanged, see design-system.md §1:
+   - Dark mode is the primary target (students study at night).
+   - Focus Session screen: animation = 0. Never override this.
+   - Mastery color is never the only signal — pair with icon/label.
  */
 
 @theme inline {
   /* --- Font --- */
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: 'Geist Variable', 'Helvetica Neue', sans-serif;
+  --font-heading: 'Noto Serif', 'Newsreader', serif;
+  --font-mono: 'Geist Mono Variable', 'SF Mono', monospace;
 
   /* --- Sidebar --- */
   --color-sidebar-ring: var(--sidebar-ring);
@@ -56,20 +67,21 @@
   --color-foreground: var(--foreground);
   --color-background: var(--background);
 
-  /* --- Radius --- */
-  --radius-sm: calc(var(--radius) * 0.6);
+  /* --- Radius — crisp, never pill-shaped for large containers --- */
+  --radius-sm: calc(var(--radius) * 0.55);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.35);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.1);
+  --radius-4xl: calc(var(--radius) * 2.5);
 
   /*
     Recall AI — Custom Color Token Aliases
-    Enables Tailwind utilities: bg-mastery-strong,
-    text-remediate, border-focus, etc.
+    Enables Tailwind utilities: bg-mastery-strong, text-ai-accent, etc.
   */
+  --color-ai-accent: var(--ai-accent);
+  --color-ai-accent-fg: var(--ai-accent-fg);
   --color-mastery-strong: var(--mastery-strong);
   --color-mastery-strong-fg: var(--mastery-strong-fg);
   --color-mastery-learning: var(--mastery-learning);
@@ -86,141 +98,164 @@
 
 /*
   LIGHT MODE
-  Palette: Cool Indigo/Slate — "AI nghiêm túc"
-  Primary: Indigo-600 — AI, Intelligence, Trust
-  Accent: Violet — AI Examiner, Quiz mode
+  Canvas: warm bone/off-white, never pure white.
+  Ink: warm charcoal, never pure black.
+  Primary CTA is ink-solid, not a saturated brand color — color is
+  spent only on the five semantic accents below (AI, mastery x3,
+  remediate), each a muted/desaturated tone, never vivid.
 */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.148 0.004 228.8);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.148 0.004 228.8);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.148 0.004 228.8);
-  --primary: oklch(0.5 0.134 242.749);
-  --primary-foreground: oklch(0.977 0.013 236.62);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.963 0.002 197.1);
-  --muted-foreground: oklch(0.56 0.021 213.5);
-  --accent: oklch(0.963 0.002 197.1);
-  --accent-foreground: oklch(0.218 0.008 223.9);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.925 0.005 214.3);
-  --input: oklch(0.925 0.005 214.3);
-  --ring: oklch(0.723 0.014 214.4);
-  --chart-1: oklch(0.828 0.111 230.318);
-  --chart-2: oklch(0.685 0.169 237.323);
-  --chart-3: oklch(0.588 0.158 241.966);
-  --chart-4: oklch(0.5 0.134 242.749);
-  --chart-5: oklch(0.443 0.11 240.79);
-  --radius: 0.875rem;
-  --sidebar: oklch(0.987 0.002 197.1);
-  --sidebar-foreground: oklch(0.148 0.004 228.8);
-  --sidebar-primary: oklch(0.588 0.158 241.966);
-  --sidebar-primary-foreground: oklch(0.977 0.013 236.62);
-  --sidebar-accent: oklch(0.963 0.002 197.1);
-  --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
-  --sidebar-border: oklch(0.925 0.005 214.3);
-  --sidebar-ring: oklch(0.723 0.014 214.4);
+  --background: oklch(0.984 0.004 262);
+  --foreground: oklch(0.24 0.008 262);
+  --card: oklch(0.995 0.002 262);
+  --card-foreground: oklch(0.24 0.008 262);
+  --popover: oklch(0.995 0.002 262);
+  --popover-foreground: oklch(0.24 0.008 262);
+  --primary: oklch(0.5 0.16 262);
+  --primary-foreground: oklch(0.985 0.012 262);
+  --secondary: oklch(0.95 0.006 262);
+  --secondary-foreground: oklch(0.24 0.008 262);
+  --muted: oklch(0.955 0.006 262);
+  --muted-foreground: oklch(0.55 0.012 262);
+  --accent: oklch(0.95 0.006 262);
+  --accent-foreground: oklch(0.24 0.008 262);
+  --destructive: oklch(0.5 0.15 25);
+  --border: oklch(0.9 0.005 262);
+  --input: oklch(0.9 0.005 262);
+  --ring: oklch(0.5 0.16 262);
+  --chart-1: oklch(0.5 0.09 235);
+  --chart-2: oklch(0.5 0.08 155);
+  --chart-3: oklch(0.5 0.15 25);
+  --chart-4: oklch(0.55 0.11 85);
+  --chart-5: oklch(0.55 0.012 262);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.97 0.005 262);
+  --sidebar-foreground: oklch(0.24 0.008 262);
+  --sidebar-primary: oklch(0.5 0.16 262);
+  --sidebar-primary-foreground: oklch(0.985 0.012 262);
+  --sidebar-accent: oklch(0.95 0.006 262);
+  --sidebar-accent-foreground: oklch(0.24 0.008 262);
+  --sidebar-border: oklch(0.9 0.005 262);
+  --sidebar-ring: oklch(0.5 0.16 262);
+
+  /* Ultra-diffuse shadow — cards are defined by a 1px border, this is
+     hover-lift only, opacity kept under 0.05 per the minimalist protocol. */
+  --shadow-soft: 0 2px 8px oklch(0 0 0 / 0.04);
 
   /*
     RECALL AI — Custom Tokens (Light)
-    Không có trong shadcn mặc định
+    Muted pastel palette. Each token is a saturated-but-muted color
+    used directly for border/icon/text; components derive a pale tint
+    background via `oklch(from var(--token) l c h / 0.12)` — same
+    mechanism as v2, only the source values changed.
   */
 
-  /* FOCUS SESSION: Amber — Pomodoro đang chạy */
-  --focus-session: oklch(0.769 0.171 70.1);
-  --focus-session-foreground: oklch(1 0 0);
+  /* AI ACCENT: muted blue — Examiner, "Đang vấn đáp", AI Study Planner badges.
+     Was --accent (violet/indigo) in v2; split into its own token so the
+     generic shadcn --accent stays a neutral hover surface. */
+  --ai-accent: oklch(0.5 0.1 235);
+  --ai-accent-fg: oklch(0.99 0.002 262);
 
-  /* MASTERY: Emerald — Khái niệm đã vững (mastery_score ≥ 0.8) */
-  --mastery-strong: oklch(0.596 0.145 163.2);
-  --mastery-strong-fg: oklch(1 0 0);
+  /* FOCUS SESSION: muted amber — Pomodoro đang chạy */
+  --focus-session: oklch(0.55 0.11 85);
+  --focus-session-foreground: oklch(0.99 0.002 262);
 
-  /* MASTERY: Amber — Đang học (0.6 ≤ score < 0.8) */
-  --mastery-learning: oklch(0.769 0.171 70.1);
-  --mastery-learning-fg: oklch(1 0 0);
+  /* MASTERY: muted green — Khái niệm đã vững (mastery_score ≥ 0.8) */
+  --mastery-strong: oklch(0.5 0.08 155);
+  --mastery-strong-fg: oklch(0.99 0.002 262);
 
-  /* MASTERY: Rose — Yếu/Sai (mastery_score < 0.6) */
-  --mastery-weak: oklch(0.547 0.245 16.4);
-  --mastery-weak-fg: oklch(1 0 0);
+  /* MASTERY: muted amber — Đang học (0.6 ≤ score < 0.8) */
+  --mastery-learning: oklch(0.5 0.1 85);
+  --mastery-learning-fg: oklch(0.99 0.002 262);
 
-  /* MASTERY: Cool Gray — Chưa kiểm tra (untested) */
-  --mastery-untested: oklch(0.852 0.009 264);
-  --mastery-untested-fg: oklch(0.37 0.013 264);
+  /* MASTERY: muted red — Yếu/Sai (mastery_score < 0.6) */
+  --mastery-weak: oklch(0.5 0.15 25);
+  --mastery-weak-fg: oklch(0.99 0.002 262);
 
-  /* REMEDIATE: Orange — Hệ thống tự chèn prerequisite */
-  --remediate: oklch(0.702 0.183 52.5);
-  --remediate-foreground: oklch(1 0 0);
+  /* MASTERY: warm gray — Chưa kiểm tra (untested) */
+  --mastery-untested: oklch(0.75 0.008 262);
+  --mastery-untested-fg: oklch(0.4 0.01 262);
+
+  /* REMEDIATE: muted orange — Hệ thống tự chèn prerequisite vào lịch */
+  --remediate: oklch(0.55 0.13 55);
+  --remediate-foreground: oklch(0.99 0.002 262);
 
   /* ANIMATION TOKENS */
   --duration-fast: 150ms;
   --duration-normal: 250ms;
   --duration-slow: 400ms;
+  --duration-reveal: 600ms;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /*
-  DARK MODE 
-  Dark-first orientation — sinh viên học đêm
-  Background: Deep navy (không pure black)
-  Colors sáng hơn light mode để đảm bảo contrast
+  DARK MODE — primary target, not an afterthought.
+  Warm dark charcoal (never cold navy, never pure black). Ink/paper
+  invert: primary becomes a warm off-white solid on dark charcoal text.
+  Semantic accents brighten (higher L, slightly more C) to stay legible
+  against the dark canvas, same hue as light mode for consistency.
 */
 .dark {
-  --background: oklch(0.148 0.004 228.8);
-  --foreground: oklch(0.987 0.002 197.1);
-  --card: oklch(0.218 0.008 223.9);
-  --card-foreground: oklch(0.987 0.002 197.1);
-  --popover: oklch(0.218 0.008 223.9);
-  --popover-foreground: oklch(0.987 0.002 197.1);
-  --primary: oklch(0.443 0.11 240.79);
-  --primary-foreground: oklch(0.977 0.013 236.62);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.275 0.011 216.9);
-  --muted-foreground: oklch(0.723 0.014 214.4);
-  --accent: oklch(0.275 0.011 216.9);
-  --accent-foreground: oklch(0.987 0.002 197.1);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.56 0.021 213.5);
-  --chart-1: oklch(0.828 0.111 230.318);
-  --chart-2: oklch(0.685 0.169 237.323);
-  --chart-3: oklch(0.588 0.158 241.966);
-  --chart-4: oklch(0.5 0.134 242.749);
-  --chart-5: oklch(0.443 0.11 240.79);
-  --sidebar: oklch(0.218 0.008 223.9);
-  --sidebar-foreground: oklch(0.987 0.002 197.1);
-  --sidebar-primary: oklch(0.685 0.169 237.323);
-  --sidebar-primary-foreground: oklch(0.293 0.066 243.157);
-  --sidebar-accent: oklch(0.275 0.011 216.9);
-  --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.56 0.021 213.5);
+  --background: oklch(0.17 0.006 262);
+  --foreground: oklch(0.93 0.005 262);
+  --card: oklch(0.21 0.007 262);
+  --card-foreground: oklch(0.93 0.005 262);
+  --popover: oklch(0.21 0.007 262);
+  --popover-foreground: oklch(0.93 0.005 262);
+  --primary: oklch(0.62 0.17 262);
+  --primary-foreground: oklch(0.98 0.012 262);
+  --secondary: oklch(0.27 0.008 262);
+  --secondary-foreground: oklch(0.93 0.005 262);
+  --muted: oklch(0.25 0.008 262);
+  --muted-foreground: oklch(0.68 0.012 262);
+  --accent: oklch(0.27 0.008 262);
+  --accent-foreground: oklch(0.93 0.005 262);
+  --destructive: oklch(0.68 0.16 25);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.17 262);
+  --chart-1: oklch(0.72 0.1 235);
+  --chart-2: oklch(0.72 0.09 155);
+  --chart-3: oklch(0.68 0.16 25);
+  --chart-4: oklch(0.75 0.12 85);
+  --chart-5: oklch(0.68 0.012 262);
+  --sidebar: oklch(0.19 0.007 262);
+  --sidebar-foreground: oklch(0.93 0.005 262);
+  --sidebar-primary: oklch(0.62 0.17 262);
+  --sidebar-primary-foreground: oklch(0.98 0.012 262);
+  --sidebar-accent: oklch(0.27 0.008 262);
+  --sidebar-accent-foreground: oklch(0.93 0.005 262);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.62 0.17 262);
+
+  --shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22);
 
   /*
-    RECALL AI — Custom Tokens (Dark adjusted)
+    RECALL AI — Custom Tokens (Dark, brightened for legibility)
   */
-  --focus-session: oklch(0.82 0.16 70.1);
-  --focus-session-foreground: oklch(0.148 0.004 228.8);
+  --ai-accent: oklch(0.72 0.1 235);
+  --ai-accent-fg: oklch(0.17 0.006 262);
 
-  --mastery-strong: oklch(0.696 0.17 163.2);
-  --mastery-strong-fg: oklch(0.148 0.004 228.8);
+  --focus-session: oklch(0.75 0.12 85);
+  --focus-session-foreground: oklch(0.17 0.006 262);
 
-  --mastery-learning: oklch(0.82 0.16 70.1);
-  --mastery-learning-fg: oklch(0.148 0.004 228.8);
+  --mastery-strong: oklch(0.72 0.1 155);
+  --mastery-strong-fg: oklch(0.17 0.006 262);
 
-  --mastery-weak: oklch(0.625 0.22 16.4);
-  --mastery-weak-fg: oklch(0.148 0.004 228.8);
+  --mastery-learning: oklch(0.75 0.12 85);
+  --mastery-learning-fg: oklch(0.17 0.006 262);
 
-  --mastery-untested: oklch(0.37 0.013 264);
-  --mastery-untested-fg: oklch(0.7 0.015 264);
+  --mastery-weak: oklch(0.68 0.16 25);
+  --mastery-weak-fg: oklch(0.17 0.006 262);
 
-  --remediate: oklch(0.75 0.17 52.5);
-  --remediate-foreground: oklch(0.148 0.004 228.8);
+  --mastery-untested: oklch(0.4 0.01 262);
+  --mastery-untested-fg: oklch(0.68 0.012 262);
+
+  --remediate: oklch(0.72 0.13 55);
+  --remediate-foreground: oklch(0.17 0.006 262);
 }
 
 /* Base Layer */
@@ -231,145 +266,205 @@
 
   body {
     @apply bg-background text-foreground;
+    line-height: 1.6;
   }
 
   html {
     @apply font-sans;
   }
+
+  /* Editorial serif for hero/major headings only — tight tracking,
+     tight leading, per the minimalist-editorial protocol. Apply via
+     `font-heading` utility, not globally on h1-h6, since dense UI
+     labels (nav, buttons, table headers) stay sans. */
+  .font-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+}
+
+/*
+  SCROLL-REVEAL — quiet, invisible motion. Elements start hidden and
+  settle into place once observed; never on FocusSession (see below).
+  Wire with IntersectionObserver, never a scroll listener:
+
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => e.isIntersecting && e.target.classList.add('is-visible'));
+    }, { threshold: 0.15 });
+    document.querySelectorAll('.reveal-on-scroll').forEach((el) => io.observe(el));
+*/
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity var(--duration-reveal) var(--ease-reveal),
+    transform var(--duration-reveal) var(--ease-reveal);
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-stagger > * {
+  transition-delay: calc(var(--index, 0) * 80ms);
+}
+
+/*
+  FOCUS SESSION — HARD CONSTRAINT: animation = 0.
+  Nothing may animate on this screen while a Pomodoro is running —
+  no reveal-on-scroll, no hover lift, no pulse. Apply this class to
+  the screen root; it disables every motion utility beneath it.
+*/
+.focus-session-active,
+.focus-session-active * {
+  animation: none !important;
+  transition: none !important;
 }
 
 /*
   CONCEPT GRAPH — react-flow Node Styling
-  Thành phần UI độc đáo nhất của Recall AI.
-  Nodes được tô màu theo mastery_score của concept.
+  Flat 1px-border cards, not filled/glowing shapes. Background is a
+  low-opacity tint of the semantic token; hover lift uses the shared
+  ultra-diffuse shadow, never a brightness filter.
 */
 
-/* Base node */
 .concept-node {
   padding: 10px 16px;
-  border-radius: var(--radius);
-  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   font-size: 13px;
   font-weight: 500;
   font-family: var(--font-sans);
   min-width: 120px;
   text-align: center;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-standard);
+  box-shadow: none;
+  transition:
+    box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
 }
 
 .concept-node:hover {
-  filter: brightness(1.05);
-  box-shadow: 0 2px 8px oklch(0 0 0 / 0.1);
+  box-shadow: var(--shadow-soft);
 }
 
 /* Mastered: mastery_score ≥ 0.8 */
 .concept-node--strong {
-  background: oklch(from var(--mastery-strong) l c h / 0.15);
-  border-color: var(--mastery-strong);
+  background: oklch(from var(--mastery-strong) l c h / 0.1);
+  border-color: oklch(from var(--mastery-strong) l c h / 0.4);
   color: var(--mastery-strong);
-}
-
-.dark .concept-node--strong {
-  background: oklch(from var(--mastery-strong) l c h / 0.2);
 }
 
 /* Learning: 0.6 ≤ score < 0.8 */
 .concept-node--learning {
-  background: oklch(from var(--mastery-learning) l c h / 0.15);
-  border-color: var(--mastery-learning);
-  color: oklch(0.45 0.1 70);
-  /* Dark amber text cho light mode readability */
-}
-
-.dark .concept-node--learning {
+  background: oklch(from var(--mastery-learning) l c h / 0.1);
+  border-color: oklch(from var(--mastery-learning) l c h / 0.4);
   color: var(--mastery-learning);
-  background: oklch(from var(--mastery-learning) l c h / 0.15);
 }
 
 /* Weak: score < 0.6 */
 .concept-node--weak {
-  background: oklch(from var(--mastery-weak) l c h / 0.12);
-  border-color: var(--mastery-weak);
+  background: oklch(from var(--mastery-weak) l c h / 0.1);
+  border-color: oklch(from var(--mastery-weak) l c h / 0.4);
   color: var(--mastery-weak);
 }
 
 /* Untested: chưa qua interview */
+/* Nền dùng --card chứ không phải --muted: canvas đồ thị chính là --muted,
+   nếu node cũng --muted thì node "chưa kiểm tra" biến mất hẳn khỏi nền. */
 .concept-node--untested {
-  background: oklch(from var(--mastery-untested) l c h / 0.3);
+  background: var(--card);
   border-color: var(--mastery-untested);
   color: var(--muted-foreground);
   border-style: dashed;
 }
 
-/* Currently being reviewed (Remediate) — pulsing orange */
+/* Currently being reviewed (Remediate) — quiet pulse, not a glow.
+   Disabled entirely inside .focus-session-active and under
+   prefers-reduced-motion (see below). */
 .concept-node--remediating {
-  background: oklch(from var(--remediate) l c h / 0.15);
+  background: oklch(from var(--remediate) l c h / 0.1);
   border-color: var(--remediate);
   color: var(--remediate);
-  animation: pulse-remediate 1.5s var(--ease-standard) infinite;
+  animation: pulse-remediate 2s var(--ease-standard) infinite;
 }
 
 @keyframes pulse-remediate {
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 oklch(from var(--remediate) l c h / 0.4);
+    box-shadow: 0 0 0 0 oklch(from var(--remediate) l c h / 0.25);
   }
 
   50% {
-    box-shadow: 0 0 0 6px oklch(from var(--remediate) l c h / 0);
+    box-shadow: 0 0 0 5px oklch(from var(--remediate) l c h / 0);
   }
 }
 
 /* react-flow edge (prerequisite arrow) */
 .react-flow__edge-path {
   stroke: var(--border);
-  stroke-width: 2;
+  stroke-width: 1.5;
 }
 
 .react-flow__edge--prerequisite-weak .react-flow__edge-path {
   stroke: var(--mastery-weak);
-  stroke-dasharray: 5 3;
+  stroke-dasharray: 4 3;
 }
 
 /*
   AI EXAMINER — Chat Bubble Styling
-  AI Examiner dùng violet accent (left-aligned)
-  User dùng primary indigo (right-aligned)
+  Flat, bordered, no fill glow. AI uses the ai-accent token
+  (left-aligned); Student uses a neutral surface (right-aligned) —
+  color is reserved for the AI side, per "color as scarce resource".
 */
 
-/* AI bubble — violet accent left-aligned */
 .chat-bubble-ai {
-  background: oklch(from var(--accent) l c h / 0.1);
-  border: 1px solid oklch(from var(--accent) l c h / 0.3);
-  border-radius: var(--radius) var(--radius) var(--radius) 2px;
+  background: oklch(from var(--ai-accent) l c h / 0.08);
+  border: 1px solid oklch(from var(--ai-accent) l c h / 0.3);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 2px;
   color: var(--foreground);
 }
 
-/* User bubble — primary right-aligned */
 .chat-bubble-user {
-  background: oklch(from var(--primary) l c h / 0.1);
-  border: 1px solid oklch(from var(--primary) l c h / 0.3);
-  border-radius: var(--radius) var(--radius) 2px var(--radius);
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 2px var(--radius-lg);
   color: var(--foreground);
 }
 
 /*
-  ACCESSIBILITY — prefers-reduced-motion 
-  Tắt tất cả animation khi user yêu cầu
-  Đặc biệt: pulse-remediate, graph transitions
+  KEYSTROKE / METADATA — monospace, per the editorial protocol.
+  Use for mastery_score readouts, timer digits, shortcut hints.
+*/
+kbd,
+.meta-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  padding: 0.1em 0.4em;
+}
+
+/*
+  ACCESSIBILITY — prefers-reduced-motion
+  Tắt tất cả animation khi user yêu cầu, bao gồm reveal-on-scroll.
 */
 @media (prefers-reduced-motion: reduce) {
-  .concept-node--remediating {
-    animation: none;
-  }
 
-  .concept-node {
-    transition: none;
-  }
-
+  .concept-node--remediating,
+  .reveal-on-scroll,
+  .concept-node,
   .react-flow__node {
+    animation: none !important;
     transition: none !important;
+  }
+
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
   }
 }

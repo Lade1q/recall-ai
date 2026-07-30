@@ -51,11 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  // Lắng nghe sự kiện logout toàn cục (ví dụ từ apiClient khi refresh token thất bại)
+  useEffect(() => {
+    const handleLogout = () => {
+      logout();
+    };
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
+  }, [logout]);
+
   const register = useCallback(async (email: string, password: string, name: string) => {
-    const res = await registerApi({ email, password, name, confirmPassword: password });
-    localStorage.setItem('access_token', res.data.accessToken);
-    localStorage.setItem('refresh_token', res.data.refreshToken);
-    setUser(res.data.user);
+    await registerApi({ email, password, name, confirmPassword: password });
   }, []);
 
   return (
@@ -73,4 +79,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-

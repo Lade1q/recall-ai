@@ -41,12 +41,19 @@
 
 ### Màu sắc node (theo mastery_score)
 
-| Màu     | mastery_score | Ý nghĩa                    |
-| ------- | ------------- | -------------------------- |
-| Xám     | `null`        | Chưa được kiểm tra lần nào |
-| Đỏ      | < 0.4         | Yếu - cần ôn lại ngay      |
-| Cam     | 0.4 – 0.6     | Trung bình - cần củng cố   |
-| Xanh lá | > 0.7         | Vững                       |
+> **Nguồn sự thật:** các token `--mastery-*` trong `src/client/src/global.css` — đây là ngưỡng đang chạy trên client, mọi màn hình thiết kế đều theo nó. Bảng dưới đây đã được đồng bộ với các token đó.
+
+| Màu              | mastery_score       | Ý nghĩa                                             |
+| ---------------- | ------------------- | --------------------------------------------------- |
+| Xám (untested)   | `null`              | Chưa được kiểm tra lần nào                          |
+| Đỏ (weak)        | `< 0.6`             | Yếu - cần ôn lại                                    |
+| Vàng (learning)  | `0.6 ≤ score < 0.8` | Đang học - đã qua ngưỡng truy ngược nhưng chưa vững |
+| Xanh lá (strong) | `≥ 0.8`             | Vững                                                |
+
+> **Lưu ý về các ngưỡng khác trong tài liệu.** Ba dải màu trên (`0.6`, `0.8`) là để phân loại _hiển thị_ node. Chúng khác với hai ngưỡng _quyết định_ dùng nơi khác và không nên bị "sửa cho khớp":
+>
+> - `mastery_score < 0.6` → Concept Graph Engine truy ngược tiên quyết; `≥ 0.6` → xếp ôn giãn cách (SRS). Chính vì vậy biên dưới của dải "Đang học" trùng `0.6` — màu vàng nghĩa là "vừa đủ qua ngưỡng truy ngược".
+> - UC-19 đếm "khái niệm chưa xong" theo `mastery_score < 0.7` khi tính trọng số ưu tiên của hàng đợi nhắc nhở — đây là tiêu chí lập lịch, không phải dải màu.
 
 ### Luồng chính
 

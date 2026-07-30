@@ -8,14 +8,15 @@
 
 ## UC-01: Đăng ký tài khoản
 
-| Trường | Nội dung |
-|---|---|
-| **Actor** | Student |
-| **Mục tiêu** | Tạo tài khoản mới để sử dụng hệ thống |
-| **Điều kiện tiên quyết** | Người dùng chưa có tài khoản |
+| Trường                              | Nội dung                                                  |
+| ----------------------------------- | --------------------------------------------------------- |
+| **Actor**                           | Student                                                   |
+| **Mục tiêu**                        | Tạo tài khoản mới để sử dụng hệ thống                     |
+| **Điều kiện tiên quyết**            | Người dùng chưa có tài khoản                              |
 | **Điều kiện kết thúc (thành công)** | Tài khoản được tạo, người dùng được redirect về Dashboard |
 
 ### Luồng chính
+
 1. Student truy cập trang Đăng ký
 2. Nhập email và mật khẩu (+ xác nhận mật khẩu)
 3. Hệ thống kiểm tra email chưa tồn tại trong DB
@@ -24,13 +25,21 @@
 6. Redirect về Dashboard
 
 ### Luồng thay thế
-- **[A1] Đăng ký bằng Google OAuth:**
+
+- **[A1] Đăng ký bằng Google OAuth — hoãn POST-MVP (đi cùng AM-06):**
+  MVP chỉ đăng ký bằng email + mật khẩu ở luồng chính. Backend hiện chưa có route OAuth nào
+  (`auth.routes.ts` chỉ có `/register`, `/login`, `/refresh`, `/me`) và cột `password_hash` là
+  `NOT NULL`, nên **MVP không tạo tài khoản không mật khẩu**. Khi triển khai Google (POST-MVP):
   1. Student click "Đăng nhập bằng Google"
   2. Google OAuth trả về profile (email, name)
-  3. Hệ thống tạo tài khoản từ Google profile (không có mật khẩu)
+  3. Nếu email đã có tài khoản → liên kết theo email (silent merge, xem UC-Overview §5.6). Nếu chưa
+     có → tạo tài khoản kèm **một mật khẩu ngẫu nhiên** để giữ ràng buộc `password_hash NOT NULL`;
+     Student đặt lại mật khẩu qua AM-05 khi muốn đăng nhập bằng mật khẩu. Cách này giữ nguyên lược
+     đồ hiện tại — không cần cho `password_hash` nhận NULL.
   4. Redirect về Dashboard
 
 ### Luồng ngoại lệ
+
 - **[E1] Email đã tồn tại:** Hệ thống hiển thị lỗi "Email này đã được đăng ký", giữ nguyên form, đề nghị đăng nhập
 - **[E2] Mật khẩu không đạt yêu cầu** (ví dụ: < 8 ký tự): Hiển thị yêu cầu cụ thể, không gửi lên server
 - **[E3] Hai trường mật khẩu không khớp:** Hiển thị lỗi inline, không submit
@@ -40,14 +49,15 @@
 
 ## UC-02: Đăng nhập
 
-| Trường | Nội dung |
-|---|---|
-| **Actor** | Student |
-| **Mục tiêu** | Xác thực danh tính và vào hệ thống |
-| **Điều kiện tiên quyết** | Người dùng đã có tài khoản |
-| **Điều kiện kết thúc (thành công)** | Nhận JWT token, vào Dashboard |
+| Trường                              | Nội dung                           |
+| ----------------------------------- | ---------------------------------- |
+| **Actor**                           | Student                            |
+| **Mục tiêu**                        | Xác thực danh tính và vào hệ thống |
+| **Điều kiện tiên quyết**            | Người dùng đã có tài khoản         |
+| **Điều kiện kết thúc (thành công)** | Nhận JWT token, vào Dashboard      |
 
 ### Luồng chính
+
 1. Student nhập email + mật khẩu
 2. Hệ thống so khớp email trong DB
 3. Hệ thống verify mật khẩu với bcrypt hash
@@ -55,9 +65,13 @@
 5. Redirect về Dashboard (hoặc trang đang truy cập trước đó)
 
 ### Luồng thay thế
-- **[A1] Đăng nhập bằng Google OAuth:** Tương tự UC-01[A1], nếu email đã tồn tại thì liên kết với tài khoản cũ
+
+- **[A1] Đăng nhập bằng Google OAuth — hoãn POST-MVP:** Tương tự AM-01 [A1]. Khi triển khai, email đã
+  tồn tại thì liên kết theo email (silent merge); vì mọi tài khoản đều có mật khẩu, không phát sinh
+  loại tài khoản "chỉ Google, không mật khẩu".
 
 ### Luồng ngoại lệ
+
 - **[E1] Email không tồn tại hoặc mật khẩu sai:** Hiển thị lỗi chung "Email hoặc mật khẩu không đúng" (không phân biệt để bảo mật), giữ nguyên email đã nhập
 - **[E2] Tài khoản bị khóa / chưa xác thực:** Hiển thị trạng thái tương ứng và hướng dẫn xử lý
 - **[E3] Lỗi server:** Hiển thị thông báo lỗi chung
@@ -66,32 +80,43 @@
 
 ## UC-03: Quản lý hồ sơ cá nhân
 
-| Trường | Nội dung |
-|---|---|
-| **Actor** | Student |
-| **Mục tiêu** | Xem và chỉnh sửa thông tin cá nhân |
-| **Điều kiện tiên quyết** | Student đã đăng nhập |
+| Trường                   | Nội dung                           |
+| ------------------------ | ---------------------------------- |
+| **Actor**                | Student                            |
+| **Mục tiêu**             | Xem và chỉnh sửa thông tin cá nhân |
+| **Điều kiện tiên quyết** | Student đã đăng nhập               |
 
 ### Luồng chính
+
 1. Student vào trang "Hồ sơ cá nhân"
 2. Xem thông tin hiện tại (tên, email)
 3. (Tùy chọn) Nhập mật khẩu cũ → mật khẩu mới → xác nhận → lưu
 
 ### Luồng ngoại lệ
+
 - **[E1] Mật khẩu cũ nhập sai:** Từ chối cập nhật, hiển thị lỗi
 - **[E2] Mật khẩu mới không đạt yêu cầu:** Hiển thị yêu cầu, không lưu
+
+> **Ghi chú — mọi tài khoản đều có mật khẩu.** Vì Google OAuth được hoãn POST-MVP (AM-01 [A1]) và
+> `password_hash` là `NOT NULL`, mọi tài khoản trong MVP đều có mật khẩu. Trang Hồ sơ vì thế **luôn**
+> hiển thị "Đổi mật khẩu" (kèm ô mật khẩu hiện tại) — không có nhánh "Đặt mật khẩu" cho tài khoản
+> không mật khẩu, và bảng `users` không cần cột `provider`/`google_id` trong MVP. Nhờ vậy AM-05 (đặt
+> lại mật khẩu) chỉ đổi một mật khẩu sẵn có, không âm thầm biến tài khoản OAuth thành tài khoản mật
+> khẩu. Chỉ báo "đã liên kết Google" trên hồ sơ thuộc AM-06 (POST-MVP); khi làm, nó chỉ thêm một dòng
+> thông tin và không đổi hình dạng phần mật khẩu.
 
 ---
 
 ## UC-04: Đăng xuất
 
-| Trường | Nội dung |
-|---|---|
-| **Actor** | Student |
-| **Mục tiêu** | Kết thúc phiên làm việc |
-| **Điều kiện tiên quyết** | Student đang đăng nhập |
+| Trường                   | Nội dung                |
+| ------------------------ | ----------------------- |
+| **Actor**                | Student                 |
+| **Mục tiêu**             | Kết thúc phiên làm việc |
+| **Điều kiện tiên quyết** | Student đang đăng nhập  |
 
 ### Luồng chính
+
 1. Student click "Đăng xuất"
 2. Hệ thống xóa JWT token ở client
 3. Redirect về Landing Page / trang Đăng nhập

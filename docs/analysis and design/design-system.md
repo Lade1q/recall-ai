@@ -1,85 +1,121 @@
-# Recall AI — Design System v2
+# Recall AI — Design System v3 "Warm Editorial Minimalism"
 
-> Dựa trên shadcn preset `bPJV3d2hv`, adapted cho Tailwind CSS v4 (oklch color space)
+> Thay thế hoàn toàn v2 (Indigo/Slate, shadcn preset `bPJV3d2hv`). Lý do đổi: v2 đúng về mặt
+> kỹ thuật (semantic tokens, oklch, dark mode, accessibility) nhưng thẩm mỹ là "generic AI SaaS"
+> — Indigo/Violet bão hòa cao, bo góc lớn, hero-color CTA. v3 giữ **nguyên toàn bộ cấu trúc
+> token và ràng buộc chức năng của v2** (chỉ đổi giá trị màu + typography + shape), theo hướng
+> minimalist/editorial: canvas đơn sắc ấm, màu chỉ dùng cho 5 accent ngữ nghĩa, không gradient,
+> không shadow nặng, không pill-shape cho container lớn.
+>
+> Token thật nằm trong [`src/global.css`](../src/frontend/src/global.css) — tài liệu này mô tả,
+> không phải nguồn chân lý; nếu hai bên lệch nhau, `global.css` luôn đúng.
 
 ---
 
-## 1. Tokens
+## 0. Ràng buộc chức năng — KHÔNG đổi khi redesign
 
-Toàn bộ design tokens được định nghĩa trong [`src/global.css`](../src/frontend/src/global.css).
+Ba điều này là quyết định sản phẩm đã chốt, độc lập với trường phái thẩm mỹ:
 
-**Color format:** oklch (Tailwind v4 native) — không dùng HSL.
+1. **Dark mode là mục tiêu chính**, không phải chế độ phụ — sinh viên học đêm gần deadline.
+2. **Focus Session: animation = 0.** Class `.focus-session-active` tắt toàn bộ animation/transition
+   bên trong nó bằng `!important`. Không được gỡ constraint này vì lý do thẩm mỹ.
+3. **Màu mastery không bao giờ là tín hiệu duy nhất** (WCAG 1.4.1) — luôn kết hợp icon/label.
+
+---
+
+## 1. Visual Theme & Atmosphere
+
+Công cụ học tập nghiêm túc, không phải sản phẩm marketing. Sinh viên dùng lúc căng thẳng (gần
+deadline, ôn đêm khuya) — giao diện phải rõ ràng, đáng tin cậy, **không gây thêm lo âu**: giống
+phòng lab yên tĩnh / một cuốn sổ tay biên tập kỹ lưỡng hơn là landing page hào nhoáng.
+
+- **Density:** 6/10 — nghiêng dense (đồ thị khái niệm, hàng đợi ôn tập, số liệu mastery cùng lúc)
+  nhưng giữ nhịp thở bằng khoảng trắng lớn (macro-whitespace), không nhồi nhét kiểu cockpit.
+- **Color as scarce resource:** canvas + text luôn đơn sắc ấm (warm monochrome). Màu chỉ xuất
+  hiện ở 5 accent ngữ nghĩa (xem §3.2) — không có "brand color" tô nền lớn.
+- **Motion:** im lặng, gần như vô hình — trừ ngoại lệ cứng Focus Session = 0 (xem §0).
 
 ---
 
 ## 2. Typography
 
-**Font:** Geist Variable (via `@fontsource-variable/geist`)
+Ba họ font, phân vai rõ ràng — không dùng chung một font cho mọi thứ như v2:
 
-> *Lưu ý: Design system v2 proposal khuyến nghị Inter cho Vietnamese support tốt hơn. Có thể đổi sau nếu cần.*
+| Vai trò                                                               | Font           | Khi nào dùng                                                                                     |
+| --------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
+| **UI / Body** (`font-sans`)                                           | Geist Variable | Toàn bộ UI: nav, button, form, bảng, card body                                                   |
+| **Editorial heading** (`font-heading`, class `.font-heading`)         | Noto Serif     | Tiêu đề lớn: Dashboard title, kết quả cuối phiên, landing hero — **không** dùng cho label UI nhỏ |
+| **Metadata / số liệu** (`font-mono`, class `.meta-mono` hoặc `<kbd>`) | Geist Mono     | Đồng hồ Pomodoro, `mastery_score`, phím tắt                                                      |
 
-| Role            | Class Tailwind            | Size | Weight  |
-| --------------- | ------------------------- | ---- | ------- |
-| Landing hero    | `text-4xl font-extrabold` | 36px | 800     |
-| Focus timer     | `text-3xl font-bold`      | 30px | 700     |
-| Page title      | `text-2xl font-bold`      | 24px | 700     |
-| Section heading | `text-xl font-semibold`   | 20px | 600     |
-| Card title      | `text-lg font-medium`     | 18px | 500     |
-| Body / Chat     | `text-base`               | 16px | 400     |
-| Metadata        | `text-sm font-medium`     | 14px | 400/500 |
-| Node label      | `text-xs`                 | 12px | 400     |
+> **Vì sao Noto Serif chứ không phải Newsreader/Playfair** (gợi ý mặc định của protocol
+> minimalist): Noto Serif có sẵn subset `vietnamese` (U+1EA0–1EF9, đủ dấu tiếng Việt) trong từng
+> file weight của `@fontsource/noto-serif` — ưu tiên đúng nội dung tiếng Việt của app hơn là bám
+> chính xác gợi ý font của skill.
+
+**Text color:** không bao giờ dùng đen/trắng tuyệt đối — `--foreground`/`--background` luôn có
+chút warm chroma (hue ~75-80, xem §3.1). `line-height: 1.6` cho body.
+
+| Role                   | Class Tailwind                    | Font       | Size                   |
+| ---------------------- | --------------------------------- | ---------- | ---------------------- |
+| Landing/Dashboard hero | `font-heading text-4xl font-bold` | Noto Serif | 36px, tracking -0.02em |
+| Page title             | `text-2xl font-bold`              | Geist Sans | 24px                   |
+| Section heading        | `text-xl font-semibold`           | Geist Sans | 20px                   |
+| Card title             | `text-lg font-medium`             | Geist Sans | 18px                   |
+| Body / Chat            | `text-base`                       | Geist Sans | 16px                   |
+| Metadata / timer       | `.meta-mono text-sm`              | Geist Mono | 14px                   |
+| Node label (graph)     | `text-xs`                         | Geist Sans | 12px                   |
 
 ---
 
 ## 3. Color System
 
-### 3.1 Base Palette (shadcn)
+### 3.1 Canvas & Neutral (warm monochrome — never pure black/white)
 
-| Token           | Light (oklch)                    | Vai trò                  |
-| --------------- | -------------------------------- | ------------------------ |
-| `--primary`     | `oklch(0.457 0.24 277.1)` Indigo | Buttons chính, AI, Trust |
-| `--accent`      | `oklch(0.541 0.242 293)` Violet  | AI Examiner, Quiz mode   |
-| `--secondary`   | `oklch(0.968 0.003 264.5)` Slate | Inactive states, tags    |
-| `--muted`       | `oklch(0.965 0.003 264.5)`       | Neutral backgrounds      |
-| `--destructive` | `oklch(0.577 0.245 27.3)` Red    | Errors, API failures     |
+| Token                | Light (oklch)               | Dark (oklch)                  | Vai trò                                        |
+| -------------------- | --------------------------- | ----------------------------- | ---------------------------------------------- |
+| `--background`       | `0.984 0.004 80` bone       | `0.17 0.006 75` warm charcoal | Canvas                                         |
+| `--foreground`       | `0.24 0.008 75`             | `0.93 0.005 75`               | Body text                                      |
+| `--card`             | `0.995 0.002 80`            | `0.21 0.007 75`               | Surface, viền 1px `--border`, **không shadow** |
+| `--border`           | `0.9 0.005 75` (~`#EAEAEA`) | `1 0 0 / 8%`                  | Divider, card outline                          |
+| `--primary`          | `0.24 0.008 75` (ink)       | `0.93 0.005 75` (paper)       | CTA solid — **không** còn là Indigo như v2     |
+| `--muted-foreground` | `0.55 0.012 75`             | `0.68 0.012 75`               | Text phụ                                       |
 
-### 3.2 Recall AI Custom Tokens
+`--primary` đảo ink/paper giữa 2 mode (light: chữ trắng trên nền than; dark: chữ than trên nền
+kem) — đúng logic "editorial" chứ không phải một brand-blue cố định.
 
-| Token                | Light (oklch)                      | Màu | Khi nào dùng                              |
-| -------------------- | ---------------------------------- | --- | ----------------------------------------- |
-| `--mastery-strong`   | `oklch(0.596 0.145 163.2)` Emerald | 🟢   | Concept đã vững (score ≥ 0.8), graph node |
-| `--mastery-learning` | `oklch(0.769 0.171 70.1)` Amber    | 🟡   | Đang học (0.6 ≤ score < 0.8)              |
-| `--mastery-weak`     | `oklch(0.547 0.245 16.4)` Rose     | 🔴   | Yếu/Sai (score < 0.6), cần ôn             |
-| `--mastery-untested` | `oklch(0.852 0.009 264)` Cool Gray | ⚪   | Chưa kiểm tra                             |
-| `--remediate`        | `oklch(0.702 0.183 52.5)` Orange   | 🟠   | Hệ thống tự chèn prerequisite vào lịch    |
-| `--focus-session`    | `oklch(0.769 0.171 70.1)` Amber    | 🟡   | Pomodoro countdown, session active        |
+### 3.2 Semantic Accent (5 token — muted, không bao giờ vivid)
 
-### 3.3 Semantic Color Mapping — Workflow
+Cùng cấu trúc token với v2 (giữ tên biến, đổi giá trị), cùng cơ chế derive nền nhạt:
+`background: oklch(from var(--token) l c h / 0.1)`.
 
-| Bước Workflow           | Token             | Khi nào dùng                                      |
-| ----------------------- | ----------------- | ------------------------------------------------- |
-| **Ingest / AI Planner** | `--primary`       | Upload button, AI phân tích, "Tạo kế hoạch" CTA   |
-| **Focus Session**       | `--focus-session` | Timer ring, session active badge                  |
-| **AI Examiner**         | `--accent`        | Examiner bubble, "Đang vấn đáp" badge, câu hỏi AI |
-| **Remediate (agentic)** | `--remediate`     | Banner "Hệ thống đã thêm ôn lại [X]"              |
-| **Dashboard Graph**     | `--mastery-*`     | Concept nodes tô màu theo score                   |
-| **Error / API fail**    | `--destructive`   | Gemini API lỗi, validation errors                 |
+| Token                | Ý nghĩa                                       | Hue                 | Ghi chú                                             |
+| -------------------- | --------------------------------------------- | ------------------- | --------------------------------------------------- |
+| `--ai-accent`        | AI Examiner, "Đang vấn đáp", badge AI Planner | ~235 (blue, muted)  | **Token mới** — tách khỏi `--accent` (xem §3.3)     |
+| `--mastery-strong`   | Concept vững (score ≥ 0.8)                    | ~155 (green, muted) |                                                     |
+| `--mastery-learning` | Đang học (0.6 ≤ score < 0.8)                  | ~85 (amber, muted)  | Cùng hue với `--focus-session`                      |
+| `--mastery-weak`     | Yếu/Sai (score < 0.6)                         | ~25 (red, muted)    |                                                     |
+| `--remediate`        | Hệ thống tự chèn prerequisite                 | ~55 (orange, muted) | Phải tách biệt `--mastery-weak` — ý nghĩa khác nhau |
+| `--mastery-untested` | Chưa kiểm tra                                 | warm gray           |                                                     |
+| `--focus-session`    | Pomodoro đang chạy                            | ~85 (amber)         |                                                     |
+
+### 3.3 Sửa lỗi lệch tài liệu/code từ v2
+
+v2 mô tả `--accent` = "Violet — AI Examiner" trong tài liệu, nhưng giá trị thật trong
+`global.css` lại là xám trung tính — tài liệu và code đã lệch nhau. v3 sửa dứt điểm: `--accent`
+là **hover surface trung tính** dùng chung toàn hệ thống (dropdown, menu item hover — đúng vai
+trò gốc của shadcn), còn ngữ nghĩa "AI" chuyển hẳn sang token riêng `--ai-accent` ở trên.
 
 ### 3.4 Chart Tokens
 
-| Token       | Light                    | Dùng cho         |
-| ----------- | ------------------------ | ---------------- |
-| `--chart-1` | Indigo (primary)         | Primary data     |
-| `--chart-2` | Emerald (mastery-strong) | Positive metrics |
-| `--chart-3` | Rose (mastery-weak)      | Negative metrics |
-| `--chart-4` | Amber (focus/learning)   | In-progress      |
-| `--chart-5` | Gray (untested)          | Neutral/untested |
+`--chart-1..5` map trực tiếp theo hue của 5 accent ở §3.2 (blue/green/red/amber/gray) để biểu đồ
+và UI dùng chung một ngôn ngữ màu.
 
 ---
 
 ## 4. Spacing & Layout
 
-**8pt Grid System:**
+Không đổi so với v2 — hệ 8pt grid vẫn đúng, không xung đột với minimalist (chỉ cần dùng
+`space-8`/`space-12`/`space-16` rộng rãi hơn cho section break, đúng tinh thần macro-whitespace).
 
 | Token      | Size | Dùng cho                |
 | ---------- | ---- | ----------------------- |
@@ -105,123 +141,113 @@ Toàn bộ design tokens được định nghĩa trong [`src/global.css`](../src
 └─────────────────────────────────────────────────┘
 ```
 
-**Border Radius:** `--radius: 0.5rem` — cân bằng professional/friendly
+**Border Radius:** `--radius: 0.625rem` (10px, giảm từ 0.875rem của v2) — crisp, không pill cho
+container lớn. Badge/tag vẫn được phép pill-shape (`rounded-full`) — đây là ngoại lệ duy nhất.
 
 ---
 
-## 5. Animation Tokens
+## 5. Elevation & Motion
+
+### 5.1 Shadow — hầu như không tồn tại
+
+Card được định nghĩa bằng **viền 1px `--border`**, không phải shadow. Chỉ một token shadow duy
+nhất, cực nhạt, dùng cho hover-lift:
+
+```css
+--shadow-soft: 0 2px 8px oklch(0 0 0 / 0.04); /* light */
+--shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22); /* dark */
+```
+
+Cấm dùng `shadow-md`/`shadow-lg`/`shadow-xl` mặc định của Tailwind ở bất kỳ đâu.
+
+### 5.2 Animation Tokens
 
 | Token               | Giá trị                             | Dùng cho                        |
 | ------------------- | ----------------------------------- | ------------------------------- |
 | `--duration-fast`   | `150ms`                             | Hover, micro-interactions       |
 | `--duration-normal` | `250ms`                             | Dialog open/close               |
 | `--duration-slow`   | `400ms`                             | Page transitions, graph animate |
+| `--duration-reveal` | `600ms`                             | Scroll-reveal (mới, xem §5.3)   |
 | `--ease-standard`   | `cubic-bezier(0.4, 0, 0.2, 1)`      | General transitions             |
 | `--ease-spring`     | `cubic-bezier(0.34, 1.56, 0.64, 1)` | Graph node pop-in               |
-| `--ease-out`        | `cubic-bezier(0, 0, 0.2, 1)`        | Exit animations                 |
+| `--ease-reveal`     | `cubic-bezier(0.16, 1, 0.3, 1)`     | Scroll-reveal (mới)             |
 
-**Nguyên tắc:**
-- Focus Session screen: Animation = **0** — không gây xao nhãng
-- Graph DAG load: Nodes fade-in theo layer delay
-- Remediate insert: `pulse-remediate` animation
+### 5.3 Scroll-Reveal (mới trong v3)
+
+Class `.reveal-on-scroll` — ẩn (opacity 0, translateY 12px) đến khi vào viewport, resolve trong
+600ms. Bắt buộc gắn qua `IntersectionObserver`, **không** dùng `scroll` event listener (hiệu năng).
+Danh sách/lưới dùng `.reveal-stagger` + biến `--index` per-item để tạo hiệu ứng lần lượt
+(`calc(var(--index) * 80ms)` delay).
+
+**Nguyên tắc bất biến (không đổi từ v2):**
+
+- **Focus Session: animation = 0** — xem §0, hard constraint.
+- Graph DAG load: node fade-in theo layer delay.
+- Remediate insert: `pulse-remediate`, đã giảm biên độ/opacity so với v2 cho "quiet sophistication".
 
 ---
 
 ## 6. Concept Graph — Node Styling
 
-CSS classes cho react-flow nodes đã được định nghĩa trong `global.css`:
+CSS classes cho react-flow nodes trong `global.css`. Node giờ **flat, viền 1px**, không còn nền
+tô đậm 20-30% opacity như v2 — chỉ 10% tint, hover dùng `--shadow-soft` thay vì `filter: brightness`.
 
-| Class                        | Score       | Visual                     |
-| ---------------------------- | ----------- | -------------------------- |
-| `.concept-node--strong`      | ≥ 0.8       | Emerald border + tinted bg |
-| `.concept-node--learning`    | 0.6 – 0.8   | Amber border + tinted bg   |
-| `.concept-node--weak`        | < 0.6       | Rose border + tinted bg    |
-| `.concept-node--untested`    | `null`      | Gray dashed border         |
-| `.concept-node--remediating` | Đang ôn lại | Orange pulsing border      |
+| Class                        | Score       | Visual                                       |
+| ---------------------------- | ----------- | -------------------------------------------- |
+| `.concept-node--strong`      | ≥ 0.8       | Viền/chữ muted green, nền tint 10%           |
+| `.concept-node--learning`    | 0.6 – 0.8   | Viền/chữ muted amber, nền tint 10%           |
+| `.concept-node--weak`        | < 0.6       | Viền/chữ muted red, nền tint 10%             |
+| `.concept-node--untested`    | `null`      | Nền `--muted`, viền dashed                   |
+| `.concept-node--remediating` | Đang ôn lại | Viền orange, pulse nhẹ (2s, không phải 1.5s) |
 
-**Mastery Score → Node State Mapping:**
-
-```ts
-type MasteryLevel = "strong" | "learning" | "weak" | "untested" | "remediating";
-
-function getMasteryLevel(score: number | null, isRemediating = false): MasteryLevel {
-  if (isRemediating) return "remediating";
-  if (score === null) return "untested";
-  if (score >= 0.8) return "strong";
-  if (score >= 0.6) return "learning";
-  return "weak";
-}
-```
+Hàm map không đổi so với v2 (`getMasteryLevel`) — chỉ CSS thay đổi, logic giữ nguyên.
 
 ---
 
 ## 7. AI Examiner Chat — Bubble Styling
 
-| Class               | Alignment | Border Color | Dùng cho            |
-| ------------------- | --------- | ------------ | ------------------- |
-| `.chat-bubble-ai`   | Left      | Violet       | AI Examiner câu hỏi |
-| `.chat-bubble-user` | Right     | Indigo       | Student câu trả lời |
+| Class               | Alignment | Token                                       | Ghi chú                                          |
+| ------------------- | --------- | ------------------------------------------- | ------------------------------------------------ |
+| `.chat-bubble-ai`   | Left      | `--ai-accent` (blue, 8% tint nền, 30% viền) | Thay Violet của v2                               |
+| `.chat-bubble-user` | Right     | `--secondary` (trung tính)                  | Màu chỉ dành cho AI — "color as scarce resource" |
 
 ---
 
-## 8. Components (shadcn/ui — sẽ cài khi cần)
+## 8. Components (shadcn/ui)
 
-| Component        | Màn hình dùng                     | Lý do chọn                     |
-| ---------------- | --------------------------------- | ------------------------------ |
-| `Button`         | ✅ Đã cài — Toàn bộ                | CTA, actions                   |
-| `Card`           | Dashboard, Results, Plan list     | Content container              |
-| `Dialog`         | Xác nhận DAG, preview khái niệm   | Modal không mất context        |
-| `Sheet`          | Chỉnh sửa concept details         | Side panel trên desktop        |
-| `Form` + `Input` | Auth, Profile, Plan creation      | Validation với react-hook-form |
-| `Textarea`       | AI Examiner input                 | Câu trả lời dài                |
-| `ScrollArea`     | Chat history, concept list        | Scroll mượt                    |
-| `Progress`       | Focus timer, mastery bar          | Linear progress                |
-| `Badge`          | Mastery level, concept tags       | Color-coded status             |
-| `Alert`          | Remediate notification, API error | Custom color variant           |
-| `Skeleton`       | AI thinking, graph loading        | Loading state                  |
-| `Toast` (Sonner) | Session saved, error              | Non-blocking notifications     |
-| `Tabs`           | Dashboard sections, History       | Section switching              |
-| `Avatar`         | User, AI Examiner                 | Profile + bot icon             |
-| `Separator`      | Layout dividers                   | Vertical/horizontal            |
-| `Tooltip`        | Graph node hover details          | Show mastery_score             |
-| `DropdownMenu`   | User menu, concept actions        | Context actions                |
-| `Select`         | Phương pháp học                   | Focus Session setup            |
-| `Sidebar`        | Navigation chính                  | Collapsible support            |
+Danh sách component không đổi so với v2 — v3 chỉ đổi token/theme áp lên chúng, không đổi lựa
+chọn component. Xem v2 changelog trong lịch sử git nếu cần đối chiếu.
+
+**Icon library:** hiện dùng `lucide-react` — protocol minimalist khuyến nghị Phosphor/Radix
+Icons (nét dày hơn, ít "generic thin-line" hơn). **Chưa đổi trong v3** — đây là thay đổi chạm
+vào nhiều component đã code thật (LoginForm, SignupForm, Sidebar), cần một PR riêng có test
+trực quan, không làm lẫn trong lần đổi token này.
 
 ---
 
-## 9. Custom Components (sẽ build khi thiết kế xong trên Figma)
+## 9. Accessibility
 
-| Component        | Mô tả                                          |
-| ---------------- | ---------------------------------------------- |
-| `ConceptNode`    | Node trong đồ thị, dùng `.concept-node--*` CSS |
-| `StudyPlanCard`  | Card + Badge + Progress + Button               |
-| `ExaminerChat`   | ChatBubble + Input + SessionCounter            |
-| `SessionCounter` | Hiển thị "Lượt 2/3"                            |
-| `RemediateAlert` | Alert với `--remediate` color                  |
-| `MasteryBadge`   | Badge color-coded + icon (accessibility)       |
-| `AppSidebar`     | Sidebar navigation + logo + theme toggle       |
+Không đổi so với v2 — các yêu cầu WCAG vẫn giữ nguyên, giá trị oklch mới đã được chọn để vẫn đạt
+contrast ratio tương đương hoặc tốt hơn v2 (do dùng chroma thấp hơn, độ tương phản L dễ kiểm
+soát hơn màu bão hòa cao).
 
----
-
-## 10. Accessibility
-
-| Yêu cầu                          | Standard        | Áp dụng cho                  |
-| -------------------------------- | --------------- | ---------------------------- |
-| Text contrast                    | WCAG AA (4.5:1) | Mọi body text, chat bubbles  |
-| Graph node contrast              | WCAG AA (3:1+)  | Node label trên colored bg   |
-| Mastery color không dùng đơn độc | WCAG 1.4.1      | Kết hợp icon: ✅ 🔄 ⚠️ ❓        |
-| Keyboard navigation              | WCAG 2.1.1      | react-flow keyboard pan/zoom |
-| Focus indicators                 | Visible         | `--ring` = Indigo, 2px solid |
-| `prefers-reduced-motion`         | WCAG 2.3.3      | Tắt pulse animation          |
+| Yêu cầu                          | Standard        | Áp dụng cho                               |
+| -------------------------------- | --------------- | ----------------------------------------- |
+| Text contrast                    | WCAG AA (4.5:1) | Mọi body text, chat bubbles               |
+| Graph node contrast              | WCAG AA (3:1+)  | Node label trên colored bg                |
+| Mastery color không dùng đơn độc | WCAG 1.4.1      | Kết hợp icon: ✅ 🔄 ⚠️ ❓                 |
+| Keyboard navigation              | WCAG 2.1.1      | react-flow keyboard pan/zoom              |
+| Focus indicators                 | Visible         | `--ring` = ink/paper theo mode, 2px solid |
+| `prefers-reduced-motion`         | WCAG 2.3.3      | Tắt pulse + scroll-reveal                 |
 
 ---
 
-## 11. Technical Notes
+## 10. Technical Notes
 
-- **Tailwind version:** v4 — dùng `@theme inline` thay vì `tailwind.config.ts`
-- **Color space:** oklch (native Tailwind v4) — không dùng HSL
-- **shadcn style:** `radix-nova` (shadcn v4 latest)
-- **Dark mode:** Via `.dark` class trên `<html>` — dark-first orientation
-- **Custom Tailwind utilities:** Registered trong `@theme inline`:
-  - `bg-mastery-strong`, `text-mastery-weak`, `border-remediate`, v.v.
+- **Tailwind version:** v4 — `@theme inline` trong `global.css`, không dùng `tailwind.config.ts`.
+- **Color space:** oklch — không dùng HSL/hex trực tiếp trong token.
+- **Dark mode:** class `.dark` trên `<html>` — dark-first orientation (xem §0).
+- **Font packages mới cần cài** (đã cài trong session redesign này):
+  `@fontsource-variable/geist-mono`, `@fontsource/noto-serif`.
+- **Custom Tailwind utilities** đăng ký trong `@theme inline`: `bg-mastery-strong`,
+  `text-ai-accent`, `border-remediate`, v.v.

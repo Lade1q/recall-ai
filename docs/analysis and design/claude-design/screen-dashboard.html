@@ -1,0 +1,646 @@
+<!-- @dsCard group="Screens" subtitle="DB-01 — Dashboard tổng quan" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Recall AI — Dashboard</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ── Khối "Hôm nay": điểm vào chính của vòng lặp học tập (DB-04) ── */
+    .today {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 0;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .today__main {
+      padding: 28px 32px;
+    }
+
+    .today__queue {
+      padding: 28px 24px;
+      border-left: 1px solid var(--border);
+      background: var(--muted);
+    }
+
+    .today__reason {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      margin: 10px 0 22px;
+      max-width: 52ch;
+    }
+
+    .today__reason strong {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    .today__actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .today__defer {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      text-decoration: none;
+      padding: 6px 2px;
+    }
+
+    .today__defer:hover {
+      color: var(--foreground);
+    }
+
+    .queue-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      margin-bottom: 14px;
+    }
+
+    .queue-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .queue-item:last-of-type {
+      border-bottom: none;
+    }
+
+    .queue-item__idx {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      padding-top: 2px;
+    }
+
+    .queue-item__name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .queue-item__note {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+
+    /* ── Dải chỉ số: mỏng, không chiếm chỗ của hành động chính ── */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      margin-bottom: 40px;
+    }
+
+    .stat-strip__item {
+      padding: 18px 24px;
+      border-left: 1px solid var(--border);
+    }
+
+    .stat-strip__item:first-child {
+      border-left: none;
+    }
+
+    .stat-strip__value {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+
+    .stat-strip__label {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Danh mục kế hoạch: vừa là tổng quan, vừa là bộ chọn phạm vi ── */
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-head h2 {
+      font-size: 17px;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .section-head p {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin: 3px 0 0;
+    }
+
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 44px;
+    }
+
+    .plan-card {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .plan-card--current {
+      border-color: var(--foreground);
+    }
+
+    .plan-card h3 {
+      font-size: 15px;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .plan-card__meta {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 3px;
+    }
+
+    /* Thanh phân bố mastery — thay cho một con số % vô nghĩa.
+       Bốn token mastery đều ở L ≈ 0.5: dán liền nhau trong một thanh 6px thì
+       chúng nhoè thành một vệt sẫm, không thấy ranh giới. Tách bằng khe hở và
+       tăng chiều cao, không đổi màu — bảng màu phải khớp global.css của client. */
+    .dist {
+      display: flex;
+      gap: 3px;
+      height: 10px;
+      margin-top: 16px;
+    }
+
+    .dist span {
+      display: block;
+      height: 100%;
+      border-radius: 2px;
+      min-width: 0;
+    }
+
+    /* Con số mới là thứ đọc được; màu chỉ là chỉ dẫn phụ. */
+    .dist-legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .dist-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .dist-legend b {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .dist-legend i {
+      display: block;
+      flex: none;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+
+    /* Mục đếm 0 vẫn giữ chỗ để bốn trạng thái luôn cùng một vị trí giữa các thẻ,
+       nhưng làm mờ đi — chấm đỏ cạnh số 0 dễ bị đọc nhầm thành cảnh báo. */
+    .dist-legend span.is-zero {
+      opacity: 0.45;
+    }
+
+    /* ── Hàng dưới: mini graph + deadline ── */
+    .panel-row {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 24px 26px;
+    }
+
+    .panel__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 4px;
+    }
+
+    .panel h2 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    .panel__desc {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin: 0 0 18px;
+    }
+
+    .scope-select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--card);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      max-width: 220px;
+    }
+
+    .mini-graph {
+      position: relative;
+      height: 250px;
+      background: var(--muted);
+      border-radius: calc(var(--radius) * 0.8);
+      overflow: hidden;
+    }
+
+    /* Node mang luôn mastery_score — cùng lý do như .dist ở các thẻ kế hoạch:
+       bốn token mastery đều ở lightness ≈ 0.5 và chỉ khác nhau ở sắc, nên chỉ
+       dựa vào màu là loại người mù màu đỏ–lục ra khỏi tín hiệu chính. Khớp với
+       màn hình đồ thị đầy đủ để hai nơi trông như cùng một thành phần. */
+    .mini-graph .concept-node {
+      position: absolute;
+      width: 160px;
+      font-size: 12px;
+      padding: 9px 12px;
+      min-width: 0;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .concept-node__name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .concept-node__score {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.7;
+      flex: none;
+    }
+
+    /* "Đang ôn lại" là cờ TRỰC GIAO với mức mastery, không phải mức thứ năm.
+       Tô đè lên màu nền thì xóa mất việc Ngăn xếp đang ở 0.51, tức là yếu.
+       Màu nền = mastery, vòng ngoài = đang nằm trong hàng đợi ôn lại hôm nay. */
+    .is-remediating {
+      outline: 2px solid var(--remediate);
+      outline-offset: 2px;
+      animation: pulse-remediate 2s var(--ease-standard) infinite;
+    }
+
+    .graph-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    .graph-legend i {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      margin-right: 5px;
+    }
+
+    /* Ô chú giải của remediate vẽ thành viền rỗng, khớp đúng cách nó hiện
+       trên node — chứ không phải một ô đặc như bốn mức mastery. */
+    .graph-legend i.ring {
+      background: transparent;
+      border: 2px solid var(--remediate);
+    }
+
+    .panel__foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .link-action {
+      color: var(--foreground);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .link-action:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .deadline-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .deadline-item:last-of-type {
+      border-bottom: none;
+    }
+
+    .deadline-item__left {
+      min-width: 0;
+    }
+
+    .deadline-item__sub {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .deadline-item__val {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="app-sidebar">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link app-sidebar__link--active" href="#">Tổng quan</a>
+      <!-- Mục menu là một NƠI CHỐN (danh sách kế hoạch), không phải hành động tạo mới -->
+      <a class="app-sidebar__link" href="screen-plans.html">Kế hoạch ôn tập</a>
+      <!-- DB-02 bước 1: đồ thị đầy đủ truy cập được từ menu chính, không chỉ từ dashboard -->
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </aside>
+
+    <main class="app-main">
+      <header style="margin-bottom:28px;">
+        <div class="font-heading" style="font-size:32px;">Chào buổi tối, Minh Anh</div>
+        <p class="meta-mono" style="color:var(--muted-foreground); font-size:13px; margin-top:6px;">Thứ hai, 27/07/2026</p>
+      </header>
+
+      <!--
+        DB-01 <<include>> DB-04: gợi ý của Scheduling & Remediation Engine là nội dung
+        đứng đầu dashboard, vì nó là điểm vào của vòng lặp học tập (FS-01 / AE-01).
+        Kèm AE-08 (thông báo traceback) và DB-09 (hoãn / bỏ qua gợi ý).
+      -->
+      <section class="card today">
+        <div class="today__main">
+          <span class="badge" style="background: oklch(from var(--remediate) l c h / 0.14); color: var(--remediate);">Gợi ý hôm nay</span>
+          <h2 class="font-heading" style="font-size:24px; margin:14px 0 0;">Ưu tiên vá lỗ hổng trước khi học tiếp</h2>
+          <p class="today__reason">
+            Bạn trả lời sai <strong>Duyệt đồ thị DFS</strong> trong phiên kiểm tra tối qua. Hệ thống đã truy ngược
+            và chèn <strong>Ngăn xếp</strong> — khái niệm tiên quyết còn yếu — lên đầu lịch hôm nay.
+          </p>
+          <div class="today__actions">
+            <button class="btn btn-primary">Bắt đầu Focus Session</button>
+            <button class="btn btn-secondary">Vào thẳng phiên kiểm tra</button>
+            <a class="today__defer" href="#">Hoãn đến mai</a>
+            <a class="today__defer" href="#">Bỏ qua gợi ý</a>
+          </div>
+        </div>
+
+        <div class="today__queue">
+          <div class="queue-label">Hàng đợi hôm nay · ≈ 50 phút</div>
+          <div class="queue-item">
+            <span class="queue-item__idx">01</span>
+            <div>
+              <div class="queue-item__name">Ngăn xếp</div>
+              <div class="queue-item__note">Chèn bởi traceback · nền của DFS</div>
+            </div>
+          </div>
+          <div class="queue-item">
+            <span class="queue-item__idx">02</span>
+            <div>
+              <div class="queue-item__name">Duyệt đồ thị DFS</div>
+              <div class="queue-item__note">mastery_score 0.42 · ôn lại sau Ngăn xếp</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="card stat-strip">
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">12</div>
+          <div class="stat-strip__label">ngày ôn liên tiếp</div>
+        </div>
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">6h 20m</div>
+          <div class="stat-strip__label">thời gian học tuần này</div>
+        </div>
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">31<span style="font-size:15px; color:var(--muted-foreground);">/58</span></div>
+          <div class="stat-strip__label">khái niệm đạt mastery_score ≥ 0.8</div>
+        </div>
+      </div>
+
+      <!--
+        Danh mục kế hoạch đặt TRƯỚC đồ thị: sinh viên thấy mình có bao nhiêu kế hoạch
+        trước khi nhìn đồ thị của một kế hoạch cụ thể. Mỗi thẻ hiển thị phân bố mastery
+        thay vì một con số phần trăm gộp — % gộp che mất chỗ đang yếu.
+      -->
+      <div class="section-head">
+        <div>
+          <h2>Kế hoạch ôn tập</h2>
+          <p>3 kế hoạch đang hoạt động — <a href="screen-plans.html"
+              style="color:var(--foreground); text-decoration:none; border-bottom:1px solid var(--border);">xem tất cả
+              kế hoạch</a> để lưu trữ, xóa hoặc theo dõi kế hoạch đang phân tích</p>
+        </div>
+        <a class="btn btn-secondary" href="screen-create-plan.html" style="text-decoration:none;">Tạo kế hoạch mới</a>
+      </div>
+
+      <div class="plan-grid">
+        <a class="card plan-card plan-card--current" href="screen-concept-graph.html">
+          <h3>Cấu trúc dữ liệu &amp; Giải thuật</h3>
+          <div class="plan-card__meta">24 khái niệm · hạn 30/07</div>
+          <div class="dist">
+            <span style="width:58.3%; background:var(--mastery-strong);"></span>
+            <span style="width:20.8%; background:var(--mastery-learning);"></span>
+            <span style="width:8.3%; background:var(--mastery-weak);"></span>
+            <span style="width:12.6%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>14</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>5</b> đang học</span>
+            <span><i style="background:var(--mastery-weak);"></i><b>2</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>3</b> chưa kiểm tra</span>
+          </div>
+        </a>
+
+        <a class="card plan-card" href="screen-concept-graph.html">
+          <h3>Hệ điều hành</h3>
+          <div class="plan-card__meta">18 khái niệm · hạn 05/08</div>
+          <div class="dist">
+            <span style="width:66.7%; background:var(--mastery-strong);"></span>
+            <span style="width:22.2%; background:var(--mastery-learning);"></span>
+            <span style="width:5.5%; background:var(--mastery-weak);"></span>
+            <span style="width:5.6%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>12</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>4</b> đang học</span>
+            <span><i style="background:var(--mastery-weak);"></i><b>1</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>1</b> chưa kiểm tra</span>
+          </div>
+        </a>
+
+        <a class="card plan-card" href="screen-concept-graph.html">
+          <h3>Mạng máy tính</h3>
+          <div class="plan-card__meta">16 khái niệm · hạn 17/08</div>
+          <div class="dist">
+            <span style="width:31.2%; background:var(--mastery-strong);"></span>
+            <span style="width:18.8%; background:var(--mastery-learning);"></span>
+            <span style="width:50%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>5</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>3</b> đang học</span>
+            <span class="is-zero"><i style="background:var(--mastery-weak);"></i><b>0</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>8</b> chưa kiểm tra</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="panel-row">
+        <!--
+          DB-01 <<include>> DB-02 "mini Concept Graph": bản xem trước, CHỈ ĐỌC.
+          Zoom/pan (DB-02 bước 3), tìm kiếm/lọc (DB-05) và panel chi tiết (DB-06)
+          nằm ở màn hình đồ thị đầy đủ — chúng là <<extend>> của DB-02, không phải DB-01.
+          Bộ chọn kế hoạch nằm ngay trên panel để đổi phạm vi mà không rời dashboard.
+        -->
+        <section class="card panel">
+          <div class="panel__head">
+            <div>
+              <h2>Đồ thị khái niệm</h2>
+              <p class="panel__desc">Vùng quanh điểm yếu hiện tại, tô màu theo mastery_score</p>
+            </div>
+            <select class="scope-select" aria-label="Chọn kế hoạch">
+              <option>Cấu trúc dữ liệu &amp; Giải thuật</option>
+              <option>Hệ điều hành</option>
+              <option>Mạng máy tính</option>
+            </select>
+          </div>
+
+          <div class="mini-graph">
+            <svg width="580" height="250" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="168" y1="60" x2="190" y2="30" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="168" y1="60" x2="190" y2="115" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="168" y1="60" x2="190" y2="200" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="168" y1="170" x2="190" y2="115" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="350" y1="200" x2="372" y2="200" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="350" y1="115" x2="372" y2="115" stroke="var(--mastery-weak)" stroke-width="1.5" stroke-dasharray="4 3" />
+            </svg>
+            <div class="concept-node concept-node--strong" style="left:8px; top:40px;">
+              <span class="concept-node__name">Mảng &amp; Con trỏ</span><span class="concept-node__score">0.91</span>
+            </div>
+            <div class="concept-node concept-node--strong" style="left:8px; top:150px;">
+              <span class="concept-node__name">Đệ quy</span><span class="concept-node__score">0.88</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:190px; top:10px;">
+              <span class="concept-node__name">Sắp xếp nhanh</span><span class="concept-node__score">0.64</span>
+            </div>
+            <!-- Yếu (0.51) VÀ đang ôn lại — hai kênh tách rời, xem ghi chú ở .is-remediating -->
+            <div class="concept-node concept-node--weak is-remediating" style="left:190px; top:95px;">
+              <span class="concept-node__name">Ngăn xếp</span><span class="concept-node__score">0.51</span>
+            </div>
+            <div class="concept-node concept-node--strong" style="left:190px; top:180px;">
+              <span class="concept-node__name">Hàng đợi</span><span class="concept-node__score">0.86</span>
+            </div>
+            <div class="concept-node concept-node--weak" style="left:372px; top:95px;">
+              <span class="concept-node__name">Duyệt đồ thị DFS</span><span class="concept-node__score">0.42</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:372px; top:180px;">
+              <span class="concept-node__name">Duyệt đồ thị BFS</span><span class="concept-node__score">0.68</span>
+            </div>
+          </div>
+
+          <div class="graph-legend">
+            <span><i style="background:var(--mastery-strong);"></i>Vững</span>
+            <span><i style="background:var(--mastery-learning);"></i>Đang học</span>
+            <span><i style="background:var(--mastery-weak);"></i>Yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i>Chưa kiểm tra</span>
+            <span><i class="ring"></i>Đang được ôn lại</span>
+          </div>
+
+          <div class="panel__foot">
+            <span class="meta-mono" style="color:var(--muted-foreground); font-size:12px;">7 / 24 khái niệm</span>
+            <a class="link-action" href="screen-concept-graph.html">Mở đồ thị đầy đủ →</a>
+          </div>
+        </section>
+
+        <section class="card panel">
+          <div class="panel__head">
+            <h2>Sắp đến hạn</h2>
+          </div>
+          <p class="panel__desc">Trên tất cả kế hoạch</p>
+
+          <div class="deadline-item">
+            <div class="deadline-item__left">
+              <div>Cấu trúc dữ liệu &amp; Giải thuật</div>
+              <div class="deadline-item__sub">còn 10 khái niệm chưa vững</div>
+            </div>
+            <span class="deadline-item__val" style="color:var(--remediate);">3 ngày</span>
+          </div>
+          <div class="deadline-item">
+            <div class="deadline-item__left">
+              <div>Hệ điều hành</div>
+              <div class="deadline-item__sub">còn 2 khái niệm chưa vững</div>
+            </div>
+            <span class="deadline-item__val" style="color:var(--muted-foreground);">9 ngày</span>
+          </div>
+          <div class="deadline-item">
+            <div class="deadline-item__left">
+              <div>Mạng máy tính</div>
+              <div class="deadline-item__sub">còn 11 khái niệm chưa vững</div>
+            </div>
+            <span class="deadline-item__val" style="color:var(--muted-foreground);">21 ngày</span>
+          </div>
+
+          <!-- DB-01 <<extend>> DB-07: lịch deadline dạng calendar -->
+          <div class="panel__foot">
+            <span class="meta-mono" style="color:var(--muted-foreground); font-size:12px;">3 kế hoạch</span>
+            <a class="link-action" href="#">Xem lịch →</a>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+
+</html>

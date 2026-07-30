@@ -1,0 +1,603 @@
+<!-- @dsCard group="Screens" subtitle="SP-03 — Danh sách kế hoạch ôn tập" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Kế hoạch ôn tập</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    h1.page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+    }
+
+    .head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 26px;
+    }
+
+    .head p {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      margin: 0;
+      max-width: 560px;
+      text-wrap: pretty;
+    }
+
+    /* ── Bộ lọc trạng thái ─────────────────────────────────────────────────
+       Ba giá trị của enum StudyPlanStatus, không phải một danh sách tự nghĩ ra. */
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+
+    .filters button {
+      font-family: var(--font-sans);
+      font-size: 13.5px;
+      font-weight: 500;
+      background: none;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--muted-foreground);
+      padding: 9px 12px;
+      margin-bottom: -1px;
+      cursor: pointer;
+    }
+
+    .filters button[aria-selected="true"] {
+      color: var(--foreground);
+      border-bottom-color: var(--foreground);
+    }
+
+    .filters__n {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-left: 5px;
+    }
+
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+      gap: 16px;
+    }
+
+    .plan {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      padding: 20px 20px 18px;
+      position: relative;
+    }
+
+    .plan__top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 3px;
+    }
+
+    .plan h2 {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      letter-spacing: -0.015em;
+      line-height: 1.25;
+      margin: 0;
+    }
+
+    .plan__more {
+      flex: none;
+      background: none;
+      border: 0;
+      padding: 3px;
+      line-height: 0;
+      border-radius: 5px;
+      color: var(--muted-foreground);
+      cursor: pointer;
+    }
+
+    .plan__more:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+
+    .plan__meta {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+      margin-bottom: 16px;
+    }
+
+    /* Phân bố mastery thay vì một con số % gộp: % gộp che mất chỗ đang yếu.
+       Bốn token mastery đều nằm ở L ≈ 0.5, nên nếu dán liền nhau trong một
+       thanh 6px chúng nhoè thành một vệt sẫm duy nhất — không đọc được đâu là
+       ranh giới. Tách bằng khe hở và tăng chiều cao thay vì đổi màu: bảng màu
+       phải khớp global.css của client, không được rẽ nhánh ở mockup. */
+    .dist {
+      display: flex;
+      gap: 3px;
+      height: 10px;
+      margin-bottom: 12px;
+    }
+
+    .dist span {
+      display: block;
+      border-radius: 2px;
+      min-width: 0;
+    }
+
+    /* Con số là thứ đọc được; màu chỉ là chỉ dẫn phụ. Bản cũ đặt cả bốn con số
+       cùng một màu xám nhạt, cạnh nhau, không nhãn — buộc phải suy ra ý nghĩa
+       từ thứ tự màu. */
+    .dist-legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 14px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .dist-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .dist-legend b {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .dist-legend i {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: block;
+      flex: none;
+    }
+
+    /* Mục đếm 0 vẫn giữ chỗ để bốn trạng thái luôn cùng một vị trí giữa các thẻ,
+       nhưng làm mờ đi — chấm đỏ cạnh số 0 dễ bị đọc nhầm thành cảnh báo. */
+    .dist-legend span.is-zero {
+      opacity: 0.45;
+    }
+
+    .plan__foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 13px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+    }
+
+    .plan__foot svg {
+      flex: none;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .pill--analyzing {
+      background: oklch(from var(--ai-accent) l c h / 0.1);
+      color: var(--ai-accent);
+    }
+
+    .pill--failed {
+      background: oklch(from var(--mastery-weak) l c h / 0.1);
+      color: var(--mastery-weak);
+    }
+
+    /* Kế hoạch đang chờ phân tích: chưa mở được đồ thị, nên không giả vờ là thẻ bấm được */
+    .plan--draft {
+      border-style: dashed;
+    }
+
+    .plan--draft:hover {
+      box-shadow: none;
+    }
+
+    /* ── Trạng thái rỗng ───────────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 660px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 740px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 26px 28px;
+    }
+
+    .empty {
+      max-width: 560px;
+      margin: 26px auto 30px;
+      text-align: center;
+    }
+
+    .empty__art {
+      color: var(--muted-foreground);
+      opacity: 0.55;
+      margin-bottom: 18px;
+    }
+
+    .empty h3 {
+      font-family: var(--font-heading);
+      font-size: 21px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .empty p {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 20px;
+      text-wrap: pretty;
+    }
+
+    .menu {
+      width: 230px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 5px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .menu button {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      text-align: left;
+      background: none;
+      border: 0;
+      padding: 8px 10px;
+      border-radius: calc(var(--radius) * 0.55);
+      color: var(--foreground);
+      cursor: pointer;
+    }
+
+    .menu button:hover {
+      background: var(--accent);
+    }
+
+    .menu button.is-danger {
+      color: var(--mastery-weak);
+    }
+
+    .menu button.is-danger:hover {
+      background: oklch(from var(--mastery-weak) l c h / 0.1);
+    }
+
+    .menu__rule {
+      height: 1px;
+      background: var(--border);
+      margin: 5px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <nav class="app-sidebar" aria-label="Điều hướng chính">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-plans.html" aria-current="page">Kế hoạch ôn
+        tập</a>
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </nav>
+
+    <main class="app-main">
+      <div class="head">
+        <div>
+          <h1 class="page-title">Kế hoạch ôn tập</h1>
+          <p>Nơi ở của mục menu cùng tên. Dashboard chỉ tóm tắt các kế hoạch đang hoạt động;
+            còn lưu trữ, xóa và kế hoạch đang chờ phân tích thì nằm ở đây.</p>
+        </div>
+        <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          Tạo kế hoạch mới
+        </a>
+      </div>
+
+      <!-- Ba tab = ba giá trị enum StudyPlanStatus (draft / active / archived) -->
+      <div class="filters" role="tablist" aria-label="Lọc theo trạng thái">
+        <button type="button" role="tab" aria-selected="true">Đang hoạt động <span
+            class="filters__n">3</span></button>
+        <button type="button" role="tab" aria-selected="false">Đang phân tích <span
+            class="filters__n">1</span></button>
+        <button type="button" role="tab" aria-selected="false">Đã lưu trữ <span class="filters__n">2</span></button>
+      </div>
+
+      <div class="plans">
+        <a class="card plan" href="screen-concept-graph.html">
+          <div class="plan__top">
+            <h2>Cấu trúc dữ liệu &amp; Giải thuật</h2>
+          </div>
+          <div class="plan__meta">24 khái niệm · hạn 30/07 · còn 3 ngày</div>
+          <div class="dist" aria-hidden="true">
+            <span style="width:58.3%; background:var(--mastery-strong);"></span>
+            <span style="width:20.8%; background:var(--mastery-learning);"></span>
+            <span style="width:8.3%; background:var(--mastery-weak);"></span>
+            <span style="width:12.6%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>14</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>5</b> đang học</span>
+            <span><i style="background:var(--mastery-weak);"></i><b>2</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>3</b> chưa kiểm tra</span>
+          </div>
+          <div class="plan__foot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M13 2l-2 12h4l-2 8" />
+            </svg>
+            2 khái niệm yếu đang chờ ôn lại
+          </div>
+        </a>
+
+        <a class="card plan" href="screen-concept-graph.html">
+          <div class="plan__top">
+            <h2>Hệ điều hành</h2>
+          </div>
+          <div class="plan__meta">18 khái niệm · hạn 05/08 · còn 9 ngày</div>
+          <div class="dist" aria-hidden="true">
+            <span style="width:66.7%; background:var(--mastery-strong);"></span>
+            <span style="width:22.2%; background:var(--mastery-learning);"></span>
+            <span style="width:5.5%; background:var(--mastery-weak);"></span>
+            <span style="width:5.6%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>12</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>4</b> đang học</span>
+            <span><i style="background:var(--mastery-weak);"></i><b>1</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>1</b> chưa kiểm tra</span>
+          </div>
+          <div class="plan__foot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7.6v5l3 1.7" />
+            </svg>
+            Ôn gần nhất 26/07
+          </div>
+        </a>
+
+        <a class="card plan" href="screen-concept-graph.html">
+          <div class="plan__top">
+            <h2>Mạng máy tính</h2>
+          </div>
+          <div class="plan__meta">16 khái niệm · hạn 17/08 · còn 21 ngày</div>
+          <div class="dist" aria-hidden="true">
+            <span style="width:31.2%; background:var(--mastery-strong);"></span>
+            <span style="width:18.8%; background:var(--mastery-learning);"></span>
+            <span style="width:50%; background:var(--mastery-untested);"></span>
+          </div>
+          <div class="dist-legend">
+            <span><i style="background:var(--mastery-strong);"></i><b>5</b> vững</span>
+            <span><i style="background:var(--mastery-learning);"></i><b>3</b> đang học</span>
+            <span class="is-zero"><i style="background:var(--mastery-weak);"></i><b>0</b> yếu</span>
+            <span><i style="background:var(--mastery-untested);"></i><b>8</b> chưa kiểm tra</span>
+          </div>
+          <div class="plan__foot">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3l9 16H3z" />
+              <path d="M12 9.5v4.5" />
+              <path d="M12 17h.01" />
+            </svg>
+            8 khái niệm chưa kiểm tra lần nào
+          </div>
+        </a>
+
+        <!--
+          Kế hoạch nháp đang chờ AI phân tích (SP-06). Đây là lý do danh sách phải
+          tách khỏi dashboard: dashboard chỉ liệt kê plan active, còn plan draft
+          thì không có chỗ nào để hiện — người dùng rời trang tạo kế hoạch xong
+          sẽ mất dấu công việc đang chạy nền của chính mình.
+        -->
+        <div class="card plan plan--draft">
+          <span class="pill pill--analyzing">Đang phân tích</span>
+          <div class="plan__top" style="margin-top:9px;">
+            <h2>Kỹ thuật phần mềm</h2>
+          </div>
+          <div class="plan__meta">Chuong-4-Kiem-thu.pdf · 28 trang · 0:34</div>
+          <p style="font-size:12.5px; line-height:1.65; color:var(--muted-foreground); margin:14px 0 0;">
+            AI đang trích xuất khái niệm. Đồ thị sẽ mở được ngay khi xong — bạn không cần chờ ở đây.
+          </p>
+          <div class="plan__foot">
+            <a href="screen-create-plan.html" style="color:var(--foreground); text-decoration:none;
+              border-bottom:1px solid var(--border);">Xem tiến trình</a>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <section class="gallery" aria-label="Các trạng thái khác">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái khác</h2>
+        <p>Trạng thái rỗng và thao tác lưu trữ/xóa — hai thứ không có chỗ nào trên dashboard.</p>
+      </div>
+
+      <section>
+        <div class="state__head">
+          <span class="state__name">Chưa có kế hoạch nào</span>
+          <span class="tag">UC-02 · UC-07 [E1]</span>
+        </div>
+        <p class="state__desc">
+          Màn hình đầu tiên một người dùng mới nhìn thấy. Không dùng ảnh minh họa vô nghĩa: nói thẳng
+          ba việc hệ thống sẽ làm với tài liệu, vì đó mới là thứ khiến người ta chịu tải tệp lên.
+        </p>
+        <div class="state__demo">
+          <div class="empty">
+            <div class="empty__art" aria-hidden="true">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="5.5" cy="12" r="2.4" />
+                <circle cx="12" cy="5.6" r="2.4" />
+                <circle cx="12" cy="18.4" r="2.4" />
+                <circle cx="18.5" cy="12" r="2.4" />
+                <path d="M7.6 10.6l2.4-2.6M7.6 13.4l2.4 2.6M14.2 7.6l2.5 2.6M14.2 16.4l2.5-2.6" />
+              </svg>
+            </div>
+            <h3>Chưa có kế hoạch ôn tập nào</h3>
+            <p>
+              Tải lên một chương bài giảng, hệ thống sẽ tách nó thành các khái niệm, tìm khái niệm nào
+              là nền của khái niệm nào, rồi xếp lịch ôn theo đúng thứ tự đó.
+            </p>
+            <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
+              Tạo kế hoạch đầu tiên
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="state__head">
+          <span class="state__name">Lưu trữ &amp; xóa kế hoạch</span>
+          <span class="tag">SP-04</span>
+          <span class="tag">UC-02 · UC-08</span>
+        </div>
+        <p class="state__desc">
+          SP-04 chưa có chỗ đứng nào trên giao diện cũ. Lưu trữ đặt trước xóa, và xóa tách riêng dưới
+          đường kẻ — hai thao tác khác hẳn nhau về hậu quả thì không nên nằm sát nhau.
+        </p>
+        <div class="state__demo" style="background:var(--muted);">
+          <div class="menu" role="menu">
+            <button type="button" role="menuitem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <path d="M3 8l1.6-3.4A1.5 1.5 0 0 1 6 3.8h12a1.5 1.5 0 0 1 1.4.8L21 8" />
+                <path d="M10 12h4" />
+              </svg>
+              Lưu trữ kế hoạch
+            </button>
+            <button type="button" role="menuitem">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 4v6h6" />
+                <path d="M4.6 13a8 8 0 1 0 1.3-5.2" />
+              </svg>
+              Phân tích lại tài liệu
+              <span class="tag" style="margin-left:auto;">SP-05</span>
+            </button>
+            <div class="menu__rule"></div>
+            <button type="button" role="menuitem" class="is-danger">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />
+                <path d="M6.5 7l.9 12.1A1.5 1.5 0 0 0 8.9 20.5h6.2a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+              </svg>
+              Xóa vĩnh viễn
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+</body>
+
+</html>

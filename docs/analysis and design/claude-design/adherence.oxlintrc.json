@@ -1,0 +1,44 @@
+// Recall AI — Adherence lint config (chạy cục bộ lên src/client).
+// Phái sinh từ _adherence.oxlintrc.json của Claude Design, viết lại sạch để
+// oxlint chạy được với --config. Ý định giữ nguyên:
+//   · forbid-elements: cấm <input>/<button> thô → dùng component @/components/ui/*
+//   · no-restricted-syntax: cấm màu hex thô (bắt dùng var(token)) và font ngoài DS
+//   · loại trừ chính components/ui/** vì đó là nơi hợp lệ dựng thẻ thô
+// Đây là công cụ ĐO (việc #4), không phải file design-system trên server.
+{
+  "plugins": ["react", "import"],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": [
+          {
+            "element": "input",
+            "message": "Dùng <Input> từ @/components/ui/input thay cho <input> thô."
+          },
+          {
+            "element": "button",
+            "message": "Dùng <Button> từ @/components/ui/button thay cho <button> thô."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Màu hex thô — dùng token màu của design system qua var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\"]?(?:Geist|Geist Mono|Noto Serif))/i]",
+        "message": "Font ngoài design system. Chỉ có: Geist, Geist Mono, Noto Serif."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/components/ui/**"],
+      "rules": { "react/forbid-elements": "off" }
+    }
+  ]
+}

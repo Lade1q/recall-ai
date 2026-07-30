@@ -1,0 +1,519 @@
+<!-- @dsCard group="Foundations" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Recall AI — Component Library v3</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    body {
+      padding: 48px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    section {
+      margin-bottom: 56px;
+    }
+
+    h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+
+    .section-desc {
+      color: var(--muted-foreground);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .swatch {
+      width: 120px;
+      border-radius: calc(var(--radius) * 0.8);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .swatch__color {
+      height: 48px;
+    }
+
+    .swatch__label {
+      font-size: 11px;
+      padding: 6px 8px;
+      background: var(--card);
+      font-family: var(--font-mono);
+    }
+
+    .demo-card {
+      padding: 24px;
+      width: 260px;
+    }
+
+    .demo-card h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+    }
+
+    .demo-card p {
+      margin: 0;
+      color: var(--muted-foreground);
+      font-size: 13px;
+    }
+
+    /* ── Form controls ────────────────────────────────────────────────────
+       Bản dùng chung của các primitive form. Trước đây định nghĩa này bị chép
+       giữa screen-auth.html và screen-profile.html (giống hệt nhau). Gom về
+       đây làm một nguồn tài liệu; hai màn hình vẫn giữ định nghĩa cục bộ vì
+       tokens.css là file global — đổ form vào đó sẽ đụng .field/.hint/.locked
+       mà concept-graph/history/interview cũng dùng. Xem ghi chú adherence. */
+    .field {
+      margin-bottom: 18px;
+      max-width: 340px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .lbl {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--foreground);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 9px 12px;
+      transition: border-color var(--duration-fast) var(--ease-standard);
+    }
+
+    .input:hover {
+      border-color: var(--muted-foreground);
+    }
+
+    .input:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    .input--error {
+      border-color: var(--mastery-weak);
+    }
+
+    .hint {
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 7px 0 0;
+    }
+
+    .err {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--mastery-weak);
+      margin: 7px 0 0;
+    }
+
+    .err svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    .req {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 7px;
+    }
+
+    .req--ok {
+      color: var(--mastery-strong);
+    }
+
+    /* Dòng dữ liệu chỉ-đọc (vd email = định danh đăng nhập). Không phải input
+       disabled — một ô xám vẫn mời click; hiển thị giá trị kèm ổ khóa thì không
+       hứa hẹn gì. */
+    .locked {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 14px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 9px 12px;
+      color: var(--muted-foreground);
+    }
+
+    .locked svg {
+      flex: none;
+      margin-left: auto;
+    }
+
+    .forms {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 28px 40px;
+      max-width: 780px;
+    }
+
+    /* Nhãn phụ phân nhóm trạng thái trong một section */
+    .sublabel {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin: 20px 0 8px;
+    }
+
+    .sublabel:first-of-type {
+      margin-top: 0;
+    }
+
+    .spin {
+      animation: spin 900ms linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Modal/Dialog — overlay giả (position relative, không fixed) */
+    .dialog-stage {
+      position: relative;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      padding: 40px 20px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    .dialog {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.35);
+      box-shadow: var(--shadow-soft);
+      padding: 22px 24px;
+    }
+
+    .dialog h3 {
+      font-size: 16px;
+      margin: 0 0 6px;
+    }
+
+    .dialog p {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+      margin: 0 0 20px;
+    }
+
+    .dialog__actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Spacing scale — thanh đặc theo từng bước Tailwind */
+    .space-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 9px;
+    }
+
+    .space-bar {
+      height: 16px;
+      background: oklch(from var(--primary) l c h / 0.5);
+      border-radius: 3px;
+    }
+
+    .space-row span {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+    }
+
+    .radius-box {
+      width: 84px;
+      height: 56px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: end center;
+    }
+
+    .radius-box span {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--muted-foreground);
+      padding-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1 class="font-heading" style="font-size:32px; margin-bottom:2px;">Recall AI — Component Library</h1>
+  <p class="section-desc">Design System v3 · Warm Editorial Minimalism</p>
+
+  <section>
+    <h2>Buttons</h2>
+    <p class="section-desc">CTA nền brand indigo, không box-shadow. Hover dịch màu nhẹ; active
+      <span class="meta-mono" style="font-size:12px;">scale(0.98)</span>; disabled mờ 50%.
+      Bốn biến thể khớp <span class="meta-mono" style="font-size:12px;">Button</span> trong
+      <span class="meta-mono" style="font-size:12px;">@/components/ui</span>:
+      <span class="meta-mono" style="font-size:12px;">default · secondary · outline · ghost</span>.</p>
+
+    <p class="sublabel">Default</p>
+    <div class="row">
+      <button class="btn btn-primary">Tạo kế hoạch</button>
+      <button class="btn btn-secondary">Xem chi tiết</button>
+      <button class="btn btn-outline">Nhập tệp</button>
+      <button class="btn btn-ghost">Hủy</button>
+    </div>
+
+    <p class="sublabel">Disabled</p>
+    <div class="row">
+      <button class="btn btn-primary" disabled>Tạo kế hoạch</button>
+      <button class="btn btn-secondary" disabled>Xem chi tiết</button>
+      <button class="btn btn-outline" disabled>Nhập tệp</button>
+      <button class="btn btn-ghost" disabled>Hủy</button>
+    </div>
+
+    <p class="sublabel">Loading</p>
+    <div class="row">
+      <button class="btn btn-primary" disabled>
+        <svg class="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />
+        </svg>
+        Đang tạo…
+      </button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Semantic accent — màu là tài nguyên khan hiếm</h2>
+    <p class="section-desc">5 accent duy nhất trong toàn hệ thống, mỗi accent một ý nghĩa cố định.</p>
+    <div class="row">
+      <div class="swatch">
+        <div class="swatch__color" style="background: oklch(from var(--ai-accent) l c h / 0.12);"></div>
+        <div class="swatch__label">ai-accent</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch__color" style="background: oklch(from var(--mastery-strong) l c h / 0.12);"></div>
+        <div class="swatch__label">mastery-strong</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch__color" style="background: oklch(from var(--mastery-learning) l c h / 0.12);"></div>
+        <div class="swatch__label">mastery-learning</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch__color" style="background: oklch(from var(--mastery-weak) l c h / 0.12);"></div>
+        <div class="swatch__label">mastery-weak</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch__color" style="background: oklch(from var(--remediate) l c h / 0.12);"></div>
+        <div class="swatch__label">remediate</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Badges / Tags</h2>
+    <p class="section-desc">Ngoại lệ duy nhất được phép pill-shape.</p>
+    <div class="row">
+      <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Vững</span>
+      <span class="badge" style="background: oklch(from var(--mastery-learning) l c h / 0.14); color: var(--mastery-learning);">Đang học</span>
+      <span class="badge" style="background: oklch(from var(--mastery-weak) l c h / 0.14); color: var(--mastery-weak);">Yếu</span>
+      <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chưa kiểm tra</span>
+      <span class="badge" style="background: oklch(from var(--remediate) l c h / 0.14); color: var(--remediate);">Cần ôn lại</span>
+      <span class="badge" style="background: oklch(from var(--ai-accent) l c h / 0.14); color: var(--ai-accent);">AI đang phân tích</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Concept Graph Nodes</h2>
+    <p class="section-desc">Flat, viền 1px, nền tint 10% — không còn nền tô đậm như v2.</p>
+    <div class="row">
+      <div class="concept-node concept-node--strong">Đệ quy</div>
+      <div class="concept-node concept-node--learning">Cây nhị phân</div>
+      <div class="concept-node concept-node--weak">Đồ thị có hướng</div>
+      <div class="concept-node concept-node--untested">Quy hoạch động</div>
+      <div class="concept-node concept-node--remediating">Ngăn xếp</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Chat Bubbles — AI Examiner</h2>
+    <p class="section-desc">Màu chỉ dành cho phía AI; phía sinh viên trung tính.</p>
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:520px;">
+      <div class="chat-bubble-ai">Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu mình push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?</div>
+      <div class="chat-bubble-user" style="align-self:flex-end;">Còn lại số 3 ạ, vì pop lần lượt lấy ra 7 rồi 5.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Metadata / Keystroke</h2>
+    <p class="section-desc">Geist Mono cho số liệu và phím tắt.</p>
+    <div class="row">
+      <span class="meta-mono" style="font-size:13px;">mastery_score: <kbd>0.82</kbd></span>
+      <span class="meta-mono" style="font-size:13px;">Lượt <kbd>2</kbd>/<kbd>3</kbd></span>
+      <span>Mở nhanh:</span>
+      <kbd>Ctrl</kbd> + <kbd>K</kbd>
+    </div>
+  </section>
+
+  <section>
+    <h2>Form controls</h2>
+    <p class="section-desc">Nhãn 12.5px, ô nhập viền 1px bo 0.65×radius, focus ring 2px. Lỗi gắn vào ô
+      (đỏ + icon), hợp lệ báo tại chỗ (xanh). Dòng chỉ-đọc dùng ổ khóa thay vì ô disabled.
+      Tương ứng <span class="meta-mono" style="font-size:12px;">Input</span>,
+      <span class="meta-mono" style="font-size:12px;">Field</span>,
+      <span class="meta-mono" style="font-size:12px;">Label</span> trong <span class="meta-mono"
+        style="font-size:12px;">@/components/ui</span>.</p>
+    <div class="forms">
+      <div>
+        <div class="field">
+          <label class="lbl" for="cmp-name">Tên hiển thị</label>
+          <input class="input" id="cmp-name" type="text" value="Trần Minh Anh" />
+          <p class="hint">Dùng chữ cái đầu làm ảnh đại diện chữ.</p>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="lbl" for="cmp-email">Email</label>
+          <div class="locked">
+            <span>minhanh.tran@student.hcmus.edu.vn</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+              <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="field">
+          <label class="lbl" for="cmp-pw-err">Mật khẩu (lỗi)</label>
+          <input class="input input--error" id="cmp-pw-err" type="password" value="·····" aria-invalid="true" />
+          <p class="err">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+              stroke-linecap="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7.5v5.5" />
+              <path d="M12 16.4h.01" />
+            </svg>
+            Còn thiếu 3 ký tự.
+          </p>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label class="lbl" for="cmp-pw-ok">Mật khẩu (hợp lệ)</label>
+          <input class="input" id="cmp-pw-ok" type="password" value="··············" />
+          <p class="req req--ok">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+            Đủ 8 ký tự.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Modal / Dialog</h2>
+    <p class="section-desc">Chỉ dùng cho xác nhận thật sự cần chặn luồng — thao tác đơn giản ưu tiên
+      inline/slide-over. Overlay mờ, thẻ giữa màn viền 1px; hành động phụ (ghost) bên trái nút chính.</p>
+    <div class="dialog-stage">
+      <div class="dialog" role="dialog" aria-label="Xác nhận rời trang">
+        <h3>Rời khỏi trang?</h3>
+        <p>Bạn có thay đổi chưa lưu ở đồ thị khái niệm. Rời đi bây giờ sẽ mất các chỉnh sửa chưa xác nhận.</p>
+        <div class="dialog__actions">
+          <button class="btn btn-ghost">Ở lại</button>
+          <button class="btn btn-primary">Rời đi</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Spacing &amp; Radius</h2>
+    <p class="section-desc">Cách lề dùng thang Tailwind (bước 4px; phổ biến 8 / 12 / 16 / 24 / 32).
+      Bo góc suy ra từ <span class="meta-mono" style="font-size:12px;">--radius</span> (10px): nút
+      0.8×, ô nhập 0.65×, thẻ 1.35×.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:40px;">
+      <div>
+        <p class="sublabel">Spacing</p>
+        <div class="space-row"><div class="space-bar" style="width:4px;"></div><span>4 · gap-1</span></div>
+        <div class="space-row"><div class="space-bar" style="width:8px;"></div><span>8 · gap-2</span></div>
+        <div class="space-row"><div class="space-bar" style="width:12px;"></div><span>12 · gap-3</span></div>
+        <div class="space-row"><div class="space-bar" style="width:16px;"></div><span>16 · p-4</span></div>
+        <div class="space-row"><div class="space-bar" style="width:24px;"></div><span>24 · p-6</span></div>
+        <div class="space-row"><div class="space-bar" style="width:32px;"></div><span>32 · p-8</span></div>
+      </div>
+      <div>
+        <p class="sublabel">Radius</p>
+        <div class="row" style="align-items:flex-start;">
+          <div class="radius-box" style="border-radius: calc(var(--radius) * 0.65);"><span>0.65×</span></div>
+          <div class="radius-box" style="border-radius: calc(var(--radius) * 0.8);"><span>0.8×</span></div>
+          <div class="radius-box" style="border-radius: var(--radius);"><span>1×</span></div>
+          <div class="radius-box" style="border-radius: calc(var(--radius) * 1.35);"><span>1.35×</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Card</h2>
+    <p class="section-desc">Định nghĩa bằng viền 1px, không shadow — hover mới xuất hiện shadow cực nhạt.</p>
+    <div class="row">
+      <div class="card demo-card">
+        <h3>Cấu trúc dữ liệu &amp; Giải thuật</h3>
+        <p>24 khái niệm · Hạn nộp 12/08</p>
+      </div>
+      <div class="card demo-card">
+        <h3>Hệ điều hành</h3>
+        <p>18 khái niệm · Hạn nộp 20/08</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Editorial heading</h2>
+    <p class="section-desc">Noto Serif, tracking -0.02em, chỉ dùng cho tiêu đề lớn — không dùng cho label UI.</p>
+    <div class="font-heading" style="font-size:40px;">Tổng quan tiến độ ôn tập</div>
+  </section>
+</body>
+
+</html>

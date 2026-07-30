@@ -10,4 +10,7 @@ export const ENDPOINTS = {
     REFRESH: '/api/v1/auth/refresh',
     ME: '/api/v1/auth/me',
   },
+  PLANS: {
+    BASE: '/api/v1/plans',
+  },
 } as const;

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Recall AI — AI Examiner</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <script src="./doc-page.js"></script>
+  <style>
+    doc-page:not(:defined){visibility:hidden}
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    * { animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important; }
+
+    .interview-page {
+      width: 1280px;
+      height: 800px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background: var(--background);
+      overflow: hidden;
+    }
+
+    .interview-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .interview-topbar__meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+
+    .interview-body {
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 40px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow: hidden;
+    }
+
+    .turn-marker {
+      align-self: center;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      margin: 8px 0;
+    }
+
+    .interview-footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 40px 32px;
+    }
+
+    .answer-box {
+      max-width: 720px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .answer-box textarea {
+      flex: 1;
+      min-height: 56px;
+      max-height: 140px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      padding: 14px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--foreground);
+      background: var(--card);
+    }
+  </style>
+</head>
+
+<body>
+  <doc-page orientation="landscape" content-width="1280px" content-height="800px">
+    <div class="interview-page">
+      <div class="interview-topbar">
+        <div>
+          <div style="font-weight:600; font-size:14px;">AI Examiner</div>
+          <div class="interview-topbar__meta">
+            <span class="badge" style="background: oklch(from var(--ai-accent) l c h / 0.14); color: var(--ai-accent);">Đang vấn đáp</span>
+            <span>Khái niệm: <strong style="color:var(--foreground);">Ngăn xếp (Stack)</strong></span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:16px;">
+          <span class="meta-mono" style="font-size:13px;">Lượt <kbd>2</kbd> / <kbd>3</kbd></span>
+          <button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;">Tạm dừng</button>
+          <button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;">Bỏ qua</button>
+        </div>
+      </div>
+
+      <div class="interview-body">
+        <div class="chat-bubble-ai">Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu mình push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?</div>
+        <div class="chat-bubble-user" style="align-self:flex-end;">Còn lại số 3 ạ, vì pop lần lượt lấy ra 7 rồi 5.</div>
+
+        <div style="align-self:center; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted-foreground); margin:4px 0;">
+          <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Hiểu sâu</span>
+          <span class="meta-mono">score 0.9</span>
+          <span>— AI tiếp tục đào sâu</span>
+        </div>
+
+        <div class="turn-marker">— Lượt 2 —</div>
+
+        <div class="chat-bubble-ai">Chính xác. Giờ thử một tình huống khác: ngăn xếp thường được dùng để triển khai lời gọi hàm đệ quy. Theo bạn, điều gì xảy ra nếu một hàm đệ quy gọi chính nó mà không có điều kiện dừng?</div>
+      </div>
+
+      <div class="interview-footer">
+        <div class="answer-box">
+          <textarea placeholder="Nhập câu trả lời của bạn..."></textarea>
+          <button class="btn btn-primary">Gửi</button>
+        </div>
+      </div>
+    </div>
+  </doc-page>
+</body>
+
+</html>

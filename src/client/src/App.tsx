@@ -15,6 +15,7 @@ import RegisterPage from '@/pages/auth/RegisterPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import PlansPage from '@/pages/planning/PlansPage';
 import CreatePlanPage from '@/pages/planning/CreatePlanPage';
+import PlanDetailPage from '@/pages/planning/PlanDetailPage';
 import FocusPage from '@/pages/focus/FocusPage';
 import InterviewPage from '@/pages/verify/InterviewPage';
 
@@ -42,6 +43,7 @@ function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/plans" element={<PlansPage />} />
               <Route path="/plan/new" element={<CreatePlanPage />} />
+              <Route path="/plan/:id" element={<PlanDetailPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/interview" element={<InterviewPage />} />
             </Route>

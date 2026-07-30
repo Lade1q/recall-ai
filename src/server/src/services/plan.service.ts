@@ -19,7 +19,8 @@ export async function createPlanInDb(
   input: CreatePlanInput,
   document: DocumentMeta
 ): Promise<CreatePlanResponse> {
-  const deadlineDate = new Date(input.deadline);
+  const dateStr = input.deadline.includes('T') ? input.deadline.split('T')[0] : input.deadline;
+  const deadlineDate = new Date(`${dateStr}T23:59:59.999Z`);
 
   const result = await prisma.$transaction(async (tx) => {
     const plan = await tx.studyPlan.create({

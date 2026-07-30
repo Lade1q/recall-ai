@@ -1,0 +1,933 @@
+<!-- @dsCard group="Screens" subtitle="AM-01 · AM-02 — Đăng nhập &amp; Đăng ký" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Đăng nhập &amp; Đăng ký</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    h1.page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+    }
+
+    /* ── Khung trang ──────────────────────────────────────────────────────
+       Đây là màn hình DUY NHẤT không nằm trong .app-shell: chưa đăng nhập
+       thì chưa có gì để điều hướng tới, nên không có sidebar. AuthLayout.tsx
+       hiện tại cũng vậy — nhưng nó đang phủ thêm một lưới nền và hai quả cầu
+       blur-3xl (bg-primary/10, bg-accent/10). Ở bảng màu đơn sắc ấm này, hai
+       lớp đó cho ra hai vệt xám nhạt gần như vô hình, tức là trả tiền một
+       lớp blur toàn màn hình để đổi lấy thứ không ai nhìn thấy. Bỏ. */
+    .auth {
+      max-width: 1100px;
+      padding: 40px 48px 56px;
+    }
+
+    .head {
+      margin-bottom: 38px;
+    }
+
+    .head p {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      margin: 0;
+      max-width: 640px;
+      text-wrap: pretty;
+    }
+
+    /* Hai route đặt cạnh nhau vì điểm cần thấy nằm ở chỗ chúng KHÁC nhau,
+       không phải ở chỗ chúng giống nhau. Người dùng không bao giờ thấy cả
+       hai cùng lúc; bề rộng mỗi cột giữ đúng max-w-sm (384px) của code. */
+    .routes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 384px));
+      gap: 30px 60px;
+      align-items: start;
+    }
+
+    .route__head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    /* ── Thẻ xác thực ─────────────────────────────────────────────────────*/
+    .authcard {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.35);
+      padding: 30px 28px 26px;
+    }
+
+    /* Trang đăng nhập hiện tại không có một dấu hiệu nào cho biết đây là sản
+       phẩm gì: một thẻ trắng ghi "Login to your account" trôi giữa màn hình.
+       Tên sản phẩm canh trái ở đầu thẻ, cùng font-heading với logo sidebar. */
+    .wordmark {
+      font-family: var(--font-heading);
+      font-size: 16px;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 26px;
+    }
+
+    .authcard h2 {
+      font-family: var(--font-heading);
+      font-size: 23px;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin: 0 0 7px;
+    }
+
+    .authcard__sub {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+      margin: 0 0 24px;
+      text-wrap: pretty;
+    }
+
+    /* ── Trường nhập (dùng chung với screen-profile.html) ─────────────────*/
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field label,
+    .lbl {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .lblrow {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .lblrow label {
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--foreground);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 9px 12px;
+      transition: border-color var(--duration-fast) var(--ease-standard);
+    }
+
+    .input:hover {
+      border-color: var(--muted-foreground);
+    }
+
+    .input:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    .input:disabled {
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    /* Nút hiện/ẩn mật khẩu. Bản hiện tại dùng <Button size="sm"> cao bằng cả
+       ô nhập (h-full px-3), nên vùng bấm đè lên viền ô và trông như một nút
+       thứ hai gắn vào input. Ở đây là một nút vuông 28px lọt hẳn bên trong. */
+    .pw {
+      position: relative;
+    }
+
+    .pw .input {
+      padding-right: 40px;
+    }
+
+    .reveal {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      transform: translateY(-50%);
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 0;
+      background: none;
+      border-radius: calc(var(--radius) * 0.5);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+    }
+
+    .reveal:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+
+    .reveal:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
+
+    .hint {
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 7px 0 0;
+      text-wrap: pretty;
+    }
+
+    .btn-block {
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .foot {
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      text-align: center;
+      margin: 16px 0 0;
+    }
+
+    .link {
+      color: var(--foreground);
+      text-decoration: underline;
+      text-decoration-color: var(--border);
+      text-underline-offset: 3px;
+    }
+
+    .link:hover {
+      text-decoration-color: currentColor;
+    }
+
+    .lblrow .link {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* "Thử lại" gửi lại request chứ không đi tới đâu, nên nó là <button> đội
+       lốt link — không phải một <a href="#"> để rồi phải chặn sự kiện. */
+    .linkbtn {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+      background: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    #login,
+    #register,
+    #am-05 {
+      scroll-margin-top: 24px;
+    }
+
+    /* ── Trạng thái lỗi ───────────────────────────────────────────────────*/
+    .input--error {
+      border-color: var(--mastery-weak);
+    }
+
+    .err {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--mastery-weak);
+      margin: 7px 0 0;
+    }
+
+    .err svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    /* Lỗi CẤP BIỂU MẪU, không gắn vào ô nào. AM-02 [E1] chỉ có đúng một thông
+       báo chung cho cả "email không tồn tại" lẫn "sai mật khẩu" — auth.service.ts
+       trả về cùng một chuỗi cho hai nhánh, cố ý. Treo nó dưới ô Email là tự tay
+       phá bỏ điều đó: người đọc sẽ hiểu ngay là "email sai". */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      border: 1px solid oklch(from var(--mastery-weak) l c h / 0.35);
+      background: oklch(from var(--mastery-weak) l c h / 0.07);
+      color: var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      margin: 0 0 20px;
+      text-wrap: pretty;
+    }
+
+    .alert svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    .req {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 7px;
+    }
+
+    .req--ok {
+      color: var(--mastery-strong);
+    }
+
+    .spin {
+      animation: spin 900ms linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Lý do thiết kế, đặt ngay dưới thẻ nó nói tới ─────────────────────*/
+    .why {
+      margin-top: 20px;
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+    }
+
+    .why p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 10px;
+      text-wrap: pretty;
+    }
+
+    .why p:last-child {
+      margin-bottom: 0;
+    }
+
+    .mini {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin-bottom: 9px;
+    }
+
+    /* ── Phụ lục trạng thái ───────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 680px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 740px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 26px 28px;
+    }
+
+    /* Các demo dựng lại đúng bề rộng thật của biểu mẫu (384px). Nếu để chúng
+       kéo hết 1060px thì dòng lỗi sẽ nằm cách ô nhập rất xa và mất luôn điều
+       đang cần chứng minh: lỗi gắn vào đâu. */
+    .demo-form {
+      max-width: 384px;
+    }
+
+    .gap {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 16px 18px;
+      max-width: 760px;
+    }
+
+    .gap h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .gap p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-wrap: pretty;
+    }
+
+    .gap p:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .routes {
+        grid-template-columns: minmax(0, 384px);
+      }
+
+      .auth {
+        padding: 32px 24px 48px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="auth">
+    <div class="head">
+      <h1 class="page-title">Đăng nhập &amp; Đăng ký</h1>
+      <p>Hai route dùng chung một layout, nhưng hợp đồng kiểm tra dữ liệu của chúng ngược nhau:
+        biểu mẫu đăng ký phải chặn trước mọi lỗi có thể chặn, biểu mẫu đăng nhập gần như không
+        được phép chặn gì. Đó là điều quyết định hình dạng của cả hai thẻ dưới đây.</p>
+    </div>
+
+    <div class="routes">
+
+      <!-- ══ /login ═══════════════════════════════════════════════════════ -->
+      <section id="login">
+        <div class="route__head">
+          <span class="tag">/login</span>
+          <span class="tag">AM-02 · High</span>
+        </div>
+
+        <div class="authcard">
+          <div class="wordmark">Recall AI</div>
+          <h2>Đăng nhập</h2>
+          <p class="authcard__sub">Dùng email và mật khẩu bạn đã đăng ký.</p>
+
+          <form>
+            <div class="field">
+              <label for="login-email">Email</label>
+              <input class="input" id="login-email" type="email" autocomplete="email" autofocus />
+            </div>
+
+            <div class="field">
+              <div class="lblrow">
+                <label for="login-pw">Mật khẩu</label>
+                <!-- AM-05 <<extend>> AM-02. Link giữ chỗ đúng vị trí vì AM-05 nằm
+                     trong MVP, nhưng phía sau nó chưa có gì — xem khe hở cuối trang. -->
+                <a class="link" href="#am-05">Quên mật khẩu?</a>
+              </div>
+              <div class="pw">
+                <input class="input" id="login-pw" type="password" autocomplete="current-password" />
+                <button class="reveal" type="button" aria-label="Hiện mật khẩu">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+                    <circle cx="12" cy="12" r="3.1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" type="submit">Đăng nhập</button>
+            <p class="foot">Chưa có tài khoản? <a class="link" href="#register">Đăng ký</a></p>
+          </form>
+        </div>
+
+        <div class="why">
+          <p><strong>Biểu mẫu này chỉ được phép chặn đúng một thứ: ô rỗng.</strong> Lược đồ thật ở
+            server là <code>password: z.string().min(1)</code> — nó cố ý không kiểm độ dài. Client
+            hiện đang đặt <code>min(8)</code> ở màn hình đăng nhập, chặt hơn server: vừa từ chối
+            nhầm những mật khẩu mà server chấp nhận, vừa nói thẳng chính sách mật khẩu cho bất kỳ
+            ai mở trang đăng nhập lên xem.</p>
+          <p>Không có ô "Ghi nhớ đăng nhập". <code>AuthContext</code> luôn ghi cả hai token vào
+            <code>localStorage</code> và server luôn cấp <code>refreshToken</code>, nên một ô như
+            thế sẽ không điều khiển bất cứ thứ gì — nó chỉ trông giống một tính năng.</p>
+        </div>
+      </section>
+
+      <!-- ══ /register ════════════════════════════════════════════════════ -->
+      <section id="register">
+        <div class="route__head">
+          <span class="tag">/register</span>
+          <span class="tag">AM-01 · Medium</span>
+        </div>
+
+        <div class="authcard">
+          <div class="wordmark">Recall AI</div>
+          <h2>Tạo tài khoản</h2>
+          <p class="authcard__sub">Tài khoản dùng được ngay sau khi tạo, không có bước xác minh email.</p>
+
+          <form>
+            <div class="field">
+              <label for="reg-name">Tên hiển thị</label>
+              <input class="input" id="reg-name" type="text" value="Trần Minh Anh" autocomplete="name" />
+            </div>
+
+            <div class="field">
+              <label for="reg-email">Email</label>
+              <input class="input" id="reg-email" type="email" value="minhanh.tran@student.hcmus.edu.vn"
+                autocomplete="email" />
+            </div>
+
+            <div class="field">
+              <label for="reg-pw">Mật khẩu</label>
+              <div class="pw">
+                <input class="input" id="reg-pw" type="password" value="··············"
+                  autocomplete="new-password" aria-describedby="reg-pw-req" />
+                <button class="reveal" type="button" aria-label="Hiện mật khẩu">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+                    <circle cx="12" cy="12" r="3.1" />
+                  </svg>
+                </button>
+              </div>
+              <!-- Dòng yêu cầu có mặt từ đầu và chỉ đổi trạng thái tại chỗ, không
+                   mọc thêm dòng mới — chiều cao thẻ không nhảy trong lúc đang gõ. -->
+              <p class="req req--ok" id="reg-pw-req">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                Đủ 8 ký tự.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="reg-pw2">Nhập lại mật khẩu</label>
+              <div class="pw">
+                <input class="input" id="reg-pw2" type="password" value="··············"
+                  autocomplete="new-password" />
+                <button class="reveal" type="button" aria-label="Hiện mật khẩu">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+                    <circle cx="12" cy="12" r="3.1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" type="submit">Tạo tài khoản</button>
+            <p class="foot">Đã có tài khoản? <a class="link" href="#login">Đăng nhập</a></p>
+          </form>
+        </div>
+
+        <div class="why">
+          <p><strong>Ngược lại, đây là nơi duy nhất bắt được [E2] và [E3]</strong> — cả hai luồng
+            ngoại lệ đều ghi rõ "không gửi lên server". Client phải soi gương ba quy tắc của server
+            (<code>email</code>, <code>password ≥ 8</code>, <code>name ≥ 2</code>) và thêm một quy
+            tắc chỉ tồn tại ở client: <code>confirmPassword</code>. Server không biết trường này —
+            <code>auth.api.ts</code> bóc nó ra trước khi POST.</p>
+          <p>Ô "Nhập lại mật khẩu" cũng có nút hiện/ẩn riêng. Bản hiện tại chỉ có một biến
+            <code>showPassword</code> dùng chung, nên bấm mắt ở ô trên thì ô dưới cũng lộ theo, và
+            ô dưới thì chừa sẵn <code>pr-10</code> cho một nút không tồn tại.</p>
+          <p>Trường Tên hiển thị là bắt buộc vì <code>registerSchema</code> phía server đặt
+            <code>name: z.string().min(2)</code> — dù cột <code>users.name</code> cho phép NULL và
+            AM-01 bước 2 chỉ nói "email và mật khẩu". Nhãn dùng đúng chữ "Tên hiển thị" như trang
+            Hồ sơ để người dùng nhận ra đây là cùng một trường.</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <section class="gallery" aria-label="Các trạng thái còn lại">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái còn lại</h2>
+        <p>Bốn luồng ngoại lệ của AM-01 và AM-02, trạng thái đang gửi, và một quy tắc về thời điểm
+          được phép hiện lỗi. Điểm chung của cả nhóm: không có thông báo nào được phép làm mất nội
+          dung người dùng đã gõ.</p>
+      </div>
+
+      <!-- ── 1. AM-01 [E1] ─────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Email đã được đăng ký</span>
+          <span class="tag">AM-01 [E1]</span>
+          <span class="tag">409 EMAIL_CONFLICT</span>
+        </div>
+        <p class="state__desc">
+          Chỉ biết được sau khi POST, nên nó là lỗi của một ô cụ thể và gắn thẳng vào ô đó. Use case
+          yêu cầu "giữ nguyên form, đề nghị đăng nhập" — một toast không làm được cả hai: nó biến
+          mất sau vài giây và không phải chỗ để đặt một đường dẫn. Ba ô còn lại giữ nguyên giá trị.
+          Copy lấy từ <code>error.code</code> chứ không phải <code>error.message</code>: server trả
+          về chuỗi tiếng Anh <code>"Email already exists"</code>, và render thẳng nó ra nghĩa là để
+          ngôn ngữ giao diện do backend quyết định.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form">
+            <div class="field">
+              <label for="e1-email">Email</label>
+              <input class="input input--error" id="e1-email" type="email"
+                value="minhanh.tran@student.hcmus.edu.vn" aria-invalid="true" aria-describedby="e1-msg" />
+              <p class="err" id="e1-msg">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                  stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.4h.01" />
+                </svg>
+                <span>Email này đã được đăng ký. <a class="link" href="#login">Đăng nhập</a> bằng email đó.</span>
+              </p>
+            </div>
+            <div class="field">
+              <label for="e1-pw">Mật khẩu</label>
+              <input class="input" id="e1-pw" type="password" value="··············" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2. AM-01 [E3] ─────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Hai ô mật khẩu không khớp</span>
+          <span class="tag">AM-01 [E3]</span>
+        </div>
+        <p class="state__desc">
+          Lỗi gắn vào ô <em>thứ hai</em>, không phải ô mật khẩu gốc: ô người dùng cần sửa là ô vừa gõ
+          xong, và nếu đổ lỗi lên ô đầu thì họ sẽ đi sửa đúng cái mật khẩu mà họ đã chọn. Không có
+          request nào được gửi. Dòng yêu cầu "Đủ 8 ký tự" ở ô trên vẫn xanh — hai quy tắc khác nhau,
+          hỏng một cái không kéo cái kia theo.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form">
+            <div class="field">
+              <label for="e3-pw">Mật khẩu</label>
+              <input class="input" id="e3-pw" type="password" value="··············" />
+              <p class="req req--ok">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+                Đủ 8 ký tự.
+              </p>
+            </div>
+            <div class="field">
+              <label for="e3-pw2">Nhập lại mật khẩu</label>
+              <input class="input input--error" id="e3-pw2" type="password" value="··········"
+                aria-invalid="true" aria-describedby="e3-msg" />
+              <p class="err" id="e3-msg">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                  stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.4h.01" />
+                </svg>
+                Hai mật khẩu chưa giống nhau.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. AM-02 [E1] ─────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Sai email hoặc mật khẩu</span>
+          <span class="tag">AM-02 [E1]</span>
+          <span class="tag">401 UNAUTHORIZED</span>
+        </div>
+        <p class="state__desc">
+          Trạng thái duy nhất mà lỗi <strong>không được</strong> gắn vào ô nào.
+          <code>auth.service.ts</code> cố tình trả về cùng một chuỗi cho "không tìm thấy email" và
+          "sai mật khẩu", để người ngoài không dò được email nào đã có tài khoản; treo thông báo
+          dưới ô Email là tự tay tiết lộ lại điều vừa giấu. Nó nằm cấp biểu mẫu, ngay trên đầu form,
+          với <code>role="alert"</code>. Email giữ nguyên như use case yêu cầu, ô mật khẩu được xóa
+          và nhận con trỏ — thứ duy nhất cần gõ lại.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form">
+            <p class="alert" role="alert">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5" />
+                <path d="M12 16.4h.01" />
+              </svg>
+              Email hoặc mật khẩu không đúng.
+            </p>
+            <div class="field">
+              <label for="l1-email">Email</label>
+              <input class="input" id="l1-email" type="email" value="minhanh.tran@student.hcmus.edu.vn" />
+            </div>
+            <div class="field">
+              <div class="lblrow">
+                <label for="l1-pw">Mật khẩu</label>
+                <a class="link" href="#am-05">Quên mật khẩu?</a>
+              </div>
+              <input class="input" id="l1-pw" type="password" style="outline:2px solid var(--ring); outline-offset:1px; border-color:transparent;" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. Đang gửi ───────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Đang gửi</span>
+          <span class="tag">isSubmitting</span>
+        </div>
+        <p class="state__desc">
+          Khoá cả biểu mẫu chứ không chỉ khoá nút. Nếu chỉ khoá nút, người dùng vẫn sửa được email
+          trong lúc request đang bay, và kết quả trả về sẽ nói về một email không còn nằm trên màn
+          hình nữa. Nhãn nút đổi thành động từ đang diễn ra, không phải một chữ "Đang tải" chung
+          chung — cùng một nút, cùng một chiều rộng, chỉ khác trạng thái.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form" aria-busy="true">
+            <div class="field">
+              <label for="ld-email">Email</label>
+              <input class="input" id="ld-email" type="email" value="minhanh.tran@student.hcmus.edu.vn" disabled />
+            </div>
+            <div class="field">
+              <label for="ld-pw">Mật khẩu</label>
+              <input class="input" id="ld-pw" type="password" value="··············" disabled />
+            </div>
+            <button class="btn btn-primary btn-block" type="button" disabled>
+              <svg class="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />
+              </svg>
+              Đang tạo tài khoản
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. Lỗi mạng / server ──────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Không gọi được server</span>
+          <span class="tag">AM-01 [E4]</span>
+          <span class="tag">AM-02 [E3]</span>
+        </div>
+        <p class="state__desc">
+          Không ô nào bị đánh dấu đỏ, vì không ô nào sai. Thông báo ở cấp biểu mẫu kèm nút thử lại
+          đặt ngay trong đó, và <strong>toàn bộ giá trị đã gõ được giữ</strong> — kể cả hai ô mật
+          khẩu. Đây là lý do trạng thái này không dùng toast: người dùng thường rời máy đi kiểm tra
+          mạng rồi mới quay lại, và lúc quay lại thì toast đã biến mất từ lâu.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form">
+            <div class="alert" role="alert">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5" />
+                <path d="M12 16.4h.01" />
+              </svg>
+              <span>Không kết nối được tới máy chủ. Thông tin bạn nhập vẫn được giữ nguyên.
+                <button class="linkbtn" type="button">Thử lại</button></span>
+            </div>
+            <div class="field">
+              <label for="e4-email">Email</label>
+              <input class="input" id="e4-email" type="email" value="minhanh.tran@student.hcmus.edu.vn" />
+            </div>
+            <div class="field">
+              <label for="e4-pw">Mật khẩu</label>
+              <input class="input" id="e4-pw" type="password" value="··············" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 6. Thời điểm hiện lỗi ─────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Thời điểm được phép hiện lỗi</span>
+          <span class="tag">mode: "onChange"</span>
+        </div>
+        <p class="state__desc">
+          Cả hai biểu mẫu hiện đặt <code>mode: "onChange"</code>, nghĩa là quy tắc email chạy từ ký
+          tự đầu tiên: gõ chữ "m" là màn hình đã báo "Email không hợp lệ" — một câu đúng về mặt kỹ
+          thuật nhưng vô nghĩa với người đang gõ dở. Quy tắc đúng: im lặng cho tới khi rời ô; sau
+          lần bấm gửi hỏng đầu tiên thì mới chuyển sang kiểm tra theo từng ký tự, vì lúc đó người
+          dùng đang sửa lỗi và cần biết ngay khi nào đã sửa xong.
+        </p>
+        <div class="state__demo">
+          <div class="demo-form">
+            <div class="mini">Trong lúc gõ — chưa rời ô</div>
+            <div class="field">
+              <label for="t1">Email</label>
+              <input class="input" id="t1" type="email" value="minhanh.tran@stu"
+                style="outline:2px solid var(--ring); outline-offset:1px; border-color:transparent;" />
+            </div>
+            <div class="mini" style="margin-top:24px;">Sau khi rời ô</div>
+            <div class="field">
+              <label for="t2">Email</label>
+              <input class="input input--error" id="t2" type="email" value="minhanh.tran@stu"
+                aria-invalid="true" aria-describedby="t2-msg" />
+              <p class="err" id="t2-msg">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                  stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.4h.01" />
+                </svg>
+                Địa chỉ email chưa hoàn chỉnh.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ Khe hở tài liệu ══════════════════════════════════════════════
+           Hai khối dưới đây không phải trạng thái thiết kế được. Chúng là chỗ
+           tài liệu yêu cầu một thứ mà dữ liệu hoặc mã nguồn chưa có, nên vẽ ra
+           màn hình cho chúng sẽ là bịa. Ghi lại đúng chỗ thiếu thay vì che đi.
+      -->
+      <section id="am-05">
+        <div class="gap">
+          <h3>AM-05 "Quên mật khẩu?" — link có chỗ đứng nhưng phía sau chưa có gì</h3>
+          <p>
+            AM-05 nằm <strong>trong MVP</strong> (UC-Overview §2, ưu tiên Medium, đánh dấu có làm) và
+            <code>&lt;&lt;extend&gt;&gt;</code> AM-02 "khi click Quên mật khẩu?" (§3). Nhưng:
+            <code>UC-01_Account.md</code> chỉ đặc tả tới UC-04 — <strong>không có luồng nào cho
+            AM-05</strong>; <code>auth.routes.ts</code> không có <code>/forgot-password</code> hay
+            <code>/reset-password</code>; <code>schema.prisma</code> không có bảng token đặt lại và
+            <code>users</code> không có cột nào lưu được token đó; và toàn bộ server chưa có nơi nào
+            gửi email.
+          </p>
+          <p>
+            Trong code hiện tại link này là <code>href="#"</code> kèm <code>preventDefault()</code>
+            — một link chết đúng nghĩa. Ở đây tôi vẫn giữ nó, đúng vị trí, vì AM-05 thuộc phạm vi
+            MVP và ô mật khẩu là chỗ duy nhất nó có nghĩa. Cái tôi <em>không</em> vẽ là màn hình
+            đích: dựng nó ra bây giờ tức là tự quyết hộ thời hạn token, kênh gửi, và các ca lỗi mà
+            chưa ai chốt.
+          </p>
+          <p>
+            <strong>Cần trước khi dựng:</strong> (1) một mục AM-05 trong <code>UC-01_Account.md</code>
+            với luồng chính + ngoại lệ; (2) một bảng <code>password_reset_tokens</code>
+            (<code>user_id</code>, <code>token_hash</code>, <code>expires_at</code>,
+            <code>used_at</code>) — thêm bảng mới, không đụng tới bảng nào đang có; (3) chốt cách
+            gửi email. Cả ba đều là bổ sung, không chặn phần còn lại của màn hình này.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div class="gap">
+          <h3>Hai chỗ <code>UC-01_Account.md</code> lệch với code — cần sửa tài liệu</h3>
+          <p>
+            <strong>UC-02 [E2] "Tài khoản bị khóa / chưa xác thực".</strong> Bảng
+            <code>users</code> chỉ có <code>id</code>, <code>email</code>,
+            <code>password_hash</code>, <code>name</code>, <code>pomodoro_config</code>,
+            <code>created_at</code>, <code>updated_at</code> — không có
+            <code>is_active</code>, không có <code>email_verified</code>, không có
+            <code>locked_until</code>. Hàm <code>login()</code> cũng chỉ phân biệt hai nhánh và cả
+            hai đều trả 401 giống hệt nhau; còn <code>register()</code> thì cấp token ngay, nên
+            không tồn tại khoảng thời gian "chưa xác thực". Trạng thái này vì thế không được vẽ:
+            không có đường nào rơi vào nó. Đề nghị bỏ [E2] khỏi UC-02, hoặc chuyển POST-MVP kèm cột
+            mà nó cần.
+          </p>
+          <p>
+            <strong>AM-01 luồng chính bước 2 thiếu trường tên.</strong> Tài liệu ghi "Nhập email và
+            mật khẩu (+ xác nhận mật khẩu)", nhưng <code>registerSchema</code> phía server bắt buộc
+            <code>name: z.string().min(2)</code> — gửi lên thiếu tên là 400 <code>VALIDATION_ERROR</code>.
+            Biểu mẫu thật có bốn ô, không phải ba. Sửa bước 2 của AM-01 cho khớp.
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+</body>
+
+</html>

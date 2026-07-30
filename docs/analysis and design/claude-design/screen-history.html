@@ -1,0 +1,1799 @@
+<!-- @dsCard group="Screens" subtitle="DB-03 · DB-08 — Lịch sử & Tiến độ" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Lịch sử &amp; Tiến độ</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    .hist-main {
+      padding: 32px 40px 44px;
+      max-width: none;
+    }
+
+    .hist-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .hist-head p {
+      font-size: 13.5px;
+      color: var(--muted-foreground);
+      margin: 7px 0 0;
+      max-width: 62ch;
+      text-wrap: pretty;
+    }
+
+    .scope {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+
+    .scope select {
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--card);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+    }
+
+    /* ── Hai tab = DB-03 và DB-08 ──────────────────────────────────────────
+       UC-Overview dòng 171 nói rõ hai use-case này là TABS của cùng một trang,
+       và cả UC-18 lẫn UC-10 đều gọi nó là "trang Lịch sử & Tiến độ". Menu bên
+       trái của các mockup trước ghi "Lịch sử phỏng vấn" — tên đó bỏ mất một
+       nửa nội dung của trang, nên đã đổi ở cả sáu màn hình. */
+    .tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+
+    .tabs button {
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+      background: none;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      color: var(--muted-foreground);
+      padding: 10px 14px;
+      margin-bottom: -1px;
+      cursor: pointer;
+    }
+
+    .tabs button[aria-selected="true"] {
+      color: var(--foreground);
+      border-bottom-color: var(--foreground);
+    }
+
+    .tabs__n {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-left: 6px;
+    }
+
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      margin-bottom: 22px;
+    }
+
+    .stat-strip__item {
+      padding: 16px 22px;
+      border-left: 1px solid var(--border);
+    }
+
+    .stat-strip__item:first-child {
+      border-left: none;
+    }
+
+    .stat-strip__value {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+
+    .stat-strip__value small {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--muted-foreground);
+    }
+
+    .stat-strip__label {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Bố cục master–detail ──────────────────────────────────────────────
+       UC-18 bước 3 viết "click vào một phiên → xem chi tiết", dễ bị hiểu thành
+       hai trang. Đặt cạnh nhau vì việc đọc lại lịch sử hầu như luôn là SO SÁNH
+       ("phiên hôm đó khác phiên hôm nay chỗ nào"), mà so sánh thì không làm được
+       nếu mỗi lần xem phải rời danh sách. Cùng một khuôn với panel chi tiết của
+       DB-06 ở màn hình đồ thị. */
+    .hist-grid {
+      display: grid;
+      grid-template-columns: 312px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .list {
+      padding: 6px 0;
+      overflow: hidden;
+    }
+
+    .list__group {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      padding: 12px 18px 6px;
+    }
+
+    .sess {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 0;
+      border-left: 2px solid transparent;
+      font-family: var(--font-sans);
+      color: inherit;
+      padding: 11px 18px 13px;
+      cursor: pointer;
+    }
+
+    .sess:hover {
+      background: var(--accent);
+    }
+
+    .sess.is-active {
+      background: var(--accent);
+      border-left-color: var(--foreground);
+    }
+
+    .sess__top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .sess__when {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sess__avg {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+      flex: none;
+    }
+
+    .sess__plan {
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      margin-top: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .sess__deltas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    /* Chip biến động: dấu +/- là kênh đọc được thứ hai bên cạnh màu, vì ba token
+       mastery đều ở lightness ≈ 0.5 và chỉ khác nhau ở sắc. */
+    .delta {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      background: var(--card);
+      color: var(--muted-foreground);
+    }
+
+    .delta--up {
+      border-color: oklch(from var(--mastery-strong) l c h / 0.45);
+      color: var(--mastery-strong);
+    }
+
+    .delta--down {
+      border-color: oklch(from var(--mastery-weak) l c h / 0.45);
+      color: var(--mastery-weak);
+    }
+
+    .delta--new {
+      border-style: dashed;
+    }
+
+    .sess__status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      margin-top: 7px;
+      color: var(--muted-foreground);
+    }
+
+    .sess__status svg {
+      flex: none;
+    }
+
+    .sess__status--paused {
+      color: var(--focus-session);
+    }
+
+    .sess__status--abandoned {
+      color: var(--mastery-weak);
+    }
+
+    .list__more {
+      display: block;
+      width: 100%;
+      background: none;
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin-top: 6px;
+      padding: 12px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      color: var(--muted-foreground);
+      cursor: pointer;
+    }
+
+    .list__more:hover {
+      color: var(--foreground);
+    }
+
+    /* ── Panel chi tiết ────────────────────────────────────────────────────*/
+    .detail {
+      padding: 24px 26px 26px;
+    }
+
+    .detail__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .detail__title {
+      font-family: var(--font-heading);
+      font-size: 21px;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    .detail__meta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 5px;
+    }
+
+    .detail h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 26px 0 12px;
+    }
+
+    .detail h3:first-of-type {
+      margin-top: 0;
+    }
+
+    .hint {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: -6px 0 14px;
+      max-width: 68ch;
+      text-wrap: pretty;
+    }
+
+    /* ── Kết quả từng khái niệm ────────────────────────────────────────────
+       UC-18 bước 3 yêu cầu "biến động mastery_score trước và sau phiên". Con số
+       SAU mà không có con số TRƯỚC thì không nói được phiên này có tác dụng gì —
+       nên hai con số luôn đi cùng nhau, kèm vạch ngưỡng 0.60 để thấy nó đã vượt
+       hay chưa. */
+    .outcome {
+      display: grid;
+      grid-template-columns: 1fr 152px;
+      gap: 14px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .outcome:last-of-type {
+      border-bottom: 0;
+    }
+
+    .outcome__name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .outcome__note {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+
+    .outcome__nums {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .outcome__before {
+      color: var(--muted-foreground);
+    }
+
+    .track {
+      position: relative;
+      height: 6px;
+      background: var(--muted);
+      border-radius: 3px;
+      margin-top: 7px;
+      overflow: visible;
+    }
+
+    /* Phần điểm đã có TRƯỚC phiên vẽ nhạt, phần tăng thêm vẽ đậm — nhìn được
+       ngay phiên này đóng góp bao nhiêu mà không cần đọc số. */
+    .track__prev,
+    .track__fill {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border-radius: 3px;
+    }
+
+    .track__prev {
+      left: 0;
+      opacity: 0.32;
+    }
+
+    .track__tick {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      width: 1px;
+      background: var(--foreground);
+      opacity: 0.55;
+    }
+
+    /* ── Nhận xét do AI viết ───────────────────────────────────────────────
+       summarize_session là MỘT trong bốn call AI cố định, và nó chỉ sinh CHỮ.
+       Điểm số thì do công thức trọng số tính, việc chèn khái niệm vào lịch thì do
+       Scheduling & Remediation Engine quyết (ràng buộc C4). Nhãn phải nói đúng
+       phạm vi đó, nếu không người đọc sẽ tưởng AI là thứ chấm và xếp lịch. */
+    .ai-note {
+      border: 1px solid oklch(from var(--ai-accent) l c h / 0.3);
+      background: oklch(from var(--ai-accent) l c h / 0.06);
+      border-radius: calc(var(--radius) * 0.8);
+      padding: 15px 17px;
+    }
+
+    .ai-note__label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ai-accent);
+      margin-bottom: 9px;
+    }
+
+    .ai-note p {
+      font-size: 13.5px;
+      line-height: 1.7;
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .ai-note__lists {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 22px;
+      margin-top: 14px;
+      padding-top: 13px;
+      border-top: 1px solid oklch(from var(--ai-accent) l c h / 0.22);
+    }
+
+    .ai-note__lists h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+      margin: 0 0 6px;
+      font-weight: 600;
+    }
+
+    .ai-note__lists ul {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 12.5px;
+      line-height: 1.65;
+    }
+
+    /* ── Sự kiện hệ thống (AE-07 / AE-08) ──────────────────────────────────
+       Vẽ khác hẳn khối AI ở trên: đây là kết quả của BFS ngược chạy trong mã
+       tất định, không phải câu chữ do mô hình sinh ra. Hai thứ trông giống nhau
+       thì ràng buộc C4 biến mất khỏi giao diện. */
+    .sysline {
+      display: flex;
+      gap: 11px;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--remediate);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 13px 15px;
+    }
+
+    .sysline svg {
+      flex: none;
+      color: var(--remediate);
+      margin-top: 2px;
+    }
+
+    .sysline__body {
+      font-size: 13px;
+      line-height: 1.65;
+      min-width: 0;
+    }
+
+    .sysline__body strong {
+      font-weight: 600;
+    }
+
+    .sysline__meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 5px;
+    }
+
+    /* ── Bản ghi hỏi–đáp ───────────────────────────────────────────────────
+       Ba khái niệm × tối đa 3 lượt = 9 lượt. Mở hết một lúc thì phần quan trọng
+       nhất — khái niệm bị chấm dưới ngưỡng — chìm giữa những khái niệm đã đạt.
+       Mặc định chỉ mở khái niệm đó. Dùng <details> để trạng thái đóng/mở là của
+       trình duyệt, không cần script. */
+    .cx {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cx:first-of-type {
+      border-top: 1px solid var(--border);
+    }
+
+    .cx>summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      list-style: none;
+      cursor: pointer;
+      padding: 13px 2px;
+      font-size: 14px;
+    }
+
+    .cx>summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cx__sign {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      color: var(--muted-foreground);
+      width: 12px;
+      flex: none;
+      text-align: center;
+    }
+
+    .cx[open] .cx__sign--plus,
+    .cx__sign--minus {
+      display: none;
+    }
+
+    .cx[open] .cx__sign--minus {
+      display: block;
+    }
+
+    .cx__score {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+      flex: none;
+    }
+
+    .cx__turns {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      flex: none;
+    }
+
+    .cx__body {
+      padding: 4px 0 20px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .turn-sep {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      letter-spacing: 0.04em;
+      margin-top: 6px;
+    }
+
+    .qa {
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+
+    .qa__who {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted-foreground);
+      margin-bottom: 3px;
+    }
+
+    .qa__text {
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .qa--answer .qa__text {
+      border-left: 2px solid var(--border);
+      padding-left: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* Khớp .grade của screen-interview: điểm + verdict + feedback đi liền nhau.
+       Feedback là phần duy nhất giải thích vì sao ra điểm đó, bỏ nó đi thì lịch sử
+       chỉ còn là một cột số không cãi được. */
+    .grade {
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 12px 14px;
+    }
+
+    .grade--deep {
+      border-left-color: var(--mastery-strong);
+    }
+
+    .grade--shallow {
+      border-left-color: var(--mastery-learning);
+    }
+
+    .grade--wrong {
+      border-left-color: var(--mastery-weak);
+    }
+
+    .grade__head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      flex-wrap: wrap;
+      margin-bottom: 7px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+    }
+
+    .grade__score {
+      font-size: 13px;
+      color: var(--foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grade__text {
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .grade__foot {
+      margin-top: 9px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .grade__foot a {
+      color: var(--muted-foreground);
+      text-underline-offset: 3px;
+    }
+
+    .grade__foot a:hover {
+      color: var(--foreground);
+    }
+
+    /* Phép tính ra mastery_score. Đây là thứ biến "AI cho tôi 0.42" thành một
+       con số kiểm chứng được — UC-Overview §5.4 định nghĩa trọng số [0.2, 0.3, 0.5]
+       vì câu sau sâu hơn câu trước. */
+    .calc {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      padding: 10px 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .calc b {
+      font-weight: 600;
+    }
+
+    .calc__why {
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 7px;
+      white-space: normal;
+    }
+
+    /* ── Biểu đồ mastery theo thời gian (UC-18 bước 4) ─────────────────────*/
+    .chart {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 16px 16px 12px;
+    }
+
+    .chart svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .chart__legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .chart__legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chart__legend i {
+      display: block;
+      width: 14px;
+      height: 2px;
+      flex: none;
+    }
+
+    .chart__legend i.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .link-inline {
+      color: var(--foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .badge-soft {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    /* ── Phụ lục ───────────────────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 680px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 760px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 24px 26px;
+    }
+
+    .empty {
+      max-width: 560px;
+      margin: 22px auto 26px;
+      text-align: center;
+    }
+
+    .empty__art {
+      color: var(--muted-foreground);
+      opacity: 0.55;
+      margin-bottom: 16px;
+    }
+
+    .empty h3 {
+      font-family: var(--font-heading);
+      font-size: 21px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .empty p {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 20px;
+      text-wrap: pretty;
+    }
+
+    .gap {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 16px 18px;
+      max-width: 760px;
+    }
+
+    .gap h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .gap p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-wrap: pretty;
+    }
+
+    .gap p:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="app-sidebar">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <a class="app-sidebar__link" href="screen-plans.html">Kế hoạch ôn tập</a>
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-history.html" aria-current="page">Lịch sử &amp;
+        Tiến độ</a>
+      <!-- AM-03 chưa được thiết kế — để trống có chủ đích, không phải link chết bỏ quên -->
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </aside>
+
+    <main class="app-main hist-main">
+      <div class="hist-head">
+        <div>
+          <h1 class="font-heading" style="font-size:28px; margin:0;">Lịch sử &amp; Tiến độ</h1>
+          <p>
+            Nơi kiểm lại điểm số sau khi phiên đã kết thúc: điểm nào tính ra sao, khái niệm nào
+            nhích lên, và hệ thống đã chèn gì vào lịch vì kết quả đó.
+          </p>
+        </div>
+        <div class="scope">
+          <label for="scope">Phạm vi</label>
+          <select id="scope">
+            <option>Tất cả kế hoạch</option>
+            <option>Cấu trúc dữ liệu &amp; Giải thuật</option>
+            <option>Hệ điều hành</option>
+            <option>Mạng máy tính</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- UC-Overview: DB-03 ↔ [tabs với] DB-08 -->
+      <div class="tabs" role="tablist" aria-label="Loại phiên">
+        <button type="button" role="tab" aria-selected="true">Phiên kiểm tra <span class="tabs__n">9</span></button>
+        <button type="button" role="tab" aria-selected="false">Phiên học <span class="tabs__n">23</span></button>
+      </div>
+
+      <!--
+        UC-18 bước 2 chỉ liệt kê "ngày, số khái niệm, điểm trung bình". Ba chỉ số ở đây
+        chọn theo tiêu chí khác: cái nào trả lời được câu "việc ôn tập có đang đi tới đâu
+        không". Số phiên thì không trả lời được, nên nó lùi xuống làm chú thích của tab.
+      -->
+      <div class="card stat-strip">
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">46<small>/58</small></div>
+          <div class="stat-strip__label">khái niệm đã kiểm tra ít nhất một lần</div>
+        </div>
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">+0.09</div>
+          <div class="stat-strip__label">mastery_score trung bình thay đổi trong 30 ngày</div>
+        </div>
+        <div class="stat-strip__item">
+          <div class="stat-strip__value">4</div>
+          <div class="stat-strip__label">khái niệm được truy ngược chèn vào lịch</div>
+        </div>
+      </div>
+
+      <div class="hist-grid">
+        <!--
+          Danh sách phiên. Bốn giá trị của enum interview_session_status đều xuất hiện
+          được ở đây — xem ghi chú ở phần "Khoảng trống tài liệu" cuối trang.
+        -->
+        <section class="card list" aria-label="Danh sách phiên kiểm tra">
+          <div class="list__group">Tuần này</div>
+
+          <button type="button" class="sess is-active" aria-current="true">
+            <div class="sess__top">
+              <span class="sess__when">26/07 · 21:40</span>
+              <!-- "Điểm trung bình" theo đúng UC-18 bước 2, nhưng để ở hàng phụ:
+                   xem ghi chú trong .gap cuối trang về việc con số này nói được rất ít. -->
+              <span class="sess__avg">TB 0.61</span>
+            </div>
+            <div class="sess__plan">Cấu trúc dữ liệu &amp; Giải thuật · 3 khái niệm</div>
+            <div class="sess__deltas">
+              <span class="delta delta--up">Cây nhị phân +0.14</span>
+              <span class="delta delta--up">DFS +0.07</span>
+              <span class="delta delta--new">BFS 0.68</span>
+            </div>
+          </button>
+
+          <button type="button" class="sess">
+            <div class="sess__top">
+              <span class="sess__when">25/07 · 20:05</span>
+              <span class="sess__avg">TB 0.75</span>
+            </div>
+            <div class="sess__plan">Hệ điều hành · 2 khái niệm</div>
+            <div class="sess__deltas">
+              <span class="delta delta--up">Deadlock +0.11</span>
+              <span class="delta delta--up">Semaphore +0.05</span>
+            </div>
+            <!-- AE-05: phiên chạy fallback, điểm là do sinh viên tự chấm chứ không phải grade_answer -->
+            <div class="sess__status">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M8 10h8M8 14h5" />
+              </svg>
+              Flashcard tự chấm
+            </div>
+          </button>
+
+          <button type="button" class="sess">
+            <div class="sess__top">
+              <span class="sess__when">23/07 · 22:10</span>
+              <span class="sess__avg">—</span>
+            </div>
+            <div class="sess__plan">Cấu trúc dữ liệu &amp; Giải thuật · 1/3 khái niệm</div>
+            <div class="sess__status sess__status--paused">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" aria-hidden="true">
+                <path d="M9 6v12M15 6v12" />
+              </svg>
+              Đang tạm dừng — tiếp tục được
+            </div>
+          </button>
+
+          <button type="button" class="sess">
+            <div class="sess__top">
+              <span class="sess__when">21/07 · 20:15</span>
+              <span class="sess__avg">TB 0.35</span>
+            </div>
+            <div class="sess__plan">Cấu trúc dữ liệu &amp; Giải thuật · 1 khái niệm</div>
+            <div class="sess__deltas">
+              <span class="delta delta--new">DFS 0.35</span>
+            </div>
+            <div class="sess__status sess__status--abandoned">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" aria-hidden="true">
+                <path d="M12 3l9 16H3z" />
+                <path d="M12 9.5v4.5M12 17h.01" />
+              </svg>
+              Bỏ dở ở lượt 2/3
+            </div>
+          </button>
+
+          <div class="list__group">Tuần trước</div>
+
+          <button type="button" class="sess">
+            <div class="sess__top">
+              <span class="sess__when">18/07 · 19:30</span>
+              <span class="sess__avg">TB 0.58</span>
+            </div>
+            <div class="sess__plan">Cấu trúc dữ liệu &amp; Giải thuật · 3 khái niệm</div>
+            <div class="sess__deltas">
+              <span class="delta delta--new">Cây nhị phân 0.58</span>
+              <span class="delta delta--up">Đệ quy +0.21</span>
+            </div>
+          </button>
+
+          <button type="button" class="sess">
+            <div class="sess__top">
+              <span class="sess__when">16/07 · 21:00</span>
+              <span class="sess__avg">TB 0.70</span>
+            </div>
+            <div class="sess__plan">Hệ điều hành · 3 khái niệm</div>
+            <div class="sess__deltas">
+              <span class="delta delta--up">Tiến trình +0.18</span>
+              <span class="delta delta--down">Lập lịch CPU −0.04</span>
+            </div>
+          </button>
+
+          <button type="button" class="list__more">Xem 3 phiên cũ hơn</button>
+        </section>
+
+        <section class="card detail" aria-label="Chi tiết phiên kiểm tra">
+          <div class="detail__head">
+            <div>
+              <h2 class="detail__title">Phiên kiểm tra · 26/07/2026</h2>
+              <div class="detail__meta">21:40 – 22:06 · 26 phút · Cấu trúc dữ liệu &amp; Giải thuật</div>
+            </div>
+            <span class="badge-soft">Đã hoàn thành</span>
+          </div>
+
+          <h3>Biến động mastery_score</h3>
+          <p class="hint">
+            Phần nhạt là điểm đã có trước phiên, phần đậm là mức tăng của phiên này. Vạch dọc
+            là ngưỡng 0.60 — dưới nó, Scheduling &amp; Remediation Engine sẽ truy ngược thay vì
+            xếp lịch ôn lại bình thường.
+          </p>
+
+          <div class="outcome">
+            <div>
+              <div class="outcome__name">Cây nhị phân</div>
+              <div class="outcome__note">Vượt ngưỡng — chuyển sang lịch ôn giãn cách</div>
+            </div>
+            <div>
+              <div class="outcome__nums">
+                <span class="outcome__before">0.58 →</span>
+                <span>0.72</span>
+                <span class="delta delta--up">+0.14</span>
+              </div>
+              <div class="track">
+                <span class="track__prev" style="width:58%; background:var(--mastery-learning);"></span>
+                <span class="track__fill" style="left:58%; width:14%; background:var(--mastery-learning);"></span>
+                <span class="track__tick" style="left:60%;"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="outcome">
+            <div>
+              <div class="outcome__name">Duyệt đồ thị DFS</div>
+              <div class="outcome__note">Có tăng nhưng vẫn dưới ngưỡng — kích hoạt truy ngược</div>
+            </div>
+            <div>
+              <div class="outcome__nums">
+                <span class="outcome__before">0.35 →</span>
+                <span>0.42</span>
+                <span class="delta delta--up">+0.07</span>
+              </div>
+              <div class="track">
+                <span class="track__prev" style="width:35%; background:var(--mastery-weak);"></span>
+                <span class="track__fill" style="left:35%; width:7%; background:var(--mastery-weak);"></span>
+                <span class="track__tick" style="left:60%;"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- mastery_score IS NULL ≠ 0.0 (UC-Overview §5.3). Không có cột "trước",
+               nên chip ghi giá trị tuyệt đối chứ không ghi "+0.68" — đó sẽ là bịa ra
+               một điểm xuất phát bằng 0 mà chưa ai từng đo. -->
+          <div class="outcome">
+            <div>
+              <div class="outcome__name">Duyệt đồ thị BFS</div>
+              <div class="outcome__note">Lần đầu được kiểm tra — trước đó là <code>null</code>, không phải 0</div>
+            </div>
+            <div>
+              <div class="outcome__nums">
+                <span class="outcome__before">— →</span>
+                <span>0.68</span>
+                <span class="delta delta--new">lần đầu</span>
+              </div>
+              <div class="track">
+                <span class="track__fill" style="left:0; width:68%; background:var(--mastery-learning);"></span>
+                <span class="track__tick" style="left:60%;"></span>
+              </div>
+            </div>
+          </div>
+
+          <h3>Nhận xét cuối phiên</h3>
+          <div class="ai-note">
+            <div class="ai-note__label">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+              </svg>
+              summarize_session — chữ do AI viết, điểm số thì không
+            </div>
+            <p>
+              Bạn mô tả đúng cách DFS đi sâu hết một nhánh rồi mới quay lui, nhưng ở lượt 3, khi được
+              hỏi cấu trúc dữ liệu nào giữ các đỉnh chờ quay lại, câu trả lời chuyển sang mô tả hàng
+              đợi. Đó đúng là chỗ DFS và BFS tách nhau, nên phần còn thiếu nằm ở Ngăn xếp chứ không
+              phải ở bản thân DFS.
+            </p>
+            <div class="ai-note__lists">
+              <div>
+                <h4>Đã vững</h4>
+                <ul>
+                  <li>Cây nhị phân — nêu được cả trường hợp suy biến</li>
+                  <li>Duyệt đồ thị BFS — phân biệt đúng với DFS</li>
+                </ul>
+              </div>
+              <div>
+                <h4>Còn yếu</h4>
+                <ul>
+                  <li>Duyệt đồ thị DFS — nhầm ngăn xếp thành hàng đợi</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <h3>Hệ thống đã làm gì sau phiên</h3>
+          <!--
+            Ràng buộc C4: AI không điều phối. Việc chèn Ngăn xếp vào lịch là do BFS ngược
+            trong Scheduling & Remediation Engine, chạy vì verdict của lượt cuối là "wrong"
+            và khái niệm có tiên quyết. Vẽ tách khỏi khối AI ở trên để đúng ranh giới đó.
+          -->
+          <div class="sysline">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 5v6h-6" />
+              <path d="M19.4 11a8 8 0 1 0-1.3 5.2" />
+            </svg>
+            <div class="sysline__body">
+              Truy ngược từ <strong>Duyệt đồ thị DFS</strong> tìm thấy một tiên quyết chưa vững:
+              <strong>Ngăn xếp</strong> (0.51). Đã chèn lên đầu lịch ôn ngày 27/07.
+              <div class="sysline__meta">AE-07 · depth 1 / max 2 · review_queue_items.reason = traceback</div>
+              <div style="margin-top:9px;">
+                <a class="link-inline" href="screen-dashboard.html">Xem trong hàng đợi hôm nay</a>
+              </div>
+            </div>
+          </div>
+
+          <h3>Bản ghi hỏi–đáp</h3>
+          <p class="hint">
+            Mở sẵn khái niệm bị chấm dưới ngưỡng. Hai khái niệm còn lại thu gọn — chúng đã đạt,
+            và mở cả chín lượt cùng lúc thì chỗ cần đọc lại là chỗ khó tìm nhất.
+          </p>
+
+          <details class="cx" open>
+            <summary>
+              <span class="cx__sign cx__sign--plus">+</span>
+              <span class="cx__sign cx__sign--minus">−</span>
+              Duyệt đồ thị DFS
+              <span class="cx__turns">3/3 lượt</span>
+              <span class="cx__score" style="color:var(--mastery-weak);">0.42</span>
+            </summary>
+            <div class="cx__body">
+              <div class="turn-sep">Lượt 1 · recall</div>
+              <div class="qa">
+                <div class="qa__who">Câu hỏi</div>
+                <p class="qa__text">DFS duyệt một đồ thị theo thứ tự như thế nào?</p>
+              </div>
+              <div class="qa qa--answer">
+                <div class="qa__who">Bạn trả lời</div>
+                <p class="qa__text">Nó đi hết một nhánh xuống sâu nhất rồi mới quay lại nhánh khác.</p>
+              </div>
+              <div class="grade grade--shallow">
+                <div class="grade__head">
+                  <span class="grade__score">0.60</span>
+                  <span>shallow</span>
+                  <span>· trọng số 0.2</span>
+                </div>
+                <p class="grade__text">
+                  Đúng ý chính nhưng dừng ở mô tả. Chưa nói được thứ tự đó được duy trì bằng cách nào.
+                </p>
+              </div>
+
+              <div class="turn-sep">Lượt 2 · why</div>
+              <div class="qa">
+                <div class="qa__who">Câu hỏi</div>
+                <p class="qa__text">Khi quay lui, thuật toán nhớ chỗ cần quay về bằng cách nào?</p>
+              </div>
+              <div class="qa qa--answer">
+                <div class="qa__who">Bạn trả lời</div>
+                <p class="qa__text">Nó lưu lại các đỉnh đã đi qua vào một danh sách rồi lấy ra dần.</p>
+              </div>
+              <div class="grade grade--shallow">
+                <div class="grade__head">
+                  <span class="grade__score">0.45</span>
+                  <span>shallow</span>
+                  <span>· trọng số 0.3</span>
+                </div>
+                <p class="grade__text">
+                  "Lấy ra dần" chưa đủ — thứ tự lấy ra mới là điều quyết định. Danh sách không nói được
+                  đó là vào sau ra trước hay vào trước ra trước.
+                </p>
+              </div>
+
+              <div class="turn-sep">Lượt 3 · application</div>
+              <div class="qa">
+                <div class="qa__who">Câu hỏi</div>
+                <p class="qa__text">Nếu thay cấu trúc đó bằng hàng đợi thì thuật toán trở thành gì?</p>
+              </div>
+              <div class="qa qa--answer">
+                <div class="qa__who">Bạn trả lời</div>
+                <p class="qa__text">Vẫn là DFS, chỉ khác chỗ lấy phần tử ra.</p>
+              </div>
+              <div class="grade grade--wrong">
+                <div class="grade__head">
+                  <span class="grade__score">0.33</span>
+                  <span>wrong</span>
+                  <span>· trọng số 0.5</span>
+                </div>
+                <p class="grade__text">
+                  Thay ngăn xếp bằng hàng đợi thì thành BFS. Chính chỗ này cho thấy phần chưa nắm
+                  không nằm ở DFS mà ở Ngăn xếp.
+                </p>
+                <!-- AE-10 / UC-15: đọc lại sau vài ngày mới là lúc người ta thực sự muốn cãi
+                     một điểm số. Trong phiên đang chạy thì không ai dừng lại để khiếu nại. -->
+                <div class="grade__foot">
+                  <a href="#">Không đồng ý với điểm này</a>
+                </div>
+              </div>
+
+              <div class="calc">
+                0.60 × 0.2 &nbsp;+&nbsp; 0.45 × 0.3 &nbsp;+&nbsp; 0.33 × 0.5 &nbsp;=&nbsp; <b>0.42</b>
+                <div class="calc__why">
+                  Trọng số tăng dần vì câu sau sâu hơn câu trước (UC-Overview §5.4). Ba lượt là trần
+                  cứng của ràng buộc C6 — không có lượt thứ tư để gỡ điểm.
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="cx">
+            <summary>
+              <span class="cx__sign cx__sign--plus">+</span>
+              <span class="cx__sign cx__sign--minus">−</span>
+              Cây nhị phân
+              <span class="cx__turns">3/3 lượt</span>
+              <span class="cx__score" style="color:var(--mastery-learning);">0.72</span>
+            </summary>
+            <div class="cx__body">
+              <div class="calc">
+                0.55 × 0.2 &nbsp;+&nbsp; 0.70 × 0.3 &nbsp;+&nbsp; 0.80 × 0.5 &nbsp;=&nbsp; <b>0.72</b>
+              </div>
+            </div>
+          </details>
+
+          <details class="cx">
+            <summary>
+              <span class="cx__sign cx__sign--plus">+</span>
+              <span class="cx__sign cx__sign--minus">−</span>
+              Duyệt đồ thị BFS
+              <span class="cx__turns">3/3 lượt</span>
+              <span class="cx__score" style="color:var(--mastery-learning);">0.68</span>
+            </summary>
+            <div class="cx__body">
+              <div class="calc">
+                0.60 × 0.2 &nbsp;+&nbsp; 0.65 × 0.3 &nbsp;+&nbsp; 0.73 × 0.5 &nbsp;=&nbsp; <b>0.68</b>
+              </div>
+            </div>
+          </details>
+
+          <h3>Diễn tiến của ba khái niệm này</h3>
+          <p class="hint">
+            Điểm chỉ đổi tại thời điểm có phiên kiểm tra, nên các mốc đo được đánh dấu bằng vạch dọc.
+            Đoạn nối giữa hai mốc là nội suy cho dễ đọc, không phải số liệu. BFS mới đo một lần nên
+            chỉ có một chấm — một điểm thì chưa thành xu hướng.
+          </p>
+          <div class="chart">
+            <svg viewBox="0 0 540 180" role="img"
+              aria-label="Biểu đồ mastery_score theo thời gian của Cây nhị phân, Duyệt đồ thị DFS và Duyệt đồ thị BFS">
+              <!-- mốc đo -->
+              <line x1="44" y1="14" x2="44" y2="150" stroke="var(--border)" stroke-dasharray="3 4" />
+              <line x1="178" y1="14" x2="178" y2="150" stroke="var(--border)" stroke-dasharray="3 4" />
+              <line x1="400" y1="14" x2="400" y2="150" stroke="var(--border)" stroke-dasharray="3 4" />
+              <line x1="44" y1="150" x2="400" y2="150" stroke="var(--border)" />
+
+              <!-- ngưỡng 0.60: đường ranh giới của vòng lặp lõi (mastery ≥ 0.6 → ôn giãn cách,
+                   ngược lại → truy ngược). Đây là thứ duy nhất trên biểu đồ được tô màu. -->
+              <line x1="44" y1="68.4" x2="400" y2="68.4" stroke="var(--mastery-weak)" stroke-width="1.2"
+                stroke-dasharray="5 4" opacity="0.7" />
+              <text x="36" y="72" text-anchor="end" font-family="var(--font-mono)" font-size="10"
+                fill="var(--mastery-weak)">0.60</text>
+              <text x="36" y="18" text-anchor="end" font-family="var(--font-mono)" font-size="10"
+                fill="var(--muted-foreground)">1.0</text>
+              <text x="36" y="153" text-anchor="end" font-family="var(--font-mono)" font-size="10"
+                fill="var(--muted-foreground)">0.0</text>
+
+              <!-- Đường vẽ trung tính; MÀU chỉ dùng ở chấm cuối, theo đúng mức mastery như mọi
+                   màn hình khác. Nếu tô cả đường theo mức thì hai khái niệm cùng mức "đang học"
+                   sẽ thành hai đường trùng màu, không phân biệt được. -->
+              <line x1="44" y1="71.1" x2="400" y2="52.1" stroke="var(--foreground)" stroke-width="1.5"
+                opacity="0.5" />
+              <line x1="178" y1="102.4" x2="400" y2="92.9" stroke="var(--foreground)" stroke-width="1.5"
+                opacity="0.5" />
+
+              <circle cx="44" cy="71.1" r="3" fill="var(--muted-foreground)" />
+              <circle cx="178" cy="102.4" r="3" fill="var(--muted-foreground)" />
+              <!-- Cây nhị phân 0.72 và BFS 0.68 gần nhau thật, nên hai chấm chồng lên nhau.
+                   Viền màu nền tách chúng ra mà không phải kéo giãn trục — kéo giãn trục thì
+                   khoảng cách 0.04 sẽ trông to hơn thực tế. -->
+              <circle cx="400" cy="52.1" r="4.2" fill="var(--mastery-learning)" stroke="var(--card)"
+                stroke-width="1.6" />
+              <circle cx="400" cy="57.5" r="4.2" fill="var(--mastery-learning)" stroke="var(--card)"
+                stroke-width="1.6" />
+              <circle cx="400" cy="92.9" r="4.2" fill="var(--mastery-weak)" stroke="var(--card)" stroke-width="1.6" />
+
+              <!-- nhãn đặt thẳng cạnh đường, không dùng chú giải màu riêng -->
+              <line x1="404" y1="51" x2="410" y2="45" stroke="var(--border)" />
+              <line x1="404" y1="59" x2="410" y2="68" stroke="var(--border)" />
+              <text x="413" y="48" font-size="11" fill="var(--muted-foreground)">Cây nhị phân
+                <tspan font-family="var(--font-mono)" fill="var(--foreground)">0.72</tspan>
+              </text>
+              <text x="413" y="71" font-size="11" fill="var(--muted-foreground)">BFS
+                <tspan font-family="var(--font-mono)" fill="var(--foreground)">0.68</tspan>
+              </text>
+              <text x="413" y="96" font-size="11" fill="var(--muted-foreground)">DFS
+                <tspan font-family="var(--font-mono)" fill="var(--foreground)">0.42</tspan>
+              </text>
+
+              <text x="44" y="167" text-anchor="middle" font-family="var(--font-mono)" font-size="10"
+                fill="var(--muted-foreground)">18/07</text>
+              <text x="178" y="167" text-anchor="middle" font-family="var(--font-mono)" font-size="10"
+                fill="var(--muted-foreground)">21/07</text>
+              <text x="400" y="167" text-anchor="middle" font-family="var(--font-mono)" font-size="10"
+                fill="var(--muted-foreground)">26/07</text>
+            </svg>
+            <div class="chart__legend">
+              <span><i class="dot" style="background:var(--muted-foreground);"></i>Mốc đo trước đây</span>
+              <span><i class="dot" style="background:var(--mastery-learning);"></i>Điểm sau phiên này, tô theo mức
+                mastery</span>
+              <span><i style="background:var(--mastery-weak);"></i>Ngưỡng 0.60</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       PHỤ LỤC — tab thứ hai và các trạng thái phiên mà UC-18 không mô tả
+       ══════════════════════════════════════════════════════════════════════ -->
+  <section class="gallery" aria-label="Các trạng thái còn lại">
+    <div class="gallery__wrap">
+
+      <div class="gallery__lede">
+        <h2>Các trạng thái còn lại</h2>
+        <p>
+          Màn hình chính vẽ một phiên đã hoàn thành của tab thứ nhất. Nhưng
+          <code>interview_session_status</code> có bốn giá trị, phiên có thể chạy ở chế độ tự chấm,
+          và tab thứ hai (DB-08) là một khung nhìn hoàn toàn khác. Trạng thái đầu tiên dưới đây —
+          chưa có phiên nào — là thứ sinh viên gặp trong suốt tuần đầu dùng sản phẩm.
+        </p>
+      </div>
+
+      <!-- ── 1 · Chưa có phiên kiểm tra nào ──────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Chưa có phiên kiểm tra nào</span>
+          <span class="tag">UC-18 [E1]</span>
+          <span class="tag">Tuần đầu</span>
+        </div>
+        <p class="state__desc">
+          Trạng thái rỗng ở đây không giống trạng thái rỗng của danh sách kế hoạch: người dùng
+          <em>đã</em> có kế hoạch, chỉ là chưa kiểm tra lần nào. Nên chỗ trống được dùng để nói
+          thẳng cái giá phải trả — đồ thị khái niệm vẫn toàn màu xám chừng nào chưa có phiên đầu
+          tiên — và dẫn tới đúng hành động mở khoá nó, chứ không phải một câu động viên.
+        </p>
+        <div class="state__demo">
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected="true">Phiên kiểm tra <span
+                class="tabs__n">0</span></button>
+            <button type="button" role="tab" aria-selected="false">Phiên học <span class="tabs__n">2</span></button>
+          </div>
+          <div class="empty">
+            <div class="empty__art" aria-hidden="true">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 19V5.5A1.5 1.5 0 0 1 5.5 4H18a1 1 0 0 1 1 1v14" />
+                <path d="M4 19a1.5 1.5 0 0 0 1.5 1.5H19" />
+                <path d="M8.5 9h6M8.5 13h3.5" />
+              </svg>
+            </div>
+            <h3>Chưa có phiên kiểm tra nào</h3>
+            <p>
+              24 khái niệm trong kế hoạch của bạn vẫn đang ở <code>null</code> — hệ thống chưa đo
+              được cái nào vững, cái nào không, nên chưa xếp được lịch ôn theo ưu tiên. Một phiên
+              khoảng 15 phút là đủ để đồ thị bắt đầu có màu.
+            </p>
+            <a class="btn btn-primary" href="screen-interview.html" style="text-decoration:none;">
+              Bắt đầu phiên kiểm tra đầu tiên
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 2 · Tab Phiên học ───────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Tab thứ hai · Lịch sử phiên học</span>
+          <span class="tag">DB-08 · UC-10</span>
+          <span class="tag">FS-07</span>
+        </div>
+        <p class="state__desc">
+          UC-10 nhóm theo ngày và tính tổng thời gian, chứ không chấm điểm — phiên học không sinh ra
+          <code>mastery_score</code>. Vì vậy tab này bỏ hẳn cột điểm và thay bằng thời lượng cùng
+          các khái niệm đã đụng tới; giữ nguyên cột điểm rỗng sẽ ngầm nói rằng ngồi học 25 phút là
+          một kết quả đo được. FS-07 (chuỗi ngày, tổng giờ) nằm ngay trên cùng vì nó chỉ có nghĩa
+          trong ngữ cảnh danh sách này. Trạng thái rỗng dùng lại đúng khuôn ở trên, chỉ đổi CTA —
+          nên không vẽ lại lần hai.
+        </p>
+        <div class="state__demo">
+          <div class="tabs" role="tablist">
+            <button type="button" role="tab" aria-selected="false">Phiên kiểm tra <span
+                class="tabs__n">9</span></button>
+            <button type="button" role="tab" aria-selected="true">Phiên học <span class="tabs__n">23</span></button>
+          </div>
+
+          <div class="card stat-strip" style="margin-bottom:18px;">
+            <div class="stat-strip__item">
+              <div class="stat-strip__value">12</div>
+              <div class="stat-strip__label">ngày ôn liên tiếp</div>
+            </div>
+            <div class="stat-strip__item">
+              <div class="stat-strip__value">6h 20m</div>
+              <div class="stat-strip__label">tổng thời gian 7 ngày qua</div>
+            </div>
+            <div class="stat-strip__item">
+              <div class="stat-strip__value">14</div>
+              <div class="stat-strip__label">chu kỳ Pomodoro hoàn thành</div>
+            </div>
+          </div>
+
+          <div class="card list" style="max-width:520px;">
+            <div class="list__group">Hôm nay · 27/07 — 50 phút</div>
+            <button type="button" class="sess">
+              <div class="sess__top">
+                <span class="sess__when">19:05 · 25 phút</span>
+                <span class="sess__avg">1 chu kỳ</span>
+              </div>
+              <div class="sess__plan">Ngăn xếp · Cấu trúc dữ liệu &amp; Giải thuật</div>
+            </button>
+            <button type="button" class="sess">
+              <div class="sess__top">
+                <span class="sess__when">18:20 · 25 phút</span>
+                <span class="sess__avg">1 chu kỳ</span>
+              </div>
+              <div class="sess__plan">Ngăn xếp · Cấu trúc dữ liệu &amp; Giải thuật</div>
+            </button>
+
+            <div class="list__group">26/07 — 25 phút</div>
+            <button type="button" class="sess">
+              <div class="sess__top">
+                <span class="sess__when">20:50 · 25 phút</span>
+                <span class="sess__avg">1 chu kỳ</span>
+              </div>
+              <div class="sess__plan">Duyệt đồ thị DFS · Cấu trúc dữ liệu &amp; Giải thuật</div>
+            </button>
+
+            <div class="list__group">24/07 — 32 phút</div>
+            <button type="button" class="sess">
+              <div class="sess__top">
+                <span class="sess__when">19:05 · 25 phút</span>
+                <span class="sess__avg">1 chu kỳ</span>
+              </div>
+              <div class="sess__plan">Duyệt đồ thị DFS · Cấu trúc dữ liệu &amp; Giải thuật</div>
+            </button>
+            <!-- focus_session_status = cancelled: phiên bỏ giữa chừng vẫn được ghi lại.
+                 Giấu nó đi thì tổng thời gian trong tuần sẽ không bao giờ khớp với danh sách. -->
+            <button type="button" class="sess">
+              <div class="sess__top">
+                <span class="sess__when">17:40 · 7 phút</span>
+                <span class="sess__avg">—</span>
+              </div>
+              <div class="sess__plan">Cây nhị phân · Cấu trúc dữ liệu &amp; Giải thuật</div>
+              <div class="sess__status sess__status--abandoned">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M9 9l6 6M15 9l-6 6" />
+                </svg>
+                Đã hủy giữa chừng
+              </div>
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 3 · Phiên đang tạm dừng ─────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Phiên đang tạm dừng — tiếp tục hay bỏ</span>
+          <span class="tag">AE-03</span>
+          <span class="tag">status = paused</span>
+        </div>
+        <p class="state__desc">
+          AE-01 có <code>&lt;&lt;extend&gt;&gt;</code> AE-03 "khi phát hiện PAUSED", nhưng chỗ phát
+          hiện ấy chưa từng được vẽ ở đâu. Danh sách lịch sử là chỗ hợp lý nhất: nó là nơi duy nhất
+          liệt kê mọi phiên, kể cả phiên chưa xong. Hàng phiên tạm dừng vì thế mang một hành động
+          chứ không chỉ để đọc — và nói rõ hàng đợi đang dừng ở đâu, vì bỏ đi thì mất công đã bỏ ra.
+        </p>
+        <div class="state__demo">
+          <div class="card" style="max-width:560px; padding:18px 20px;">
+            <div class="detail__head" style="margin-bottom:14px;">
+              <div>
+                <h3 style="font-size:15px; font-weight:600; margin:0;">Phiên kiểm tra · 23/07/2026</h3>
+                <div class="detail__meta">22:10 · dừng sau 8 phút · Cấu trúc dữ liệu &amp; Giải thuật</div>
+              </div>
+              <span class="badge-soft" style="color:var(--focus-session);">Tạm dừng</span>
+            </div>
+            <p style="font-size:13.5px; line-height:1.65; margin:0 0 14px;">
+              Hàng đợi còn <strong>2 trong 3 khái niệm</strong>. Khái niệm đang dở là
+              <strong>Danh sách liên kết</strong>, đã trả lời 1/3 lượt — tiếp tục thì phiên chạy tiếp
+              từ lượt 2, điểm vẫn tính trên đủ ba lượt.
+            </p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="btn btn-primary" href="screen-interview.html" style="text-decoration:none;">Tiếp tục phiên</a>
+              <button class="btn btn-secondary" type="button">Kết thúc và chấm phần đã làm</button>
+            </div>
+            <p style="font-size:12px; color:var(--muted-foreground); margin:12px 0 0;">
+              Kết thúc sớm thì Danh sách liên kết chỉ được chấm trên 1 lượt — điểm sẽ kém tin cậy hơn
+              và khái niệm dễ bị xếp lại vào lịch ôn.
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4 · Phiên bỏ dở ─────────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Phiên bỏ dở — dữ liệu một phần</span>
+          <span class="tag">status = abandoned</span>
+          <span class="tag">UC-14 [E1]</span>
+        </div>
+        <p class="state__desc">
+          Hai chỗ trong màn hình chính không còn đúng với phiên loại này. Thứ nhất, công thức trọng
+          số <code>[0.2, 0.3, 0.5]</code> được định nghĩa cho đủ ba lượt; với hai lượt nó phải chuẩn
+          hoá lại, và nếu không nói ra thì phép tính hiện trên màn hình sẽ không ra đúng con số bên
+          cạnh nó. Thứ hai, <code>summary_text</code> rỗng — không có phiên hoàn tất thì
+          <code>summarize_session</code> không chạy — nên khối nhận xét biến mất thay vì hiện một
+          khung trống.
+        </p>
+        <div class="state__demo">
+          <div class="card" style="max-width:560px; padding:18px 20px;">
+            <div class="detail__head" style="margin-bottom:14px;">
+              <div>
+                <h3 style="font-size:15px; font-weight:600; margin:0;">Phiên kiểm tra · 21/07/2026</h3>
+                <div class="detail__meta">20:15 · 14 phút · Cấu trúc dữ liệu &amp; Giải thuật</div>
+              </div>
+              <span class="badge-soft" style="color:var(--mastery-weak);">Bỏ dở</span>
+            </div>
+
+            <div class="outcome" style="border-bottom:0; padding-top:0;">
+              <div>
+                <div class="outcome__name">Duyệt đồ thị DFS</div>
+                <div class="outcome__note">Chấm trên 2/3 lượt</div>
+              </div>
+              <div>
+                <div class="outcome__nums">
+                  <span class="outcome__before">— →</span>
+                  <span>0.35</span>
+                  <span class="delta delta--new">lần đầu</span>
+                </div>
+                <div class="track">
+                  <span class="track__fill" style="left:0; width:35%; background:var(--mastery-weak);"></span>
+                  <span class="track__tick" style="left:60%;"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="calc" style="margin-top:8px;">
+              0.40 × 0.4 &nbsp;+&nbsp; 0.32 × 0.6 &nbsp;=&nbsp; <b>0.35</b>
+              <div class="calc__why">
+                Trọng số gốc của lượt 1 và 2 là 0.2 và 0.3; thiếu lượt 3 nên chia lại theo tỉ lệ
+                thành 0.4 và 0.6. Con số vẫn dùng được để xếp lịch, nhưng nó đo ít hơn một lượt.
+              </div>
+            </div>
+
+            <p style="font-size:12.5px; color:var(--muted-foreground); margin:14px 0 0;">
+              Không có nhận xét cuối phiên — phiên chưa chạy hết hàng đợi nên
+              <code>summarize_session</code> không được gọi.
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 5 · Chế độ flashcard tự chấm ────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Phiên chạy ở chế độ tự chấm</span>
+          <span class="tag">AE-05</span>
+          <span class="tag">fallback_mode</span>
+          <span class="tag">turn_source = cache_fallback</span>
+        </div>
+        <p class="state__desc">
+          Khi AI không phản hồi, phiên vẫn chạy được bằng câu hỏi đã cache và sinh viên tự chấm.
+          Điểm sinh ra từ đó nằm chung một cột với điểm do <code>grade_answer</code> chấm, trong khi
+          hai thứ không cùng độ tin cậy — người ta tự chấm rộng tay hơn. Schema đã phân biệt sẵn bằng
+          <code>turn_source</code>, nên giao diện chỉ cần đừng làm mất thông tin đó: một nhãn ở hàng
+          danh sách, một dòng ở đầu chi tiết, và không có ô nhận xét vì không có AI nào viết cả.
+        </p>
+        <div class="state__demo">
+          <div class="card" style="max-width:560px; padding:18px 20px;">
+            <div class="detail__head" style="margin-bottom:14px;">
+              <div>
+                <h3 style="font-size:15px; font-weight:600; margin:0;">Phiên kiểm tra · 25/07/2026</h3>
+                <div class="detail__meta">20:05 · 12 phút · Hệ điều hành</div>
+              </div>
+              <span class="badge-soft">Đã hoàn thành</span>
+            </div>
+
+            <div class="sysline" style="border-left-color:var(--muted-foreground);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted-foreground);"
+                aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M8 10h8M8 14h5" />
+              </svg>
+              <div class="sysline__body">
+                Phiên này chạy bằng <strong>flashcard đã lưu sẵn</strong> vì AI không phản hồi lúc
+                20:05. Bạn tự chấm đúng/sai, nên điểm phản ánh cảm nhận của chính bạn chứ không phải
+                một lượt chấm độc lập.
+                <div class="sysline__meta">AE-05 · 6/6 lượt có turn_source = cache_fallback</div>
+              </div>
+            </div>
+
+            <div class="outcome" style="margin-top:6px;">
+              <div>
+                <div class="outcome__name">Deadlock</div>
+                <div class="outcome__note">Tự chấm · 3 lượt</div>
+              </div>
+              <div>
+                <div class="outcome__nums">
+                  <span class="outcome__before">0.69 →</span>
+                  <span>0.80</span>
+                  <span class="delta delta--up">+0.11</span>
+                </div>
+                <div class="track">
+                  <span class="track__prev" style="width:69%; background:var(--mastery-strong);"></span>
+                  <span class="track__fill" style="left:69%; width:11%; background:var(--mastery-strong);"></span>
+                  <span class="track__tick" style="left:60%;"></span>
+                </div>
+              </div>
+            </div>
+
+            <p style="font-size:12.5px; color:var(--muted-foreground); margin:12px 0 0;">
+              Đề xuất kiểm tra lại Deadlock bằng phiên vấn đáp thật trước kỳ thi — đây là khái niệm
+              duy nhất trong kế hoạch chưa từng được chấm độc lập.
+            </p>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 6 · Khiếu nại điểm ──────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Khiếu nại một điểm số</span>
+          <span class="tag">AE-10 · UC-15</span>
+          <span class="tag">Chỉ ghi log ở MVP</span>
+        </div>
+        <p class="state__desc">
+          UC-15 nói rõ phạm vi MVP: feedback chỉ được lưu lại, không tự động sửa điểm. Nếu giao diện
+          im lặng về điều đó, sinh viên gửi xong sẽ ngồi chờ điểm đổi — và mất niềm tin khi nó không
+          đổi. Nên câu xác nhận nói đúng thứ sẽ xảy ra, không hơn. Ô lý do để trống được vì UC ghi là
+          tùy chọn, nhưng vài lựa chọn có sẵn giúp phản hồi gom lại thành thứ dùng được để chỉnh
+          rubric chấm.
+        </p>
+        <div class="state__demo">
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:18px;">
+            <div class="grade grade--wrong">
+              <div class="grade__head">
+                <span class="grade__score">0.33</span>
+                <span>wrong</span>
+                <span>· lượt 3 · trọng số 0.5</span>
+              </div>
+              <p class="grade__text">
+                Thay ngăn xếp bằng hàng đợi thì thành BFS.
+              </p>
+              <div class="grade__foot" style="border-top-color:var(--border);">
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+                  <span class="tag">Câu hỏi không rõ</span>
+                  <span class="tag">Chấm quá nặng</span>
+                  <span class="tag">Ngoài phạm vi tài liệu</span>
+                </div>
+                <label for="why"
+                  style="display:block; font-size:12px; color:var(--muted-foreground); margin-bottom:5px;">Lý do
+                  (không bắt buộc)</label>
+                <textarea id="why" rows="2"
+                  style="width:100%; font-family:var(--font-sans); font-size:13px; padding:8px 10px;
+                    border:1px solid var(--border); border-radius:calc(var(--radius)*0.6);
+                    background:var(--card); color:var(--foreground); resize:vertical;"
+                  placeholder="Tôi có nói tới ngăn xếp ở lượt 2 nhưng không được tính..."></textarea>
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                  <button class="btn btn-primary" type="button" style="padding:7px 14px; font-size:13px;">Gửi phản
+                    hồi</button>
+                  <button class="btn btn-ghost" type="button" style="padding:7px 12px; font-size:13px;">Hủy</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="grade grade--wrong">
+              <div class="grade__head">
+                <span class="grade__score">0.33</span>
+                <span>wrong</span>
+                <span>· lượt 3 · trọng số 0.5</span>
+              </div>
+              <p class="grade__text">
+                Thay ngăn xếp bằng hàng đợi thì thành BFS.
+              </p>
+              <div class="grade__foot">
+                <div style="display:flex; gap:8px; align-items:flex-start; color:var(--muted-foreground);">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:2px;"
+                    aria-hidden="true">
+                    <path d="M4 12.5l5 5L20 6.5" />
+                  </svg>
+                  <span style="line-height:1.6;">
+                    Đã ghi nhận phản hồi. Điểm 0.33 giữ nguyên — phản hồi được dùng để chỉnh rubric
+                    chấm, không sửa điểm của phiên đã xong.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!--
+        Khoảng trống tài liệu — phát hiện khi thiết kế, nay đã được viết thành spec.
+      -->
+      <div class="gap" style="border-left-color:var(--mastery-strong);">
+        <h3>UC-18 chỉ mô tả phiên đã hoàn thành — đã bổ sung ở SPEC_DB-03</h3>
+        <p>
+          Bước 2 của UC-18 liệt kê danh sách gồm "ngày, số khái niệm, điểm trung bình" — cả ba đều
+          giả định phiên đã chạy hết hàng đợi. Nhưng <code>interview_session_status</code> trong
+          <code>recall-ai.dbml</code> có bốn giá trị: <code>active</code>, <code>paused</code>,
+          <code>completed</code>, <code>abandoned</code>. Hai giá trị giữa không có mô tả nào trong
+          UC-18, trong khi AE-01 lại <code>&lt;&lt;extend&gt;&gt;</code> AE-03 "khi phát hiện PAUSED" —
+          và chỗ phát hiện đó chỉ có thể là màn hình này.
+        </p>
+        <p>
+          Trước đây trong module Dashboard chỉ có DB-02 có tệp <code>SPEC_</code> riêng; DB-03 mới
+          được viết thành <code>docs/requirements/use-case_specification/SPEC_DB-03_LichSuPhongVan.md</code>,
+          phủ ba điều UC-18 còn thiếu: bốn trạng thái phiên, cờ <code>fallback_mode</code>
+          (điểm tự chấm AE-05 không cùng độ tin cậy với <code>grade_answer</code>), và việc chuẩn hoá
+          lại trọng số <code>[0.2, 0.3, 0.5]</code> khi số lượt ít hơn ba. Các trạng thái 3–5 ở trên
+          giờ có chỗ dựa trong tài liệu, không còn là đề xuất treo.
+        </p>
+        <p>
+          Riêng "điểm trung bình" thì màn hình này có giữ, nhưng đặt ở hàng phụ: trung bình cộng của
+          các khái niệm khác nhau trong cùng một phiên là con số ít nghĩa — nó trộn một khái niệm vừa
+          học lần đầu với một khái niệm ôn lần thứ ba. Thứ trả lời được câu "phiên vừa rồi có ích
+          không" là biến động của từng khái niệm, nên đó mới là phần chiếm chỗ trong mỗi hàng.
+        </p>
+      </div>
+
+    </div>
+  </section>
+</body>
+
+</html>

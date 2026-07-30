@@ -1,68 +1,57 @@
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Link, useNavigate } from "react-router-dom"
-import { toast } from "sonner"
-import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { isAxiosError } from "axios"
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
-import { cn } from "@/lib/utils"
-import { useAuth } from "@/features/auth/context/AuthContext"
-import { loginSchema, type LoginFormData } from "@/features/auth/schemas/auth.schema"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { getAuthErrorMessage } from '@/features/auth/api/auth.api';
+import { loginSchema, type LoginFormData } from '@/features/auth/schemas/auth.schema';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  const navigate = useNavigate()
-  const { login } = useAuth()
-  const [showPassword, setShowPassword] = useState(false)
+export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
     handleSubmit,
+    resetField,
+    setFocus,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    mode: "onChange",
-  })
+    mode: 'onTouched',
+  });
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(data.email, data.password)
-      toast.success("Signed in successfully!")
-      navigate("/dashboard")
+      await login(data.email, data.password);
+      toast.success('Đăng nhập thành công!');
+      navigate('/dashboard');
     } catch (error) {
-      const serverMessage = isAxiosError(error)
-        ? error.response?.data?.error?.message
-        : undefined
-      toast.error(serverMessage || "Email or password incorrect")
+      toast.error(getAuthErrorMessage(error).message);
+      // Giữ email đã nhập, chỉ xoá mật khẩu và đưa con trỏ về đó — thứ duy nhất
+      // cần gõ lại.
+      resetField('password');
+      setFocus('password');
     }
-  }
+  };
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
+          <div className="font-heading mb-6 text-base tracking-tight">Recall AI</div>
+          <CardTitle className="text-[23px]">Đăng nhập</CardTitle>
+          <CardDescription className="text-[13px]">
+            Dùng email và mật khẩu bạn đã đăng ký.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -75,62 +64,57 @@ export function LoginForm({
                   type="email"
                   placeholder="m@example.com"
                   autoComplete="email"
-                  autoFocus
-                  {...register("email")}
+                  {...register('email')}
                 />
-                {errors.email?.message && (
-                  <FieldError>{errors.email.message}</FieldError>
-                )}
+                {errors.email?.message && <FieldError>{errors.email.message}</FieldError>}
               </Field>
 
               <Field>
                 <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <FieldLabel htmlFor="password">Mật khẩu</FieldLabel>
                   <a
-                    href="#"
-                    onClick={(e) => e.preventDefault()}
-                    className="ml-auto inline-block text-sm text-muted-foreground underline-offset-4 hover:underline"
+                    href="#am-05"
+                    className="text-muted-foreground hover:text-foreground ml-auto inline-block text-xs underline-offset-4 hover:underline"
                   >
-                    Forgot password?
+                    Quên mật khẩu?
                   </a>
                 </div>
                 <div className="relative">
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     className="pr-10"
-                    {...register("password")}
+                    {...register('password')}
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="hover:bg-accent hover:text-foreground focus-visible:ring-ring text-muted-foreground absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-transparent"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-4.25 w-4.25" strokeWidth={1.8} />
                     ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
+                      <Eye className="h-4.25 w-4.25" strokeWidth={1.8} />
                     )}
-                    <span className="sr-only">Toggle password visibility</span>
-                  </Button>
+                  </button>
                 </div>
-                {errors.password?.message && (
-                  <FieldError>{errors.password.message}</FieldError>
-                )}
+                {errors.password?.message && <FieldError>{errors.password.message}</FieldError>}
               </Field>
 
               <Field>
                 <Button type="submit" disabled={isSubmitting} className="w-full">
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Sign In
+                  {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
                 </Button>
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account?{" "}
-                  <Link to="/register" className="text-primary hover:underline">
-                    Register
+                  Chưa có tài khoản?{' '}
+                  <Link
+                    to="/register"
+                    className="text-foreground hover:text-foreground underline underline-offset-4"
+                  >
+                    Đăng ký
                   </Link>
                 </FieldDescription>
               </Field>
@@ -139,5 +123,5 @@ export function LoginForm({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

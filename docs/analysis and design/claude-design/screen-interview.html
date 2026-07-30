@@ -1,0 +1,1231 @@
+<!-- @dsCard group="Screens" subtitle="AE-02 — Phiên kiểm tra vấn đáp (text + voice)" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Phiên kiểm tra vấn đáp</title>
+  <meta name="description" content="AE-02: phiên vấn đáp nhiều lượt do state machine tất định điều phối, hỗ trợ trả lời bằng văn bản hoặc giọng nói." />
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ─────────── Khung màn hình ─────────── */
+    /* minmax(0, 1fr) chứ không phải 1fr: track auto-minimum sẽ phình theo
+       nội dung con và làm khung vượt quá chiều cao màn hình. */
+    .ex-shell {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 100dvh;
+    }
+
+    .ex-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .ex-top__id {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .ex-top__title {
+      font-family: var(--font-heading);
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .ex-top__plan {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ex-top__right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .clock {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+    }
+
+    /* Segmented control: chuyển giữa tầng I/O văn bản và giọng nói.
+       Đây CHỈ là lớp nhập/xuất — state machine (3 lượt, verdict) không đổi. */
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      overflow: hidden;
+      background: var(--muted);
+    }
+
+    .seg button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--muted-foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 13px;
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+    }
+
+    .seg button:hover {
+      color: var(--foreground);
+    }
+
+    .seg button[aria-pressed="true"] {
+      background: var(--card);
+      color: var(--foreground);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--card);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: color var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard);
+    }
+
+    .icon-btn:hover {
+      color: var(--foreground);
+      border-color: var(--muted-foreground);
+    }
+
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
+    /* ─────────── Bố cục 2 cột ─────────── */
+    .ex-body {
+      display: grid;
+      grid-template-columns: 288px 1fr;
+      min-height: 0;
+    }
+
+    .rail {
+      border-right: 1px solid var(--border);
+      background: var(--sidebar);
+      padding: 22px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+      overflow-y: auto;
+    }
+
+    .rail__label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin-bottom: 10px;
+    }
+
+    /* Hàng đợi khái niệm — AE-02 bước 11 (lặp cho tới hết hàng đợi).
+       Không có widget này thì sinh viên không biết bài kiểm tra dài bao nhiêu. */
+    .qitem {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      margin: 0 -10px;
+      border-radius: calc(var(--radius) * 0.6);
+      font-size: 13px;
+    }
+
+    .qitem__no {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .qitem__score {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .qitem--done {
+      color: var(--muted-foreground);
+    }
+
+    .qitem--now {
+      background: var(--card);
+      border: 1px solid var(--foreground);
+      font-weight: 600;
+      margin: 2px -10px;
+    }
+
+    .qitem--wait {
+      color: var(--muted-foreground);
+      opacity: 0.72;
+    }
+
+    /* Máy trạng thái 3 lượt + trọng số — hiện thực hoá ràng buộc C6 và
+       công thức weighted average ở UC-Overview §5.4. */
+    .turnbox {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      overflow: hidden;
+    }
+
+    .turnrow {
+      display: grid;
+      grid-template-columns: 20px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .turnrow:last-child {
+      border-bottom: 0;
+    }
+
+    .turnrow__n {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .turnrow__w {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .turnrow--now {
+      background: oklch(from var(--ai-accent) l c h / 0.07);
+    }
+
+    .turnrow--locked {
+      color: var(--muted-foreground);
+      opacity: 0.66;
+    }
+
+    .rail__note {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted-foreground);
+    }
+
+    .rail__source {
+      margin-top: auto;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      line-height: 1.55;
+    }
+
+    /* ─────────── Cột hội thoại ─────────── */
+    .conv-wrap {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      min-height: 0;
+    }
+
+    .conv {
+      padding: 28px 32px 6px;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .conv__inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .turn-sep {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0 4px;
+      font-size: 11px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+    }
+
+    .turn-sep::before,
+    .turn-sep::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Trích dẫn nguồn trên MỖI câu hỏi — ràng buộc C5: AI không được bịa,
+       câu hỏi phải sinh từ đúng tài liệu sinh viên tải lên (AE-02 bước 3). */
+    .cite {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 9px;
+    }
+
+    .cite a {
+      color: inherit;
+      text-underline-offset: 3px;
+    }
+
+    /* Thẻ chấm điểm — grade_answer trả {score, feedback, verdict}.
+       Bản cũ chỉ hiện score + verdict và BỎ HẲN feedback, tức là giấu đi
+       phần duy nhất giải thích vì sao bị điểm đó. */
+    .grade {
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 14px 16px;
+      align-self: flex-end;
+      max-width: 78%;
+    }
+
+    .grade--deep {
+      border-left-color: var(--mastery-strong);
+    }
+
+    .grade--shallow {
+      border-left-color: var(--mastery-learning);
+    }
+
+    .grade--wrong {
+      border-left-color: var(--mastery-weak);
+    }
+
+    .grade__head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .grade__score {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grade__weight {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    .grade__text {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--foreground);
+    }
+
+    .grade__foot {
+      margin-top: 10px;
+      padding-top: 9px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .grade__foot a {
+      color: var(--muted-foreground);
+      text-underline-offset: 3px;
+    }
+
+    .grade__foot a:hover {
+      color: var(--foreground);
+    }
+
+    /* Sự kiện hệ thống — tách bạch rõ với bong bóng AI.
+       Ràng buộc C4: mọi quyết định điều phối là logic tất định, KHÔNG do AI quyết. */
+    .sys {
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--muted);
+      padding: 11px 14px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: var(--muted-foreground);
+    }
+
+    .sys__tag {
+      flex: none;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--card);
+      color: var(--muted-foreground);
+      margin-top: 1px;
+    }
+
+    .sys--remediate {
+      background: oklch(from var(--remediate) l c h / 0.08);
+      border-color: oklch(from var(--remediate) l c h / 0.32);
+      color: var(--foreground);
+    }
+
+    .sys--warn {
+      background: oklch(from var(--mastery-learning) l c h / 0.09);
+      border-color: oklch(from var(--mastery-learning) l c h / 0.34);
+      color: var(--foreground);
+    }
+
+    /* ─────────── Câu hỏi ở chế độ giọng nói ─────────── */
+    /* AE-02 bước 4: TTS đọc câu hỏi, CÓ THỂ ẩn văn bản tới khi sinh viên
+       bấm "Hiện câu hỏi". Vẫn phải giữ đường thoát về văn bản. */
+    .q-audio {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 15px 18px;
+      max-width: 78%;
+    }
+
+    .play-btn {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: calc(var(--radius) * 0.7);
+      border: 1px solid oklch(from var(--ai-accent) l c h / 0.4);
+      background: oklch(from var(--ai-accent) l c h / 0.12);
+      color: var(--ai-accent);
+      cursor: pointer;
+    }
+
+    /* Chỉ 5 vạch nhịp để báo "đang đọc", phần tiến độ để cho thanh track lo.
+       flex:none là bắt buộc — .q-audio__meta là flex column, nếu để flex:1
+       thì flex-basis:0 sẽ ăn vào chiều CAO và các vạch biến mất. */
+    .speak-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+    }
+
+    .wave {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 16px;
+      flex: none;
+    }
+
+    .wave span {
+      width: 3px;
+      height: 100%;
+      flex: none;
+      border-radius: 2px;
+      background: currentColor;
+      opacity: 0.55;
+      transform-origin: center;
+      animation: wave-bar 1.15s var(--ease-standard) infinite;
+    }
+
+    .speak-track {
+      flex: 1;
+      height: 2px;
+      border-radius: 2px;
+      background: oklch(from var(--ai-accent) l c h / 0.22);
+      overflow: hidden;
+    }
+
+    .speak-track span {
+      display: block;
+      height: 100%;
+      background: var(--ai-accent);
+    }
+
+    @keyframes wave-bar {
+
+      0%,
+      100% {
+        transform: scaleY(0.28);
+      }
+
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    .q-audio__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      flex: 1;
+      min-width: 0;
+      color: var(--ai-accent);
+    }
+
+    .q-audio__row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+    }
+
+    .linkish {
+      background: none;
+      border: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+
+    .linkish:hover {
+      color: var(--foreground);
+    }
+
+    /* ─────────── Khu vực trả lời ─────────── */
+    .dock {
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      padding: 16px 32px 18px;
+    }
+
+    .dock__inner {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .dock__hint {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 10px;
+    }
+
+    /* Bản ghi âm được chuyển thành văn bản và CHO SỬA trước khi gửi —
+       AE-02 bước 6. Bắt buộc: grade_answer chấm trên văn bản, nên lỗi
+       nhận dạng giọng nói sẽ bị tính thành lỗi kiến thức nếu không cho sửa. */
+    .transcript {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--background);
+      padding: 14px 16px;
+      font-size: 14px;
+      line-height: 1.62;
+      min-height: 68px;
+    }
+
+    .transcript:focus-within {
+      border-color: var(--ring);
+      outline: 2px solid oklch(from var(--ring) l c h / 0.18);
+      outline-offset: 0;
+    }
+
+    .stt-low {
+      border-bottom: 1px dashed var(--remediate);
+      color: var(--remediate);
+      cursor: text;
+    }
+
+    .rec-bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 10px;
+    }
+
+    .mic-btn {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: var(--destructive);
+      color: var(--primary-foreground);
+      cursor: pointer;
+      transition: transform var(--duration-fast) var(--ease-standard);
+    }
+
+    .mic-btn:active {
+      transform: scale(0.97);
+    }
+
+    .mic-btn--idle {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    .rec-state {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .rec-state__top {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .rec-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 9999px;
+      background: var(--destructive);
+      animation: rec-pulse 1.4s var(--ease-standard) infinite;
+    }
+
+    @keyframes rec-pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.25;
+      }
+    }
+
+    .dock__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .dock__actions .spacer {
+      flex: 1;
+    }
+
+    .composer {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .composer textarea {
+      flex: 1;
+      min-height: 74px;
+      max-height: 160px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      padding: 13px 15px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--foreground);
+      background: var(--background);
+    }
+
+    .composer textarea:focus {
+      outline: 2px solid oklch(from var(--ring) l c h / 0.18);
+      border-color: var(--ring);
+    }
+
+    /* ─────────── Phụ lục trạng thái ─────────── */
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--background);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__inner {
+      max-width: 940px;
+      margin: 0 auto;
+    }
+
+    .gallery__title {
+      font-family: var(--font-heading);
+      font-size: 24px;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+    }
+
+    .gallery__lead {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      max-width: 62ch;
+      margin-bottom: 36px;
+      line-height: 1.65;
+    }
+
+    .state {
+      border-top: 1px solid var(--border);
+      padding: 26px 0 4px;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .state__ref {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      line-height: 1.6;
+      max-width: 62ch;
+      margin-bottom: 16px;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--card);
+      padding: 20px;
+    }
+
+    /* Flashcard tự chấm — AE-05, kích hoạt khi AI fail/timeout */
+    .flash-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .self-grade {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--background);
+      padding: 9px 15px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--foreground);
+      cursor: pointer;
+    }
+
+    .self-grade:hover {
+      border-color: var(--muted-foreground);
+    }
+
+    .self-grade__val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    /* Danh sách tiên quyết do BFS ngược tìm ra — AE-07 bước 7-8 */
+    .prereq {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13.5px;
+    }
+
+    .prereq:last-of-type {
+      border-bottom: 0;
+    }
+
+    .prereq__meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 1080px) {
+      .ex-body {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="ex-shell">
+
+    <!-- ══════════ Thanh trên ══════════ -->
+    <header class="ex-top">
+      <div class="ex-top__id">
+        <span class="ex-top__title">Phiên kiểm tra</span>
+        <span class="ex-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+      </div>
+
+      <div class="ex-top__right">
+        <span class="clock">18:42 / ~25:00</span>
+
+        <!--
+          Tầng giọng nói (I6.9) là lớp NHẬP/XUẤT phủ lên trên, không viết lại
+          state machine — theo sprint-4-spec-audit mục E.4. Chuyển chế độ giữa
+          chừng phiên là hợp lệ, lịch sử hội thoại và số lượt giữ nguyên.
+          TTS dùng speechSynthesis của trình duyệt, KHÔNG phải call thứ 5 tới Gemini.
+        -->
+        <div class="seg" role="group" aria-label="Chế độ trả lời">
+          <button type="button" aria-pressed="false">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7V5h16v2" />
+              <path d="M9 19h6" />
+              <path d="M12 5v14" />
+            </svg>
+            Gõ
+          </button>
+          <button type="button" aria-pressed="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="3" width="6" height="11" rx="3" />
+              <path d="M5 11a7 7 0 0 0 14 0" />
+              <path d="M12 18v3" />
+            </svg>
+            Giọng nói
+          </button>
+        </div>
+
+        <!-- AE-02 Alt flow 2: "Tạm dừng" lưu trạng thái RỒI THOÁT giao diện —
+             đây chính là đường ra của màn hình này, nên nói thẳng ra trên nhãn. -->
+        <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Tạm dừng &amp; thoát</button>
+        <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Bỏ qua khái niệm</button>
+        <button class="icon-btn" aria-label="Cài đặt phiên kiểm tra">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="ex-body">
+
+      <!-- ══════════ Cột trái: phạm vi bài kiểm tra ══════════ -->
+      <aside class="rail">
+        <section>
+          <h2 class="rail__label">Hàng đợi khái niệm · 3/5</h2>
+
+          <div class="qitem qitem--done">
+            <span class="qitem__no">01</span>
+            <span>Mảng &amp; Con trỏ</span>
+            <span class="qitem__score" style="color:var(--mastery-strong);">0.86</span>
+          </div>
+          <div class="qitem qitem--done">
+            <span class="qitem__no">02</span>
+            <span>Đệ quy</span>
+            <span class="qitem__score" style="color:var(--mastery-strong);">0.71</span>
+          </div>
+          <div class="qitem qitem--now">
+            <span class="qitem__no">03</span>
+            <span>Ngăn xếp</span>
+            <span class="qitem__score" style="color:var(--muted-foreground);">—</span>
+          </div>
+          <div class="qitem qitem--wait">
+            <span class="qitem__no">04</span>
+            <span>Hàng đợi</span>
+            <span class="qitem__score">—</span>
+          </div>
+          <div class="qitem qitem--wait">
+            <span class="qitem__no">05</span>
+            <span>Duyệt đồ thị DFS</span>
+            <span class="qitem__score">—</span>
+          </div>
+        </section>
+
+        <!--
+          Máy trạng thái hiển thị công khai. Hai thứ trước đây vô hình:
+          (1) C6 — trần cứng 3 lượt/khái niệm;
+          (2) UC-Overview §5.4 — mastery_score là trung bình CÓ TRỌNG SỐ
+              [0.2, 0.3, 0.5], lượt sau nặng hơn vì câu hỏi sâu hơn.
+          Sinh viên biết lượt 3 quyết định phần lớn điểm thì mới hiểu vì sao
+          nên cố ở lượt cuối thay vì bỏ ngang.
+        -->
+        <section>
+          <h2 class="rail__label">Lượt hỏi — Ngăn xếp</h2>
+          <div class="turnbox">
+            <div class="turnrow">
+              <span class="turnrow__n">1</span>
+              <span style="display:flex; align-items:center; gap:7px;">
+                <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Hiểu sâu</span>
+                <span class="qitem__score">0.90</span>
+              </span>
+              <span class="turnrow__w">×0.2</span>
+            </div>
+            <div class="turnrow turnrow--now">
+              <span class="turnrow__n">2</span>
+              <span>Đang trả lời</span>
+              <span class="turnrow__w">×0.3</span>
+            </div>
+            <div class="turnrow turnrow--locked">
+              <span class="turnrow__n">3</span>
+              <span>Chưa mở</span>
+              <span class="turnrow__w">×0.5</span>
+            </div>
+          </div>
+          <p class="rail__note" style="margin-top:10px;">
+            Truy ngược lỗ hổng chỉ chạy sau khi chốt điểm cả khái niệm, không chạy sau từng lượt.
+          </p>
+        </section>
+
+        <div class="rail__source">
+          Chấm theo tài liệu bạn tải lên:<br />
+          <strong style="color:var(--foreground); font-weight:500;">Giáo trình CTDL — Chương 3.pdf</strong><br />
+          <span class="meta-mono" style="font-size:11px;">rubric v2 · 34 trang</span>
+        </div>
+      </aside>
+
+      <!-- ══════════ Cột phải: hội thoại + khu trả lời ══════════ -->
+      <div class="conv-wrap">
+        <main class="conv">
+          <div class="conv__inner">
+
+            <div class="turn-sep">Lượt 1</div>
+
+            <!-- AE-02 bước 3-4: câu hỏi sinh từ generate_question, kèm trích dẫn nguồn -->
+            <article class="chat-bubble-ai">
+              Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu mình push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?
+              <div class="cite">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 3v5h5" />
+                </svg>
+                <a href="#">Chương 3, tr. 4 — Định nghĩa LIFO</a>
+              </div>
+            </article>
+
+            <div class="chat-bubble-user" style="align-self:flex-end;">Còn lại số 3 ạ, vì pop lần lượt lấy ra 7 rồi 5.</div>
+
+            <!-- AE-02 bước 8: grade_answer trả {score, feedback, verdict}.
+                 feedback là thứ biến chấm điểm thành nhận xét — phải hiển thị. -->
+            <div class="grade grade--deep">
+              <div class="grade__head">
+                <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Hiểu sâu</span>
+                <span class="grade__score">0.90</span>
+                <span class="grade__weight">lượt 1 · trọng số 0.2</span>
+              </div>
+              <p class="grade__text" style="margin:0;">
+                Bạn xác định đúng thứ tự lấy ra và nêu được lý do 3 nằm dưới cùng. Câu trả lời khớp với ví dụ ở trang 4. Nếu muốn chắc hơn, thử nói xem điều gì xảy ra khi pop trên ngăn xếp rỗng.
+              </p>
+              <div class="grade__foot">
+                <a href="#">Không đồng ý với điểm này</a>
+              </div>
+            </div>
+
+            <!-- AE-02 bước 9: điều phối do phần mềm quyết, không phải AI (ràng buộc C4) -->
+            <div class="sys">
+              <span class="sys__tag">Hệ thống</span>
+              <span>Kết quả <strong>hiểu sâu</strong> và còn lượt → yêu cầu AI ra câu hỏi đào sâu hơn. Chuyển sang lượt 2 trong 3.</span>
+            </div>
+
+            <div class="turn-sep">Lượt 2</div>
+
+            <!--
+              AE-02 bước 4, nhánh giọng nói: hệ thống đọc câu hỏi bằng TTS và
+              CÓ THỂ ẩn văn bản tới khi sinh viên bấm "Hiện văn bản".
+              Luôn giữ "Nghe lại" và "Hiện văn bản" — câu hỏi kỹ thuật dài
+              không thể chỉ nghe một lần rồi trả lời.
+            -->
+            <article class="chat-bubble-ai q-audio">
+              <button class="play-btn" aria-label="Tạm dừng đọc câu hỏi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M9 5v14M15 5v14" />
+                </svg>
+              </button>
+              <div class="q-audio__meta">
+                <div class="speak-row">
+                  <div class="wave" aria-hidden="true">
+                    <span style="animation-delay:0ms"></span>
+                    <span style="animation-delay:130ms"></span>
+                    <span style="animation-delay:260ms"></span>
+                    <span style="animation-delay:390ms"></span>
+                    <span style="animation-delay:520ms"></span>
+                  </div>
+                  <div class="speak-track" role="progressbar" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ đọc câu hỏi">
+                    <span style="width:64%"></span>
+                  </div>
+                </div>
+                <div class="q-audio__row">
+                  <span>0:09 / 0:14</span>
+                  <button class="linkish" type="button">Hiện văn bản</button>
+                  <button class="linkish" type="button">Nghe lại</button>
+                </div>
+              </div>
+            </article>
+
+            <div class="cite" style="align-self:flex-start; margin:-6px 0 0 4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                <path d="M14 3v5h5" />
+              </svg>
+              <a href="#">Chương 3, mục 3.2 — Ngăn xếp lời gọi hàm</a>
+            </div>
+
+          </div>
+        </main>
+
+        <!-- ══════════ Khu trả lời — đang ở chế độ giọng nói ══════════ -->
+        <footer class="dock">
+          <div class="dock__inner">
+
+            <div class="rec-bar">
+              <button class="mic-btn" aria-label="Dừng ghi âm">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
+              <div class="rec-state">
+                <div class="rec-state__top">
+                  <span class="rec-dot" aria-hidden="true"></span>
+                  <span>Đang ghi âm câu trả lời</span>
+                  <span class="clock">0:23</span>
+                </div>
+                <span style="font-size:12px; color:var(--muted-foreground);">
+                  Ngừng nói 2 giây sẽ tự dừng. Bấm <kbd>Space</kbd> để dừng ngay.
+                </span>
+              </div>
+              <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Chuyển sang gõ</button>
+            </div>
+
+            <!--
+              AE-02 bước 6: "câu trả lời được chuyển thành văn bản để Sinh viên
+              xem và SỬA LẠI trước khi gửi".
+              Đây là chi tiết quan trọng nhất của tầng voice: grade_answer chấm
+              trên văn bản, nên một từ bị nhận nhầm sẽ bị tính thành lỗi kiến thức.
+              Từ có độ tin cậy thấp được gạch chân để sinh viên soát nhanh.
+            -->
+            <div class="transcript" contenteditable="true" role="textbox" aria-label="Bản ghi câu trả lời, có thể chỉnh sửa" spellcheck="false">Nếu hàm đệ quy không có điều kiện dừng thì mỗi lần gọi sẽ đẩy thêm một <span class="stt-low">không ngăn xếp</span> mới, đến khi hết vùng nhớ dành cho ngăn xếp thì chương trình bị lỗi tràn ngăn xếp.</div>
+
+            <div class="dock__hint">
+              <span>1 từ độ tin cậy thấp — soát lại trước khi gửi. Bản ghi này là thứ được đem đi chấm.</span>
+              <span class="meta-mono">36 từ</span>
+            </div>
+
+            <div class="dock__actions">
+              <button class="btn btn-secondary">Ghi lại từ đầu</button>
+              <span class="spacer"></span>
+              <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted-foreground);">
+                <input type="checkbox" checked />
+                Tự đọc câu hỏi tiếp theo
+              </label>
+              <button class="btn btn-primary">Gửi câu trả lời</button>
+            </div>
+
+          </div>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PHỤ LỤC: các trạng thái còn lại của AE-02
+       Tách ra đây thay vì bỏ trống — mỗi trạng thái đều là một nhánh
+       có thật trong spec, và đều từng thiếu trong bản mockup cũ.
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="gallery">
+    <div class="gallery__inner">
+      <h2 class="gallery__title">Các trạng thái còn lại của phiên kiểm tra</h2>
+      <p class="gallery__lead">
+        Bốn nhánh dưới đây đều nằm trong đặc tả AE-02 / AE-05 / AE-07 nhưng chưa từng được vẽ.
+        Không có chúng thì bản thiết kế chỉ mô tả được đường đi thuận lợi.
+      </p>
+
+      <!-- ── 1. Chế độ gõ ── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Chế độ gõ</span>
+          <span class="state__ref">AE-02 · bước 5 · mặc định Sprint 4</span>
+        </div>
+        <p class="state__desc">
+          Luồng mặc định, không cần quyền micro. Chuyển qua lại giữa gõ và giọng nói bất kỳ lúc nào
+          mà không mất lịch sử hội thoại hay số lượt còn lại.
+        </p>
+        <div class="state__demo">
+          <div class="composer">
+            <textarea placeholder="Nhập câu trả lời của bạn…"></textarea>
+            <button class="btn btn-primary">Gửi</button>
+          </div>
+          <div class="dock__hint">
+            <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> để gửi</span>
+            <span class="meta-mono">lượt 2 / 3</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 2. Micro bị từ chối ── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Không dùng được micro</span>
+          <span class="state__ref">AE-02 · pre-condition tùy chọn</span>
+        </div>
+        <p class="state__desc">
+          Quyền micro là điều kiện <em>tùy chọn</em>, chỉ cần khi bật tầng giọng nói. Bị từ chối thì
+          phiên vẫn chạy tiếp bằng văn bản — không chặn, không modal, không mất lượt.
+        </p>
+        <div class="state__demo">
+          <div class="sys sys--warn" style="margin-bottom:16px;">
+            <span class="sys__tag">Hệ thống</span>
+            <span>Trình duyệt đã chặn quyền micro nên phiên chuyển về chế độ gõ. Bạn vẫn đang ở lượt 2 của khái niệm <strong>Ngăn xếp</strong>. Có thể cấp lại quyền trong cài đặt trình duyệt rồi bật lại giọng nói.</span>
+          </div>
+          <div class="composer">
+            <textarea placeholder="Nhập câu trả lời của bạn…"></textarea>
+            <button class="btn btn-primary">Gửi</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 3. Fallback flashcard ── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">AI không phản hồi — flashcard tự chấm</span>
+          <span class="state__ref">AE-05 · AE-02 Alt flow 1 · UC-12</span>
+        </div>
+        <p class="state__desc">
+          Khi Gemini timeout, sai schema hoặc hết quota, hệ thống lấy câu hỏi đã sinh sẵn trong
+          <span class="meta-mono">question_cache</span> (AE-06) và để sinh viên tự đánh giá.
+          Điểm tự chấm vẫn ghi vào <span class="meta-mono">mastery_score</span> nên vòng lặp lập lịch không đứt.
+        </p>
+        <div class="state__demo">
+          <div class="sys sys--warn" style="margin-bottom:18px;">
+            <span class="sys__tag">Hệ thống</span>
+            <span>Không nhận được phản hồi chấm điểm sau 2 lần thử. Chuyển sang flashcard tự chấm cho khái niệm này. Câu hỏi lấy từ bộ đã soạn sẵn, không gọi AI.</span>
+          </div>
+          <p style="font-size:15px; line-height:1.6; margin:0 0 4px; max-width:60ch;">
+            Vì sao ngăn xếp là cấu trúc phù hợp để khử đệ quy, trong khi hàng đợi thì không?
+          </p>
+          <p style="font-size:12px; color:var(--muted-foreground); margin:0;">
+            Tự trả lời trong đầu, rồi chọn mức độ đúng của bạn.
+          </p>
+          <div class="flash-actions">
+            <button class="self-grade">Đúng <span class="self-grade__val">1.0</span></button>
+            <button class="self-grade">Một phần <span class="self-grade__val">0.5</span></button>
+            <button class="self-grade">Sai <span class="self-grade__val">0.0</span></button>
+            <button class="btn btn-ghost" style="font-size:13px;">Xem gợi ý đáp án</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4. Truy ngược lỗ hổng ── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Truy ngược lỗ hổng sau khi chốt điểm khái niệm</span>
+          <span class="state__ref">AE-07 · AE-08 · include của AE-02</span>
+        </div>
+        <p class="state__desc">
+          Đây là thứ phân biệt sản phẩm này với một khung chat hỏi đáp. Khi điểm cả khái niệm
+          xuống dưới ngưỡng, engine chạy BFS ngược trên đồ thị khái niệm, giới hạn 2 tầng, cắt nhánh ở
+          khái niệm đã vững — hoàn toàn tất định, không gọi AI, unit-test được.
+          Sinh viên giữ quyền quyết định cuối (AE-07 bước 8 và Alt flow 3).
+        </p>
+        <div class="state__demo">
+          <div class="sys sys--remediate" style="display:block; padding:16px 18px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+              <span class="sys__tag" style="background: transparent; border-color: oklch(from var(--remediate) l c h / 0.45); color: var(--remediate);">Engine lập lịch</span>
+              <span style="font-size:13px; font-weight:600;">Khái niệm <strong>Duyệt đồ thị DFS</strong> đạt 0.42 — dưới ngưỡng 0.60</span>
+            </div>
+            <p style="font-size:13.5px; line-height:1.6; margin:0 0 6px; color:var(--foreground);">
+              Truy ngược 2 tầng tiên quyết tìm được 2 khái niệm nền cần củng cố trước. Chúng sẽ được
+              xếp lên đầu phiên kế tiếp, học trước khi quay lại DFS.
+            </p>
+            <p style="font-size:12px; color:var(--muted-foreground); margin:0 0 14px;">
+              Bỏ qua tầng 2 của <strong>Đệ quy</strong> vì khái niệm này đã đạt 0.71 — nhánh được cắt tại đó.
+            </p>
+
+            <div style="border-top:1px solid oklch(from var(--remediate) l c h / 0.25); padding-top:4px;">
+              <div class="prereq">
+                <span><strong style="font-weight:500;">Ngăn xếp</strong> — nền của DFS đệ quy</span>
+                <span style="display:flex; align-items:center; gap:14px;">
+                  <span class="prereq__meta">tầng 1 · 0.54</span>
+                  <button class="linkish" type="button">Bỏ khỏi lịch</button>
+                </span>
+              </div>
+              <div class="prereq">
+                <span><strong style="font-weight:500;">Danh sách kề</strong> — chưa từng kiểm tra</span>
+                <span style="display:flex; align-items:center; gap:14px;">
+                  <span class="prereq__meta">tầng 1 · chưa có điểm</span>
+                  <button class="linkish" type="button">Bỏ khỏi lịch</button>
+                </span>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
+              <button class="btn btn-primary" style="font-size:13px;">Đồng ý, thêm vào lịch</button>
+              <button class="btn btn-secondary" style="font-size:13px;">Xem trên đồ thị khái niệm</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+</body>
+
+</html>

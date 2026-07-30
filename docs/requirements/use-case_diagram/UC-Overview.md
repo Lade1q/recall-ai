@@ -279,6 +279,10 @@ ALTER TABLE users ADD COLUMN pomodoro_config JSONB DEFAULT '{"work":25,"short_br
 
 ### 5.6 Use-case ngoài MVP (không implement Sprint 3-5)
 
-- AM-06: Liên kết/Hủy liên kết Google - chỉ cần silent merge email trong MVP
+- AM-06 (và các luồng Google OAuth AM-01 [A1], AM-02 [A1]): hoãn POST-MVP. MVP không có OAuth — chưa
+  có route nào trong `auth.routes.ts`, và khóa Gemini trong `.env` là cho AI Service, không phải đăng
+  nhập. Khi triển khai, cách xử lý là **silent merge theo email** (không làm UI liên kết/hủy). Ràng
+  buộc `password_hash NOT NULL` **không đổi**: tài khoản tạo qua Google được đặt một mật khẩu ngẫu
+  nhiên, nên không cần cho `password_hash` nhận NULL và mọi tài khoản đều luôn có mật khẩu.
 - SP-10: Import kế hoạch từ file
 - ~~Voice Input (đề cập trong proposal nhưng không có UC chính thức)~~ → **SỬA:** Voice Input **có** UC chính thức (trong `Use-case_Specification.pdf` mục 2.3, nằm ở basic flow: TTS đọc câu hỏi, trả lời qua micro, STT). Sprint 4 chốt làm **luồng text trước**, tách tầng voice thành issue riêng (I6.9) — hoãn sang Sprint 5, không phải "ngoài MVP".
