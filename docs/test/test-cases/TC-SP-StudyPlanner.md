@@ -45,6 +45,7 @@
 - [TC-SP-06-01](#tc-sp-06-01-dag-validation-thành-công-với-đồ-thị-hợp-lệ-phức-tạp) — DAG validation thành công — Đồ thị hợp lệ nhiều node
 - [TC-SP-06-02](#tc-sp-06-02-thêm-cạnh-thủ-công-tạo-cycle--bị-reject-ngay-lập-tức) — Thêm cạnh thủ công tạo cycle → bị reject ngay lập tức
 - [TC-SP-06-03](#tc-sp-06-03-xóa-toàn-bộ-quan-hệ-tiên-quyết--cảnh-báo-traceback-mất-tác-dụng) — Xóa toàn bộ quan hệ tiên quyết → cảnh báo Traceback mất tác dụng
+- [TC-SP-06-04](#tc-sp-06-04-thêm-cạnh-thủ-công-hợp-lệ--thành-công) — Thêm cạnh thủ công hợp lệ → thành công, cập nhật đồ thị
 
 **UI / E2E Tests** _(sẽ bổ sung sau)_
 
@@ -327,27 +328,27 @@
 | **Kết quả mong đợi**     | - **13a, 13b, 13c**: HTTP Status **201 Created**, `data.plan.concepts` không rỗng, DB lưu đầy đủ.<br>- **13d**: HTTP Status **400 Bad Request** / **422 Unprocessable Entity**, `error.code` = `"FILE_UNREADABLE"` (Giống TC-SP-05-11).                                                  |
 | **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                                                                                                    |
 | **Trạng thái**           | Not Run                                                                                                                                                                                                                                                                                  |
-| **Ghi chú**              | Đã tích hợp test case ảnh mờ vào subcase 13d.                                                                                                                                                                                                                                            |
+| **Ghi chú**              | _(Trống)                                                                                                                                                                                                                                                                                 |
 
 ---
 
 ### TC-SP-05-14: Tạo plan thành công với file văn bản (.txt) (Đại diện cho luồng dán text)
 
-| Trường                   | Nội dung                                                                                                                                                                                                  |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | UC-05 — Luồng thay thế [A3] (Dán text thẳng — xử lý qua file .txt)                                                                                                                                        |
-| **Mã TC**                | TC-SP-05-14                                                                                                                                                                                               |
-| **Tiêu đề**              | Tạo plan thành công bằng văn bản dán trực tiếp                                                                                                                                                            |
-| **Mô tả**                | Gửi request tạo plan với nội dung là chuỗi văn bản (raw text) do người dùng dán vào thay vì đính kèm file. Backend phải xử lý trực tiếp chuỗi này.                                                        |
-| **Loại kiểm thử**        | Functionality                                                                                                                                                                                             |
-| **Độ ưu tiên**           | Medium                                                                                                                                                                                                    |
-| **Điều kiện tiên quyết** | - Server đang chạy<br>- AI Service đang hoạt động (hoặc mock)<br>- Student đã đăng nhập                                                                                                                   |
-| **Các bước thực hiện**   | 1. Gửi request `POST /api/v1/study-plans`<br>2. Cung cấp field `content` (chứa text thuần) thay vì field `file`<br>3. Kiểm tra HTTP status và response                                                    |
-| **Dữ liệu đầu vào**      | `name`: `"Ôn thi Triết học"`, `deadline`: `"2026-12-31"`<br>`content`: _"Chương 1: Vật chất và ý thức..."_ (chuỗi văn bản)                                                                                |
-| **Kết quả mong đợi**     | - HTTP Status: **201 Created**<br>- `"success": true`<br>- DB: bản ghi plan và document (`kind=text`) được lưu đầy đủ                                                                                     |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                     |
-| **Trạng thái**           | Not Run                                                                                                                                                                                                   |
-| **Ghi chú**              | **Lưu ý:** Hiện tại Backend chưa implement field `content` cho API này (Task #163 xác nhận: "BE chưa có API"). Khi chạy test case này trên source code hiện tại sẽ **FAIL**. Đợi Backend update mới pass. |
+| Trường                   | Nội dung                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | UC-05 — Luồng thay thế [A3] (Dán text thẳng — xử lý qua file .txt)                                                                                                                               |
+| **Mã TC**                | TC-SP-05-14                                                                                                                                                                                      |
+| **Tiêu đề**              | Tạo plan thành công bằng văn bản dán trực tiếp                                                                                                                                                   |
+| **Mô tả**                | Gửi request tạo plan với nội dung là chuỗi văn bản (raw text) do người dùng dán vào thay vì đính kèm file. Backend phải xử lý trực tiếp chuỗi này.                                               |
+| **Loại kiểm thử**        | Functionality                                                                                                                                                                                    |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                           |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- AI Service đang hoạt động (hoặc mock)<br>- Student đã đăng nhập                                                                                                          |
+| **Các bước thực hiện**   | 1. Gửi request `POST /api/v1/study-plans`<br>2. Cung cấp field `content` (chứa text thuần) thay vì field `file`<br>3. Kiểm tra HTTP status và response                                           |
+| **Dữ liệu đầu vào**      | `name`: `"Ôn thi Triết học"`, `deadline`: `"2026-12-31"`<br>`content`: _"Chương 1: Vật chất và ý thức..."_ (chuỗi văn bản)                                                                       |
+| **Kết quả mong đợi**     | - HTTP Status: **201 Created**<br>- `"success": true`<br>- DB: bản ghi plan và document (`kind=text`) được lưu đầy đủ                                                                            |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                            |
+| **Trạng thái**           | Not Run                                                                                                                                                                                          |
+| **Ghi chú**              | **Lưu ý:** Hiện tại Backend chưa implement field `content` cho API này (Task #163: "BE chưa có API"). Khi chạy test case này trên source code hiện tại sẽ **FAIL**. Đợi Backend update mới pass. |
 
 ---
 
@@ -517,6 +518,26 @@
 
 ---
 
+### TC-SP-06-04: Thêm cạnh thủ công hợp lệ → thành công
+
+| Trường                   | Nội dung                                                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | UC-06 — Luồng chính (Student thêm cạnh hợp lệ)                                                                                                                                                                     |
+| **Mã TC**                | TC-SP-06-04                                                                                                                                                                                                        |
+| **Tiêu đề**              | Student thêm cạnh thủ công hợp lệ (không tạo cycle) → hệ thống lưu thành công                                                                                                                                      |
+| **Mô tả**                | Student chọn 2 concept chưa có liên kết và thêm 1 cạnh mới (đặt 1 concept làm prerequisite cho concept kia). Hệ thống kiểm tra DAG không phát hiện cycle, lưu cạnh mới vào database và cập nhật thành công đồ thị. |
+| **Loại kiểm thử**        | Functionality / Database                                                                                                                                                                                           |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                               |
+| **Điều kiện tiên quyết** | - Có plan với đồ thị hợp lệ đang hiển thị<br>- 2 concepts mục tiêu (ví dụ: c1, c2) hiện chưa có cạnh nối c1 -> c2 và việc nối không tạo cycle<br>- Student đã đăng nhập                                            |
+| **Các bước thực hiện**   | 1. Thêm cạnh mới từ concept A sang concept B (A là prerequisite của B)<br>2. Gọi API để lưu cập nhật đồ thị<br>3. Kiểm tra HTTP response<br>4. Kiểm tra DB `concept_edges` để đảm bảo cạnh mới đã được lưu         |
+| **Dữ liệu đầu vào**      | `planId`: _(plan có đồ thị với edges)_<br>Request: thêm edge `{ from: "c1", to: "c2" }`                                                                                                                            |
+| **Kết quả mong đợi**     | - HTTP Status: **200 OK**, `"success": true`<br>- Response không có warning về cycle<br>- DB `concept_edges`: có thêm 1 bản ghi mới nối đúng `from` (c1) và `to` (c2) với `plan_id` tương ứng                      |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                              |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                            |
+| **Ghi chú**              | Đây là test case cơ bản (happy path) cho việc chỉnh sửa thêm cạnh thủ công. Cần đảm bảo frontend và backend đồng bộ format khi gửi danh sách edges mới.                                                            |
+
+---
+
 ## UC-07: Xem danh sách kế hoạch ôn tập
 
 **Endpoint:** `GET /api/v1/study-plans`
@@ -616,6 +637,7 @@
 | TC-SP-06-01 | DAG validation thành công — đồ thị phức tạp hợp lệ  | Functionality / Database  | Medium     | Basic Flow      | Not Run    |
 | TC-SP-06-02 | Thêm cạnh thủ công tạo cycle → reject ngay lập tức  | Functionality / Interface | High       | [E1]            | Not Run    |
 | TC-SP-06-03 | Xóa toàn bộ edges → cảnh báo Traceback mất tác dụng | Functionality             | Medium     | [E2]            | Not Run    |
+| TC-SP-06-04 | Thêm cạnh thủ công hợp lệ → thành công, lưu DB      | Functionality / Database  | High       | Basic Flow      | Not Run    |
 
 ### UC-07: Xem danh sách kế hoạch ôn tập
 
