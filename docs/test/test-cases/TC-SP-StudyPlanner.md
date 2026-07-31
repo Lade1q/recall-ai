@@ -3,7 +3,7 @@
 > **Module:** AI Study Planner — Ingest & Map  
 > **Use Cases tham chiếu:** UC-05 (Tạo kế hoạch), UC-06 (Xem & chỉnh sửa đồ thị), UC-07 (Xem danh sách kế hoạch)  
 > **Ngày tạo:** 2026-07-31  
-> **Phiên bản:** 1.2  
+> **Phiên bản:** 1.3  
 > **Loại kiểm thử:** Integration (API) + Functionality + Database
 
 ---
@@ -46,6 +46,9 @@
 - [TC-SP-06-02](#tc-sp-06-02-thêm-cạnh-thủ-công-tạo-cycle--bị-reject-ngay-lập-tức) — Thêm cạnh thủ công tạo cycle → bị reject ngay lập tức
 - [TC-SP-06-03](#tc-sp-06-03-xóa-toàn-bộ-quan-hệ-tiên-quyết--cảnh-báo-traceback-mất-tác-dụng) — Xóa toàn bộ quan hệ tiên quyết → cảnh báo Traceback mất tác dụng
 - [TC-SP-06-04](#tc-sp-06-04-thêm-cạnh-thủ-công-hợp-lệ--thành-công) — Thêm cạnh thủ công hợp lệ → thành công, cập nhật đồ thị
+- [TC-SP-06-05](#tc-sp-06-05-xóa-một-cạnh-cụ-thể--cập-nhật-đúng-db) — Xóa một cạnh cụ thể → cập nhật đúng DB
+- [TC-SP-06-06](#tc-sp-06-06-xác-nhận--lưu-đồ-thị--plan-chuyển-draft--active) — Xác nhận & Lưu đồ thị → plan chuyển `draft → active`
+- [TC-SP-06-07](#tc-sp-06-07-sửa-tên--độ-khó-node--lưu-đúng-db) — Sửa tên / độ khó node → lưu đúng DB
 
 **UI / E2E Tests** _(sẽ bổ sung sau)_
 
@@ -58,6 +61,9 @@
 - [TC-SP-07-01](#tc-sp-07-01-xem-danh-sách-plans--hiển-thị-đúng-plan-vừa-tạo) — Xem danh sách plans → hiển thị đúng plan vừa tạo
 - [TC-SP-07-02](#tc-sp-07-02-xem-danh-sách-khi-chưa-có-plan--trả-về-mảng-rỗng-e1) — Xem danh sách khi chưa có plan → trả về mảng rỗng (E1)
 - [TC-SP-07-03](#tc-sp-07-03-danh-sách-chỉ-chứa-plan-của-user-hiện-tại--cách-ly-dữ-liệu) — Danh sách chỉ chứa plan của user hiện tại — cách ly dữ liệu
+- [TC-SP-07-04](#tc-sp-07-04-xem-chi-tiết-1-plan-theo-id--trả-về-đúng-data) — Xem chi tiết 1 plan theo ID → trả về đúng data
+- [TC-SP-07-05](#tc-sp-07-05-xem-chi-tiết-plan-không-tồn-tại--404) — Xem chi tiết plan không tồn tại → 404
+- [TC-SP-07-06](#tc-sp-07-06-xem-chi-tiết-plan-của-user-khác--403) — Xem chi tiết plan của user khác → 403
 
 **UI / E2E Tests** _(sẽ bổ sung sau)_
 
@@ -538,6 +544,66 @@
 
 ---
 
+### TC-SP-06-05: Xóa một cạnh cụ thể → cập nhật đúng DB
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-06 — Luồng chính (Student xóa một quan hệ tiên quyết cụ thể)                                                                                                                                                                         |
+| **Mã TC**                | TC-SP-06-05                                                                                                                                                                                                                             |
+| **Tiêu đề**              | Student xóa một cạnh cụ thể → DB cập nhật đúng, đồ thị vẫn hợp lệ                                                                                                                                                                       |
+| **Mô tả**                | Gọi API xóa một cạnh cụ thể (tương ứng hành động click-chọn-xóa trên UI). Hệ thống xóa đúng cạnh đó trong DB, không ảnh hưởng các cạnh còn lại. Đồ thị sau khi xóa vẫn phải là DAG hợp lệ. **Đây là API test.**                         |
+| **Loại kiểm thử**        | Functionality / Database                                                                                                                                                                                                                |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                  |
+| **Điều kiện tiên quyết** | - Có plan với đồ thị gồm ít nhất 2 cạnh (ví dụ: A→B và B→C)<br>- Xác định API endpoint xóa cạnh (VD: `DELETE /api/v1/study-plans/{planId}/edges/{edgeId}` hoặc `PATCH` graph)<br>- Student đã đăng nhập                                 |
+| **Các bước thực hiện**   | 1. Lấy danh sách edges hiện tại của plan (ghi lại `edgeId` của cạnh A→B)<br>2. Gọi API xóa cạnh A→B<br>3. Kiểm tra HTTP response<br>4. Kiểm tra DB: cạnh A→B không còn trong `concept_edges`<br>5. Kiểm tra DB: cạnh B→C vẫn còn nguyên |
+| **Dữ liệu đầu vào**      | `planId`: _(plan có ít nhất 2 cạnh: A→B và B→C)_<br>Request: xóa cạnh `{ from: "A", to: "B" }` hoặc `{ edgeId: "<edgeId>" }`                                                                                                            |
+| **Kết quả mong đợi**     | - HTTP Status: **200 OK**, `"success": true`<br>- DB `concept_edges`: không còn cạnh A→B<br>- DB `concept_edges`: cạnh B→C vẫn tồn tại (không bị ảnh hưởng)<br>- Tổng số cạnh giảm đúng 1                                               |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                                                   |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                                                 |
+| **Ghi chú**              | Khác với TC-SP-06-03 (xóa toàn bộ edges). TC này chỉ xóa 1 cạnh cụ thể và kiểm tra tính chọn lọc của thao tác xóa.                                                                                                                      |
+
+---
+
+### TC-SP-06-06: Xác nhận & Lưu đồ thị → plan chuyển `draft → active`
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-06 — Luồng chính (Student xác nhận hoàn tất đồ thị — bước chốt của toàn luồng UC-05→UC-06)                                                                                                                                                                                                                   |
+| **Mã TC**                | TC-SP-06-06                                                                                                                                                                                                                                                                                                     |
+| **Tiêu đề**              | Student click "Xác nhận & Lưu" → đồ thị được lưu, plan chuyển từ `draft` sang `active`                                                                                                                                                                                                                          |
+| **Mô tả**                | Đây là bước chốt của cả luồng UC-05→UC-06. Sau khi Student xem xét và điều chỉnh đồ thị, nhấn "Xác nhận & Lưu". Hệ thống lưu toàn bộ `concepts` + `concept_edges` vào DB và chuyển `study_plans.status` từ `draft` sang `active`. Scheduling Engine sau đó tạo lịch học ban đầu.                                |
+| **Loại kiểm thử**        | Functionality / Database                                                                                                                                                                                                                                                                                        |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                            |
+| **Điều kiện tiên quyết** | - Có plan đang ở trạng thái `draft` với đồ thị hợp lệ (đã qua UC-05 đến bước hiển thị đồ thị)<br>- Đồ thị là DAG hợp lệ (không có cycle)<br>- Student đã đăng nhập                                                                                                                                              |
+| **Các bước thực hiện**   | 1. Gọi API xác nhận đồ thị (VD: `POST /api/v1/study-plans/{planId}/confirm` hoặc `PATCH` với `status: active`)<br>2. Kiểm tra HTTP response<br>3. Truy vấn DB `study_plans`: kiểm tra `status`<br>4. Truy vấn DB `concepts` + `concept_edges`: kiểm tra dữ liệu đã lưu đầy đủ                                   |
+| **Dữ liệu đầu vào**      | `planId`: _(plan đang ở `status = draft`)_<br>Request: xác nhận hoàn tất đồ thị                                                                                                                                                                                                                                 |
+| **Kết quả mong đợi**     | - HTTP Status: **200 OK**, `"success": true`<br>- DB `study_plans`: `status` = `"active"` (không còn `draft`)<br>- DB `concepts`: đủ số bản ghi, mỗi bản có `mastery_score = null`<br>- DB `concept_edges`: đủ số cạnh, đồ thị là DAG hợp lệ<br>- Scheduling Engine đã được gọi (kiểm tra log hoặc DB lịch học) |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                                                                                                                           |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                                                                                                                         |
+| **Ghi chú**              | **TC quan trọng nhất của UC-06** — xác nhận toàn bộ luồng UC-05→UC-06 kết thúc đúng. Cần xác nhận với Dev endpoint chính xác để confirm plan. Nếu Scheduling Engine gọi async, cần cơ chế poll hoặc kiểm tra bảng lịch học sau vài giây.                                                                        |
+
+---
+
+### TC-SP-06-07: Sửa tên / độ khó node → lưu đúng DB
+
+| Trường                   | Nội dung                                                                                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | UC-06 — Luồng chính (Student chỉnh sửa thông tin node)                                                                                                                                                       |
+| **Mã TC**                | TC-SP-06-07                                                                                                                                                                                                  |
+| **Tiêu đề**              | Student sửa tên / độ khó của một node → hệ thống lưu đúng vào DB                                                                                                                                             |
+| **Mô tả**                | Student click vào một node trong react-flow, chỉnh sửa tên khái niệm hoặc mức độ khó (1–5). Hệ thống lưu thay đổi vào bảng `concepts`. Không ảnh hưởng `concept_edges`.                                      |
+| **Loại kiểm thử**        | Functionality / Database                                                                                                                                                                                     |
+| **Độ ưu tiên**           | Low                                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | - Có plan với ít nhất 1 concept<br>- Xác định API endpoint chỉnh sửa node (VD: `PATCH /api/v1/study-plans/{planId}/concepts/{conceptId}`)<br>- Student đã đăng nhập                                          |
+| **Các bước thực hiện**   | 1. Lấy danh sách concepts hiện tại, ghi lại `conceptId` và giá trị gốc<br>2. Gọi API cập nhật: đổi `name` và `difficulty`<br>3. Kiểm tra HTTP response<br>4. Kiểm tra DB `concepts`: giá trị mới đã được lưu |
+| **Dữ liệu đầu vào**      | `planId`, `conceptId`: _(concept cụ thể)_<br>Request: `{ "name": "Tên mới", "difficulty": 3 }`                                                                                                               |
+| **Kết quả mong đợi**     | - HTTP Status: **200 OK**, `"success": true`<br>- DB `concepts`: bản ghi `conceptId` có `name` = `"Tên mới"`, `difficulty` = `3`<br>- DB `concept_edges`: không thay đổi (cạnh không bị ảnh hưởng)           |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                        |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                      |
+| **Ghi chú**              | Cần xác nhận với Dev API endpoint thực tế. Nếu frontend gửi toàn bộ graph thay vì patch từng node, thì TC này gộp chung với TC-SP-06-06.                                                                     |
+
+---
+
 ## UC-07: Xem danh sách kế hoạch ôn tập
 
 **Endpoint:** `GET /api/v1/study-plans`
@@ -604,31 +670,91 @@
 
 ---
 
+### TC-SP-07-04: Xem chi tiết 1 plan theo ID → trả về đúng data
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-07 — Luồng chính (Xem chi tiết plan theo ID)                                                                                                                                                                                                                                         |
+| **Mã TC**                | TC-SP-07-04                                                                                                                                                                                                                                                                             |
+| **Tiêu đề**              | Xem chi tiết 1 plan theo ID → trả về đầy đủ thông tin plan, concepts và edges                                                                                                                                                                                                           |
+| **Mô tả**                | Sau khi có `planId`, gọi `GET /api/v1/study-plans/{planId}`. Response phải trả về đầy đủ: thông tin plan, danh sách concepts (kèm mastery_score), và danh sách concept_edges để render đồ thị.                                                                                          |
+| **Loại kiểm thử**        | Functionality / Database                                                                                                                                                                                                                                                                |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                                                                  |
+| **Điều kiện tiên quyết** | - TC-SP-05-01 đã **Pass** (có plan `active` với `planId` đã ghi lại)<br>- Student đã đăng nhập với cùng JWT token                                                                                                                                                                       |
+| **Các bước thực hiện**   | 1. Gọi `GET /api/v1/study-plans/{planId}` với JWT token hợp lệ<br>2. Kiểm tra HTTP status<br>3. Kiểm tra response body: thông tin plan<br>4. Kiểm tra `data.concepts`: đủ số lượng, có `mastery_score`<br>5. Kiểm tra `data.edges`: đủ số cạnh, đúng format                             |
+| **Dữ liệu đầu vào**      | `planId`: _(lấy từ TC-SP-05-01)_<br>JWT token hợp lệ của chủ plan                                                                                                                                                                                                                       |
+| **Kết quả mong đợi**     | - HTTP Status: **200 OK**, `"success": true`<br>- `data.plan`: có `id`, `name`, `deadline`, `status = "active"`, `createdAt`<br>- `data.concepts`: mảng các concept, mỗi item có `id`, `name`, `difficulty`, `mastery_score`<br>- `data.edges`: mảng các cạnh, mỗi item có `from`, `to` |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                                                                                                   |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                                                                                                 |
+| **Ghi chú**              | Cần xác nhận endpoint chính xác với Dev (`GET /study-plans/{id}` hay `GET /study-plans/{id}/detail`). Response này là nguồn data chính để render đồ thị react-flow ở UC-06.                                                                                                             |
+
+---
+
+### TC-SP-07-05: Xem chi tiết plan không tồn tại → 404
+
+| Trường                   | Nội dung                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-07 — Luồng ngoại lệ (planId không tồn tại trong DB)                                                                                      |
+| **Mã TC**                | TC-SP-07-05                                                                                                                                 |
+| **Tiêu đề**              | Gọi `GET /{planId}` với ID không tồn tại → 404 Not Found                                                                                    |
+| **Mô tả**                | Kiểm tra hành vi của hệ thống khi `planId` không tồn tại trong DB — phải trả về 404, không trả về 500 hay data rỗng.                        |
+| **Loại kiểm thử**        | Functionality                                                                                                                               |
+| **Độ ưu tiên**           | Medium                                                                                                                                      |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Student đã đăng nhập                                                                                                |
+| **Các bước thực hiện**   | 1. Gọi `GET /api/v1/study-plans/nonexistent-uuid`<br>2. Kiểm tra HTTP status<br>3. Kiểm tra response body                                   |
+| **Dữ liệu đầu vào**      | `planId`: `"00000000-0000-0000-0000-000000000000"` (UUID hợp lệ nhưng không tồn tại trong DB)                                               |
+| **Kết quả mong đợi**     | - HTTP Status: **404 Not Found**<br>- `"success": false`<br>- `error.code` = `"PLAN_NOT_FOUND"`<br>- Không có stack trace lộ trong response |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                       |
+| **Trạng thái**           | Not Run                                                                                                                                     |
+| **Ghi chú**              | Test thêm với ID sai format (không phải UUID): VD `"abc"` → phải trả về 400 Bad Request, không phải 500.                                    |
+
+---
+
+### TC-SP-07-06: Xem chi tiết plan của user khác → 403
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-07 — Security (Truy cập trái phép vào plan của user khác)                                                                                                                                                                                      |
+| **Mã TC**                | TC-SP-07-06                                                                                                                                                                                                                                       |
+| **Tiêu đề**              | User B gọi `GET /{planId_A}` (plan của User A) → 403 Forbidden                                                                                                                                                                                    |
+| **Mô tả**                | Security test quan trọng: đảm bảo không có IDOR (Insecure Direct Object Reference). User B không được phép xem chi tiết plan của User A dù biết `planId`.                                                                                         |
+| **Loại kiểm thử**        | Security                                                                                                                                                                                                                                          |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                              |
+| **Điều kiện tiên quyết** | - Có 2 user: User A (có plan với `planId_A`) và User B (có token hợp lệ nhưng không có plan đó)<br>- Có JWT token của cả 2 user                                                                                                                   |
+| **Các bước thực hiện**   | 1. Đăng nhập User A, ghi lại `planId_A`<br>2. Đăng nhập User B, gọi `GET /api/v1/study-plans/{planId_A}` với token của User B<br>3. Kiểm tra HTTP status<br>4. Kiểm tra response: không có data của User A                                        |
+| **Dữ liệu đầu vào**      | `token_B`: JWT token của User B<br>`planId_A`: ID plan thuộc User A                                                                                                                                                                               |
+| **Kết quả mong đợi**     | - HTTP Status: **403 Forbidden**<br>- `"success": false`<br>- `error.code` = `"FORBIDDEN"` hoặc `"ACCESS_DENIED"`<br>- Response **không** chứa bất kỳ data nào của plan User A<br>- Không lộ thông tin về sự tồn tại của plan (tránh enumeration) |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                                                                             |
+| **Trạng thái**           | Not Run                                                                                                                                                                                                                                           |
+| **Ghi chú**              | **IDOR vulnerability test** — đây là lỗ hổng bảo mật phổ biến. Cần đảm bảo backend lọc theo `userId` từ JWT, không tin vào `planId` từ request. Có thể dùng 404 thay 403 để tránh lộ sự tồn tại của plan.                                         |
+
+---
+
 ## Bảng Tóm Tắt — Module AI Study Planner
 
 ### UC-05: Tạo kế hoạch ôn tập mới
 
-| Mã TC       | Tiêu đề ngắn                                       | Loại                                 | Độ ưu tiên | Flow tham chiếu | Trạng thái |
-| ----------- | -------------------------------------------------- | ------------------------------------ | ---------- | --------------- | ---------- |
-| TC-SP-05-01 | Tạo plan thành công với PDF hợp lệ                 | Functionality / Interface / Database | High       | Basic Flow      | Not Run    |
-| TC-SP-05-02 | Tạo plan thất bại — file quá lớn                   | Functionality / Interface            | High       | [E3]            | Not Run    |
-| TC-SP-05-03 | Tạo plan thất bại — file sai format (.docx)        | Functionality                        | High       | [E3]            | Not Run    |
-| TC-SP-05-04 | Tạo plan thất bại — thiếu name hoặc deadline       | Functionality                        | High       | Validation      | Not Run    |
-| TC-SP-05-05 | AI JSON hợp lệ → concepts + edges lưu DB đúng      | Database / Interface                 | High       | Basic Flow      | Not Run    |
-| TC-SP-05-06 | AI JSON sai → retry → chia nhỏ → fail → báo lỗi    | Functionality / Interface            | High       | [E1]            | Not Run    |
-| TC-SP-05-07 | AI tạo cycle → DAG phát hiện + loại bỏ + cảnh báo  | Functionality / Interface            | High       | [E2]            | Not Run    |
-| TC-SP-05-08 | Tạo plan thất bại — AI timeout / quota hết         | Functionality / Interface            | High       | [E4]            | Not Run    |
-| TC-SP-05-09 | Tạo plan thất bại — chưa đăng nhập (401)           | Security / Functionality             | High       | Security        | Not Run    |
-| TC-SP-05-10 | Tạo plan thất bại — không có file hoặc text        | Functionality                        | Medium     | Validation      | Not Run    |
-| TC-SP-05-11 | Tạo plan thất bại — PDF bị hỏng (corrupt)          | Functionality                        | Medium     | [A1]            | Not Run    |
-| TC-SP-05-12 | Tạo plan thất bại — deadline quá khứ               | Functionality                        | Medium     | Validation      | Not Run    |
-| TC-SP-05-13 | Tạo plan thành công với ảnh (Multimodal)           | Functionality / Interface            | Medium     | [A2]            | Not Run    |
-| TC-SP-05-14 | Tạo plan thành công với text thuần (dán trực tiếp) | Functionality                        | Medium     | [A3]            | Not Run    |
-| TC-SP-05-15 | AI JSON hợp lệ nhưng concepts rỗng                 | Functionality                        | Medium     | Edge Case       | Not Run    |
-| TC-SP-05-16 | Bản nháp `draft` ghi DB trước khi gọi AI           | Database / Interface                 | High       | [E5]            | Not Run    |
-| TC-SP-05-17 | Student hủy plan → dữ liệu draft bị xóa hoàn toàn  | Functionality / Database             | High       | [E5]            | Not Run    |
-| TC-SP-05-18 | Tạo plan thất bại — name vượt giới hạn ký tự       | Functionality                        | Low        | Boundary        | Not Run    |
-| TC-SP-05-19 | Response schema — Validate toàn bộ                 | Interface / Security                 | High       | Contract        | Not Run    |
+| Mã TC       | Tiêu đề ngắn                                      | Loại                                 | Độ ưu tiên | Flow tham chiếu | Trạng thái |
+| ----------- | ------------------------------------------------- | ------------------------------------ | ---------- | --------------- | ---------- |
+| TC-SP-05-01 | Tạo plan thành công với PDF hợp lệ                | Functionality / Interface / Database | High       | Basic Flow      | Not Run    |
+| TC-SP-05-02 | Tạo plan thất bại — file quá lớn                  | Functionality / Interface            | High       | [E3]            | Not Run    |
+| TC-SP-05-03 | Tạo plan thất bại — file sai format (.docx)       | Functionality                        | High       | [E3]            | Not Run    |
+| TC-SP-05-04 | Tạo plan thất bại — thiếu name hoặc deadline      | Functionality                        | High       | Validation      | Not Run    |
+| TC-SP-05-05 | AI JSON hợp lệ → concepts + edges lưu DB đúng     | Database / Interface                 | High       | Basic Flow      | Not Run    |
+| TC-SP-05-06 | AI JSON sai → retry → chia nhỏ → fail → báo lỗi   | Functionality / Interface            | High       | [E1]            | Not Run    |
+| TC-SP-05-07 | AI tạo cycle → DAG phát hiện + loại bỏ + cảnh báo | Functionality / Interface            | High       | [E2]            | Not Run    |
+| TC-SP-05-08 | Tạo plan thất bại — AI timeout / quota hết        | Functionality / Interface            | High       | [E4]            | Not Run    |
+| TC-SP-05-09 | Tạo plan thất bại — chưa đăng nhập (401)          | Security / Functionality             | High       | Security        | Not Run    |
+| TC-SP-05-10 | Tạo plan thất bại — không có file hoặc text       | Functionality                        | Medium     | Validation      | Not Run    |
+| TC-SP-05-11 | Tạo plan thất bại — PDF bị hỏng (corrupt)         | Functionality                        | Medium     | [A1]            | Not Run    |
+| TC-SP-05-12 | Tạo plan thất bại — deadline quá khứ              | Functionality                        | Medium     | Validation      | Not Run    |
+| TC-SP-05-13 | Tạo plan thành công với ảnh (Multimodal)          | Functionality / Interface            | Medium     | [A2]            | Not Run    |
+| TC-SP-05-14 | Nhập văn bản trực tiếp — chờ quyết định #172      | Functionality                        | Medium     | [A3]            | Blocked    |
+| TC-SP-05-15 | AI JSON hợp lệ nhưng concepts rỗng                | Functionality                        | Medium     | Edge Case       | Not Run    |
+| TC-SP-05-16 | Bản nháp `draft` ghi DB trước khi gọi AI          | Database / Interface                 | High       | [E5]            | Not Run    |
+| TC-SP-05-17 | Student hủy plan → dữ liệu draft bị xóa hoàn toàn | Functionality / Database             | High       | [E5]            | Not Run    |
+| TC-SP-05-18 | Tạo plan thất bại — name vượt giới hạn ký tự      | Functionality                        | Low        | Boundary        | Not Run    |
+| TC-SP-05-19 | Response schema — Validate toàn bộ                | Interface / Security                 | High       | Contract        | Not Run    |
 
 ### UC-06: Xem và chỉnh sửa đồ thị khái niệm
 
@@ -638,6 +764,9 @@
 | TC-SP-06-02 | Thêm cạnh thủ công tạo cycle → reject ngay lập tức  | Functionality / Interface | High       | [E1]            | Not Run    |
 | TC-SP-06-03 | Xóa toàn bộ edges → cảnh báo Traceback mất tác dụng | Functionality             | Medium     | [E2]            | Not Run    |
 | TC-SP-06-04 | Thêm cạnh thủ công hợp lệ → thành công, lưu DB      | Functionality / Database  | High       | Basic Flow      | Not Run    |
+| TC-SP-06-05 | Xóa một cạnh cụ thể → cập nhật đúng DB              | Functionality / Database  | Medium     | Basic Flow      | Not Run    |
+| TC-SP-06-06 | Xác nhận & Lưu → plan chuyển `draft → active`       | Functionality / Database  | High       | Basic Flow      | Not Run    |
+| TC-SP-06-07 | Sửa tên / độ khó node → lưu đúng DB                 | Functionality / Database  | Low        | Basic Flow      | Not Run    |
 
 ### UC-07: Xem danh sách kế hoạch ôn tập
 
@@ -646,6 +775,9 @@
 | TC-SP-07-01 | Xem danh sách → hiển thị đúng plan vừa tạo   | Functionality / Database | High       | Basic Flow      | Not Run    |
 | TC-SP-07-02 | Xem danh sách khi chưa có plan → trả về `[]` | Functionality / Database | Medium     | [E1]            | Not Run    |
 | TC-SP-07-03 | Danh sách chỉ chứa plan của user hiện tại    | Security / Database      | High       | Security        | Not Run    |
+| TC-SP-07-04 | Xem chi tiết plan theo ID → đúng data        | Functionality / Database | Medium     | Basic Flow      | Not Run    |
+| TC-SP-07-05 | Xem chi tiết plan không tồn tại → 404        | Functionality            | Medium     | Edge Case       | Not Run    |
+| TC-SP-07-06 | Xem chi tiết plan của user khác → 403        | Security                 | High       | Security        | Not Run    |
 
 ---
 
