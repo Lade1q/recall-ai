@@ -27,8 +27,8 @@
 - [TC-SP-05-11](#tc-sp-05-11-tạo-plan-thất-bại-khi-file-pdf-bị-hỏng-corrupt) — Tạo plan thất bại — File PDF bị hỏng (corrupt)
 - [TC-SP-05-12](#tc-sp-05-12-tạo-plan-thất-bại-khi-deadline-trong-quá-khứ) — Tạo plan thất bại — Deadline trong quá khứ
 - [TC-SP-05-13](#tc-sp-05-13-tạo-plan-thành-công-với-file-ảnh-multimodal) — Tạo plan thành công với file ảnh (Multimodal — A2)
-- [TC-SP-05-14](#tc-sp-05-14-tạo-plan-thành-công-khi-dán-text-trực-tiếp-không-file) — Tạo plan thành công khi dán text trực tiếp (A3)
-- [TC-SP-05-15](#tc-sp-05-15-ai-trả-json-hợp-lệ-nhưng-concepts-rỗng) — AI trả JSON hợp lệ nhưng `concepts` rỗng (Edge case)
+- [TC-SP-05-14](#tc-sp-05-14-tạo-plan-thành-công-với-file-văn-bản-txt-đại-diện-cho-luồng-dán-text) — Tạo plan thành công khi dán text trực tiếp (A3)
+- [TC-SP-05-15](#tc-sp-05-15-background-ai-trả-json-hợp-lệ-nhưng-concepts-rỗng) — AI trả JSON hợp lệ nhưng `concepts` rỗng (Edge case)
 - [TC-SP-05-16](#tc-sp-05-16-bản-nháp-draft-được-ghi-db-trước-khi-gọi-ai) — Bản nháp `draft` được ghi DB trước khi gọi AI
 - [TC-SP-05-17](#tc-sp-05-17-student-hủy-tạo-plan--dữ-liệu-draft-bị-xóa-hoàn-toàn-e5) — Student hủy tạo plan → dữ liệu draft bị xóa hoàn toàn (E5)
 - [TC-SP-05-18](#tc-sp-05-18-tạo-plan-với-name-dài-hơn-giới-hạn-ký-tự) — Tạo plan với name dài hơn giới hạn ký tự (Boundary)
@@ -56,7 +56,7 @@
 **API Tests**
 
 - [TC-SP-07-01](#tc-sp-07-01-xem-danh-sách-plans--hiển-thị-đúng-plan-vừa-tạo) — Xem danh sách plans → hiển thị đúng plan vừa tạo
-- [TC-SP-07-02](#tc-sp-07-02-xem-danh-sách-khi-chưa-có-plan--trả-về-mảng-rỗng) — Xem danh sách khi chưa có plan → trả về mảng rỗng (E1)
+- [TC-SP-07-02](#tc-sp-07-02-xem-danh-sách-khi-chưa-có-plan--trả-về-mảng-rỗng-e1) — Xem danh sách khi chưa có plan → trả về mảng rỗng (E1)
 - [TC-SP-07-03](#tc-sp-07-03-danh-sách-chỉ-chứa-plan-của-user-hiện-tại--cách-ly-dữ-liệu) — Danh sách chỉ chứa plan của user hiện tại — cách ly dữ liệu
 
 **UI / E2E Tests** _(sẽ bổ sung sau)_
