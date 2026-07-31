@@ -1,0 +1,36 @@
+$kind: http-request
+name: TC-SP-05-05 — AI trả JSON hợp lệ → concepts và edges lưu DB đúng (201)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Lập trình Hướng đối tượng
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-05: Status code là 201 Created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-05: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-05-05: data.plan.concepts có đúng 3 phần tử', function () { pm.expect(body.data.plan.concepts).to.be.an('array').with.lengthOf(3); });
+      pm.test('TC-SP-05-05: mỗi concept có mastery_score = null', function () {
+        body.data.plan.concepts.forEach(c => pm.expect(c.mastery_score).to.be.null);
+      });
+      pm.test('TC-SP-05-05: concept name khớp với mock AI response', function () {
+        const names = body.data.plan.concepts.map(c => c.name);
+        pm.expect(names).to.include.members(['Lớp (Class)', 'Kế thừa (Inheritance)', 'Đa hình (Polymorphism)']);
+      });
+      pm.test('TC-SP-05-05: prerequisites được ánh xạ đúng thành edges', function () {
+        const c2 = body.data.plan.concepts.find(c => c.name === 'Kế thừa (Inheritance)');
+        pm.expect(c2.prerequisites).to.be.an('array').with.lengthOf(1);
+      });
+    language: text/javascript
+order: 5000

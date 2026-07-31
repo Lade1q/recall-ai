@@ -1,0 +1,28 @@
+$kind: http-request
+name: TC-SP-05-15 — AI trả JSON hợp lệ nhưng concepts rỗng (Edge case) (201)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Ôn thi Edge Case
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-15: Status code là 201 Created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-15: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-05-15: data.plan.concepts là mảng rỗng', function () { pm.expect(body.data.plan.concepts).to.be.an('array').with.lengthOf(0); });
+      pm.test('TC-SP-05-15: data.plan.status = active (hoặc draft nếu concepts rỗng)', function () {
+        pm.expect(['active', 'draft']).to.include(body.data.plan.status);
+      });
+    language: text/javascript
+order: 15000

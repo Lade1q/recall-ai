@@ -1,0 +1,30 @@
+$kind: http-request
+name: TC-SP-05-02 — Tạo plan thất bại khi file vượt quá giới hạn kích thước (413)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Ôn thi Giải tích
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: large_document.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-02: Status code là 413 hoặc 400', function () {
+        pm.expect([413, 400]).to.include(pm.response.code);
+      });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-02: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-02: error.code là FILE_TOO_LARGE hoặc VALIDATION_ERROR', function () {
+        pm.expect(['FILE_TOO_LARGE', 'VALIDATION_ERROR']).to.include(body.error.code);
+      });
+      pm.test('TC-SP-05-02: error.message tồn tại', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
+    language: text/javascript
+order: 2000

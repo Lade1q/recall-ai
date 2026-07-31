@@ -1,0 +1,27 @@
+$kind: http-request
+name: TC-SP-06-05 — Xóa một cạnh cụ thể → cập nhật đúng DB (200)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges/{{edgeId}}'
+method: DELETE
+headers:
+  Authorization: Bearer {{accessToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-06-05: Status code là 200 OK hoặc 204 No Content', function () {
+        pm.expect([200, 204]).to.include(pm.response.code);
+      });
+      if (pm.response.code === 200) {
+        const body = pm.response.json();
+        pm.test('TC-SP-06-05: success = true', function () { pm.expect(body.success).to.be.true; });
+        pm.test('TC-SP-06-05: Cạnh đã xóa không còn trong data.edges', function () {
+          const edgeId = pm.environment.get('edgeId');
+          const remaining = (body.data.edges || []).find(e => e.id === edgeId);
+          pm.expect(remaining).to.be.undefined;
+        });
+        pm.test('TC-SP-06-05: Tổng số cạnh giảm đúng 1', function () {
+          const totalBefore = parseInt(pm.environment.get('edgeCountBefore') || '0');
+          pm.expect((body.data.edges || []).length).to.equal(totalBefore - 1);
+        });
+      }
+    language: text/javascript
+order: 5000

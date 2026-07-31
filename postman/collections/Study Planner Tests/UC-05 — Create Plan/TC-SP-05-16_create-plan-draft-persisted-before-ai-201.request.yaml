@@ -1,0 +1,29 @@
+$kind: http-request
+name: TC-SP-05-16 — Bản nháp draft được ghi DB trước khi gọi AI (201)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Ôn thi Kiểm tra Draft
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-16: Status code là 201 Created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-16: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-05-16: data.plan.id tồn tại (draft đã được ghi DB)', function () { pm.expect(body.data.plan.id).to.be.a('string').and.not.empty; });
+      pm.test('TC-SP-05-16: data.plan.status = active (draft → active sau AI)', function () { pm.expect(body.data.plan.status).to.equal('active'); });
+      pm.test('TC-SP-05-16: data.plan.createdAt tồn tại (ghi lại thời điểm draft được tạo)', function () {
+        pm.expect(body.data.plan.createdAt).to.be.a('string').and.not.empty;
+      });
+    language: text/javascript
+order: 16000

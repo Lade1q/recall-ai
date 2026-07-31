@@ -1,0 +1,49 @@
+$kind: http-request
+name: TC-SP-05-19 — Tạo plan thành công — Validate toàn bộ response schema (201)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Schema Validation Test
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-19: Status code là 201 Created', function () { pm.response.to.have.status(201); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-19: success là boolean true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-05-19: data.plan.id là UUID hợp lệ', function () {
+        pm.expect(body.data.plan.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+      });
+      pm.test('TC-SP-05-19: data.plan.name khớp input', function () { pm.expect(body.data.plan.name).to.equal('Schema Validation Test'); });
+      pm.test('TC-SP-05-19: data.plan.deadline là chuỗi ISO 8601', function () {
+        pm.expect(body.data.plan.deadline).to.be.a('string');
+        pm.expect(new Date(body.data.plan.deadline).toString()).to.not.equal('Invalid Date');
+      });
+      pm.test('TC-SP-05-19: data.plan.status = active', function () { pm.expect(body.data.plan.status).to.equal('active'); });
+      pm.test('TC-SP-05-19: data.plan.createdAt là ISO 8601', function () {
+        pm.expect(new Date(body.data.plan.createdAt).toString()).to.not.equal('Invalid Date');
+      });
+      pm.test('TC-SP-05-19: data.plan.userId tồn tại', function () { pm.expect(body.data.plan.userId).to.be.a('string').and.not.empty; });
+      pm.test('TC-SP-05-19: concepts[*].difficulty nằm trong [1,5]', function () {
+        body.data.plan.concepts.forEach(c => pm.expect(c.difficulty).to.be.within(1, 5));
+      });
+      pm.test('TC-SP-05-19: concepts[*].mastery_score = null', function () {
+        body.data.plan.concepts.forEach(c => pm.expect(c.mastery_score).to.be.null);
+      });
+      pm.test('TC-SP-05-19: concepts[*].prerequisites là mảng', function () {
+        body.data.plan.concepts.forEach(c => pm.expect(c.prerequisites).to.be.an('array'));
+      });
+      pm.test('TC-SP-05-19: response không lộ passwordHash', function () {
+        pm.expect(JSON.stringify(body)).to.not.include('passwordHash');
+      });
+    language: text/javascript
+order: 19000

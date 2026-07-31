@@ -1,0 +1,31 @@
+$kind: http-request
+name: TC-SP-06-07 — Sửa tên / độ khó node → lưu đúng DB (200)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}/concepts/{{conceptId}}'
+method: PATCH
+headers:
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Tên mới",
+      "difficulty": 3
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-06-07: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-SP-06-07: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-06-07: data.concept.name = "Tên mới"', function () {
+        pm.expect(body.data.concept.name).to.equal('Tên mới');
+      });
+      pm.test('TC-SP-06-07: data.concept.difficulty = 3', function () {
+        pm.expect(body.data.concept.difficulty).to.equal(3);
+      });
+      pm.test('TC-SP-06-07: data.concept.id khớp conceptId', function () {
+        pm.expect(body.data.concept.id).to.equal(pm.environment.get('conceptId'));
+      });
+    language: text/javascript
+order: 7000

@@ -1,0 +1,18 @@
+$kind: http-request
+name: TC-SP-05-17 — Student hủy tạo plan → dữ liệu draft bị xóa hoàn toàn (E5) (200)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}'
+method: DELETE
+headers:
+  Authorization: Bearer {{accessToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-17: Status code là 200 OK hoặc 204 No Content', function () {
+        pm.expect([200, 204]).to.include(pm.response.code);
+      });
+      if (pm.response.code === 200) {
+        const body = pm.response.json();
+        pm.test('TC-SP-05-17: success = true', function () { pm.expect(body.success).to.be.true; });
+      }
+    language: text/javascript
+order: 17000

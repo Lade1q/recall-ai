@@ -1,0 +1,14 @@
+$kind: collection
+name: UC-05 — Create Plan
+auth:
+  - id: 436731de-9eca-4117-b5bc-91376f0513c6
+    type: jwt
+    name: JWT Bearer
+    credentials:
+      algorithm: HS256
+      isSecretBase64Encoded: false
+      payload: '{}'
+      addTokenTo: header
+      headerPrefix: Bearer
+      queryParamKey: token
+      header: '{}'

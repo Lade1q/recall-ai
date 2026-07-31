@@ -1,0 +1,31 @@
+$kind: http-request
+name: TC-SP-06-04 — Thêm cạnh thủ công hợp lệ → thành công, cập nhật đồ thị (200)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "from": "{{conceptIdA}}",
+      "to": "{{conceptIdC}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-06-04: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-SP-06-04: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-06-04: Không có warning về cycle', function () {
+        const warnings = body.data.warnings || [];
+        pm.expect(warnings.some(w => (w.message || '').includes('chu trình'))).to.be.false;
+      });
+      pm.test('TC-SP-06-04: Cạnh mới xuất hiện trong data.edges', function () {
+        const edges = body.data.edges || [];
+        const newEdge = edges.find(e => e.from === pm.environment.get('conceptIdA') && e.to === pm.environment.get('conceptIdC'));
+        pm.expect(newEdge).to.not.be.undefined;
+      });
+    language: text/javascript
+order: 4000

@@ -1,0 +1,25 @@
+$kind: http-request
+name: TC-SP-05-09a — Tạo plan thất bại khi không có Authorization header (401)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: Ôn thi Vật lý
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-09a: Status code là 401 Unauthorized', function () { pm.response.to.have.status(401); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-09a: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-09a: error.code là UNAUTHORIZED hoặc MISSING_TOKEN', function () {
+        pm.expect(['UNAUTHORIZED', 'MISSING_TOKEN']).to.include(body.error.code);
+      });
+    language: text/javascript
+order: 9100

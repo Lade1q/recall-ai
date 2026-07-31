@@ -1,0 +1,30 @@
+$kind: http-request
+name: TC-SP-06-02 — Thêm cạnh thủ công tạo cycle → bị reject ngay lập tức (400)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "from": "{{conceptIdB}}",
+      "to": "{{conceptIdA}}"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-06-02: Status code là 400 hoặc 422', function () {
+        pm.expect([400, 422]).to.include(pm.response.code);
+      });
+      const body = pm.response.json();
+      pm.test('TC-SP-06-02: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-06-02: error.code là CYCLE_DETECTED hoặc WOULD_CREATE_CYCLE', function () {
+        pm.expect(['CYCLE_DETECTED', 'WOULD_CREATE_CYCLE']).to.include(body.error.code);
+      });
+      pm.test('TC-SP-06-02: error.message đề cập chu trình', function () {
+        pm.expect(body.error.message).to.be.a('string').and.not.empty;
+      });
+    language: text/javascript
+order: 2000

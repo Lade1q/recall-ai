@@ -1,0 +1,22 @@
+$kind: http-request
+name: TC-SP-07-06 — Xem chi tiết plan của user khác → 403 Forbidden (IDOR test)
+url: '{{baseURL}}/api/v1/study-plans/{{planIdA}}'
+method: GET
+headers:
+  Authorization: Bearer {{userBToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-07-06: Status code là 403 hoặc 404 (IDOR protection)', function () {
+        pm.expect([403, 404]).to.include(pm.response.code);
+      });
+      const body = pm.response.json();
+      pm.test('TC-SP-07-06: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-07-06: error.code là FORBIDDEN hoặc ACCESS_DENIED hoặc PLAN_NOT_FOUND', function () {
+        pm.expect(['FORBIDDEN', 'ACCESS_DENIED', 'PLAN_NOT_FOUND']).to.include(body.error.code);
+      });
+      pm.test('TC-SP-07-06: Response không chứa data của User A', function () {
+        pm.expect(body.data).to.be.undefined;
+      });
+    language: text/javascript
+order: 6000

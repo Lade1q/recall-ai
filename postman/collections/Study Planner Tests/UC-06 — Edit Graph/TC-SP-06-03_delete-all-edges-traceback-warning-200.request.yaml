@@ -1,0 +1,30 @@
+$kind: http-request
+name: TC-SP-06-03 — Xóa toàn bộ quan hệ tiên quyết → cảnh báo Traceback mất tác dụng (200)
+url: '{{baseURL}}/api/v1/study-plans/{{planId}}/graph'
+method: PATCH
+headers:
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "edges": [],
+      "confirm": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-06-03: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-SP-06-03: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-06-03: response có warning về Traceback mất tác dụng', function () {
+        const warnings = body.data.warnings || [];
+        const hasTracebackWarning = warnings.some(w => (w.message || '').includes('Traceback') || (w.message || '').includes('quan hệ tiên quyết'));
+        pm.expect(hasTracebackWarning).to.be.true;
+      });
+      pm.test('TC-SP-06-03: data.edges là mảng rỗng sau khi xóa hết', function () {
+        pm.expect(body.data.edges).to.be.an('array').with.lengthOf(0);
+      });
+    language: text/javascript
+order: 3000

@@ -1,0 +1,29 @@
+$kind: http-request
+name: TC-SP-05-18a — Tạo plan thất bại khi name vượt 255 ký tự (400)
+url: '{{baseURL}}/api/v1/study-plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  formdata:
+    - key: name
+      value: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    - key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: sample_lecture.pdf
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-18a: Status code là 400 Bad Request (name = 256 ký tự)', function () { pm.response.to.have.status(400); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-18a: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-18a: error.code = VALIDATION_ERROR', function () { pm.expect(body.error.code).to.equal('VALIDATION_ERROR'); });
+      pm.test('TC-SP-05-18a: error.details đề cập trường name', function () {
+        const details = JSON.stringify(body.error.details || body.error.message || '');
+        pm.expect(details.toLowerCase()).to.include('name');
+      });
+    language: text/javascript
+order: 18100

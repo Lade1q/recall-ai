@@ -1,0 +1,20 @@
+$kind: http-request
+name: TC-SP-07-02 — Xem danh sách khi chưa có plan → trả về mảng rỗng (200)
+url: '{{baseURL}}/api/v1/study-plans'
+method: GET
+headers:
+  Authorization: Bearer {{newUserToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-07-02: Status code là 200 OK', function () { pm.response.to.have.status(200); });
+      const body = pm.response.json();
+      pm.test('TC-SP-07-02: success = true', function () { pm.expect(body.success).to.be.true; });
+      pm.test('TC-SP-07-02: data.plans là mảng rỗng (không phải null)', function () {
+        pm.expect(body.data.plans).to.be.an('array').with.lengthOf(0);
+      });
+      pm.test('TC-SP-07-02: data.plans không phải null', function () {
+        pm.expect(body.data.plans).to.not.be.null;
+      });
+    language: text/javascript
+order: 2000
