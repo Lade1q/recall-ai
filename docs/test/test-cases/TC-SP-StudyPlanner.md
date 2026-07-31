@@ -14,25 +14,25 @@
 
 **API Tests**
 
-- [TC-SP-05-01](#tc-sp-01-01-tạo-plan-thành-công-với-file-pdf-hợp-lệ) — Tạo plan thành công với file PDF hợp lệ (Happy Path)
-- [TC-SP-05-02](#tc-sp-01-02-tạo-plan-thất-bại-khi-file-vượt-quá-giới-hạn-kích-thước) — Tạo plan thất bại — File vượt quá giới hạn kích thước (E3)
-- [TC-SP-05-03](#tc-sp-01-03-tạo-plan-thất-bại-khi-file-sai-định-dạng-docx) — Tạo plan thất bại — File sai định dạng .docx (E3)
-- [TC-SP-05-04](#tc-sp-01-04-tạo-plan-thất-bại-khi-thiếu-name-hoặc-deadline) — Tạo plan thất bại — Thiếu name hoặc deadline (Validation)
-- [TC-SP-05-05](#tc-sp-01-05-ai-trả-json-hợp-lệ--concepts-và-edges-lưu-db-đúng) — AI trả JSON hợp lệ → concepts và edges lưu DB đúng
-- [TC-SP-05-06](#tc-sp-01-06-ai-trả-json-sai-format--retry-1-lần--chia-nhỏ--fail--báo-lỗi) — AI trả JSON sai format → retry → fail → thông báo lỗi (E1)
-- [TC-SP-05-07](#tc-sp-01-07-ai-tạo-cycle--dag-validation-phát-hiện--tự-động-loại-bỏ--cảnh-báo-user) — AI tạo cycle → DAG phát hiện → tự động loại bỏ + cảnh báo (E2)
-- [TC-SP-05-08](#tc-sp-01-08-tạo-plan-thất-bại-khi-ai-service-timeout--quota-hết) — Tạo plan thất bại — AI Service timeout / hết quota (E4)
-- [TC-SP-05-09](#tc-sp-01-09-tạo-plan-thất-bại-khi-chưa-đăng-nhập) — Tạo plan thất bại — Chưa đăng nhập (401)
-- [TC-SP-05-10](#tc-sp-01-10-tạo-plan-thất-bại-khi-không-có-file-hoặc-text-đầu-vào) — Tạo plan thất bại — Không có file hoặc text đầu vào
-- [TC-SP-05-11](#tc-sp-01-11-tạo-plan-thất-bại-khi-file-pdf-bị-hỏng-corrupt) — Tạo plan thất bại — File PDF bị hỏng (corrupt)
-- [TC-SP-05-12](#tc-sp-01-12-tạo-plan-thất-bại-khi-deadline-trong-quá-khứ) — Tạo plan thất bại — Deadline trong quá khứ
-- [TC-SP-05-13](#tc-sp-01-13-tạo-plan-thành-công-với-file-ảnh-multimodal) — Tạo plan thành công với file ảnh (Multimodal — A2)
-- [TC-SP-05-14](#tc-sp-01-14-tạo-plan-thành-công-khi-dán-text-trực-tiếp-không-file) — Tạo plan thành công khi dán text trực tiếp (A3)
-- [TC-SP-05-15](#tc-sp-01-15-ai-trả-json-hợp-lệ-nhưng-concepts-rỗng) — AI trả JSON hợp lệ nhưng `concepts` rỗng (Edge case)
-- [TC-SP-05-16](#tc-sp-01-16-bản-nháp-draft-được-ghi-db-trước-khi-gọi-ai) — Bản nháp `draft` được ghi DB trước khi gọi AI
-- [TC-SP-05-17](#tc-sp-01-17-student-hủy-tạo-plan--dữ-liệu-draft-bị-xóa-hoàn-toàn-e5) — Student hủy tạo plan → dữ liệu draft bị xóa hoàn toàn (E5)
-- [TC-SP-05-18](#tc-sp-01-18-tạo-plan-với-name-dài-hơn-giới-hạn-ký-tự) — Tạo plan với name dài hơn giới hạn ký tự (Boundary)
-- [TC-SP-05-19](#tc-sp-01-19-response-schema-khi-tạo-plan-thành-công--validate-toàn-bộ) — Response schema khi tạo plan thành công — Validate toàn bộ
+- [TC-SP-05-01](#tc-sp-05-01-tạo-plan-thành-công-với-file-pdf-hợp-lệ) — Tạo plan thành công với file PDF hợp lệ (Happy Path)
+- [TC-SP-05-02](#tc-sp-05-02-tạo-plan-thất-bại-khi-file-vượt-quá-giới-hạn-kích-thước) — Tạo plan thất bại — File vượt quá giới hạn kích thước (E3)
+- [TC-SP-05-03](#tc-sp-05-03-tạo-plan-thất-bại-khi-file-sai-định-dạng-docx) — Tạo plan thất bại — File sai định dạng .docx (E3)
+- [TC-SP-05-04](#tc-sp-05-04-tạo-plan-thất-bại-khi-thiếu-name-hoặc-deadline) — Tạo plan thất bại — Thiếu name hoặc deadline (Validation)
+- [TC-SP-05-05](#tc-sp-05-05-ai-trả-json-hợp-lệ--concepts-và-edges-lưu-db-đúng) — AI trả JSON hợp lệ → concepts và edges lưu DB đúng
+- [TC-SP-05-06](#tc-sp-05-06-ai-trả-json-sai-format--retry-1-lần--chia-nhỏ--fail--báo-lỗi) — AI trả JSON sai format → retry → fail → thông báo lỗi (E1)
+- [TC-SP-05-07](#tc-sp-05-07-ai-tạo-cycle--dag-validation-phát-hiện--tự-động-loại-bỏ--cảnh-báo-user) — AI tạo cycle → DAG phát hiện → tự động loại bỏ + cảnh báo (E2)
+- [TC-SP-05-08](#tc-sp-05-08-tạo-plan-thất-bại-khi-ai-service-timeout--quota-hết) — Tạo plan thất bại — AI Service timeout / hết quota (E4)
+- [TC-SP-05-09](#tc-sp-05-09-tạo-plan-thất-bại-khi-chưa-đăng-nhập) — Tạo plan thất bại — Chưa đăng nhập (401)
+- [TC-SP-05-10](#tc-sp-05-10-tạo-plan-thất-bại-khi-không-có-file-hoặc-text-đầu-vào) — Tạo plan thất bại — Không có file hoặc text đầu vào
+- [TC-SP-05-11](#tc-sp-05-11-tạo-plan-thất-bại-khi-file-pdf-bị-hỏng-corrupt) — Tạo plan thất bại — File PDF bị hỏng (corrupt)
+- [TC-SP-05-12](#tc-sp-05-12-tạo-plan-thất-bại-khi-deadline-trong-quá-khứ) — Tạo plan thất bại — Deadline trong quá khứ
+- [TC-SP-05-13](#tc-sp-05-13-tạo-plan-thành-công-với-file-ảnh-multimodal) — Tạo plan thành công với file ảnh (Multimodal — A2)
+- [TC-SP-05-14](#tc-sp-05-14-tạo-plan-thành-công-khi-dán-text-trực-tiếp-không-file) — Tạo plan thành công khi dán text trực tiếp (A3)
+- [TC-SP-05-15](#tc-sp-05-15-ai-trả-json-hợp-lệ-nhưng-concepts-rỗng) — AI trả JSON hợp lệ nhưng `concepts` rỗng (Edge case)
+- [TC-SP-05-16](#tc-sp-05-16-bản-nháp-draft-được-ghi-db-trước-khi-gọi-ai) — Bản nháp `draft` được ghi DB trước khi gọi AI
+- [TC-SP-05-17](#tc-sp-05-17-student-hủy-tạo-plan--dữ-liệu-draft-bị-xóa-hoàn-toàn-e5) — Student hủy tạo plan → dữ liệu draft bị xóa hoàn toàn (E5)
+- [TC-SP-05-18](#tc-sp-05-18-tạo-plan-với-name-dài-hơn-giới-hạn-ký-tự) — Tạo plan với name dài hơn giới hạn ký tự (Boundary)
+- [TC-SP-05-19](#tc-sp-05-19-response-schema-khi-tạo-plan-thành-công--validate-toàn-bộ) — Response schema khi tạo plan thành công — Validate toàn bộ
 
 **UI / E2E Tests** _(sẽ bổ sung sau)_
 
@@ -61,95 +61,6 @@
 **UI / E2E Tests** _(sẽ bổ sung sau)_
 
 ---
-
-### UC-06: Xem và chỉnh sửa đồ thị khái niệm
-
-| Mã TC       | Tiêu đề ngắn                                        | Loại                      | Độ ưu tiên | Flow tham chiếu | Trạng thái |
-| ----------- | --------------------------------------------------- | ------------------------- | ---------- | --------------- | ---------- |
-| TC-SP-06-01 | DAG validation thành công — đồ thị phức tạp hợp lệ  | Functionality / Database  | Medium     | Basic Flow      | Not Run    |
-| TC-SP-06-02 | Thêm cạnh thủ công tạo cycle → reject ngay lập tức  | Functionality / Interface | High       | [E1]            | Not Run    |
-| TC-SP-06-03 | Xóa toàn bộ edges → cảnh báo Traceback mất tác dụng | Functionality             | Medium     | [E2]            | Not Run    |
-
-### UC-07: Xem danh sách kế hoạch ôn tập
-
-| Mã TC       | Tiêu đề ngắn                                 | Loại                     | Độ ưu tiên | Flow tham chiếu | Trạng thái |
-| ----------- | -------------------------------------------- | ------------------------ | ---------- | --------------- | ---------- |
-| TC-SP-07-01 | Xem danh sách → hiển thị đúng plan vừa tạo   | Functionality / Database | High       | Basic Flow      | Not Run    |
-| TC-SP-07-02 | Xem danh sách khi chưa có plan → trả về `[]` | Functionality / Database | Medium     | [E1]            | Not Run    |
-| TC-SP-07-03 | Danh sách chỉ chứa plan của user hiện tại    | Security / Database      | High       | Security        | Not Run    |
-
----
-
-## Chú thích Trạng thái
-
-| Trạng thái | Ý nghĩa                                                  |
-| ---------- | -------------------------------------------------------- |
-| Not Run    | Chưa thực hiện test                                      |
-| Pass       | Test qua — kết quả thực tế khớp với kết quả mong đợi     |
-| Fail       | Test không qua — có bug → tạo bug report                 |
-| Blocked    | Không thể test — phụ thuộc vào phần khác chưa hoàn thành |
-
----
-
-## Chú thích Loại Kiểm Thử
-
-| Loại kiểm thử     | Kiểm tra điều gì                                 | Ví dụ trong module SP                                   |
-| ----------------- | ------------------------------------------------ | ------------------------------------------------------- |
-| **Functionality** | Tính năng có hoạt động đúng như mô tả không?     | Upload PDF → AI phân tích → tạo plan thành công         |
-| **Security**      | Dữ liệu người dùng có được bảo vệ không?         | Plan của user A không được lộ cho user B                |
-| **Interface**     | Các thành phần hệ thống có giao tiếp đúng không? | Backend gọi AI Service → nhận response → parse đúng     |
-| **Database**      | Dữ liệu có được lưu/đọc đúng không?              | Sau tạo plan, DB có đúng concepts, edges, mastery_score |
-
----
-
-## Ghi Chú Quan Trọng Về Môi Trường Test
-
-> **AI Service Mocking:**  
-> Gemini API là non-deterministic. Tất cả automated test **phải** dùng mock AI response cố định. Chỉ manual test mới gọi AI thật.
-
-> **AI JSON Schema thực tế (theo UC-05):**  
-> AI trả về `prerequisites` bên trong mỗi concept (không phải mảng `edges` riêng). Hệ thống tự suy ra `concept_edges` từ `prerequisites`.
->
-> ```json
-> {
->   "concepts": [
->     { "id": "c1", "name": "Lớp", "difficulty": 1, "prerequisites": [] },
->     { "id": "c2", "name": "Kế thừa", "difficulty": 2, "prerequisites": ["c1"] }
->   ]
-> }
-> ```
-
-> **Database State:**  
-> Mỗi test suite bắt đầu với DB state đã biết. Dùng `npm run test:seed` để reset DB trước khi chạy.
-
-> **Thứ tự thực thi:**  
-> TC-SP-05-01 phải chạy trước TC-SP-07-01. Các TC còn lại độc lập nhau.
-
-> **DAG Verification Script (Kahn's Algorithm):**
->
-> ```js
-> // Dùng để verify không có cycle trong edges lưu trong DB
-> function hasNoCycle(edges) {
->   const inDegree = {};
->   const adj = {};
->   for (const { from, to } of edges) {
->     adj[from] = adj[from] || [];
->     adj[from].push(to);
->     inDegree[to] = (inDegree[to] || 0) + 1;
->     inDegree[from] = inDegree[from] || 0;
->   }
->   const queue = Object.keys(inDegree).filter((n) => inDegree[n] === 0);
->   let visited = 0;
->   while (queue.length) {
->     const node = queue.shift();
->     visited++;
->     for (const neighbor of adj[node] || []) {
->       if (--inDegree[neighbor] === 0) queue.push(neighbor);
->     }
->   }
->   return visited === Object.keys(inDegree).length; // true = no cycle
-> }
-> ```
 
 ## UC-05: Tạo kế hoạch ôn tập mới
 
@@ -698,82 +609,13 @@
 | TC-SP-05-18 | Tạo plan thất bại — name vượt giới hạn ký tự       | Functionality                        | Low        | Boundary        | Not Run    |
 | TC-SP-05-19 | Response schema — Validate toàn bộ                 | Interface / Security                 | High       | Contract        | Not Run    |
 
----
+### UC-06: Xem và chỉnh sửa đồ thị khái niệm
 
-## Chú thích Trạng thái
-
-| Trạng thái | Ý nghĩa                                                  |
-| ---------- | -------------------------------------------------------- |
-| Not Run    | Chưa thực hiện test                                      |
-| Pass       | Test qua — kết quả thực tế khớp với kết quả mong đợi     |
-| Fail       | Test không qua — có bug → tạo bug report                 |
-| Blocked    | Không thể test — phụ thuộc vào phần khác chưa hoàn thành |
-
----
-
-## Chú thích Loại Kiểm Thử
-
-| Loại kiểm thử     | Kiểm tra điều gì                                 | Ví dụ trong module SP                                   |
-| ----------------- | ------------------------------------------------ | ------------------------------------------------------- |
-| **Functionality** | Tính năng có hoạt động đúng như mô tả không?     | Upload PDF → AI phân tích → tạo plan thành công         |
-| **Security**      | Dữ liệu người dùng có được bảo vệ không?         | Plan của user A không được lộ cho user B                |
-| **Interface**     | Các thành phần hệ thống có giao tiếp đúng không? | Backend gọi AI Service → nhận response → parse đúng     |
-| **Database**      | Dữ liệu có được lưu/đọc đúng không?              | Sau tạo plan, DB có đúng concepts, edges, mastery_score |
-
----
-
-## Ghi Chú Quan Trọng Về Môi Trường Test
-
-> **AI Service Mocking:**  
-> Gemini API là non-deterministic. Tất cả automated test **phải** dùng mock AI response cố định. Chỉ manual test mới gọi AI thật.
-
-> **AI JSON Schema thực tế (theo UC-05):**  
-> AI trả về `prerequisites` bên trong mỗi concept (không phải mảng `edges` riêng). Hệ thống tự suy ra `concept_edges` từ `prerequisites`.
->
-> ```json
-> {
->   "concepts": [
->     { "id": "c1", "name": "Lớp", "difficulty": 1, "prerequisites": [] },
->     { "id": "c2", "name": "Kế thừa", "difficulty": 2, "prerequisites": ["c1"] }
->   ]
-> }
-> ```
-
-> **Database State:**  
-> Mỗi test suite bắt đầu với DB state đã biết. Dùng `npm run test:seed` để reset DB trước khi chạy.
-
-> **Thứ tự thực thi:**  
-> Các TC trong file này đa số độc lập nhau. Mọi dữ liệu cần thiết đều được mock hoặc tạo mới bằng script trước mỗi test.
-
-> **DAG Verification Script (Kahn's Algorithm):**
->
-> ```js
-> // Dùng để verify không có cycle trong edges lưu trong DB
-> function hasNoCycle(edges) {
->   const inDegree = {};
->   const adj = {};
->   for (const { from, to } of edges) {
->     adj[from] = adj[from] || [];
->     adj[from].push(to);
->     inDegree[to] = (inDegree[to] || 0) + 1;
->     inDegree[from] = inDegree[from] || 0;
->   }
->   const queue = Object.keys(inDegree).filter((n) => inDegree[n] === 0);
->   let visited = 0;
->   while (queue.length) {
->     const node = queue.shift();
->     visited++;
->     for (const neighbor of adj[node] || []) {
->       if (--inDegree[neighbor] === 0) queue.push(neighbor);
->     }
->   }
->   return visited === Object.keys(inDegree).length; // true = no cycle
-> }
-> ```
-
-| TC-SP-06-01 | DAG validation thành công — đồ thị phức tạp hợp lệ | Functionality / Database | Medium | Basic Flow | Not Run |
-| TC-SP-06-02 | Thêm cạnh thủ công tạo cycle → reject ngay lập tức | Functionality / Interface | High | [E1] | Not Run |
-| TC-SP-06-03 | Xóa toàn bộ edges → cảnh báo Traceback mất tác dụng | Functionality | Medium | [E2] | Not Run |
+| Mã TC       | Tiêu đề ngắn                                        | Loại                      | Độ ưu tiên | Flow tham chiếu | Trạng thái |
+| ----------- | --------------------------------------------------- | ------------------------- | ---------- | --------------- | ---------- |
+| TC-SP-06-01 | DAG validation thành công — đồ thị phức tạp hợp lệ  | Functionality / Database  | Medium     | Basic Flow      | Not Run    |
+| TC-SP-06-02 | Thêm cạnh thủ công tạo cycle → reject ngay lập tức  | Functionality / Interface | High       | [E1]            | Not Run    |
+| TC-SP-06-03 | Xóa toàn bộ edges → cảnh báo Traceback mất tác dụng | Functionality             | Medium     | [E2]            | Not Run    |
 
 ### UC-07: Xem danh sách kế hoạch ôn tập
 
