@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-07-03 — Danh sách chỉ chứa plan của user hiện tại — cách ly dữ liệu (200)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: GET
 headers:
   Authorization: Bearer {{userBToken}}

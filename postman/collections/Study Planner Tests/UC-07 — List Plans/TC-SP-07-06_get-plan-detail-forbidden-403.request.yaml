@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-07-06 — Xem chi tiết plan của user khác → 403 Forbidden (IDOR test)
-url: '{{baseURL}}/api/v1/study-plans/{{planIdA}}'
+url: '{{baseURL}}/api/v1/plans/{{planIdA}}'
 method: GET
 headers:
   Authorization: Bearer {{userBToken}}

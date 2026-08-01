@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-07 — Sửa tên / độ khó node → lưu đúng DB (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/concepts/{{conceptId}}'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/concepts/{{conceptId}}'
 method: PATCH
 headers:
   Authorization: Bearer {{accessToken}}

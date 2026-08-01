@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-15 — AI trả JSON hợp lệ nhưng concepts rỗng (Edge case) (201)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

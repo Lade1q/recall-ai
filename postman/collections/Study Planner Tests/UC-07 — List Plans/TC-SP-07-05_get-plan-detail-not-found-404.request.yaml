@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-07-05 — Xem chi tiết plan không tồn tại → 404 Not Found
-url: '{{baseURL}}/api/v1/study-plans/00000000-0000-0000-0000-000000000000'
+url: '{{baseURL}}/api/v1/plans/00000000-0000-0000-0000-000000000000'
 method: GET
 headers:
   Authorization: Bearer {{accessToken}}

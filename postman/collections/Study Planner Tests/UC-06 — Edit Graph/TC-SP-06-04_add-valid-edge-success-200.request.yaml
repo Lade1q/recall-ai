@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-04 — Thêm cạnh thủ công hợp lệ → thành công, cập nhật đồ thị (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/edges'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

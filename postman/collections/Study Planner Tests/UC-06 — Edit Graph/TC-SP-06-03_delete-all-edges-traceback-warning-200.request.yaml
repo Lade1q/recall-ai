@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-03 — Xóa toàn bộ quan hệ tiên quyết → cảnh báo Traceback mất tác dụng (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/graph'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/graph'
 method: PATCH
 headers:
   Authorization: Bearer {{accessToken}}

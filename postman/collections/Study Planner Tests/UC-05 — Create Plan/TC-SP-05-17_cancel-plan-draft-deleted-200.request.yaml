@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-17 — Student hủy tạo plan → dữ liệu draft bị xóa hoàn toàn (E5) (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}'
+url: '{{baseURL}}/api/v1/plans/{{planId}}'
 method: DELETE
 headers:
   Authorization: Bearer {{accessToken}}

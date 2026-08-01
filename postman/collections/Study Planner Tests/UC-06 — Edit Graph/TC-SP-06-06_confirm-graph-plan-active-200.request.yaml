@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-06 — Xác nhận & Lưu đồ thị → plan chuyển draft → active (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/confirm'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/confirm'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

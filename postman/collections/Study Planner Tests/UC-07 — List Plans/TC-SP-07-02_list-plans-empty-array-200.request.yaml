@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-07-02 — Xem danh sách khi chưa có plan → trả về mảng rỗng (200)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: GET
 headers:
   Authorization: Bearer {{newUserToken}}

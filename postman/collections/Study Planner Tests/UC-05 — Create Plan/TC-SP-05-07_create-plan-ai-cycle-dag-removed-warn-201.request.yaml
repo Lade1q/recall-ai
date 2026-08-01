@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-07 — AI tạo cycle → DAG validation loại bỏ + cảnh báo (201)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-05 — Xóa một cạnh cụ thể → cập nhật đúng DB (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges/{{edgeId}}'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/edges/{{edgeId}}'
 method: DELETE
 headers:
   Authorization: Bearer {{accessToken}}

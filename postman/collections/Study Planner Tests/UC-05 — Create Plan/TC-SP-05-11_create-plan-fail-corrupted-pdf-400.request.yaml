@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-11 — Tạo plan thất bại khi file PDF bị hỏng (400)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

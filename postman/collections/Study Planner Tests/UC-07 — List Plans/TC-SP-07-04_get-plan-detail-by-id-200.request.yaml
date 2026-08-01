@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-07-04 — Xem chi tiết 1 plan theo ID → trả về đúng data (200)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}'
+url: '{{baseURL}}/api/v1/plans/{{planId}}'
 method: GET
 headers:
   Authorization: Bearer {{accessToken}}

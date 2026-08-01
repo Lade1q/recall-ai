@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-18b — Tạo plan thành công với name đúng 255 ký tự (201)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

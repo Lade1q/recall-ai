@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-09b — Tạo plan thất bại khi token hết hạn (401)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{expiredToken}}

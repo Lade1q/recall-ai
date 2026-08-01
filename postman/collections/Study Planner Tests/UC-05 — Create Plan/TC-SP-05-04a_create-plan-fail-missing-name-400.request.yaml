@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-05-04a — Tạo plan thất bại khi thiếu trường name (400)
-url: '{{baseURL}}/api/v1/study-plans'
+url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}

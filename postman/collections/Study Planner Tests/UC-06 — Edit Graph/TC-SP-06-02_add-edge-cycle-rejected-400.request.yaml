@@ -1,6 +1,6 @@
 $kind: http-request
 name: TC-SP-06-02 — Thêm cạnh thủ công tạo cycle → bị reject ngay lập tức (400)
-url: '{{baseURL}}/api/v1/study-plans/{{planId}}/edges'
+url: '{{baseURL}}/api/v1/plans/{{planId}}/edges'
 method: POST
 headers:
   Authorization: Bearer {{accessToken}}
