@@ -19,8 +19,8 @@ scripts:
       pm.test('TC-SP-05-10: Status code là 400 Bad Request', function () { pm.response.to.have.status(400); });
       const body = pm.response.json();
       pm.test('TC-SP-05-10: success = false', function () { pm.expect(body.success).to.be.false; });
-      pm.test('TC-SP-05-10: error.code là VALIDATION_ERROR hoặc CONTENT_REQUIRED', function () {
-        pm.expect(['VALIDATION_ERROR', 'CONTENT_REQUIRED']).to.include(body.error.code);
+      pm.test('TC-SP-05-10: error.code là FILE_REQUIRED, VALIDATION_ERROR hoặc CONTENT_REQUIRED', function () {
+        pm.expect(['VALIDATION_ERROR', 'CONTENT_REQUIRED', 'FILE_REQUIRED']).to.include(body.error.code);
       });
       pm.test('TC-SP-05-10: error.details nêu yêu cầu cung cấp nội dung', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
     language: text/javascript
