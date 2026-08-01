@@ -23,3 +23,16 @@ export const createPlanSchema = z.object({
 });
 
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
+
+/**
+ * PATCH /plans/:id — archiving a finished plan and pulling it back out (SP-04).
+ *
+ * `draft` is deliberately not accepted: it means "AI has not produced concepts yet", a state
+ * only the analysis pipeline may set. Letting a client send it would strand a plan with a
+ * full graph in the analysing tab forever.
+ */
+export const updatePlanStatusSchema = z.object({
+  status: z.enum(['active', 'archived']),
+});
+
+export type UpdatePlanStatusInput = z.infer<typeof updatePlanStatusSchema>;

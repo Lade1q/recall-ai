@@ -1,19 +1,27 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { getAuthErrorMessage } from '@/features/auth/api/auth.api';
 import { registerSchema, type RegisterFormData } from '@/features/auth/schemas/auth.schema';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldRequirement,
+} from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 
-export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
+export function SignupForm({ className, ...props }: React.ComponentProps<typeof Card>) {
   const navigate = useNavigate();
   const { register: registerAuth } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +30,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setError,
     setFocus,
     formState: { errors, isSubmitting },
@@ -31,8 +39,10 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
     mode: 'onTouched',
   });
 
-  const passwordValue = watch('password');
-  const isPasswordValid = Boolean(passwordValue && passwordValue.length >= 8 && !errors.password);
+  const passwordValue = useWatch({ control, name: 'password' });
+  const passwordLength = passwordValue?.length ?? 0;
+  const isPasswordValid = passwordLength >= 8;
+  const missingPasswordChars = 8 - passwordLength;
 
   const onSubmit = async (data: RegisterFormData) => {
     try {
@@ -53,11 +63,13 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   };
 
   return (
-    <Card {...props}>
-      <CardHeader>
-        <div className="font-heading mb-6 text-base tracking-tight">Recall AI</div>
-        <CardTitle className="text-[23px]">Tạo tài khoản</CardTitle>
-        <CardDescription className="text-[13px]">
+    <Card className={cn('[--card-spacing:--spacing(7)]', className)} {...props}>
+      <CardHeader className="gap-1.5">
+        <div className="font-heading mb-[26px] text-base tracking-tight">Recall AI</div>
+        <CardTitle className="font-heading text-[23px] font-bold leading-[1.2] tracking-tight">
+          Tạo tài khoản
+        </CardTitle>
+        <CardDescription className="text-[13px] leading-[1.6]">
           Tài khoản dùng được ngay sau khi tạo, không có bước xác minh email.
         </CardDescription>
       </CardHeader>
@@ -112,15 +124,9 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                   )}
                 </button>
               </div>
-              {isPasswordValid ? (
-                <FieldDescription className="mt-1">
-                  <span className="inline-flex items-center text-emerald-500">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </span>
-                </FieldDescription>
-              ) : errors.password?.message ? (
-                <FieldError className="mt-1">{errors.password.message}</FieldError>
-              ) : null}
+              <FieldRequirement satisfied={isPasswordValid} className="mt-1">
+                {isPasswordValid ? 'Đủ 8 ký tự.' : `Còn thiếu ${missingPasswordChars} ký tự`}
+              </FieldRequirement>
             </Field>
 
             <Field>
@@ -153,8 +159,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 
             <FieldGroup>
               <Field>
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" loading={isSubmitting} className="w-full">
                   {isSubmitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
                 </Button>
                 <FieldDescription className="px-6 text-center">

@@ -1,4 +1,3 @@
-import { useTheme } from 'next-themes';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import {
   CircleCheckIcon,
@@ -9,11 +8,13 @@ import {
 } from 'lucide-react';
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme();
-
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
+      // App is light-only right now (no next-themes ThemeProvider, no `.dark`
+      // class toggling anywhere). Hardcode light so toasts never fall back to
+      // Sonner's own OS-driven "system" palette, which is dark and unrelated
+      // to the app's theme.
+      theme="light"
       className="toaster group"
       richColors
       closeButton

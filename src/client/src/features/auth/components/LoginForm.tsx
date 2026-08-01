@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
@@ -46,11 +46,13 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
 
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <Card>
-        <CardHeader>
-          <div className="font-heading mb-6 text-base tracking-tight">Recall AI</div>
-          <CardTitle className="text-[23px]">Đăng nhập</CardTitle>
-          <CardDescription className="text-[13px]">
+      <Card className="[--card-spacing:--spacing(7)]">
+        <CardHeader className="gap-1.5">
+          <div className="font-heading mb-[26px] text-base tracking-tight">Recall AI</div>
+          <CardTitle className="font-heading text-[23px] font-bold leading-[1.2] tracking-tight">
+            Đăng nhập
+          </CardTitle>
+          <CardDescription className="text-[13px] leading-[1.6]">
             Dùng email và mật khẩu bạn đã đăng ký.
           </CardDescription>
         </CardHeader>
@@ -104,8 +106,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
               </Field>
 
               <Field>
-                <Button type="submit" disabled={isSubmitting} className="w-full">
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" loading={isSubmitting} className="w-full">
                   {isSubmitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
                 </Button>
                 <FieldDescription className="text-center">

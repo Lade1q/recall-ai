@@ -16,8 +16,11 @@ import DashboardPage from '@/pages/dashboard/DashboardPage';
 import PlansPage from '@/pages/planning/PlansPage';
 import CreatePlanPage from '@/pages/planning/CreatePlanPage';
 import PlanDetailPage from '@/pages/planning/PlanDetailPage';
+import GraphIndexPage from '@/pages/planning/GraphIndexPage';
 import FocusPage from '@/pages/focus/FocusPage';
 import InterviewPage from '@/pages/verify/InterviewPage';
+import HistoryPage from '@/pages/history/HistoryPage';
+import ProfilePage from '@/pages/profile/ProfilePage';
 
 // Fallback
 import NotFoundPage from '@/pages/NotFoundPage';
@@ -44,8 +47,11 @@ function App() {
               <Route path="/plans" element={<PlansPage />} />
               <Route path="/plan/new" element={<CreatePlanPage />} />
               <Route path="/plan/:id" element={<PlanDetailPage />} />
+              <Route path="/graph" element={<GraphIndexPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/interview" element={<InterviewPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
 

@@ -69,6 +69,10 @@
 
   /* --- Radius — crisp, never pill-shaped for large containers --- */
   --radius-sm: calc(var(--radius) * 0.55);
+  /* Ô nhập: 0.65× — nằm giữa sm và md, đúng thang trong components.html
+     ("nút 0.8×, ô nhập 0.65×, thẻ 1.35×"). Có token riêng vì trước đây mỗi
+     màn hình tự chép lại chuỗi calc() này (xem AUTH_INPUT_CLASS cũ). */
+  --radius-field: calc(var(--radius) * 0.65);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.35);
@@ -409,6 +413,20 @@
   stroke-width: 1.5;
 }
 
+.concept-edge .react-flow__edge-path {
+  stroke: var(--mastery-untested);
+}
+
+.concept-edge.selected .react-flow__edge-path {
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+
+.concept-edge.selected polygon {
+  fill: var(--primary);
+  stroke: var(--primary);
+}
+
 .react-flow__edge--prerequisite-weak .react-flow__edge-path {
   stroke: var(--mastery-weak);
   stroke-dasharray: 4 3;
@@ -467,4 +485,50 @@ kbd,
     opacity: 1;
     transform: none;
   }
+}
+
+/* --- MOCKUP NODE UI STYLES --- */
+.node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.node--sel .concept-node {
+  border-color: var(--foreground);
+  border-style: solid;
+  color: var(--foreground);
+  box-shadow: 0 0 0 3px oklch(from var(--foreground) l c h / 0.08);
+}
+
+.node--nosrc .concept-node {
+  border-style: dotted;
+}
+
+.node__flag {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid oklch(from var(--mastery-learning) l c h / 0.5);
+  color: var(--mastery-learning);
+  display: grid;
+  place-items: center;
+}
+
+.node__diff {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted-foreground);
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  margin-top: 6px;
+  pointer-events: none;
 }

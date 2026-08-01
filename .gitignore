@@ -1,4 +1,5 @@
 .agents/
+.claude/
 .env
 .env.local
 .env.*.local
@@ -13,6 +14,9 @@ dist/
 build/
 .next/
 out/
+
+# Test artifacts (jest --coverage)
+coverage/
 
 # IDE & Editor
 .vscode/

@@ -6,6 +6,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import { app } from './app';
+import { startStaleJobCleanupJob } from './jobs/stale-job-cleanup.job';
 
 const PORT = process.env.PORT || 3001;
 
@@ -13,6 +14,8 @@ const server = app.listen(PORT, () => {
   console.log(`Server is running at http://localhost:${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
+
+startStaleJobCleanupJob();
 
 // Centralized handler for uncaught promise rejections
 process.on('unhandledRejection', (err: unknown) => {

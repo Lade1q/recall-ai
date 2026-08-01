@@ -1,25 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink, useLocation, Link } from 'react-router-dom';
+import { Outlet, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   BookOpen,
+  Network,
   Timer,
-  MessageSquare,
+  History,
+  User,
   Menu,
   X,
   Sun,
   Moon,
-  LogOut,
-  User,
-  Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Plans', href: '/plans', icon: BookOpen },
+  { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Kế hoạch ôn tập', href: '/plans', icon: BookOpen },
+  { label: 'Đồ thị khái niệm', href: '/graph', icon: Network },
   { label: 'Focus Session', href: '/focus', icon: Timer },
-  { label: 'Interview', href: '/interview', icon: MessageSquare },
+  { label: 'Lịch sử & Tiến độ', href: '/history', icon: History },
+  { label: 'Hồ sơ', href: '/profile', icon: User },
 ] as const;
 
 /**
@@ -27,8 +28,11 @@ const NAV_ITEMS = [
  * Bao gồm:
  * - Desktop Sidebar (sticky) sử dụng CSS variables sidebar của design system.
  * - Mobile Sidebar Drawer (toggle qua hamburger button).
- * - Top navbar với page title, dark mode toggle, nút Create Plan.
  * - Outlet để render nội dung trang con qua React Router nested routes.
+ *
+ * Mockup (`claude-design/screen-*.html`) không có top navbar tách rời — thương
+ * hiệu và điều hướng đều ở sidebar (Issue #173). Dải hamburger trên mobile vẫn
+ * giữ lại vì mockup chỉ vẽ desktop và drawer cần một nút để mở.
  */
 export function MainLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -37,8 +41,6 @@ export function MainLayout() {
       document.documentElement.classList.contains('dark') ||
       localStorage.getItem('theme') === 'dark'
   );
-
-  const location = useLocation();
 
   // Đồng bộ trạng thái dark mode với DOM và localStorage
   useEffect(() => {
@@ -51,24 +53,23 @@ export function MainLayout() {
     }
   }, [isDarkMode]);
 
-  const getPageTitle = (): string => {
-    switch (location.pathname) {
-      case '/dashboard':
-        return 'Dashboard';
-      case '/plans':
-        return 'My Study Plans';
-      case '/plan/new':
-        return 'Create Plan';
-      case '/focus':
-        return 'Focus Session';
-      case '/interview':
-        return 'AI Examiner';
-      default:
-        return 'Recall AI';
+  const location = useLocation();
+
+  // "Đồ thị khái niệm" trỏ /graph nhưng luôn redirect sang /plan/:id thật
+  // (PlanDetailPage = ConceptGraph, xem GraphIndexPage) — coi /plan/:id (trừ
+  // /plan/new, thuộc luồng tạo kế hoạch) là thuộc mục nav này để không mất
+  // trạng thái active sau khi redirect.
+  const isNavItemActive = (href: string): boolean => {
+    if (href === '/graph') {
+      return (
+        location.pathname.startsWith('/graph') ||
+        (location.pathname.startsWith('/plan/') && location.pathname !== '/plan/new')
+      );
     }
+    return location.pathname === href || location.pathname.startsWith(`${href}/`);
   };
 
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  const navLinkClass = (isActive: boolean) =>
     [
       'flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer',
       isActive
@@ -76,9 +77,9 @@ export function MainLayout() {
         : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
     ].join(' ');
 
-  // Nút đổi dark mode được style như một hàng sidebar (full-width, canh trái) để
-  // đứng cặp với link "Sign Out" ngay dưới — không phải icon-button. Dùng
-  // <Button variant="ghost"> theo đúng idiom shadcn cho sidebar item.
+  // Nút đổi dark mode được style như một hàng sidebar (full-width, canh trái),
+  // không phải icon-button. Dùng <Button variant="ghost"> theo đúng idiom
+  // shadcn cho sidebar item.
   const sidebarRowClass =
     'h-auto w-full cursor-pointer justify-start gap-3 px-3.5 py-2.5 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground';
 
@@ -94,14 +95,15 @@ export function MainLayout() {
         {/* Nav items */}
         <nav className="flex-1 space-y-1.5 px-4 py-6">
           {NAV_ITEMS.map(({ label, href, icon: Icon }) => (
-            <NavLink key={href} to={href} className={navLinkClass}>
+            <Link key={href} to={href} className={navLinkClass(isNavItemActive(href))}>
               <Icon className="h-4 w-4" />
               {label}
-            </NavLink>
+            </Link>
           ))}
         </nav>
 
-        {/* Sidebar footer: dark mode + sign out */}
+        {/* Sidebar footer: dark mode toggle. Đăng xuất (AM-04) chuyển sang trang
+            Hồ sơ theo mockup — chờ #166 dựng ProfilePage thật. */}
         <div className="border-sidebar-border space-y-1.5 border-t p-4">
           <Button
             variant="ghost"
@@ -109,16 +111,8 @@ export function MainLayout() {
             className={sidebarRowClass}
           >
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+            <span>{isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}</span>
           </Button>
-
-          <Link
-            to="/login"
-            className="text-destructive hover:bg-destructive/10 flex cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign Out</span>
-          </Link>
         </div>
       </aside>
 
@@ -148,15 +142,15 @@ export function MainLayout() {
 
             <nav className="flex-1 space-y-1.5 px-4 py-6">
               {NAV_ITEMS.map(({ label, href, icon: Icon }) => (
-                <NavLink
+                <Link
                   key={href}
                   to={href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={navLinkClass}
+                  className={navLinkClass(isNavItemActive(href))}
                 >
                   <Icon className="h-4 w-4" />
                   {label}
-                </NavLink>
+                </Link>
               ))}
             </nav>
 
@@ -167,15 +161,8 @@ export function MainLayout() {
                 className={sidebarRowClass}
               >
                 {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                <span>{isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}</span>
               </Button>
-              <Link
-                to="/login"
-                className="text-destructive hover:bg-destructive/10 flex cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium transition-all"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Sign Out</span>
-              </Link>
             </div>
           </aside>
         </div>
@@ -183,40 +170,20 @@ export function MainLayout() {
 
       {/* ========== MAIN CONTENT AREA ========== */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top navbar */}
-        <header className="border-border bg-card sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 md:px-8">
-          <div className="flex items-center gap-4">
-            {/* Hamburger cho mobile */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground -ml-2 lg:hidden"
-            >
-              <Menu className="size-5" />
-            </Button>
-            <h2 className="text-foreground text-lg font-semibold tracking-tight">
-              {getPageTitle()}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Nút tạo kế hoạch nhanh — ẩn khi đang ở trang tạo kế hoạch */}
-            {location.pathname !== '/plan/new' && (
-              <Link
-                to="/plan/new"
-                className="bg-primary text-primary-foreground hover:bg-primary/90 hidden h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-xs font-medium transition-all active:scale-[0.98] md:inline-flex"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create Plan
-              </Link>
-            )}
-
-            {/* Avatar placeholder */}
-            <div className="border-border bg-muted flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border">
-              <User className="text-muted-foreground h-4 w-4" />
-            </div>
-          </div>
+        {/* Dải mobile: chỉ có hamburger để mở drawer — mockup không vẽ top
+            navbar, nên không còn page title / nút tạo kế hoạch / avatar ở đây.
+            Từng trang tự đặt hành động của nó trong nội dung (vd. mockup
+            screen-plans.html có nút "Tạo kế hoạch mới" riêng). */}
+        <header className="border-border bg-card sticky top-0 z-30 flex h-16 items-center border-b px-4 lg:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground -ml-2"
+          >
+            <Menu className="size-5" />
+          </Button>
+          <span className="text-foreground ml-2 text-base font-bold tracking-tight">Recall AI</span>
         </header>
 
         {/* Nội dung trang hiện tại */}

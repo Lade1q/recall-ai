@@ -20,6 +20,22 @@ export interface DagValidationResult {
 }
 
 /**
+ * Whether this call to `replacePlanGraph` should move the plan from draft to active.
+ *
+ * The editor re-sends the whole graph after every edit to get a live DAG check, using
+ * the same endpoint as the explicit "Confirm Graph" button (I3.5) — so activation can't
+ * key off "the write succeeded", only off the caller's explicit `confirm` flag, or a
+ * plan that is already active/completed would never (re-)activate on a plain edit.
+ */
+export function shouldActivate(
+  currentStatus: string,
+  confirm: boolean,
+  conceptCount: number
+): boolean {
+  return confirm && currentStatus === 'draft' && conceptCount > 0;
+}
+
+/**
  * Checks the graph already stored for a plan and repairs it if it isn't a DAG:
  * the cycle-breaking edges are deleted and `plan.dag_auto_fixed` is set (SP-01 AF3).
  *
@@ -154,7 +170,7 @@ export async function replacePlanGraph(
 
     // Confirming a graph is what makes a plan usable, so a draft becomes active here
     // (I3.5 "Confirm Graph"). Plans whose AI analysis failed reach `active` this way too.
-    const becomesActive = plan.status === 'draft' && input.concepts.length > 0;
+    const becomesActive = shouldActivate(plan.status, input.confirm, input.concepts.length);
     const updated = await tx.studyPlan.update({
       where: { id: planId },
       data: becomesActive ? { status: 'active' } : {},

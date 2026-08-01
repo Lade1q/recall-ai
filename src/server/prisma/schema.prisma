@@ -37,6 +37,16 @@ enum AnalysisJobStatus {
   failed
 }
 
+/// Sub-step within a `processing` AnalysisJob (Issue #186, SP-06 mockup's 4-phase progress).
+/// The mockup's first phase ("tải tệp lên kho lưu trữ") is already done by the time a job
+/// exists at all — the Document is created in the same transaction as the job — so it has
+/// no value here; these three cover what actually happens inside `processAnalysisJob`.
+enum AnalysisJobPhase {
+  sending_to_ai
+  extracting
+  validating
+}
+
 // --- Sprint 4: AI Examiner + Focus + Review Queue (I6.1 / #113) ---
 
 enum InterviewSessionStatus {
@@ -121,6 +131,8 @@ model StudyPlan {
   status           StudyPlanStatus @default(active)
   dagAutoFixed     Boolean         @default(false) @map("dag_auto_fixed")
   tracebackEnabled Boolean         @default(true) @map("traceback_enabled")
+  /// Ngôn ngữ tài liệu do extract_concepts phát hiện -- AI Examiner dùng để sinh câu hỏi/feedback đúng ngôn ngữ
+  languageDetected String?         @map("language_detected") @db.VarChar(20)
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
@@ -150,9 +162,9 @@ model Concept {
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
-  plan             StudyPlan         @relation(fields: [planId], references: [id], onDelete: Cascade)
-  edgesFrom        ConceptEdge[]     @relation("EdgeFrom")
-  edgesTo          ConceptEdge[]     @relation("EdgeTo")
+  plan             StudyPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  edgesFrom        ConceptEdge[]      @relation("EdgeFrom")
+  edgesTo          ConceptEdge[]      @relation("EdgeTo")
   questionCaches   QuestionCache[]
   interviewTurns   InterviewTurn[]
   reviewQueueItems ReviewQueueItem[]
@@ -188,7 +200,14 @@ model AnalysisJob {
   planDraftId String?           @map("plan_draft_id") @db.Uuid
   fileKey     String?           @map("file_key")
   status      AnalysisJobStatus @default(pending)
+  /// Null until the job starts `processing`; not reset on completion or failure — a caller
+  /// only reads it while status is `processing` (Issue #186).
+  phase       AnalysisJobPhase?
   retryCount  Int               @default(0) @map("retry_count")
+  /// Truncated, safe reason for the last `failed` transition (Issue #183) — set only by
+  /// `markFailed()`'s real-error path, never by the stale-job sweep or the retry/reanalyze
+  /// force-fail paths, which have no underlying error to report.
+  errorMessage String?          @map("error_message")
   createdAt   DateTime          @default(now()) @map("created_at")
   completedAt DateTime?         @map("completed_at")
 

@@ -20,7 +20,10 @@ export const edgeExtractSchema = z.object({
 export const aiExtractResponseSchema = z.object({
   concepts: z.array(conceptExtractSchema).min(1),
   edges: z.array(edgeExtractSchema),
-  language_detected: z.string().min(2).max(10).catch('en'),
+  // Width matches StudyPlan.languageDetected. 20 leaves room for regional BCP-47 tags
+  // (ca-ES-valencia is 14): the `.catch` below means an over-long tag would silently
+  // become 'en' and the student would be examined in the wrong language.
+  language_detected: z.string().min(2).max(20).catch('en'),
 });
 
 export type ConceptExtract = z.infer<typeof conceptExtractSchema>;
