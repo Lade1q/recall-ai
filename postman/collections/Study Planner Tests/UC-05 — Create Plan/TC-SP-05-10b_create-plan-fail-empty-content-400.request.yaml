@@ -1,0 +1,30 @@
+$kind: http-request
+name: TC-SP-05-10b — Tạo plan thất bại khi content là chuỗi rỗng (400)
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Vật lý
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - type: text
+      key: content
+      value: ''
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-10b: Status code là 400 (content rỗng)', function () { pm.response.to.have.status(400); });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-10b: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-10b: error.code là VALIDATION_ERROR hoặc CONTENT_REQUIRED', function () {
+        pm.expect(['VALIDATION_ERROR', 'CONTENT_REQUIRED']).to.include(body.error.code);
+      });
+      pm.test('TC-SP-05-10b: error.message tồn tại', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
+    language: text/javascript
+order: 10200

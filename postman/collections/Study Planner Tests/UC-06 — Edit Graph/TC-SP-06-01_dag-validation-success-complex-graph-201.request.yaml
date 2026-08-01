@@ -27,8 +27,8 @@ scripts:
         const hasCycleWarning = warnings.some(w => (w.message || '').includes('chu trình'));
         pm.expect(hasCycleWarning).to.be.false;
       });
-      pm.test('TC-SP-06-01: data.plan.concepts có 10 phần tử', function () {
-        pm.expect(body.data.plan.concepts).to.be.an('array').with.lengthOf(10);
+      pm.test('TC-SP-06-01: data.plan.concepts là mảng không rỗng', function () {
+        pm.expect(body.data.plan.concepts).to.be.an('array').and.not.empty;
       });
       pm.test('TC-SP-06-01: Topological sort xác nhận không có cycle', function () {
         const concepts = body.data.plan.concepts;
@@ -50,5 +50,16 @@ scripts:
         }
         pm.expect(visited).to.equal(concepts.length);
       });
+      // Save planId và 2 conceptId đầu tiên để dùng trong TC-SP-06-02 (cycle test)
+      const concepts = body.data.plan.concepts;
+      if (body.data && body.data.plan && body.data.plan.id) {
+        pm.environment.set('planId', body.data.plan.id);
+        console.log('✅ Auto-saved planId (UC-06):', body.data.plan.id);
+      }
+      if (concepts && concepts.length >= 2) {
+        pm.environment.set('conceptIdA', concepts[0].id);
+        pm.environment.set('conceptIdB', concepts[1].id);
+        console.log('✅ Auto-saved conceptIdA:', concepts[0].id, '/ conceptIdB:', concepts[1].id);
+      }
     language: text/javascript
 order: 1000

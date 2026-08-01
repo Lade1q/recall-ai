@@ -1,0 +1,31 @@
+$kind: http-request
+name: TC-SP-05-03d — Tạo plan thất bại khi file sai định dạng .zip (400)
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Ngữ văn
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: archive.zip
+      type: file
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('TC-SP-05-03d: Status code là 400 hoặc 415 (.zip)', function () {
+        pm.expect([400, 415]).to.include(pm.response.code);
+      });
+      const body = pm.response.json();
+      pm.test('TC-SP-05-03d: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-03d: error.code là INVALID_FILE_FORMAT hoặc UNSUPPORTED_MEDIA_TYPE', function () {
+        pm.expect(['INVALID_FILE_FORMAT', 'UNSUPPORTED_MEDIA_TYPE']).to.include(body.error.code);
+      });
+    language: text/javascript
+order: 3400
