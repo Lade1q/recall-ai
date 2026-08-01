@@ -14,7 +14,7 @@ body:
       key: deadline
       value: '2026-12-31'
     - key: file
-      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/exactly_10mb.pdf
+      src: exactly_10mb.pdf
       type: file
       contentType: application/pdf
 scripts:

@@ -11,7 +11,7 @@ body:
       key: name
       value: Ôn thi Toán
     - key: file
-      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      src: sample_lecture.pdf
       type: file
       contentType: application/pdf
 scripts:

@@ -14,7 +14,7 @@ body:
       key: deadline
       value: '2026-12-31'
     - key: file
-      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/spreadsheet.xlsx
+      src: spreadsheet.xlsx
       type: file
       contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 scripts:
