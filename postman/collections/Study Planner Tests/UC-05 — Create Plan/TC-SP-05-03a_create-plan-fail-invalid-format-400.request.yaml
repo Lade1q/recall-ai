@@ -1,5 +1,5 @@
 $kind: http-request
-name: TC-SP-05-03 — Tạo plan thất bại khi file sai định dạng .docx (400)
+name: TC-SP-05-03a — Tạo plan thất bại khi file sai định dạng .docx (400)
 url: '{{baseURL}}/api/v1/plans'
 method: POST
 headers:
@@ -19,14 +19,14 @@ body:
 scripts:
   - type: afterResponse
     code: |-
-      pm.test('TC-SP-05-03: Status code là 400 hoặc 415', function () {
+      pm.test('TC-SP-05-03a: Status code là 400 hoặc 415', function () {
         pm.expect([400, 415]).to.include(pm.response.code);
       });
       const body = pm.response.json();
-      pm.test('TC-SP-05-03: success = false', function () { pm.expect(body.success).to.be.false; });
-      pm.test('TC-SP-05-03: error.code là INVALID_FILE_FORMAT hoặc UNSUPPORTED_MEDIA_TYPE', function () {
+      pm.test('TC-SP-05-03a: success = false', function () { pm.expect(body.success).to.be.false; });
+      pm.test('TC-SP-05-03a: error.code là INVALID_FILE_FORMAT hoặc UNSUPPORTED_MEDIA_TYPE', function () {
         pm.expect(['INVALID_FILE_FORMAT', 'INVALID_FILE_TYPE', 'UNSUPPORTED_MEDIA_TYPE']).to.include(body.error.code);
       });
-      pm.test('TC-SP-05-03: error.message nêu định dạng hợp lệ', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
+      pm.test('TC-SP-05-03a: error.message nêu định dạng hợp lệ', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
     language: text/javascript
 order: 3000
