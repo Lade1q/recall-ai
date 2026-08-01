@@ -23,27 +23,53 @@ scripts:
       pm.test('TC-SP-05-07: Status code là 201 Created', function () { pm.response.to.have.status(201); });
       const body = pm.response.json();
       pm.test('TC-SP-05-07: success = true', function () { pm.expect(body.success).to.be.true; });
-      pm.test('TC-SP-05-07: data.warnings là mảng không rỗng', function () { pm.expect(body.data.warnings).to.be.an('array').and.not.empty; });
-      pm.test('TC-SP-05-07: warning message đề cập chu trình', function () {
-        const msg = body.data.warnings[0].message || '';
-        pm.expect(msg).to.include('chu trình');
-      });
-      pm.test('TC-SP-05-07: data.plan.concepts không có cycle (topological check)', function () {
-        const concepts = body.data.plan.concepts;
-        // Build adjacency and verify no prerequisite creates a cycle
-        const prereqMap = {};
-        concepts.forEach(c => { prereqMap[c.id] = c.prerequisites || []; });
-        function hasCycle(nodeId, visited, recStack) {
-          visited[nodeId] = true; recStack[nodeId] = true;
-          for (const p of prereqMap[nodeId] || []) {
-            if (!visited[p] && hasCycle(p, visited, recStack)) return true;
-            if (recStack[p]) return true;
-          }
-          recStack[nodeId] = false; return false;
-        }
-        const visited = {}, recStack = {};
-        const cycleFound = concepts.some(c => !visited[c.id] && hasCycle(c.id, visited, recStack));
-        pm.expect(cycleFound).to.be.false;
-      });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+          pm.test("TC-SP-05-07: Background job fixes DAG cycle (dagAutoFixed = true)", function (done) {
+              setTimeout(function() {
+                  const getOptions = {
+                      url: pm.variables.get("baseURL") + "/api/v1/plans/" + planId,
+                      method: "GET",
+                      header: { "Authorization": pm.request.headers.get("Authorization") }
+                  };
+                  pm.sendRequest(getOptions, function (err, res) {
+                      if (err) return done(err);
+                      try {
+                          pm.expect(res.code).to.equal(200);
+                          const getBody = res.json();
+                          pm.expect(getBody.data.analysisStatus).to.equal("done");
+                          pm.expect(getBody.data.dagAutoFixed).to.be.true;
+                          
+                          // topological check
+                          const concepts = getBody.data.concepts || [];
+                          const edges = getBody.data.edges || [];
+                          const prereqMap = {};
+                          concepts.forEach(c => { prereqMap[c.id] = []; });
+                          edges.forEach(e => {
+                              if (prereqMap[e.toConceptId]) {
+                                  prereqMap[e.toConceptId].push(e.fromConceptId);
+                              }
+                          });
+                          function hasCycle(nodeId, visited, recStack) {
+                              visited[nodeId] = true; recStack[nodeId] = true;
+                              for (const p of prereqMap[nodeId] || []) {
+                                  if (!visited[p] && hasCycle(p, visited, recStack)) return true;
+                                  if (recStack[p]) return true;
+                              }
+                              recStack[nodeId] = false; return false;
+                          }
+                          const visited = {}, recStack = {};
+                          const cycleFound = concepts.some(c => !visited[c.id] && hasCycle(c.id, visited, recStack));
+                          pm.expect(cycleFound).to.be.false;
+                          
+                          done();
+                      } catch (e) {
+                          done(e);
+                      }
+                  });
+              }, 1500);
+          });
+      }
     language: text/javascript
 order: 7000

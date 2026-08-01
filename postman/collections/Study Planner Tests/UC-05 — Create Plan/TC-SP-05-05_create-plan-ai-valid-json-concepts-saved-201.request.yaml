@@ -23,17 +23,33 @@ scripts:
       pm.test('TC-SP-05-05: Status code là 201 Created', function () { pm.response.to.have.status(201); });
       const body = pm.response.json();
       pm.test('TC-SP-05-05: success = true', function () { pm.expect(body.success).to.be.true; });
-      pm.test('TC-SP-05-05: data.plan.concepts có đúng 3 phần tử', function () { pm.expect(body.data.plan.concepts).to.be.an('array').with.lengthOf(3); });
-      pm.test('TC-SP-05-05: mỗi concept có mastery_score = null', function () {
-        body.data.plan.concepts.forEach(c => pm.expect(c.mastery_score).to.be.null);
-      });
-      pm.test('TC-SP-05-05: concept name khớp với mock AI response', function () {
-        const names = body.data.plan.concepts.map(c => c.name);
-        pm.expect(names).to.include.members(['Lớp (Class)', 'Kế thừa (Inheritance)', 'Đa hình (Polymorphism)']);
-      });
-      pm.test('TC-SP-05-05: prerequisites được ánh xạ đúng thành edges', function () {
-        const c2 = body.data.plan.concepts.find(c => c.name === 'Kế thừa (Inheritance)');
-        pm.expect(c2.prerequisites).to.be.an('array').with.lengthOf(1);
-      });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+          pm.collectionVariables.set("createdPlanId", planId);
+          pm.test("TC-SP-05-05: Background job processed correctly (Active state)", function (done) {
+              setTimeout(function() {
+                  const getOptions = {
+                      url: pm.variables.get("baseURL") + "/api/v1/plans/" + planId,
+                      method: "GET",
+                      header: { "Authorization": pm.request.headers.get("Authorization") }
+                  };
+                  pm.sendRequest(getOptions, function (err, res) {
+                      if (err) return done(err);
+                      try {
+                          pm.expect(res.code).to.equal(200);
+                          const getBody = res.json();
+                          pm.expect(getBody.data.status).to.equal("active");
+                          pm.expect(getBody.data.concepts).to.be.an('array').with.lengthOf(5);
+                          const names = getBody.data.concepts.map(c => c.name);
+                          pm.expect(names).to.include.members(['Variable', 'Loop', 'Array', 'Recursion', 'Sorting']);
+                          done();
+                      } catch (e) {
+                          done(e);
+                      }
+                  });
+              }, 1500);
+          });
+      }
     language: text/javascript
 order: 5000

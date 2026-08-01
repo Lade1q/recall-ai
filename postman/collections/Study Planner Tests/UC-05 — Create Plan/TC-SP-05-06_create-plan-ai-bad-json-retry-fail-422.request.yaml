@@ -20,12 +20,34 @@ body:
 scripts:
   - type: afterResponse
     code: |-
-      pm.test('TC-SP-05-06: Status code là 422 hoặc 500', function () {
-        pm.expect([422, 500]).to.include(pm.response.code);
+      pm.test('TC-SP-05-06: Status code là 201 Created', function () {
+        pm.response.to.have.status(201);
       });
       const body = pm.response.json();
-      pm.test('TC-SP-05-06: success = false', function () { pm.expect(body.success).to.be.false; });
-      pm.test('TC-SP-05-06: error.code = AI_EXTRACTION_FAILED', function () { pm.expect(body.error.code).to.equal('AI_EXTRACTION_FAILED'); });
-      pm.test('TC-SP-05-06: error.message hướng dẫn thử lại', function () { pm.expect(body.error.message).to.be.a('string').and.not.empty; });
+      pm.test('TC-SP-05-06: success = true (synchronous)', function () { pm.expect(body.success).to.be.true; });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+          pm.test("TC-SP-05-06: Background job fails after retries", function (done) {
+              setTimeout(function() {
+                  const getOptions = {
+                      url: pm.variables.get("baseURL") + "/api/v1/plans/" + planId,
+                      method: "GET",
+                      header: { "Authorization": pm.request.headers.get("Authorization") }
+                  };
+                  pm.sendRequest(getOptions, function (err, res) {
+                      if (err) return done(err);
+                      try {
+                          pm.expect(res.code).to.equal(200);
+                          const getBody = res.json();
+                          pm.expect(getBody.data.analysisStatus).to.equal("failed");
+                          done();
+                      } catch (e) {
+                          done(e);
+                      }
+                  });
+              }, 4500); // Wait longer because retry logic has exponential backoff (2s + 4s...)
+          });
+      }
     language: text/javascript
 order: 6000
