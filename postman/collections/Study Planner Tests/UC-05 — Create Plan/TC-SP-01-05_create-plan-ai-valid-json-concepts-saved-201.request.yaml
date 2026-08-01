@@ -67,8 +67,9 @@ scripts:
                 });
 
                 // Mỗi edge phải có fromConceptId, toConceptId (hoặc from/to tùy response shape)
+                // Dùng !! để ép về boolean — && trả giá trị cuối (UUID string), không phải true
                 d.edges.forEach(e => {
-                  const hasFromTo = (e.fromConceptId && e.toConceptId) || (e.from && e.to);
+                  const hasFromTo = !!(e.fromConceptId && e.toConceptId) || !!(e.from && e.to);
                   pm.expect(hasFromTo).to.be.true;
                 });
 

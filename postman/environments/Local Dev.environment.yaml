@@ -3,6 +3,6 @@ values:
   - key: baseURL
     value: 'http://localhost:3001'
   - key: accessToken
-    value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0N2I1OTE4ZS1hNjVlLTQ0ZWQtYTk1My02ZjJhMjUyMDkwMGUiLCJlbWFpbCI6ImxvZ2ludGVzdEBleGFtcGxlLmNvbSIsImlhdCI6MTc4NTYwNDY0OSwiZXhwIjoxNzg1NjA1NTQ5fQ.eu_sfA88eeSnNVdGhRGwQU4C6yHcQSkUOi9GSGTS1sc'
+    value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI0N2I1OTE4ZS1hNjVlLTQ0ZWQtYTk1My02ZjJhMjUyMDkwMGUiLCJlbWFpbCI6ImxvZ2ludGVzdEBleGFtcGxlLmNvbSIsImlhdCI6MTc4NTYwNTA3NiwiZXhwIjoxNzg1NjA1OTc2fQ.sRCAEiz-W9NGplUWaKq5VFKttU9IMsTYxs459rh2nII'
   - key: refreshToken
     value: ''
