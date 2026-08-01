@@ -6,8 +6,9 @@ headers:
   Authorization: Bearer {{accessToken}}
 body:
   type: formdata
-  formdata:
-    - key: deadline
+  content:
+    - type: text
+      key: deadline
       value: '2026-12-31'
     - key: file
       src: sample_lecture.pdf

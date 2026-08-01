@@ -6,10 +6,12 @@ headers:
   Authorization: Bearer {{accessToken}}
 body:
   type: formdata
-  formdata:
-    - key: name
+  content:
+    - type: text
+      key: name
       value: Ôn thi Mạng máy tính
-    - key: deadline
+    - type: text
+      key: deadline
       value: '2026-12-31'
     - key: file
       src: sample_lecture.pdf

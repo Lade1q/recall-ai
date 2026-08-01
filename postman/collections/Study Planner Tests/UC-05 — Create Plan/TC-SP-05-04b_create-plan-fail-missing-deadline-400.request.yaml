@@ -6,8 +6,9 @@ headers:
   Authorization: Bearer {{accessToken}}
 body:
   type: formdata
-  formdata:
-    - key: name
+  content:
+    - type: text
+      key: name
       value: Ôn Toán
     - key: file
       src: sample_lecture.pdf
