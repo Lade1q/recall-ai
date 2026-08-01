@@ -1,0 +1,42 @@
+$kind: http-request
+name: TC-SP-01-04a — Thiếu `name` → 400 VALIDATION_ERROR
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-04a: Thiếu field `name` → ZodError → errorHandler trả 400 VALIDATION_ERROR
+      pm.test('TC-SP-01-04a: Status code là 400 Bad Request', function () {
+        pm.response.to.have.status(400);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-04a: success = false', function () {
+        pm.expect(body.success).to.be.false;
+      });
+
+      pm.test('TC-SP-01-04a: error.code = "VALIDATION_ERROR"', function () {
+        pm.expect(body.error.code).to.equal('VALIDATION_ERROR');
+      });
+
+      pm.test('TC-SP-01-04a: error.details chứa lỗi trường "name"', function () {
+        const details = body.error.details;
+        pm.expect(details).to.be.an('array').that.is.not.empty;
+        const nameError = details.find(d => d.path && d.path.includes('name'));
+        pm.expect(nameError).to.not.be.undefined;
+      });
+    language: text/javascript
+order: 4000

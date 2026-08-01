@@ -1,0 +1,84 @@
+$kind: http-request
+name: TC-SP-01-05 — AI JSON hợp lệ → concepts và edges lưu DB đúng (poll GET)
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Lập trình Hướng đối tượng
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-05: Mock AI (MOCK_EXTRACT_RESULT) trả JSON hợp lệ với tên "Lập trình Hướng đối tượng"
+      // AI JSON schema thực tế: { concepts: [...], edges: [{from, to}], language_detected }
+      // KHÔNG có `prerequisites` trong concept — edges là array riêng biệt.
+      // Sau khi POST, phải poll GET /plans/:id để kiểm tra kết quả AI.
+
+      pm.test('TC-SP-01-05: POST → Status 201 Created', function () {
+        pm.response.to.have.status(201);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-05: POST → data.plan.status = "draft" (chưa có concepts)', function () {
+        pm.expect(body.data.plan.status).to.equal('draft');
+      });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+        pm.environment.set('planId_tc05', planId);
+
+        // Poll GET sau 1500ms để background job kịp xử lý (mock ~100ms, buffer 1400ms)
+        pm.test('TC-SP-01-05: GET sau job done → status="active", analysisStatus="done", concepts, edges đúng', function (done) {
+          setTimeout(function () {
+            pm.sendRequest({
+              url: pm.variables.get('baseURL') + '/api/v1/plans/' + planId,
+              method: 'GET',
+              header: { Authorization: pm.request.headers.get('Authorization') }
+            }, function (err, res) {
+              if (err) return done(err);
+              try {
+                pm.expect(res.code).to.equal(200);
+                const d = res.json().data;
+
+                pm.expect(d.status).to.equal('active');
+                pm.expect(d.analysisStatus).to.equal('done');
+                pm.expect(d.dagAutoFixed).to.be.false;
+
+                pm.expect(d.concepts).to.be.an('array').with.lengthOf.above(0);
+                pm.expect(d.edges).to.be.an('array');
+
+                // Mỗi concept phải có name, difficulty, masteryScore = null
+                d.concepts.forEach(c => {
+                  pm.expect(c.name).to.be.a('string').and.not.empty;
+                  pm.expect(c.difficulty).to.be.a('number').within(1, 5);
+                  pm.expect(c.masteryScore).to.be.null;
+                });
+
+                // Mỗi edge phải có fromConceptId, toConceptId (hoặc from/to tùy response shape)
+                d.edges.forEach(e => {
+                  const hasFromTo = (e.fromConceptId && e.toConceptId) || (e.from && e.to);
+                  pm.expect(hasFromTo).to.be.true;
+                });
+
+                done();
+              } catch (e) {
+                done(e);
+              }
+            });
+          }, 1500);
+        });
+      }
+    language: text/javascript
+order: 5000

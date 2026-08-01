@@ -1,0 +1,74 @@
+$kind: http-request
+name: TC-SP-01-06 — AI fail liên tục → analysisStatus "failed" → không có concepts
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Mạng máy tính
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-06: Tên plan "Ôn thi Mạng máy tính" trigger mock AI fail mọi lần.
+      // Hệ thống retry MAX_ATTEMPTS = 3 (backoff 2s + 4s). Tổng chờ ~6s.
+      // Poll sau 8000ms (6s backoff + 2s buffer) để đảm bảo job đã fail hẳn.
+
+      pm.test('TC-SP-01-06: POST → Status 201 Created', function () {
+        pm.response.to.have.status(201);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-06: POST → data.plan.status = "draft"', function () {
+        pm.expect(body.data.plan.status).to.equal('draft');
+      });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+        // Chờ 8 giây cho retry + backoff xong (2s + 4s + 2s buffer)
+        pm.test('TC-SP-01-06: GET sau 8s → analysisStatus="failed", status="draft", concepts=[]', function (done) {
+          setTimeout(function () {
+            pm.sendRequest({
+              url: pm.variables.get('baseURL') + '/api/v1/plans/' + planId,
+              method: 'GET',
+              header: { Authorization: pm.request.headers.get('Authorization') }
+            }, function (err, res) {
+              if (err) return done(err);
+              try {
+                pm.expect(res.code).to.equal(200);
+                const d = res.json().data;
+
+                pm.expect(d.analysisStatus).to.equal('failed');
+
+                // Plan KHÔNG chuyển active khi job fail — giữ nguyên draft
+                pm.expect(d.status).to.equal('draft');
+
+                // Không có concepts hoặc mảng rỗng
+                if (d.concepts) {
+                  pm.expect(d.concepts).to.be.an('array').that.is.empty;
+                }
+                if (d.edges) {
+                  pm.expect(d.edges).to.be.an('array').that.is.empty;
+                }
+
+                done();
+              } catch (e) {
+                done(e);
+              }
+            });
+          }, 8000);
+        });
+      }
+    language: text/javascript
+order: 6000

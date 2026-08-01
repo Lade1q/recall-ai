@@ -1,0 +1,99 @@
+$kind: http-request
+name: TC-SP-01-07 — AI tạo cycle → DAG auto-fix → dagAutoFixed=true (201)
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Đại số tuyến tính
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-07: Tên "Ôn thi Đại số tuyến tính" trigger MOCK_EXTRACT_RESULT_CYCLE.
+      // processAnalysisJob gọi validateAndFixDag → auto-remove cạnh cycle → plan vẫn active.
+      // KHÔNG reject — khác với UC-06 user edit cycle (reject 409 DAG_CYCLE).
+
+      pm.test('TC-SP-01-07: POST → Status 201 Created', function () {
+        pm.response.to.have.status(201);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-07: POST → data.plan.status = "draft"', function () {
+        pm.expect(body.data.plan.status).to.equal('draft');
+      });
+
+      const planId = body.data?.plan?.id;
+      if (planId) {
+        // Poll sau 1500ms — mock cycle xử lý nhanh
+        pm.test('TC-SP-01-07: GET sau job done → dagAutoFixed=true, status="active", không còn cycle', function (done) {
+          setTimeout(function () {
+            pm.sendRequest({
+              url: pm.variables.get('baseURL') + '/api/v1/plans/' + planId,
+              method: 'GET',
+              header: { Authorization: pm.request.headers.get('Authorization') }
+            }, function (err, res) {
+              if (err) return done(err);
+              try {
+                pm.expect(res.code).to.equal(200);
+                const d = res.json().data;
+
+                pm.expect(d.status).to.equal('active');
+                pm.expect(d.analysisStatus).to.equal('done');
+
+                // Chỉ số chính: dagAutoFixed phải là true
+                pm.expect(d.dagAutoFixed).to.be.true;
+
+                pm.expect(d.concepts).to.be.an('array').with.lengthOf.above(0);
+
+                // Verify không còn cycle trong edges trả về (DFS-based cycle detection)
+                const concepts = d.concepts || [];
+                const edges = d.edges || [];
+                const adjList = {};
+                concepts.forEach(c => { adjList[c.id] = []; });
+                edges.forEach(e => {
+                  const fromId = e.fromConceptId || e.from;
+                  const toId = e.toConceptId || e.to;
+                  if (adjList[fromId] !== undefined) {
+                    adjList[fromId].push(toId);
+                  }
+                });
+
+                function hasCycle(node, visited, recStack) {
+                  visited[node] = true;
+                  recStack[node] = true;
+                  for (const neighbor of (adjList[node] || [])) {
+                    if (!visited[neighbor] && hasCycle(neighbor, visited, recStack)) return true;
+                    if (recStack[neighbor]) return true;
+                  }
+                  recStack[node] = false;
+                  return false;
+                }
+
+                const visited = {};
+                const recStack = {};
+                const cycleFound = concepts.some(c => !visited[c.id] && hasCycle(c.id, visited, recStack));
+
+                pm.expect(cycleFound, 'DAG vẫn còn cycle sau khi auto-fix!').to.be.false;
+
+                done();
+              } catch (e) {
+                done(e);
+              }
+            });
+          }, 1500);
+        });
+      }
+    language: text/javascript
+order: 7000

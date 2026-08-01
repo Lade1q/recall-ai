@@ -1,0 +1,54 @@
+$kind: http-request
+name: TC-SP-01-04d — deadline trong quá khứ → 400 VALIDATION_ERROR
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Toán
+    - type: text
+      key: deadline
+      value: '2020-01-01'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-04d: deadline "2020-01-01" trong quá khứ → plan.schema refine fail → 400
+      // Lưu ý: schema dùng UTC+7 (Vietnam) để so sánh "hôm nay"
+      pm.test('TC-SP-01-04d: Status code là 400 Bad Request', function () {
+        pm.response.to.have.status(400);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-04d: success = false', function () {
+        pm.expect(body.success).to.be.false;
+      });
+
+      pm.test('TC-SP-01-04d: error.code = "VALIDATION_ERROR"', function () {
+        pm.expect(body.error.code).to.equal('VALIDATION_ERROR');
+      });
+
+      pm.test('TC-SP-01-04d: error.details chứa lỗi trường "deadline"', function () {
+        const details = body.error.details;
+        pm.expect(details).to.be.an('array').that.is.not.empty;
+        const deadlineError = details.find(d => d.path && d.path.includes('deadline'));
+        pm.expect(deadlineError).to.not.be.undefined;
+      });
+
+      pm.test('TC-SP-01-04d: error message đề cập "future" hoặc "today"', function () {
+        const details = body.error.details;
+        const deadlineError = details.find(d => d.path && d.path.includes('deadline'));
+        if (deadlineError) {
+          pm.expect(deadlineError.message).to.match(/future|today|hôm nay|tương lai/i);
+        }
+      });
+    language: text/javascript
+order: 4300

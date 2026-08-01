@@ -1,0 +1,42 @@
+$kind: http-request
+name: TC-SP-01-02a — File vượt quá 10MB → 400 FILE_TOO_LARGE
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Giải tích
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/large_file.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-02a: File ~15MB > 10MB limit → Multer reject → errorHandler trả 400 (KHÔNG phải 413)
+      pm.test('TC-SP-01-02a: Status code là 400 Bad Request (không phải 413)', function () {
+        pm.response.to.have.status(400);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-02a: success = false', function () {
+        pm.expect(body.success).to.be.false;
+      });
+
+      pm.test('TC-SP-01-02a: error.code = "FILE_TOO_LARGE"', function () {
+        pm.expect(body.error.code).to.equal('FILE_TOO_LARGE');
+      });
+
+      pm.test('TC-SP-01-02a: error.message đề cập 10MB', function () {
+        pm.expect(body.error.message).to.match(/10mb|10 mb|10MB|10 MB/i);
+      });
+    language: text/javascript
+order: 2000

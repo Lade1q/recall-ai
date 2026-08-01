@@ -1,0 +1,57 @@
+$kind: http-request
+name: TC-SP-01-01 — Tạo plan thành công với file PDF hợp lệ (201)
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Cấu trúc Dữ liệu
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-01: Happy Path — POST trả 201 ngay với status "draft" (async flow)
+      pm.test('TC-SP-01-01: Status code là 201 Created', function () {
+        pm.response.to.have.status(201);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-01: success = true', function () {
+        pm.expect(body.success).to.be.true;
+      });
+
+      pm.test('TC-SP-01-01: data.plan.id là UUID hợp lệ', function () {
+        pm.expect(body.data.plan.id).to.be.a('string').and.match(/^[0-9a-f-]{36}$/i);
+      });
+
+      pm.test('TC-SP-01-01: data.plan.status = "draft" (KHÔNG phải "active")', function () {
+        pm.expect(body.data.plan.status).to.equal('draft');
+      });
+
+      pm.test('TC-SP-01-01: data.plan.name khớp input', function () {
+        pm.expect(body.data.plan.name).to.equal('Ôn thi Cấu trúc Dữ liệu');
+      });
+
+      pm.test('TC-SP-01-01: Response KHÔNG chứa concepts hay edges', function () {
+        pm.expect(body.data.plan).to.not.have.property('concepts');
+        pm.expect(body.data.plan).to.not.have.property('edges');
+      });
+
+      // Lưu planId cho các TC sau (TC-SP-01-05, TC-SP-01-08)
+      if (body.data && body.data.plan && body.data.plan.id) {
+        pm.environment.set('planId', body.data.plan.id);
+        console.log('✅ TC-SP-01-01: Auto-saved planId =', body.data.plan.id);
+      }
+    language: text/javascript
+order: 1000

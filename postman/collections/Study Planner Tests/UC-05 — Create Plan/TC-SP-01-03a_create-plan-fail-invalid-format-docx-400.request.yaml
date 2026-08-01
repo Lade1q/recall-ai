@@ -1,0 +1,42 @@
+$kind: http-request
+name: TC-SP-01-03a — File .docx → 400 INVALID_FILE_TYPE
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Văn học
+    - type: text
+      key: deadline
+      value: '2026-12-31'
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/document.docx
+      type: file
+      contentType: application/vnd.openxmlformats-officedocument.wordprocessingml.document
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-03a: File .docx — MIME không trong ALLOWED_MIMES → upload.middleware reject
+      pm.test('TC-SP-01-03a: Status code là 400 Bad Request', function () {
+        pm.response.to.have.status(400);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-03a: success = false', function () {
+        pm.expect(body.success).to.be.false;
+      });
+
+      pm.test('TC-SP-01-03a: error.code = "INVALID_FILE_TYPE"', function () {
+        pm.expect(body.error.code).to.equal('INVALID_FILE_TYPE');
+      });
+
+      pm.test('TC-SP-01-03a: error.message đề cập định dạng hợp lệ', function () {
+        pm.expect(body.error.message).to.match(/pdf|txt|png|jpg/i);
+      });
+    language: text/javascript
+order: 3000

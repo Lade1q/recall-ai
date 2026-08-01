@@ -1,0 +1,45 @@
+$kind: http-request
+name: TC-SP-01-04e — deadline không phải ngày hợp lệ → 400 VALIDATION_ERROR
+url: '{{baseURL}}/api/v1/plans'
+method: POST
+headers:
+  Authorization: Bearer {{accessToken}}
+body:
+  type: formdata
+  content:
+    - type: text
+      key: name
+      value: Ôn thi Toán
+    - type: text
+      key: deadline
+      value: not-a-date
+    - key: file
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/sample_lecture.pdf
+      type: file
+      contentType: application/pdf
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-04e: deadline = "not-a-date" → new Date() trả NaN → refine fail → 400
+      pm.test('TC-SP-01-04e: Status code là 400 Bad Request', function () {
+        pm.response.to.have.status(400);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-04e: success = false', function () {
+        pm.expect(body.success).to.be.false;
+      });
+
+      pm.test('TC-SP-01-04e: error.code = "VALIDATION_ERROR"', function () {
+        pm.expect(body.error.code).to.equal('VALIDATION_ERROR');
+      });
+
+      pm.test('TC-SP-01-04e: error.details chứa lỗi trường "deadline"', function () {
+        const details = body.error.details;
+        pm.expect(details).to.be.an('array').that.is.not.empty;
+        const deadlineError = details.find(d => d.path && d.path.includes('deadline'));
+        pm.expect(deadlineError).to.not.be.undefined;
+      });
+    language: text/javascript
+order: 4400

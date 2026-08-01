@@ -1,0 +1,71 @@
+$kind: http-request
+name: TC-SP-01-08 — GET /plans → danh sách hiển thị đúng plan vừa tạo (200)
+url: '{{baseURL}}/api/v1/plans'
+method: GET
+headers:
+  Authorization: Bearer {{accessToken}}
+scripts:
+  - type: afterResponse
+    code: |-
+      // TC-SP-01-08: POST-condition của SP-01 — plan được lưu và hiển thị đúng trong danh sách.
+      // Dùng planId đã lưu từ TC-SP-01-01 (pm.environment.get('planId')).
+      // User isolation: test này chỉ verify Student A thấy plan của mình.
+      // Để test Student B không thấy plan → chạy với token Student B riêng.
+
+      pm.test('TC-SP-01-08: Status code là 200 OK', function () {
+        pm.response.to.have.status(200);
+      });
+
+      const body = pm.response.json();
+
+      pm.test('TC-SP-01-08: success = true', function () {
+        pm.expect(body.success).to.be.true;
+      });
+
+      pm.test('TC-SP-01-08: data.plans là mảng', function () {
+        pm.expect(body.data.plans).to.be.an('array');
+      });
+
+      const planId = pm.environment.get('planId');
+      pm.test('TC-SP-01-08: Plan vừa tạo (TC-SP-01-01) xuất hiện trong danh sách', function () {
+        pm.expect(planId, 'planId chưa được set — hãy chạy TC-SP-01-01 trước').to.not.be.undefined;
+        const found = body.data.plans.find(p => p.id === planId);
+        pm.expect(found, 'Plan không tìm thấy trong danh sách').to.not.be.undefined;
+      });
+
+      pm.test('TC-SP-01-08: Plan có đầy đủ trường id, name, deadline, status, createdAt', function () {
+        const plan = body.data.plans.find(p => p.id === planId);
+        if (plan) {
+          pm.expect(plan).to.include.all.keys('id', 'name', 'deadline', 'status', 'createdAt');
+        }
+      });
+
+      pm.test('TC-SP-01-08: plan.name = "Ôn thi Cấu trúc Dữ liệu"', function () {
+        const plan = body.data.plans.find(p => p.id === planId);
+        if (plan) {
+          pm.expect(plan.name).to.equal('Ôn thi Cấu trúc Dữ liệu');
+        }
+      });
+
+      pm.test('TC-SP-01-08: plan.status là "draft" hoặc "active"', function () {
+        const plan = body.data.plans.find(p => p.id === planId);
+        if (plan) {
+          pm.expect(['draft', 'active']).to.include(plan.status);
+        }
+      });
+
+      pm.test('TC-SP-01-08: plan.createdAt là ISO timestamp hợp lệ', function () {
+        const plan = body.data.plans.find(p => p.id === planId);
+        if (plan) {
+          pm.expect(new Date(plan.createdAt).toString()).to.not.equal('Invalid Date');
+        }
+      });
+
+      pm.test('TC-SP-01-08: conceptCount là số nguyên không âm', function () {
+        const plan = body.data.plans.find(p => p.id === planId);
+        if (plan && plan.conceptCount !== undefined) {
+          pm.expect(plan.conceptCount).to.be.a('number').and.at.least(0);
+        }
+      });
+    language: text/javascript
+order: 8000
