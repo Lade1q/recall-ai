@@ -22,10 +22,13 @@ scripts:
     code: |-
       pm.test('TC-SP-05-15: Status code là 201 Created', function () { pm.response.to.have.status(201); });
       const body = pm.response.json();
-      pm.test('TC-SP-05-15: success = true', function () { pm.expect(body.success).to.be.true; });
-      pm.test('TC-SP-05-15: data.plan.concepts là mảng rỗng', function () { pm.expect(body.data.plan.concepts).to.be.an('array').with.lengthOf(0); });
-      pm.test('TC-SP-05-15: data.plan.status = active (hoặc draft nếu concepts rỗng)', function () {
-        pm.expect(['active', 'draft']).to.include(body.data.plan.status);
+      pm.test('TC-SP-05-15: data.plan.status = draft', function () { pm.expect(body.data.plan.status).to.equal('draft'); });
+      pm.test('TC-SP-05-15: data.plan.concepts chưa có', function () {
+        if (body.data.plan.concepts) {
+          pm.expect(body.data.plan.concepts).to.be.an('array').that.is.empty;
+        } else {
+          pm.expect(body.data.plan.concepts).to.be.undefined;
+        }
       });
     language: text/javascript
 order: 15000

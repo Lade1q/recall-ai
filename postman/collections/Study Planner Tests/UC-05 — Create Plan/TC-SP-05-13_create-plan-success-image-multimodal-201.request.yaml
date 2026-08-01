@@ -24,7 +24,13 @@ scripts:
       const body = pm.response.json();
       pm.test('TC-SP-05-13: success = true', function () { pm.expect(body.success).to.be.true; });
       pm.test('TC-SP-05-13: data.plan.id tồn tại', function () { pm.expect(body.data.plan.id).to.be.a('string').and.not.empty; });
-      pm.test('TC-SP-05-13: data.plan.status = active', function () { pm.expect(body.data.plan.status).to.equal('active'); });
-      pm.test('TC-SP-05-13: data.plan.concepts là mảng không rỗng', function () { pm.expect(body.data.plan.concepts).to.be.an('array').and.not.empty; });
+      pm.test('TC-SP-05-13: data.plan.status = draft', function () { pm.expect(body.data.plan.status).to.equal('draft'); });
+      pm.test('TC-SP-05-13: data.plan.concepts chưa có', function () {
+        if (body.data.plan.concepts) {
+          pm.expect(body.data.plan.concepts).to.be.an('array').that.is.empty;
+        } else {
+          pm.expect(body.data.plan.concepts).to.be.undefined;
+        }
+      });
     language: text/javascript
 order: 13000

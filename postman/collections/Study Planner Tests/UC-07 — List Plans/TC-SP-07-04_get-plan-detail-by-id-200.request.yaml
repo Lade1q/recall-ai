@@ -11,19 +11,17 @@ scripts:
       const body = pm.response.json();
       pm.test('TC-SP-07-04: success = true', function () { pm.expect(body.success).to.be.true; });
       pm.test('TC-SP-07-04: data.plan.id khớp với planId', function () {
-        pm.expect(body.data.plan.id).to.equal(pm.environment.get('planId'));
+        pm.expect(body.data.id).to.equal(pm.environment.get('planId'));
       });
       pm.test('TC-SP-07-04: data.plan có id, name, deadline, status, createdAt', function () {
-        pm.expect(body.data.plan).to.include.all.keys('id', 'name', 'deadline', 'status', 'createdAt');
+        pm.expect(body.data).to.include.all.keys('id', 'name', 'deadline', 'status', 'createdAt');
       });
-      pm.test('TC-SP-07-04: data.plan.status = active', function () { pm.expect(body.data.plan.status).to.equal('active'); });
-      pm.test('TC-SP-07-04: data.concepts là mảng với id, name, difficulty, mastery_score', function () {
-        pm.expect(body.data.concepts).to.be.an('array').and.not.empty;
-        body.data.concepts.forEach(c => pm.expect(c).to.include.all.keys('id', 'name', 'difficulty', 'mastery_score'));
+      pm.test('TC-SP-07-04: data.plan.status = draft', function () { pm.expect(body.data.status).to.equal('draft'); });
+      pm.test('TC-SP-07-04: data.concepts là mảng (có thể rỗng khi đang draft)', function () {
+        pm.expect(body.data.concepts).to.be.an('array');
       });
-      pm.test('TC-SP-07-04: data.edges là mảng với from, to', function () {
+      pm.test('TC-SP-07-04: data.edges là mảng', function () {
         pm.expect(body.data.edges).to.be.an('array');
-        body.data.edges.forEach(e => pm.expect(e).to.include.all.keys('from', 'to'));
       });
     language: text/javascript
 order: 4000

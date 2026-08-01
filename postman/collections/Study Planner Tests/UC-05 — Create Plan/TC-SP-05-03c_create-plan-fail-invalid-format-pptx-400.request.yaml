@@ -16,7 +16,6 @@ body:
     - key: file
       src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/presentation.pptx
       type: file
-      contentType: application/pdf
 scripts:
   - type: afterResponse
     code: |-

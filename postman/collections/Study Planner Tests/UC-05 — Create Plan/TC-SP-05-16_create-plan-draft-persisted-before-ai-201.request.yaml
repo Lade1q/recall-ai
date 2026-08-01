@@ -24,7 +24,7 @@ scripts:
       const body = pm.response.json();
       pm.test('TC-SP-05-16: success = true', function () { pm.expect(body.success).to.be.true; });
       pm.test('TC-SP-05-16: data.plan.id tồn tại (draft đã được ghi DB)', function () { pm.expect(body.data.plan.id).to.be.a('string').and.not.empty; });
-      pm.test('TC-SP-05-16: data.plan.status = active (draft → active sau AI)', function () { pm.expect(body.data.plan.status).to.equal('active'); });
+      pm.test('TC-SP-05-16: data.plan.status = draft', function () { pm.expect(body.data.plan.status).to.equal('draft'); });
       pm.test('TC-SP-05-16: data.plan.createdAt tồn tại (ghi lại thời điểm draft được tạo)', function () {
         pm.expect(body.data.plan.createdAt).to.be.a('string').and.not.empty;
       });

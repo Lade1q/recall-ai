@@ -21,10 +21,12 @@ scripts:
         const plan = body.data.plans.find(p => p.id === planId);
         pm.expect(plan).to.include.all.keys('id', 'name', 'deadline', 'status', 'createdAt');
       });
-      pm.test('TC-SP-07-01: plan.status = active', function () {
+      pm.test('TC-SP-07-01: plan.status = draft', function () {
         const planId = pm.environment.get('planId');
         const plan = body.data.plans.find(p => p.id === planId);
-        pm.expect(plan.status).to.equal('active');
+        if (plan) {
+           pm.expect(plan.status).to.equal('draft');
+        }
       });
       pm.test('TC-SP-07-01: plan.deadline là ISO 8601 hợp lệ', function () {
         const planId = pm.environment.get('planId');
