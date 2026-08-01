@@ -12,7 +12,10 @@
     "format": "prettier --write .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:seed": "ts-node -O '{\"rootDir\":\".\",\"module\":\"commonjs\"}' prisma/seed-test.ts",
-    "test:run": "npm run test:seed && postman collection run \"../../postman/dist/Authentication Module Tests.collection.json\" -e \"../../postman/environments/Local Dev.environment.yaml\""
+    "test:auth": "postman collection run \"../../postman/dist/Authentication Module Tests.collection.json\" -e \"../../postman/environments/Local Dev.environment.yaml\"",
+    "test:setup": "ts-node -O '{\"rootDir\":\".\",\"module\":\"commonjs\"}' test-setup.ts",
+    "test:planner": "npm run test:setup && postman collection run \"../../postman/collections/Study Planner Tests\" -e \"../../postman/environments/Local Dev.environment.yaml\" --working-dir \"../../postman/test-data\"",
+    "test:run": "npm run test:seed && npm run test:auth && npm run test:planner"
   },
   "keywords": [],
   "author": "",
