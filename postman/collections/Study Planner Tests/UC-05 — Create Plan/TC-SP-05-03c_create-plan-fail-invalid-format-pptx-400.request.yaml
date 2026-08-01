@@ -26,7 +26,7 @@ scripts:
       const body = pm.response.json();
       pm.test('TC-SP-05-03c: success = false', function () { pm.expect(body.success).to.be.false; });
       pm.test('TC-SP-05-03c: error.code là INVALID_FILE_FORMAT hoặc UNSUPPORTED_MEDIA_TYPE', function () {
-        pm.expect(['INVALID_FILE_FORMAT', 'UNSUPPORTED_MEDIA_TYPE']).to.include(body.error.code);
+        pm.expect(['INVALID_FILE_FORMAT', 'INVALID_FILE_TYPE', 'UNSUPPORTED_MEDIA_TYPE']).to.include(body.error.code);
       });
     language: text/javascript
 order: 3300

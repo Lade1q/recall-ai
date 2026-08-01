@@ -24,17 +24,14 @@ scripts:
       const body = pm.response.json();
       pm.test('TC-SP-05-01: success = true', function () { pm.expect(body.success).to.be.true; });
       pm.test('TC-SP-05-01: data.plan.id tồn tại', function () { pm.expect(body.data.plan.id).to.be.a('string').and.not.empty; });
-      pm.test('TC-SP-05-01: data.plan.status = active', function () { pm.expect(body.data.plan.status).to.equal('active'); });
+      pm.test('TC-SP-05-01: data.plan.status = draft', function () { pm.expect(body.data.plan.status).to.equal('draft'); });
       pm.test('TC-SP-05-01: data.plan.name khớp input', function () { pm.expect(body.data.plan.name).to.equal('Ôn thi Cấu trúc Dữ liệu'); });
-      pm.test('TC-SP-05-01: data.plan.concepts là mảng không rỗng', function () { pm.expect(body.data.plan.concepts).to.be.an('array').and.not.empty; });
-      pm.test('TC-SP-05-01: mỗi concept có id, name, difficulty, prerequisites', function () {
-        body.data.plan.concepts.forEach(c => {
-          pm.expect(c).to.have.all.keys(['id','name','difficulty','prerequisites','mastery_score'].filter(k => c[k] !== undefined || k !== 'mastery_score'));
-          pm.expect(c.id).to.be.a('string');
-          pm.expect(c.name).to.be.a('string');
-          pm.expect(c.difficulty).to.be.a('number').and.within(1, 5);
-          pm.expect(c.prerequisites).to.be.an('array');
-        });
+      pm.test('TC-SP-05-01: data.plan.concepts chưa có (hoặc mảng rỗng do đang tạo draft)', function () { 
+        if (body.data.plan.concepts) {
+          pm.expect(body.data.plan.concepts).to.be.an('array').that.is.empty;
+        } else {
+          pm.expect(body.data.plan.concepts).to.be.undefined;
+        }
       });
       if (body.data && body.data.plan && body.data.plan.id) {
           pm.environment.set('planId', body.data.plan.id);
