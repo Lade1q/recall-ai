@@ -29,7 +29,14 @@
 - [TC-SP-01-07](#tc-sp-01-07-ai-tạo-cycle--dag-tự-động-loại-bỏ-cạnh--dagautofixedtrue) — AI tạo cycle → DAG tự động loại bỏ cạnh → dagAutoFixed=true
 - [TC-SP-01-08](#tc-sp-01-08-xem-danh-sách-plans--hiển-thị-đúng-plan-vừa-tạo) — Xem danh sách plans → hiển thị đúng plan vừa tạo
 
-**UI / E2E Tests** _(sẽ bổ sung sau)_
+**UI / E2E Tests**
+
+- [TC-SP-01-UI-01](#tc-sp-01-ui-01-tạo-plan-thành-công-với-file-pdf-happy-path) — Tạo plan thành công với file PDF (Happy Path)
+- [TC-SP-01-UI-02](#tc-sp-01-ui-02-tạo-plan-thành-công-bằng-cách-dán-text-happy-path) — Tạo plan thành công bằng cách dán text (Happy Path)
+- [TC-SP-01-UI-03](#tc-sp-01-ui-03-tạo-plan-thất-bại--để-trống-các-trường-bắt-buộc) — Tạo plan thất bại — Để trống trường bắt buộc
+- [TC-SP-01-UI-04](#tc-sp-01-ui-04-tạo-plan-thất-bại--hạn-hoàn-thành-trong-quá-khứ) — Tạo plan thất bại — Hạn hoàn thành trong quá khứ
+- [TC-SP-01-UI-05](#tc-sp-01-ui-05-tạo-plan-thất-bại--tài-liệu-vượt-quá-10mb) — Tạo plan thất bại — Tài liệu/Text vượt quá 10MB
+- [TC-SP-01-UI-06](#tc-sp-01-ui-06-tạo-plan-thất-bại--sai-định-dạng-tài-liệu) — Tạo plan thất bại — Sai định dạng tài liệu
 
 ---
 
@@ -207,6 +214,134 @@
 
 ---
 
+## UC-05: UI / E2E Tests — Tạo kế hoạch ôn tập mới (SP-01)
+
+> **Loại kiểm thử:** UI / End-to-End  
+> **Công cụ:** Trình duyệt (Chrome) — kiểm tra thủ công trên giao diện  
+> **Môi trường:** Frontend chạy tại `http://localhost:5173` (hoặc tương đương)
+
+---
+
+### TC-SP-01-UI-01: Tạo plan thành công với file PDF (Happy Path)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Tạo kế hoạch học tập (UI)                                                                                                                                                                                                                                                                                                                           |
+| **Mã TC**                | TC-SP-01-UI-01                                                                                                                                                                                                                                                                                                                                              |
+| **Tiêu đề**              | Tạo plan thành công với dữ liệu hợp lệ (tải file PDF)                                                                                                                                                                                                                                                                                                       |
+| **Mô tả**                | Điền đầy đủ form tạo kế hoạch với Tên, Hạn hoàn thành, chọn tab "Tệp PDF" và tải lên file hợp lệ. Sau khi nhấn "Phân tích tài liệu", hệ thống hiển thị màn hình loading và chuyển trang thành công.                                                                                                                                                         |
+| **Loại kiểm thử**        | UI / E2E                                                                                                                                                                                                                                                                                                                                                    |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                                                                        |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Đã đăng nhập vào hệ thống<br>- File `sample_lecture.pdf` (≤ 10MB) chuẩn bị sẵn                                                                                                                                                                                                                                         |
+| **Các bước thực hiện**   | 1. Khởi động Backend với chế độ Mock AI bật sẵn<br>2. Truy cập trang Tạo kế hoạch (`/plan/new`)<br>3. Nhập `Tên kế hoạch`: `Mạng máy tính`<br>4. Chọn `Hạn ôn xong` trên Calendar: Chọn một ngày trong tương lai<br>5. Ở phần Tài liệu ôn tập, chọn tab **Tệp PDF**<br>6. Kéo thả hoặc chọn file `sample_lecture.pdf`<br>7. Nhấn nút **Phân tích tài liệu** |
+| **Dữ liệu đầu vào**      | `Tên kế hoạch`: `Mạng máy tính`<br>`Hạn ôn xong`: Ngày ở tương lai<br>`Tài liệu`: `sample_lecture.pdf`                                                                                                                                                                                                                                                      |
+| **Kết quả mong đợi**     | - Hiển thị màn hình loading ("Đang phân tích...") với thông báo "Bạn có thể rời trang"<br>- Sau khi API trả về thành công, tự động chuyển hướng sang trang chi tiết kế hoạch: `/plan/<id>?mode=edit`                                                                                                                                                        |
+| **Kết quả thực tế**      | Hiển thị màn hình loading mô phỏng quá trình AI chạy nền, sau đó chuyển hướng đúng sang trang kiểm chứng (`/plan/<id>?mode=edit`).                                                                                                                                                                                                                          |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                                                                                        |
+| **Ghi chú**              | Đây là luồng Happy Path chính sử dụng file PDF.                                                                                                                                                                                                                                                                                                             |
+
+---
+
+### TC-SP-01-UI-02: Tạo plan thành công bằng cách dán text (Happy Path)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Tạo kế hoạch học tập (UI)                                                                                                                                                                                                                                      |
+| **Mã TC**                | TC-SP-01-UI-02                                                                                                                                                                                                                                                         |
+| **Tiêu đề**              | Tạo plan thành công bằng cách dán văn bản                                                                                                                                                                                                                              |
+| **Mô tả**                | Điền form tạo kế hoạch, chọn tab "Dán text" và nhập nội dung văn bản. Hệ thống phải tạo file .txt ẩn từ text đã dán và gửi lên backend thành công.                                                                                                                     |
+| **Loại kiểm thử**        | UI / E2E                                                                                                                                                                                                                                                               |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                   |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Đã đăng nhập vào hệ thống                                                                                                                                                                                                         |
+| **Các bước thực hiện**   | 1. Khởi động Backend với chế độ Mock AI bật sẵn<br>2. Truy cập trang Tạo kế hoạch<br>3. Nhập Tên kế hoạch và Hạn ôn xong<br>4. Ở phần Tài liệu ôn tập, chọn tab **Dán text**<br>5. Nhập hoặc dán nội dung văn bản vào ô Textarea<br>6. Nhấn nút **Phân tích tài liệu** |
+| **Dữ liệu đầu vào**      | `Tên kế hoạch`: `Lịch sử Đảng`<br>`Hạn ôn xong`: Ngày ở tương lai<br>`Tài liệu` (Text): `Nội dung ôn tập chương 1...`                                                                                                                                                  |
+| **Kết quả mong đợi**     | - Không hiển thị lỗi validation<br>- Hiển thị màn hình loading<br>- Tự động chuyển hướng sang trang chi tiết kế hoạch: `/plan/<id>?mode=edit`                                                                                                                          |
+| **Kết quả thực tế**      | Frontend tự tạo file `.txt` từ nội dung, API call trả về 201 Created và hệ thống chuyển hướng thành công.                                                                                                                                                              |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                   |
+| **Ghi chú**              | Tính năng dán text được xử lý client-side bằng cách tạo Blob và File.                                                                                                                                                                                                  |
+
+---
+
+### TC-SP-01-UI-03: Tạo plan thất bại — Để trống các trường bắt buộc
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Validation UI                                                                                                                                                                                                                                                                     |
+| **Mã TC**                | TC-SP-01-UI-03                                                                                                                                                                                                                                                                            |
+| **Tiêu đề**              | UI báo lỗi khi bỏ trống các trường bắt buộc (Tên, Hạn hoàn thành, Tài liệu)                                                                                                                                                                                                               |
+| **Mô tả**                | Nhấn submit khi chưa nhập Tên kế hoạch, chưa chọn Hạn hoàn thành hoặc chưa tải file/nhập text. UI phải hiển thị lỗi inline và không gửi request.                                                                                                                                          |
+| **Loại kiểm thử**        | UI / Validation                                                                                                                                                                                                                                                                           |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                      |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đã đăng nhập                                                                                                                                                                                                                                                    |
+| **Các bước thực hiện**   | 1. Mở trang Tạo kế hoạch<br>2. Để trống Tên kế hoạch, Hạn hoàn thành<br>3. Ở phần Tài liệu ôn tập: thử để trống file ở tab PDF, hoặc ô textarea ở tab Text rỗng<br>4. Nhấn nút **Phân tích tài liệu**                                                                                     |
+| **Dữ liệu đầu vào**      | Form trống hoàn toàn                                                                                                                                                                                                                                                                      |
+| **Kết quả mong đợi**     | - Dưới trường Tên kế hoạch: _"Vui lòng nhập tên kế hoạch"_ <br>- Dưới trường Hạn hoàn thành: _"Vui lòng chọn hạn hoàn thành."_<br>- Dưới trường Tài liệu: Dropzone (hoặc Textarea) hiển thị viền đỏ và text lỗi _"Vui lòng tải lên tài liệu để tiếp tục."_<br>- Request không được gửi đi |
+| **Kết quả thực tế**      | Hiển thị đầy đủ các lỗi inline màu đỏ như kỳ vọng.                                                                                                                                                                                                                                        |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                      |
+| **Ghi chú**              | Validation tích hợp `react-hook-form` và `zod` cho Tên/Ngày, logic state tùy chỉnh cho file.                                                                                                                                                                                              |
+
+---
+
+### TC-SP-01-UI-04: Tạo plan thất bại — Hạn hoàn thành trong quá khứ
+
+| Trường                   | Nội dung                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Validation UI                                                                                                                                                                                         |
+| **Mã TC**                | TC-SP-01-UI-04                                                                                                                                                                                                |
+| **Tiêu đề**              | UI báo lỗi khi chọn hạn hoàn thành trong quá khứ                                                                                                                                                              |
+| **Mô tả**                | Cố gắng chọn ngày hôm qua trên Calendar hoặc UI bị lỗi dẫn đến submit một ngày trong quá khứ. Zod schema phải bắt lỗi.                                                                                        |
+| **Loại kiểm thử**        | UI / Validation                                                                                                                                                                                               |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                        |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đã đăng nhập                                                                                                                                                                        |
+| **Các bước thực hiện**   | 1. Mở trang Tạo kế hoạch<br>2. Mở Popover Calendar<br>3. Cố gắng chọn ngày trong quá khứ (các ngày này thường bị disable trên UI)<br>4. Nếu UI cho phép chọn hoặc dùng trick để điền ngày cũ, thử submit form |
+| **Dữ liệu đầu vào**      | `Hạn ôn xong`: Ngày của quá khứ (VD: 01/01/2020)                                                                                                                                                              |
+| **Kết quả mong đợi**     | - Calendar UI disable (làm mờ) các ngày trong quá khứ, không cho phép click.<br>- Nếu submit được, hệ thống hiển thị báo lỗi inline: _"Hạn hoàn thành không được nằm trong quá khứ."_                         |
+| **Kết quả thực tế**      | Calendar UI (DayPicker) đã disable các ngày trước hôm nay, chặn người dùng chọn ngày cũ. Zod resolver cũng có chặn nếu input bị bypass.                                                                       |
+| **Trạng thái**           | Pass                                                                                                                                                                                                          |
+| **Ghi chú**              | Calendar component truyền tham số `disabled={(date) => startOfDay(date) < startOfDay(new Date())}` hoạt động tốt.                                                                                             |
+
+---
+
+### TC-SP-01-UI-05: Tạo plan thất bại — Tài liệu/Text vượt quá 10MB
+
+| Trường                   | Nội dung                                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Validation UI                                                                                                                                                                       |
+| **Mã TC**                | TC-SP-01-UI-05                                                                                                                                                                              |
+| **Tiêu đề**              | UI báo lỗi khi tài liệu tải lên hoặc văn bản dán vào vượt quá 10MB                                                                                                                          |
+| **Mô tả**                | Tải lên một file PDF/IMG > 10MB hoặc dán đoạn text có dung lượng sau khi convert thành Blob > 10MB. UI phải chặn gửi request.                                                               |
+| **Loại kiểm thử**        | UI / Validation                                                                                                                                                                             |
+| **Độ ưu tiên**           | High                                                                                                                                                                                        |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- File `large_file.pdf` (15MB)<br>- Hoặc chuẩn bị đoạn text cực kỳ dài (size > 10MB)                                                                                |
+| **Các bước thực hiện**   | **Case A:** Chọn tab Tệp PDF, tải `large_file.pdf` (15MB).<br>**Case B:** Chọn tab Dán text, dán đoạn text > 10MB vào textarea, nhập Tên/Ngày đầy đủ và nhấn Phân tích tài liệu.            |
+| **Dữ liệu đầu vào**      | `large_file.pdf` hoặc Text > 10MB                                                                                                                                                           |
+| **Kết quả mong đợi**     | **Case A:** Dropzone từ chối file ngay lập tức khi tải lên.<br>**Case B:** Hiển thị thông báo Toast error: _"Văn bản dán vào nặng [x] MB, vượt giới hạn 10 MB."_ và request không được gửi. |
+| **Kết quả thực tế**      | FileDropzone không nhận file > 10MB. Tab dán text hiển thị toast error chính xác khi blob vượt quá MAX_FILE_SIZE.                                                                           |
+| **Trạng thái**           | Pass                                                                                                                                                                                        |
+| **Ghi chú**              | Frontend kiểm tra dung lượng text dán vào dựa trên byte length của đối tượng Blob.                                                                                                          |
+
+---
+
+### TC-SP-01-UI-06: Tạo plan thất bại — Sai định dạng tài liệu
+
+| Trường                   | Nội dung                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-05 — Validation UI                                                                                                   |
+| **Mã TC**                | TC-SP-01-UI-06                                                                                                          |
+| **Tiêu đề**              | UI báo lỗi khi upload file không đúng định dạng của tab hiện tại                                                        |
+| **Mô tả**                | Thử tải file `.jpg` vào tab Tệp PDF, hoặc tải `.pdf` vào tab Ảnh chụp. FileDropzone phải từ chối file.                  |
+| **Loại kiểm thử**        | UI / Validation                                                                                                         |
+| **Độ ưu tiên**           | Medium                                                                                                                  |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đã chuẩn bị file PDF và file JPG                                                              |
+| **Các bước thực hiện**   | 1. Chọn tab **Tệp PDF**, kéo thả file `.jpg` vào dropzone<br>2. Chọn tab **Ảnh chụp**, kéo thả file `.pdf` vào dropzone |
+| **Dữ liệu đầu vào**      | Ảnh JPG, file PDF                                                                                                       |
+| **Kết quả mong đợi**     | - FileDropzone từ chối file (reject)<br>- Không ghi nhận file trong state, có thể hiển thị border đỏ nhắc nhở           |
+| **Kết quả thực tế**      | UI FileDropzone từ chối nhận file khác `allowedTypes`, state `selectedFile` vẫn rỗng.                                   |
+| **Trạng thái**           | Pass                                                                                                                    |
+| **Ghi chú**              | Phụ thuộc vào config `accept` và `fileFilter` của react-dropzone trong component FileDropzone.                          |
+
+---
+
 ## Phụ lục — Mapping & Lý do loại bỏ
 
 ### Mapping từ phiên bản cũ (v1.3) sang mới (v2.0)
@@ -221,22 +356,3 @@
 | TC-SP-01-06 | TC-SP-05-06 | Sửa trigger mock fail bằng tên plan; xóa mô tả sai về chia nhỏ tài liệu                                 |
 | TC-SP-01-07 | TC-SP-05-07 | Làm rõ auto-fix (AI) vs reject 409 (user edit); sửa kỳ vọng dùng poll GET                               |
 | TC-SP-01-08 | TC-SP-07-01 | Thêm verify cách ly dữ liệu (Student B); thêm `conceptCount` check                                      |
-
-### TC bị loại bỏ và lý do
-
-| TC Cũ                 | Lý do loại bỏ                                                  |
-| --------------------- | -------------------------------------------------------------- |
-| TC-SP-05-08           | AI timeout không config được qua env — không mock đáng tin cậy |
-| TC-SP-05-09           | Thuộc Auth module, không phải SP-01                            |
-| TC-SP-05-10           | Cover trong TC-SP-01-04                                        |
-| TC-SP-05-11           | Async — file corrupt chỉ phát hiện trong background job        |
-| TC-SP-05-12           | Gộp vào TC-SP-01-04 sub-case 04d                               |
-| TC-SP-05-13           | Alternative Flow 2, chưa trong scope                           |
-| TC-SP-05-14           | Alternative Flow 3, chưa implement                             |
-| TC-SP-05-15           | Schema `min(1)` reject ngay — identical với TC-SP-01-06        |
-| TC-SP-05-16           | Implementation detail nội bộ                                   |
-| TC-SP-05-17           | Chưa có API cancel/delete                                      |
-| TC-SP-05-18           | Trivial, không trong acceptance criteria                       |
-| TC-SP-05-19           | Quá chi tiết cho API test Postman                              |
-| TC-SP-06-01 đến 06-07 | UC-06 scope — có file test riêng                               |
-| TC-SP-07-02 đến 07-06 | UC-07 scope                                                    |
