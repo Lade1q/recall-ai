@@ -46,7 +46,7 @@ scripts:
                           done(e);
                       }
                   });
-              }, 4500); // Wait longer because retry logic has exponential backoff (2s + 4s...)
+              }, 8000); // Wait longer because retry logic has exponential backoff (2s + 4s = 6s total wait)
           });
       }
     language: text/javascript
