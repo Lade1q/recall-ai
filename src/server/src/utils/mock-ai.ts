@@ -23,3 +23,30 @@ export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
   ],
   language_detected: 'en',
 };
+
+// Người tạo: QA/Tester dùng để mock test AI, đảm bảo ko ảnh hưởng logic backend AI, xóa nếu cần
+export const MOCK_EXTRACT_RESULT_CYCLE: AiExtractResponse = {
+  concepts: [
+    { name: 'Định thức', difficulty: 1, description: '...', source_page: 1, source_excerpt: '...' },
+    {
+      name: 'Ma trận nghịch đảo',
+      difficulty: 2,
+      description: '...',
+      source_page: 1,
+      source_excerpt: '...',
+    },
+    {
+      name: 'Hệ phương trình',
+      difficulty: 3,
+      description: '...',
+      source_page: 1,
+      source_excerpt: '...',
+    },
+  ],
+  edges: [
+    { from: 'Hệ phương trình', to: 'Định thức' },
+    { from: 'Định thức', to: 'Ma trận nghịch đảo' },
+    { from: 'Ma trận nghịch đảo', to: 'Hệ phương trình' },
+  ],
+  language_detected: 'vi',
+};

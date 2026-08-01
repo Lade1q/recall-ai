@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import prisma from '../config/prisma';
 import { extractConcepts, uploadFile } from './gemini.service';
-import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
+import { MOCK_EXTRACT_RESULT, MOCK_EXTRACT_RESULT_CYCLE } from '../utils/mock-ai';
 import { validateAndFixDag } from '../utils/dag';
 import { buildConceptSourceRows } from '../utils/concept-source';
 import { validateDAG } from './graph.service';
@@ -19,8 +19,17 @@ const MIME_BY_EXT: Record<string, string> = {
   '.jpeg': 'image/jpeg',
 };
 
-async function callAi(fileKey: string): Promise<AiExtractResponse> {
+async function callAi(fileKey: string, planId?: string): Promise<AiExtractResponse> {
   if (process.env.USE_MOCK_AI === 'true') {
+    if (planId) {
+      const plan = await prisma.studyPlan.findUnique({ where: { id: planId } });
+      if (plan?.name === 'Ôn thi Mạng máy tính') {
+        throw new Error('AI_EXTRACTION_FAILED');
+      }
+      if (plan?.name === 'Ôn thi Đại số tuyến tính') {
+        return MOCK_EXTRACT_RESULT_CYCLE;
+      }
+    }
     return MOCK_EXTRACT_RESULT;
   }
 
@@ -41,14 +50,14 @@ async function callAi(fileKey: string): Promise<AiExtractResponse> {
   return extractConcepts({ kind, uri: uploaded.uri, mimeType: uploaded.mimeType });
 }
 
-async function callAiWithRetry(fileKey: string): Promise<AiExtractResponse> {
+async function callAiWithRetry(fileKey: string, planId?: string): Promise<AiExtractResponse> {
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, BACKOFF_BASE_MS * 2 ** (attempt - 1)));
     }
     try {
-      return await callAi(fileKey);
+      return await callAi(fileKey, planId);
     } catch (error) {
       lastError = error;
     }
@@ -81,7 +90,7 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
   const planId = job.planDraftId;
 
   try {
-    const extracted = await callAiWithRetry(job.fileKey);
+    const extracted = await callAiWithRetry(job.fileKey, job.planDraftId);
     // Concepts aren't persisted yet, so the graph is keyed by concept name here.
     const { edges, autoFixed } = validateAndFixDag(
       extracted.concepts.map((c) => c.name),
