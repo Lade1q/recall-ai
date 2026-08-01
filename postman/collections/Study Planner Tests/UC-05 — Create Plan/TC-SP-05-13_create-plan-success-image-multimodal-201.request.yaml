@@ -14,8 +14,9 @@ body:
       key: deadline
       value: '2026-12-31'
     - key: file
-      src: lecture_page.jpg
+      src: /home/minhphat/workspace/planning-ai/planning-ai/postman/test-data/TC-SP-Studyplanner/lecture_page.jpg
       type: file
+      contentType: application/pdf
 scripts:
   - type: afterResponse
     code: |-
