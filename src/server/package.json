@@ -14,7 +14,7 @@
     "test:seed": "ts-node -O '{\"rootDir\":\".\",\"module\":\"commonjs\"}' prisma/seed-test.ts",
     "test:auth": "postman collection run \"../../postman/dist/Authentication Module Tests.collection.json\" -e \"../../postman/environments/Local Dev.environment.yaml\"",
     "test:setup": "ts-node -O '{\"rootDir\":\".\",\"module\":\"commonjs\"}' test-setup.ts",
-    "test:planner": "npm run test:setup && postman collection run \"../../postman/collections/Study Planner Tests\" -e \"../../postman/environments/Local Dev.environment.yaml\" --working-dir \"../../postman/test-data/TC-SP-Studyplanner\"",
+    "test:planner": "npm run test:setup && cd \"../../postman/test-data/TC-SP-Studyplanner\" && postman collection run \"../../collections/Study Planner Tests\" -e \"../../environments/Local Dev.environment.yaml\"",
     "test:run": "npm run test:seed && npm run test:auth && npm run test:planner"
   },
   "keywords": [],
