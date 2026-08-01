@@ -10,7 +10,7 @@ scripts:
       pm.test('TC-SP-07-05: Status code là 404 Not Found', function () { pm.response.to.have.status(404); });
       const body = pm.response.json();
       pm.test('TC-SP-07-05: success = false', function () { pm.expect(body.success).to.be.false; });
-      pm.test('TC-SP-07-05: error.code = PLAN_NOT_FOUND', function () { pm.expect(body.error.code).to.equal('PLAN_NOT_FOUND'); });
+      pm.test('TC-SP-07-05: error.code = NOT_FOUND', function () { pm.expect(body.error.code).to.equal('NOT_FOUND'); });
       pm.test('TC-SP-07-05: response không lộ stack trace', function () {
         pm.expect(JSON.stringify(body)).to.not.include('stack');
       });
