@@ -65,6 +65,16 @@ async function main() {
       },
     });
     console.log(`[seed-test] Created: logintest@example.com (password: ${password})`);
+
+    // User 3: Dùng cho test UI / thao tác thông thường
+    await tx.user.create({
+      data: {
+        email: 'user@example.com',
+        passwordHash,
+        name: 'Normal User',
+      },
+    });
+    console.log(`[seed-test] Created: user@example.com (password: ${password})`);
   });
 
   console.log('');
@@ -72,6 +82,7 @@ async function main() {
   console.log('[seed-test]    Accounts seeded:');
   console.log('[seed-test]      existing@example.com  / SecurePass1');
   console.log('[seed-test]      logintest@example.com / SecurePass1');
+  console.log('[seed-test]      user@example.com      / SecurePass1');
   console.log('');
   console.log('[seed-test]  Now run:  npx postman collection run ...');
 }
