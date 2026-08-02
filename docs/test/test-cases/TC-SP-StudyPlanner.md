@@ -355,18 +355,3 @@
 | **Nhận xét**             | Component FileDropzone hoạt động nhạy. Việc từ chối drag & drop sai định dạng ngay lập tức đảm bảo luồng nhập liệu không bị kẹt bởi file không hợp lệ.                                      |
 
 ---
-
-## Phụ lục — Mapping & Lý do loại bỏ
-
-### Mapping từ phiên bản cũ (v1.3) sang mới (v2.0)
-
-| TC Mới      | TC Cũ       | Thay đổi chính                                                                                          |
-| ----------- | ----------- | ------------------------------------------------------------------------------------------------------- |
-| TC-SP-01-01 | TC-SP-05-01 | Sửa kỳ vọng: response 201 có `status: "draft"`, không có concepts                                       |
-| TC-SP-01-02 | TC-SP-05-02 | Sửa HTTP: **400** (không phải 413), sửa error code: `FILE_TOO_LARGE`; thêm sub-case 02b (boundary 10MB) |
-| TC-SP-01-03 | TC-SP-05-03 | Sửa error code: `INVALID_FILE_TYPE`; giảm 4 → 2 sub-case                                                |
-| TC-SP-01-04 | TC-SP-05-04 | Giảm 6 → 5 sub-case; thêm deadline quá khứ; bỏ body hoàn toàn rỗng                                      |
-| TC-SP-01-05 | TC-SP-05-05 | Viết lại: thêm bước poll GET; sửa AI schema (`edges` riêng, bỏ `prerequisites`)                         |
-| TC-SP-01-06 | TC-SP-05-06 | Sửa trigger mock fail bằng tên plan; xóa mô tả sai về chia nhỏ tài liệu                                 |
-| TC-SP-01-07 | TC-SP-05-07 | Làm rõ auto-fix (AI) vs reject 409 (user edit); sửa kỳ vọng dùng poll GET                               |
-| TC-SP-01-08 | TC-SP-07-01 | Thêm verify cách ly dữ liệu (Student B); thêm `conceptCount` check                                      |
