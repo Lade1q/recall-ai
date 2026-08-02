@@ -3,7 +3,7 @@ import path from 'path';
 import { AnalysisJobPhase } from '@prisma/client';
 import prisma from '../config/prisma';
 import { extractConcepts, uploadFile } from './gemini.service';
-import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
+
 import { validateAndFixDag } from '../utils/dag';
 import { buildConceptSourceRows } from '../utils/concept-source';
 import { planConceptMerge, normalizeConceptKey } from '../utils/concept-merge';
@@ -31,11 +31,6 @@ const MIME_BY_EXT: Record<string, string> = {
 type OnPhase = (phase: AnalysisJobPhase) => Promise<void>;
 
 async function callAi(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
-  if (process.env.USE_MOCK_AI === 'true') {
-    await onPhase('extracting');
-    return MOCK_EXTRACT_RESULT;
-  }
-
   const absolutePath = path.join(UPLOAD_DIR, fileKey);
   const ext = path.extname(fileKey).toLowerCase();
 

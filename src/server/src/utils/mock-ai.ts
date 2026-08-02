@@ -29,6 +29,38 @@ export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
   language_detected: 'en',
 };
 
+export const MOCK_EXTRACT_RESULT_CYCLE: AiExtractResponse = {
+  concepts: [
+    {
+      name: 'Variable',
+      difficulty: 1,
+      description: 'Basic variables and data types',
+      source_page: 1,
+      source_excerpt: 'A variable is a named location.',
+    },
+    {
+      name: 'Loop',
+      difficulty: 2,
+      description: 'for/while loops',
+      source_page: 3,
+      source_excerpt: 'A loop repeatedly executes.',
+    },
+    {
+      name: 'Array',
+      difficulty: 2,
+      description: 'Arrays and indexing',
+      source_page: 5,
+      source_excerpt: 'An array stores elements.',
+    },
+  ],
+  edges: [
+    { from: 'Variable', to: 'Loop' },
+    { from: 'Loop', to: 'Array' },
+    { from: 'Array', to: 'Variable' }, // CYCLE: Array -> Variable -> Loop -> Array
+  ],
+  language_detected: 'en',
+};
+
 // --- AI Examiner mocks (I6.2 / #114) ---------------------------------------------
 // USE_MOCK_AI=true must exercise the whole interview flow without spending quota, so
 // these mirror the real return shapes exactly. Both are pure functions of their input:

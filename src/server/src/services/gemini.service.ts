@@ -16,7 +16,12 @@ import {
   Verdict,
 } from '../schemas/ai-interview.schema';
 import { reconcileVerdict } from '../utils/interview-grading';
-import { mockGenerateQuestion, mockGradeAnswer } from '../utils/mock-ai';
+import {
+  mockGenerateQuestion,
+  mockGradeAnswer,
+  MOCK_EXTRACT_RESULT,
+  MOCK_EXTRACT_RESULT_CYCLE,
+} from '../utils/mock-ai';
 import { AppError } from '../middleware/errorHandler';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -67,6 +72,10 @@ export async function uploadFile(
   absolutePath: string,
   mimeType: string
 ): Promise<{ uri: string; mimeType: string }> {
+  if (process.env.USE_MOCK_AI === 'true') {
+    return { uri: `mock-uri://${absolutePath}`, mimeType };
+  }
+
   const file = await ai.files.upload({ file: absolutePath, config: { mimeType } });
   if (file.name) {
     await waitForFileActive(file.name);
@@ -79,6 +88,18 @@ export async function uploadFile(
 
 /** Calls the extract_concepts schema. Text goes inline; images/PDFs are passed by File API URI. */
 export async function extractConcepts(source: AiMaterial): Promise<AiExtractResponse> {
+  if (process.env.USE_MOCK_AI === 'true') {
+    if (source.kind === 'text') {
+      if (source.text.includes('FAIL_MOCK')) {
+        throw new Error('Mock AI Extract Failed');
+      }
+      if (source.text.includes('CYCLE_MOCK')) {
+        return MOCK_EXTRACT_RESULT_CYCLE;
+      }
+    }
+    return MOCK_EXTRACT_RESULT;
+  }
+
   const input =
     source.kind === 'text'
       ? source.text
