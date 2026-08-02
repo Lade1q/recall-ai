@@ -276,8 +276,8 @@
 | **Các bước thực hiện**   | 1. Đăng nhập vào hệ thống<br>2. Mở trang Tạo kế hoạch <br>3. Để trống Tên kế hoạch, Hạn hoàn thành<br>4. Ở phần Tài liệu ôn tập: thử để trống file ở tab PDF, hoặc ô textarea ở tab Text rỗng<br>5. Nhấn nút **Phân tích tài liệu**                                                       |
 | **Dữ liệu đầu vào**      | Form trống hoàn toàn                                                                                                                                                                                                                                                                      |
 | **Kết quả mong đợi**     | - Dưới trường Tên kế hoạch: _"Vui lòng nhập tên kế hoạch"_ <br>- Dưới trường Hạn hoàn thành: _"Vui lòng chọn hạn hoàn thành."_<br>- Dưới trường Tài liệu: Dropzone (hoặc Textarea) hiển thị viền đỏ và text lỗi _"Vui lòng tải lên tài liệu để tiếp tục."_<br>- Request không được gửi đi |
-| **Kết quả thực tế**      |                                                                                                                                                                                                                                                                                           |
-| **Trạng thái**           | Chưa test                                                                                                                                                                                                                                                                                 |
+| **Kết quả thực tế**      | Hệ thống hiển thị đầy đủ thông báo lỗi dưới các trường Tên kế hoạch, Hạn hoàn thành, Tài liệu và không gửi request đi.                                                                                                                                                                    |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                      |
 | **Ghi chú**              | Validation tích hợp `react-hook-form` và `zod` cho Tên/Ngày, logic state tùy chỉnh cho file.                                                                                                                                                                                              |
 
 ---
@@ -296,8 +296,8 @@
 | **Các bước thực hiện**   | 1. Đăng nhập vào hệ thống<br>2. Mở trang Tạo kế hoạch <br>3. Mở Popover Calendar<br>4. Cố gắng chọn ngày trong quá khứ (các ngày này thường bị disable trên UI)<br>5. Nếu UI cho phép chọn hoặc dùng trick để điền ngày cũ, thử submit form |
 | **Dữ liệu đầu vào**      | `Hạn ôn xong`: Ngày của quá khứ (VD: 01/01/2020)                                                                                                                                                                                            |
 | **Kết quả mong đợi**     | - Calendar UI disable (làm mờ) các ngày trong quá khứ, không cho phép click.<br>- Nếu submit được, hệ thống hiển thị báo lỗi inline: _"Hạn hoàn thành không được nằm trong quá khứ."_                                                       |
-| **Kết quả thực tế**      |                                                                                                                                                                                                                                             |
-| **Trạng thái**           | Chưa test                                                                                                                                                                                                                                   |
+| **Kết quả thực tế**      | Các ngày trong quá khứ bị làm mờ (disabled) trên Calendar UI, người dùng hoàn toàn không thể chọn được.                                                                                                                                     |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                        |
 | **Ghi chú**              | Calendar component truyền tham số `disabled={(date) => startOfDay(date) < startOfDay(new Date())}` hoạt động tốt.                                                                                                                           |
 
 ---
@@ -316,8 +316,8 @@
 | **Các bước thực hiện**   | 1. Đăng nhập vào hệ thống và mở trang Tạo kế hoạch (`/plan/new`)<br>2. **Case A:** Chọn tab Tệp PDF, tải `large_file.pdf` (15MB).<br>3. **Case B:** Chọn tab Dán text, dán đoạn text > 10MB vào textarea, nhập Tên/Ngày đầy đủ và nhấn Phân tích tài liệu. |
 | **Dữ liệu đầu vào**      | `large_file.pdf` hoặc Text > 10MB                                                                                                                                                                                                                          |
 | **Kết quả mong đợi**     | **Case A:** Dropzone từ chối file ngay lập tức khi tải lên.<br>**Case B:** Hiển thị thông báo Toast error: _"Văn bản dán vào nặng [x] MB, vượt giới hạn 10 MB."_ và request không được gửi.                                                                |
-| **Kết quả thực tế**      |                                                                                                                                                                                                                                                            |
-| **Trạng thái**           | Chưa test                                                                                                                                                                                                                                                  |
+| **Kết quả thực tế**      | **Case A:** Dropzone từ chối hiển thị file ngay lập tức.<br>**Case B:** Hệ thống chặn submit và hiển thị Toast báo lỗi dung lượng văn bản dán vào vượt quá 10MB đúng như mong đợi.                                                                         |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                       |
 | **Ghi chú**              | Frontend kiểm tra dung lượng text dán vào dựa trên byte length của đối tượng Blob.                                                                                                                                                                         |
 
 ---
@@ -336,8 +336,8 @@
 | **Các bước thực hiện**   | 1. Đăng nhập vào hệ thống và mở trang Tạo kế hoạch (`/plan/new`)<br>2. Chọn tab **Tệp PDF**, kéo thả file `.jpg` vào dropzone<br>3. Chọn tab **Ảnh chụp**, kéo thả file `.pdf` vào dropzone |
 | **Dữ liệu đầu vào**      | Ảnh JPG, file PDF                                                                                                                                                                           |
 | **Kết quả mong đợi**     | - FileDropzone từ chối file (reject)<br>- Không ghi nhận file trong state, có thể hiển thị border đỏ nhắc nhở                                                                               |
-| **Kết quả thực tế**      |                                                                                                                                                                                             |
-| **Trạng thái**           | Chưa test                                                                                                                                                                                   |
+| **Kết quả thực tế**      | FileDropzone từ chối ngay lập tức khi kéo thả file sai định dạng và không nhận file vào state.                                                                                              |
+| **Trạng thái**           | Pass                                                                                                                                                                                        |
 | **Ghi chú**              | Phụ thuộc vào config `accept` và `fileFilter` của react-dropzone trong component FileDropzone.                                                                                              |
 
 ---
