@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { ZodError } from 'zod';
 import { reanalyzePlanController } from '../controllers/plan.controller';
 import { reanalyzePlan } from '../services/plan.service';
 import { triggerAnalysis } from '../services/analysis.service';
@@ -26,7 +27,7 @@ const mockedReanalyze = reanalyzePlan as jest.Mock;
 const mockedTrigger = triggerAnalysis as jest.Mock;
 
 const USER_ID = 'user-owner-uuid';
-const PLAN_ID = 'plan-uuid';
+const PLAN_ID = '11111111-1111-4111-8111-111111111111';
 
 const planResponse = {
   id: PLAN_ID,
@@ -58,11 +59,19 @@ describe('reanalyzePlanController', () => {
     expect(mockedReanalyze).not.toHaveBeenCalled();
   });
 
-  it('throws 400 BAD_REQUEST when the plan id param is missing', async () => {
+  it('throws ZodError (400 VALIDATION_ERROR) when the plan id param is missing', async () => {
     const req = { userId: USER_ID, params: {} } as unknown as Request;
 
     const error = await reanalyzePlanController(req, mockRes()).catch((e) => e);
-    expect(error).toMatchObject({ statusCode: 400, code: 'BAD_REQUEST' });
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedReanalyze).not.toHaveBeenCalled();
+  });
+
+  it('throws ZodError (400 VALIDATION_ERROR) when the plan id is not a valid UUID', async () => {
+    const req = { userId: USER_ID, params: { id: 'not-a-uuid' } } as unknown as Request;
+
+    const error = await reanalyzePlanController(req, mockRes()).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
     expect(mockedReanalyze).not.toHaveBeenCalled();
   });
 

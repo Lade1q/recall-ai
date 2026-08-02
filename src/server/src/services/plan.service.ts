@@ -151,7 +151,7 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
 export async function getPlanById(planId: string, userId: string): Promise<PlanDetailResponse> {
   // AnalysisJob has no FK relation to StudyPlan (async draft flow), so its status
   // is fetched separately — latest job by createdAt, since SP-05 re-analyze can add more.
-  const [plan, latestJob] = await Promise.all([
+  const [plan, latestJob, remediatingItems] = await Promise.all([
     prisma.studyPlan.findUnique({
       where: { id: planId },
       include: {
@@ -165,6 +165,7 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
             name: true,
             difficulty: true,
             masteryScore: true,
+            lastTestedAt: true,
             source: true,
             status: true,
             createdAt: true,
@@ -191,6 +192,14 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
       orderBy: { createdAt: 'desc' },
       select: { status: true, phase: true, createdAt: true, errorMessage: true },
     }),
+    // "Đang ôn lại" for the DB-05 filter chip and the node outline (Issue #168). `pending`
+    // only: an item the student already accepted, skipped or finished is history, and a node
+    // still pulsing for it would be telling them to do something they have done.
+    prisma.reviewQueueItem.findMany({
+      where: { planId, status: 'pending' },
+      select: { conceptId: true },
+      distinct: ['conceptId'],
+    }),
   ]);
 
   if (!plan) {
@@ -202,6 +211,7 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
   }
 
   const document = plan.documents[0];
+  const remediatingConceptIds = new Set(remediatingItems.map((item) => item.conceptId));
 
   return {
     id: plan.id,
@@ -220,7 +230,10 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
     tracebackEnabled: plan.tracebackEnabled,
     createdAt: plan.createdAt,
     updatedAt: plan.updatedAt,
-    concepts: plan.concepts,
+    concepts: plan.concepts.map((concept) => ({
+      ...concept,
+      isRemediating: remediatingConceptIds.has(concept.id),
+    })),
     edges: plan.conceptEdges,
   };
 }

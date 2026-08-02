@@ -4,6 +4,7 @@ import { ENDPOINTS } from '@/lib/endpoints';
 import {
   Concept,
   ConceptEdge,
+  ConceptDetail,
   PlanDetails,
   BackendPlanDetails,
   PlanSummary,
@@ -97,6 +98,8 @@ export const planApi = {
       name: c.name,
       difficulty: c.difficulty,
       mastery_score: c.masteryScore,
+      lastTestedAt: c.lastTestedAt ?? null,
+      isRemediating: c.isRemediating ?? false,
     }));
 
     const mappedEdges: ConceptEdge[] = backendData.edges.map((e) => ({
@@ -154,6 +157,14 @@ export const planApi = {
       }
     );
     return response.data;
+  },
+
+  /** GET /plans/:id/concepts/:conceptId — the DB-06 detail panel's data (Issue #168). */
+  getConceptDetail: async (planId: string, conceptId: string): Promise<ConceptDetail> => {
+    const response = await apiClient.get<{ success: boolean; data: ConceptDetail }>(
+      ENDPOINTS.PLANS.CONCEPT(planId, conceptId)
+    );
+    return response.data.data;
   },
 
   retryPlan: async (id: string): Promise<void> => {

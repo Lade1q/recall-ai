@@ -51,6 +51,44 @@ export function formatTimeLeft(deadline: string, now: Date = new Date()): string
   return `còn ${days} ngày`;
 }
 
+/**
+ * `dd/mm/yyyy` in the browser's local time — DB-06's `last_tested_at` needs an absolute date
+ * a student can cross-check against their own memory, unlike `formatDeadlineShort`'s UTC-locked
+ * `dd/mm` (a deadline is a calendar day by convention; a test event is a real instant).
+ */
+export function formatAbsoluteDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}/${date.getFullYear()}`;
+}
+
+/**
+ * "hôm nay" / "hôm qua" / "N ngày trước" — the relative half of DB-06's `last_tested_at`
+ * ("26/07/2026 — 1 ngày trước"). Calendar-day difference, so a test at 23:50 yesterday reads
+ * as "hôm qua" rather than "0 ngày trước" from a strict 24h subtraction.
+ */
+export function formatRelativeDays(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const days = Math.round((utcMidnight(now) - utcMidnight(date)) / MS_PER_DAY);
+  if (days <= 0) return 'hôm nay';
+  if (days === 1) return 'hôm qua';
+  return `${days} ngày trước`;
+}
+
+/** "26/07 · 21:40" — the compact stamp on a DB-06 learning-history row. */
+export function formatDayTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month} · ${hours}:${minutes}`;
+}
+
 /** `m:ss` since the analysis job was queued — the clock on an "Đang phân tích" card. */
 export function formatElapsed(startedAt: string, now: Date = new Date()): string | null {
   const start = new Date(startedAt);

@@ -9,6 +9,7 @@ const CONCEPT_FIELDS = {
   name: true,
   difficulty: true,
   masteryScore: true,
+  lastTestedAt: true,
   source: true,
   status: true,
   createdAt: true,

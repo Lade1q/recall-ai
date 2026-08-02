@@ -14,9 +14,30 @@ import {
 import {
   PlanDetails,
   PlanStatus,
+  PlanSummary,
   Concept,
   ConceptEdge,
 } from '@/features/study-planner/types/concept';
+
+/** Dấu ">" ngăn cách các mốc breadcrumb — tách ra để không lặp 4 lần cùng một khối svg. */
+function BreadcrumbSep() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0 opacity-50"
+      aria-hidden="true"
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
 
 export default function PlanDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +50,11 @@ export default function PlanDetailPage() {
 
   const [plan, setPlan] = useState<PlanDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // DB-02 Alt flow 2 — lỗi tải đồ thị (khác với "phân tích thất bại", vốn là plan.analysisStatus
+  // === 'failed' và vẫn có dữ liệu draft để sửa). Đây là request GET /plans/:id tự nó lỗi.
+  const [hasLoadError, setHasLoadError] = useState(false);
+  // Bộ chọn kế hoạch trên toolbar (DB-05) — đổi phạm vi tại chỗ, không quay về dashboard.
+  const [planList, setPlanList] = useState<PlanSummary[] | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [isChangingDocument, setIsChangingDocument] = useState(false);
   const changeDocumentInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +85,7 @@ export default function PlanDetailPage() {
       const data = await planApi.getPlan(id);
       if (!isMountedRef.current || generation !== pollGenerationRef.current) return;
 
+      setHasLoadError(false);
       const wasRunning =
         prevAnalysisStatusRef.current === 'pending' ||
         prevAnalysisStatusRef.current === 'processing';
@@ -93,6 +120,7 @@ export default function PlanDetailPage() {
       if (!isMountedRef.current || generation !== pollGenerationRef.current) return;
       console.error('Failed to load plan', error);
       toast.error('Không thể tải dữ liệu kế hoạch.');
+      setHasLoadError(true);
       setIsLoading(false);
     }
   }
@@ -113,6 +141,32 @@ export default function PlanDetailPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ re-fetch khi id thay đổi
   }, [id]);
+
+  // Danh sách kế hoạch cho bộ chọn trên toolbar (DB-05) — lỗi ở đây không chặn màn hình
+  // chính, chỉ khiến bộ chọn không có gì để hiện.
+  useEffect(() => {
+    let isMounted = true;
+    planApi
+      .listPlans()
+      .then((data) => {
+        if (isMounted) setPlanList(data);
+      })
+      .catch(() => {
+        /* bộ chọn kế hoạch sẽ không hiện — không phải lỗi chặn màn hình chính */
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // DB-02 Alt flow 2's "Thử lại" — re-fetches the plan itself, distinct from `handleRetry`
+  // below (which re-runs a failed AnalysisJob, a different failure the plan data already
+  // describes).
+  const handleReloadPlan = () => {
+    if (!id) return;
+    setIsLoading(true);
+    fetchPlan(pollGenerationRef.current);
+  };
 
   const handleRetry = async () => {
     if (!id || isRetrying) return;
@@ -185,6 +239,14 @@ export default function PlanDetailPage() {
   const analysisFailed = analysisStatus === 'failed';
   const analysisDone = !analysisRunning && !analysisFailed;
 
+  // Edit mode có hai ngữ cảnh khác hẳn nhau, phân biệt bằng status:
+  //  - `draft`: bước cuối của luồng TẠO kế hoạch (SP-01 → kiểm chứng đồ thị AI đề xuất). Đây mới
+  //    là chỗ "Kế hoạch ôn tập › Tạo mới", có stepper 3 bước, tiêu đề "Kiểm chứng".
+  //  - đã `active`: người dùng bấm "Sửa đồ thị" từ chính đồ thị (mục nav "Đồ thị khái niệm",
+  //    xem isNavItemActive trong MainLayout) — không phải tạo mới, không có bước phân tích nào,
+  //    nên không mượn khung tạo mới.
+  const isDraft = plan?.status === 'draft';
+
   // A separate, faster tick so the elapsed clock on the progress panel counts smoothly
   // between the 2.5s polls (same pattern as PlansPage's card clock).
   const [now, setNow] = useState(() => new Date());
@@ -198,87 +260,56 @@ export default function PlanDetailPage() {
   if (mode === 'edit') {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 pb-12 pt-6">
-        <div className="text-muted-foreground mb-4 flex items-center gap-2 text-[13px]">
-          <button
-            onClick={() => navigate('/plans')}
-            className="hover:text-foreground hover:border-border border-b border-transparent pb-px transition-colors"
-          >
-            Kế hoạch ôn tập
-          </button>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="opacity-50"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-          <span>Tạo mới · {plan?.name || 'Loading...'}</span>
-        </div>
+        <nav className="text-muted-foreground mb-4 flex items-center gap-2 text-[13px]">
+          {isDraft ? (
+            <>
+              {/* Luồng tạo kế hoạch — bắt nguồn từ "Kế hoạch ôn tập" */}
+              <button
+                onClick={() => navigate('/plans')}
+                className="hover:text-foreground hover:border-border border-b border-transparent pb-px transition-colors"
+              >
+                Kế hoạch ôn tập
+              </button>
+              <BreadcrumbSep />
+              <span className="truncate">Tạo mới · {plan?.name || 'Loading...'}</span>
+            </>
+          ) : (
+            <>
+              {/* Sửa đồ thị kế hoạch đã có — thuộc mục "Đồ thị khái niệm", quay lại được đúng
+                  đồ thị đang xem thay vì về danh sách kế hoạch */}
+              <button
+                onClick={() => navigate('/graph')}
+                className="hover:text-foreground hover:border-border border-b border-transparent pb-px transition-colors"
+              >
+                Đồ thị khái niệm
+              </button>
+              <BreadcrumbSep />
+              <button
+                onClick={() => setSearchParams({ mode: 'view' })}
+                className="hover:text-foreground hover:border-border max-w-60 truncate border-b border-transparent pb-px transition-colors"
+              >
+                {plan?.name || 'Loading...'}
+              </button>
+              <BreadcrumbSep />
+              <span>Chỉnh sửa</span>
+            </>
+          )}
+        </nav>
 
         <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
-          Kiểm chứng đồ thị khái niệm
+          {isDraft ? 'Kiểm chứng đồ thị khái niệm' : 'Chỉnh sửa đồ thị khái niệm'}
         </h1>
         <p className="text-muted-foreground max-w-160 mb-7 text-pretty text-[14px] leading-[1.7]">
-          AI đã đề xuất các khái niệm cùng quan hệ tiên quyết. Đối chiếu từng khái niệm với trích
-          đoạn gốc bên phải rồi mới xác nhận — bước này bắt buộc, hệ thống không tự động tin kết quả
-          AI.
+          {isDraft
+            ? 'AI đã đề xuất các khái niệm cùng quan hệ tiên quyết. Đối chiếu từng khái niệm với trích đoạn gốc bên phải rồi mới xác nhận — bước này bắt buộc, hệ thống không tự động tin kết quả AI.'
+            : 'Thêm hoặc bỏ khái niệm, nối lại quan hệ tiên quyết cho đồ thị của kế hoạch này. Lưu thay đổi để cập nhật; nhấn tên kế hoạch ở trên để quay lại mà không lưu.'}
         </p>
 
-        <ol className="bg-card border-border mb-6 flex overflow-hidden rounded-[calc(var(--radius)*0.9)] border">
-          <li className="text-muted-foreground border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]">
-            <span className="border-primary/40 bg-primary/10 text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 12.5l5.2 5.2L20 7" />
-              </svg>
-            </span>
-            <span className="truncate">Nhập thông tin & tải tài liệu</span>
-          </li>
-          <li
-            className={cn(
-              'border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]',
-              analysisDone ? 'text-muted-foreground' : 'text-foreground font-semibold'
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                analysisFailed
-                  ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                  : 'border-primary/40 bg-primary/10 text-primary'
-              )}
-            >
-              {analysisFailed ? (
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              ) : analysisRunning ? (
-                <Spinner className="size-2.5" />
-              ) : (
+        {/* Stepper chỉ có nghĩa trong luồng tạo mới — sửa kế hoạch đã có không đi qua các bước này */}
+        {isDraft && (
+          <ol className="bg-card border-border mb-6 flex overflow-hidden rounded-[calc(var(--radius)*0.9)] border">
+            <li className="text-muted-foreground border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]">
+              <span className="border-primary/40 bg-primary/10 text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
                 <svg
                   width="11"
                   height="11"
@@ -291,27 +322,76 @@ export default function PlanDetailPage() {
                 >
                   <path d="M4 12.5l5.2 5.2L20 7" />
                 </svg>
-              )}
-            </span>
-            <span className="truncate">AI phân tích</span>
-          </li>
-          <li
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-2.5 px-4 py-3 text-[13px]',
-              analysisDone ? 'bg-accent text-foreground font-semibold' : 'text-muted-foreground'
-            )}
-          >
-            <span
+              </span>
+              <span className="truncate">Nhập thông tin & tải tài liệu</span>
+            </li>
+            <li
               className={cn(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]',
-                analysisDone ? 'bg-primary text-primary-foreground border-primary' : 'border-border'
+                'border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]',
+                analysisDone ? 'text-muted-foreground' : 'text-foreground font-semibold'
               )}
             >
-              3
-            </span>
-            <span className="truncate">Kiểm chứng & xác nhận</span>
-          </li>
-        </ol>
+              <span
+                className={cn(
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
+                  analysisFailed
+                    ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                    : 'border-primary/40 bg-primary/10 text-primary'
+                )}
+              >
+                {analysisFailed ? (
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                ) : analysisRunning ? (
+                  <Spinner className="size-2.5" />
+                ) : (
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 12.5l5.2 5.2L20 7" />
+                  </svg>
+                )}
+              </span>
+              <span className="truncate">AI phân tích</span>
+            </li>
+            <li
+              className={cn(
+                'flex min-w-0 flex-1 items-center gap-2.5 px-4 py-3 text-[13px]',
+                analysisDone ? 'bg-accent text-foreground font-semibold' : 'text-muted-foreground'
+              )}
+            >
+              <span
+                className={cn(
+                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]',
+                  analysisDone
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border'
+                )}
+              >
+                3
+              </span>
+              <span className="truncate">Kiểm chứng & xác nhận</span>
+            </li>
+          </ol>
+        )}
 
         <div className="h-150 flex flex-col gap-4">
           {plan?.dagAutoFixed && mode === 'edit' && (
@@ -417,10 +497,12 @@ export default function PlanDetailPage() {
               </div>
             ) : plan ? (
               <ConceptGraph
+                planId={plan.id}
                 initialConcepts={plan.graph.concepts}
                 initialEdges={plan.graph.edges}
                 mode={mode}
                 onConfirm={handleConfirmGraph}
+                confirmLabel={isDraft ? 'Xác nhận & Bắt đầu' : 'Lưu thay đổi'}
               />
             ) : (
               <div className="border-border bg-card text-muted-foreground flex h-full w-full items-center justify-center rounded-xl border">
@@ -436,7 +518,7 @@ export default function PlanDetailPage() {
   // ----------------- VIEW MODE LAYOUT -----------------
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col p-6">
-      <div className="mb-4 flex-none">
+      <div className="mb-5 flex-none">
         <div className="text-muted-foreground mb-2 flex items-center gap-2 text-[13px]">
           <button
             onClick={() => navigate('/plans')}
@@ -444,41 +526,64 @@ export default function PlanDetailPage() {
           >
             Kế hoạch ôn tập
           </button>
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="opacity-50"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-          <span>{plan?.name || 'Chi tiết kế hoạch'}</span>
+          <span className="opacity-50">/</span>
+          <span className="truncate">{plan?.name || 'Chi tiết kế hoạch'}</span>
+          <span className="opacity-50">/</span>
+          <span>Đồ thị khái niệm</span>
         </div>
 
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between gap-6">
           <div>
-            <h1 className="font-heading text-2xl font-semibold leading-tight tracking-tight">
-              {plan?.name || 'Loading...'}
+            {/* Tiêu đề là "Đồ thị khái niệm" (khớp mockup) — tên kế hoạch đã nằm ở breadcrumb
+                và ở bộ chọn bên phải, không cần lặp làm h1. */}
+            <h1 className="font-heading text-[28px] leading-tight tracking-tight">
+              Đồ thị khái niệm
             </h1>
             {plan?.deadline && (
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="text-muted-foreground mt-1 text-[13px]">
                 Deadline: {new Date(plan.deadline).toLocaleDateString('vi-VN')}
               </p>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="bg-muted/50 border-border rounded border px-2 py-1 text-sm">
-              Status: <span className="font-mono font-medium">{plan?.status || '...'}</span>
-            </div>
+          <div className="flex items-end gap-3">
+            {/* DB-05: bộ chọn kế hoạch ngay trên toolbar — đổi phạm vi tại chỗ, không quay
+                về dashboard (DB-02 áp cho nhiều kế hoạch). Luôn hiện khi đã tải được danh sách
+                (khớp mockup) — kể cả lúc mới có 1 kế hoạch, để affordance "đổi kế hoạch ở đây"
+                nhất quán, chứ không xuất hiện đột ngột khi kế hoạch thứ hai ra đời. */}
+            {planList && planList.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="plan-switch"
+                  className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.06em]"
+                >
+                  Kế hoạch
+                </label>
+                <select
+                  id="plan-switch"
+                  value={id ?? ''}
+                  onChange={(e) => navigate(`/plan/${e.target.value}`)}
+                  className="border-border bg-card text-foreground min-w-65 py-2.25 rounded-[calc(var(--radius)*0.7)] border px-3 text-[14px] font-medium"
+                >
+                  {/* Kế hoạch hiện tại không (còn) nằm trong danh sách — vd. lỗi tải, hoặc id
+                      từ một liên kết cũ. Không để <select> âm thầm rơi về option đầu tiên,
+                      trông như đang xem đúng kế hoạch đó. */}
+                  {!planList.some((p) => p.id === id) && (
+                    <option value={id ?? ''} disabled>
+                      Kế hoạch này
+                    </option>
+                  )}
+                  {planList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.conceptCount} khái niệm
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             {plan?.status !== 'archived' && (
               <Button variant="outline" size="sm" onClick={() => setSearchParams({ mode: 'edit' })}>
-                Sửa Đồ Thị (Edit Mode)
+                Sửa đồ thị
               </Button>
             )}
           </div>
@@ -493,17 +598,47 @@ export default function PlanDetailPage() {
               <span>Đang tải đồ thị...</span>
             </div>
           </div>
-        ) : plan ? (
+        ) : hasLoadError || !plan ? (
+          // DB-02 Alt flow 2 — request tải đồ thị tự nó lỗi (mạng/server), khác với "phân
+          // tích thất bại" (plan.analysisStatus === 'failed'), vốn có sẵn dữ liệu draft để sửa.
+          <div className="border-border bg-card flex h-full w-full flex-col overflow-hidden rounded-xl border">
+            <div
+              aria-hidden="true"
+              className="border-border flex items-center gap-2 border-b px-4 py-2.5 opacity-45"
+            >
+              {['Tất cả', 'Vững', 'Yếu'].map((label) => (
+                <span
+                  key={label}
+                  className="border-border rounded-md border px-2.5 py-1.5 text-[12px] font-medium"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-[14px] font-semibold">Không thể tải đồ thị khái niệm</p>
+              <p className="text-muted-foreground max-w-100 text-pretty text-[13px] leading-[1.65]">
+                Yêu cầu tới máy chủ không thành công. Dữ liệu học tập của bạn không bị ảnh hưởng —
+                chỉ phần hiển thị này chưa lấy được.
+              </p>
+              <div className="flex gap-2.5">
+                <Button size="sm" onClick={handleReloadPlan}>
+                  Thử lại
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/plans')}>
+                  Chọn kế hoạch khác
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
           <ConceptGraph
+            planId={plan.id}
             initialConcepts={plan.graph.concepts}
             initialEdges={plan.graph.edges}
             mode={mode}
             onConfirm={undefined}
           />
-        ) : (
-          <div className="border-border bg-muted/20 text-muted-foreground flex h-full w-full items-center justify-center rounded-xl border">
-            Không tìm thấy dữ liệu đồ thị.
-          </div>
         )}
       </div>
     </div>

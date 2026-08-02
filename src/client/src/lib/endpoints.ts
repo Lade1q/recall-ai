@@ -16,5 +16,6 @@ export const ENDPOINTS = {
     RETRY: (id: string) => `/api/v1/plans/${id}/retry`,
     DOCUMENT: (id: string) => `/api/v1/plans/${id}/document`,
     REANALYZE: (id: string) => `/api/v1/plans/${id}/reanalyze`,
+    CONCEPT: (planId: string, conceptId: string) => `/api/v1/plans/${planId}/concepts/${conceptId}`,
   },
 } as const;

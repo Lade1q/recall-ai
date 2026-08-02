@@ -1,4 +1,8 @@
-import { createPlanSchema } from '../schemas/plan.schema';
+import {
+  conceptDetailParamsSchema,
+  createPlanSchema,
+  planIdParamSchema,
+} from '../schemas/plan.schema';
 
 const VN_OFFSET_MS = 7 * 60 * 60 * 1000;
 
@@ -59,5 +63,62 @@ describe('createPlanSchema deadline', () => {
 
   it('rejects an empty deadline', () => {
     expect(() => createPlanSchema.parse({ ...base, deadline: '' })).toThrow(/required/);
+  });
+});
+
+// Regression coverage for PR #160: id là @db.Uuid trong Prisma — một id không phải UUID
+// ném PrismaClientKnownRequestError P2023 chưa được errorHandler map, rớt xuống 500
+// INTERNAL_ERROR nếu không bị chặn ở đây trước khi chạm service/Prisma.
+describe('planIdParamSchema', () => {
+  it('accepts a valid UUID', () => {
+    expect(() =>
+      planIdParamSchema.parse({ id: '11111111-1111-4111-8111-111111111111' })
+    ).not.toThrow();
+  });
+
+  it('rejects a missing id', () => {
+    expect(() => planIdParamSchema.parse({})).toThrow();
+  });
+
+  it('rejects an empty id', () => {
+    expect(() => planIdParamSchema.parse({ id: '' })).toThrow();
+  });
+
+  it('rejects a non-UUID string id', () => {
+    expect(() => planIdParamSchema.parse({ id: 'plan-uuid' })).toThrow();
+    expect(() => planIdParamSchema.parse({ id: 'abc' })).toThrow();
+  });
+
+  it('rejects a UUID missing a segment', () => {
+    expect(() => planIdParamSchema.parse({ id: '11111111-1111-4111-8111' })).toThrow();
+  });
+});
+
+// Route lồng GET /plans/:id/concepts/:conceptId — cả hai param đều là @db.Uuid, nên đều phải
+// chặn P2023→500 (cùng lỗi PR #191 đã vá cho các route /plans khác, xem concept.controller.ts).
+describe('conceptDetailParamsSchema', () => {
+  const validPlanId = '11111111-1111-4111-8111-111111111111';
+  const validConceptId = '22222222-2222-4222-8222-222222222222';
+
+  it('accepts a pair of valid UUIDs', () => {
+    expect(() =>
+      conceptDetailParamsSchema.parse({ id: validPlanId, conceptId: validConceptId })
+    ).not.toThrow();
+  });
+
+  it('rejects a non-UUID plan id', () => {
+    expect(() =>
+      conceptDetailParamsSchema.parse({ id: 'plan-uuid', conceptId: validConceptId })
+    ).toThrow();
+  });
+
+  it('rejects a non-UUID conceptId', () => {
+    expect(() =>
+      conceptDetailParamsSchema.parse({ id: validPlanId, conceptId: 'concept-uuid' })
+    ).toThrow();
+  });
+
+  it('rejects a missing conceptId', () => {
+    expect(() => conceptDetailParamsSchema.parse({ id: validPlanId })).toThrow();
   });
 });

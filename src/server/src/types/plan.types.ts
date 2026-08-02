@@ -5,6 +5,7 @@ import {
   AnalysisJobStatus,
   AnalysisJobPhase,
   DocumentKind,
+  ReviewReason,
 } from '@prisma/client';
 import { MasteryDistribution } from '../utils/mastery';
 
@@ -59,9 +60,23 @@ export interface ConceptItemResponse {
   name: string;
   difficulty: number | null;
   masteryScore: number | null;
+  /** Last time an interview graded this concept — DB-06's `last_tested_at` (Issue #168). */
+  lastTestedAt: Date | null;
   source: ConceptSource;
   status: ConceptStatus;
   createdAt: Date;
+}
+
+/**
+ * A concept as the DB-05 toolbar and the graph canvas need it (Issue #168).
+ *
+ * `isRemediating` is a second, orthogonal channel next to the four mastery bands, not a
+ * fifth band: the bands are mutually exclusive, "đang ôn lại" layers over any of them. A
+ * concept at 0.51 that the AE-07 traceback queued is weak AND being reviewed, and the
+ * canvas has to be able to say both at once.
+ */
+export interface GraphConceptItemResponse extends ConceptItemResponse {
+  isRemediating: boolean;
 }
 
 export interface EdgeItemResponse {
@@ -96,8 +111,59 @@ export interface PlanDetailResponse {
   tracebackEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
-  concepts: ConceptItemResponse[];
+  concepts: GraphConceptItemResponse[];
   edges: EdgeItemResponse[];
+}
+
+/**
+ * One passage of the source document a concept was extracted from — `concept_sources`
+ * joined to its `Document` (Issue #168, DB-06 "Trích từ tài liệu").
+ *
+ * This is where constraint C5 ("AI không bịa") becomes something a student can check: the
+ * panel shows the excerpt that produced the concept, next to the file and page it lives on.
+ * Every field but `documentId`/`filename` is best-effort — the AI supplies page and excerpt,
+ * and `buildConceptSourceRows` anchors on whichever of the two it got.
+ */
+export interface ConceptSourceItemResponse {
+  documentId: string;
+  filename: string;
+  kind: DocumentKind;
+  pageFrom: number | null;
+  pageTo: number | null;
+  excerpt: string | null;
+}
+
+/** One row of the DB-06 "Lịch sử học tập" list — see `utils/concept-history.ts`. */
+export interface ConceptHistoryItemResponse {
+  kind: 'interview' | 'focus';
+  id: string;
+  at: Date;
+  score: number | null;
+  turnCount: number | null;
+  durationMinutes: number | null;
+}
+
+/**
+ * Response shape for GET /plans/:id/concepts/:conceptId (Issue #168) — the DB-06 panel.
+ *
+ * Deliberately excludes prerequisites and dependents: the client already holds the whole
+ * graph from GET /plans/:id, so computing upstream/downstream there keeps names and scores
+ * in sync with the canvas instead of shipping a second, separately-aged copy of them.
+ *
+ * Read-only. The panel's "Học lại" / "Kiểm tra ngay" buttons navigate to FS-01 / AE-01;
+ * neither this endpoint nor the panel mutates anything.
+ */
+export interface ConceptDetailResponse {
+  id: string;
+  name: string;
+  difficulty: number | null;
+  masteryScore: number | null;
+  lastTestedAt: Date | null;
+  isRemediating: boolean;
+  /** Why it sits in the review queue — `traceback` is the AE-07 path the panel names. */
+  remediationReason: ReviewReason | null;
+  sources: ConceptSourceItemResponse[];
+  history: ConceptHistoryItemResponse[];
 }
 
 /** Response shape for PATCH /plans/:id (SP-04, Issue #171). */

@@ -36,3 +36,21 @@ export const updatePlanStatusSchema = z.object({
 });
 
 export type UpdatePlanStatusInput = z.infer<typeof updatePlanStatusSchema>;
+
+/**
+ * Shared params schema for every /plans/:id route (Issue liên quan PR #160) — id là
+ * @db.Uuid trong Prisma nên một chuỗi không phải UUID sẽ ném P2023 chưa được map,
+ * rớt xuống 500 INTERNAL_ERROR nếu không chặn ở đây trước khi gọi service.
+ */
+export const planIdParamSchema = z.object({
+  id: z.string().uuid('Plan ID must be a valid UUID'),
+});
+
+/**
+ * Params cho route lồng GET /plans/:id/concepts/:conceptId (DB-06, Issue #168). `conceptId`
+ * cũng là @db.Uuid nên mang đúng rủi ro P2023→500 như `id`; validate cả hai trước khi chạm
+ * Prisma. Kế thừa planIdParamSchema để dùng lại y hệt thông điệp lỗi cho `id`.
+ */
+export const conceptDetailParamsSchema = planIdParamSchema.extend({
+  conceptId: z.string().uuid('Concept ID must be a valid UUID'),
+});

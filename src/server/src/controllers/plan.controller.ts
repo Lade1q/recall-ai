@@ -13,7 +13,11 @@ import {
   updatePlanStatus,
   deletePlan,
 } from '../services/plan.service';
-import { createPlanSchema, updatePlanStatusSchema } from '../schemas/plan.schema';
+import {
+  createPlanSchema,
+  updatePlanStatusSchema,
+  planIdParamSchema,
+} from '../schemas/plan.schema';
 import { createStorageService } from '../services/storage.service';
 import { triggerAnalysis } from '../services/analysis.service';
 import { invalidatePlanMaterial } from '../services/gemini.service';
@@ -139,10 +143,7 @@ export async function getPlanByIdController(req: Request, res: Response): Promis
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   const plan = await getPlanById(id, req.userId);
 
@@ -161,10 +162,7 @@ export async function retryPlanController(req: Request, res: Response): Promise<
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   const plan = await retryPlanAnalysis(id, req.userId);
 
@@ -191,10 +189,7 @@ export async function changePlanDocumentController(req: Request, res: Response):
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   if (!req.file) {
     throw new AppError('File is required', 400, 'FILE_REQUIRED');
@@ -267,10 +262,7 @@ export async function reanalyzePlanController(req: Request, res: Response): Prom
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   const plan = await reanalyzePlan(id, req.userId);
 
@@ -294,10 +286,7 @@ export async function updatePlanStatusController(req: Request, res: Response): P
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   const { status } = updatePlanStatusSchema.parse(req.body);
 
@@ -318,10 +307,7 @@ export async function deletePlanController(req: Request, res: Response): Promise
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   await deletePlan(id, req.userId);
 

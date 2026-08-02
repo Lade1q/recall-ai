@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { Request, Response, NextFunction } from 'express';
 import { AppError } from './errorHandler';
 
 // Temporary staging directory — files are moved to final storage by StorageService
@@ -26,10 +27,16 @@ const storage = multer.diskStorage({
 /**
  * Multer middleware configured for file uploads.
  * Restricts files to PDF, TXT, PNG, and JPG up to 10MB.
+ *
+ * `limits.fileSize` được cấu hình dư 1 byte (MAX_FILE_SIZE + 1) vì busboy so sánh
+ * `fileSize === fileSizeLimit` để đánh dấu stream "truncated", nên nếu đặt đúng
+ * MAX_FILE_SIZE thì một file có kích thước CHÍNH XÁC 10MB cũng bị coi là vượt giới
+ * hạn và bị abort oan. Việc từ chối file thực sự > 10MB do `enforceFileSizeLimit`
+ * đảm nhiệm sau khi file đã được ghi xong.
  */
 export const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE },
+  limits: { fileSize: MAX_FILE_SIZE + 1 },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIMES.includes(file.mimetype)) {
       cb(null, true);
@@ -44,3 +51,18 @@ export const upload = multer({
     }
   },
 });
+
+/**
+ * Từ chối file có kích thước thực tế vượt quá MAX_FILE_SIZE (giới hạn 10MB là inclusive,
+ * tức size == MAX_FILE_SIZE vẫn hợp lệ). Phải đặt sau `upload.single()`/`upload.array()`
+ * trong route vì cần `req.file` đã được multer gắn vào.
+ */
+export function enforceFileSizeLimit(req: Request, _res: Response, next: NextFunction): void {
+  if (req.file && req.file.size > MAX_FILE_SIZE) {
+    fs.unlink(req.file.path, () => {
+      next(new AppError('File size exceeds maximum limit of 10MB', 400, 'FILE_TOO_LARGE'));
+    });
+    return;
+  }
+  next();
+}

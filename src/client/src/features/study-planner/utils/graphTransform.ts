@@ -2,8 +2,13 @@ import { Node, Edge, Position, MarkerType } from '@xyflow/react';
 import dagre from 'dagre';
 import { Concept, ConceptEdge } from '../types/concept';
 
-// Extract magic numbers (matched with mockup screen-concept-graph.html)
-const NODE_WIDTH = 136;
+/**
+ * Bề rộng node theo mockup: 174px ở view mode (screen-concept-graph.html — node mang cả
+ * tên lẫn `mastery_score`) và 136px ở edit mode (screen-create-plan.html — chỉ có tên).
+ * Dagre phải biết đúng con số đang vẽ, nếu không các rank ở layout LR sẽ chồng lên nhau.
+ */
+export const NODE_WIDTH_VIEW = 174;
+export const NODE_WIDTH_EDIT = 136;
 const NODE_HEIGHT = 42;
 
 // Transform API Concepts to React Flow Nodes
@@ -17,6 +22,10 @@ export function toReactFlowNodes(concepts: Concept[]): Node[] {
       mastery: c.mastery_score,
       description: c.description ?? '',
       difficulty: c.difficulty ?? null,
+      // DB-05/DB-06 (Issue #168): dải "đang ôn lại" độc lập với mastery band, và last_tested_at
+      // cho hover tooltip + panel chi tiết.
+      lastTestedAt: c.lastTestedAt ?? null,
+      isRemediating: c.isRemediating ?? false,
     },
     position: { x: 0, y: 0 }, // Position will be overwritten by dagre layout
   }));
@@ -44,7 +53,12 @@ export function toReactFlowEdges(edges: ConceptEdge[]): Edge[] {
 }
 
 // Layout graph using Dagre
-export function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'TB') {
+export function getLayoutedElements(
+  nodes: Node[],
+  edges: Edge[],
+  direction = 'TB',
+  nodeWidth: number = NODE_WIDTH_EDIT
+) {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
@@ -53,7 +67,7 @@ export function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'T
 
   nodes.forEach((node) => {
     // Estimating node dimensions. Adjust these values based on actual styling.
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: NODE_HEIGHT });
   });
 
   edges.forEach((edge) => {
@@ -70,7 +84,7 @@ export function getLayoutedElements(nodes: Node[], edges: Edge[], direction = 'T
       sourcePosition: (isHorizontal ? 'right' : 'bottom') as Position,
       // Shift node position so the origin is at the top-left instead of center
       position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        x: nodeWithPosition.x - nodeWidth / 2,
         y: nodeWithPosition.y - NODE_HEIGHT / 2,
       },
     };

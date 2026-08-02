@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { replacePlanGraph } from '../services/graph.service';
 import { replaceGraphSchema } from '../schemas/graph.schema';
+import { planIdParamSchema } from '../schemas/plan.schema';
 import { AppError } from '../middleware/errorHandler';
 
 /**
@@ -14,10 +15,7 @@ export async function updatePlanGraphController(req: Request, res: Response): Pr
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { id } = req.params;
-  if (!id || typeof id !== 'string') {
-    throw new AppError('Plan ID is required', 400, 'BAD_REQUEST');
-  }
+  const { id } = planIdParamSchema.parse(req.params);
 
   const input = replaceGraphSchema.parse(req.body);
   const graph = await replacePlanGraph(id, req.userId, input);

@@ -220,6 +220,21 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
   - `concepts[].masteryScore` luôn là `null` cho tới khi user hoàn thành phiên Interview đầu tiên trên khái niệm đó (Sprint 4 — AI Examiner).
   - `concepts` chỉ trả `status = 'active'`. Concept `deprecated` (re-analyze loại bỏ, mục 6) vẫn còn trong DB làm tombstone giữ lịch sử — hồi sinh lại nếu re-analyze sau này gặp lại đúng tên — nhưng không xuất hiện ở đây, vì đây là đồ thị hiện tại của Plan chứ không phải lịch sử chỉnh sửa.
 
+- **Lỗi ID không đúng định dạng UUID (HTTP 400 Bad Request):**
+
+  `id` trong `StudyPlan` là kiểu `@db.Uuid` trong Prisma — mọi route `/plans/:id` (kể cả các route graph, retry, reanalyze, đổi tài liệu, archive, delete) đều validate `id` là UUID hợp lệ trước khi chạm DB:
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "Invalid input data",
+      "details": [ ... ]
+    }
+  }
+  ```
+
 - **Lỗi không tìm thấy Plan (HTTP 404 Not Found):**
 
   ```json
@@ -332,7 +347,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
   }
   ```
 
-- **Lỗi không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
+- **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
 
 ---
 
@@ -429,7 +444,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
   }
   ```
 
-- **Lỗi không tìm thấy Plan (HTTP 404 Not Found)** và **truy cập Plan người khác (HTTP 403 Forbidden)**: giống hệt mục 3.
+- **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404 Not Found)** và **truy cập Plan người khác (HTTP 403 Forbidden)**: giống hệt mục 3.
 
 ---
 
@@ -491,7 +506,7 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
 
 - **Lỗi Plan không có tài liệu nguồn (HTTP 409 Conflict):** `message: "This plan has no source document to re-analyse"`, cùng `code`.
 
-- **Lỗi không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
+- **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
 
 ---
 
@@ -544,7 +559,7 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
 
   Lưu trữ là cách cất đi tài liệu đã học xong; một `draft` chưa có nội dung nào để cất — thao tác áp dụng cho nó là retry (mục 5) hoặc xóa (mục 8).
 
-- **Lỗi không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
+- **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
 
 ---
 
@@ -567,6 +582,8 @@ Xóa vĩnh viễn study plan và tất cả dữ liệu liên quan. Không thể
   - Tất cả Documents + ConceptSourceRefs (tài liệu nguồn)
   - Tất cả QuestionCaches (cache câu hỏi — cascade gián tiếp qua Concept)
   - File tài liệu gốc trên storage (best-effort cleanup)
+
+- **Lỗi ID không đúng định dạng UUID (HTTP 400 Bad Request):** giống hệt mục 3.
 
 - **Lỗi không tìm thấy Plan (HTTP 404 Not Found):**
 
@@ -644,4 +661,4 @@ Xóa vĩnh viễn study plan và tất cả dữ liệu liên quan. Không thể
   }
   ```
 
-- **Lỗi không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
+- **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.

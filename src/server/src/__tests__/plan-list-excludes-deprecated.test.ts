@@ -18,6 +18,7 @@ jest.mock('../config/prisma', () => {
   const client = {
     studyPlan: { findMany: jest.fn(), findUnique: jest.fn() },
     analysisJob: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn() },
+    reviewQueueItem: { findMany: jest.fn().mockResolvedValue([]) },
   };
   return { __esModule: true, default: client };
 });

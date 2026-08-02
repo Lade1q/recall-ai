@@ -141,7 +141,10 @@ export default function PlansPage() {
     await runPlanAction(plan, () => planApi.deletePlan(plan.id), 'Đã xóa kế hoạch.');
   };
 
-  // ---------- Loading / error ----------
+  // ---------- Loading ----------
+  // Only the very first fetch shows a bare spinner. A failed initial load is handled inside
+  // the layout below (not with an early return) so the header — and with it "Tạo kế hoạch
+  // mới" — stays reachable: a list that won't load is no reason to block making a new plan.
   if (plans === null && !hasError) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
@@ -150,18 +153,10 @@ export default function PlansPage() {
     );
   }
 
-  if (hasError && plans === null) {
-    return (
-      <div className="bg-card border-border rounded-xl border p-6">
-        <h1 className="font-heading mb-2 text-2xl tracking-tight">Kế hoạch ôn tập</h1>
-        <p className="text-muted-foreground mb-4 text-sm">Không thể tải danh sách kế hoạch.</p>
-        <Button variant="outline" onClick={() => void loadPlans()}>
-          Thử lại
-        </Button>
-      </div>
-    );
-  }
-
+  // A poll that fails after plans are already on screen keeps the stale-but-useful list
+  // (loadPlans never nulls `plans`), so the full-width error is reserved for the case where
+  // the initial load left us with nothing to show.
+  const showLoadError = hasError && plans === null;
   const hasNoPlansAtAll = (plans ?? []).length === 0;
 
   return (
@@ -181,7 +176,9 @@ export default function PlansPage() {
         </Button>
       </header>
 
-      {hasNoPlansAtAll ? (
+      {showLoadError ? (
+        <LoadErrorNotice onRetry={() => void loadPlans()} />
+      ) : hasNoPlansAtAll ? (
         <EmptyState />
       ) : (
         <>
@@ -260,6 +257,29 @@ export default function PlansPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Shown when the initial list fetch fails. It shares EmptyState's card so the two occupy the
+ * same slot identically; the header above still offers "Tạo kế hoạch mới", so this only needs
+ * to explain the failure and offer a retry — not stand in for the whole screen.
+ */
+function LoadErrorNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="border-border bg-background rounded-xl border px-7 py-6">
+      <div className="mx-auto my-6 max-w-[560px] text-center">
+        <h2 className="font-heading mb-2 text-[21px] tracking-[-0.02em]">
+          Không thể tải danh sách kế hoạch
+        </h2>
+        <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
+          Đã xảy ra lỗi khi tải danh sách. Bạn vẫn có thể tạo kế hoạch mới ở trên, hoặc thử tải lại.
+        </p>
+        <Button variant="outline" onClick={onRetry}>
+          Thử lại
+        </Button>
+      </div>
     </div>
   );
 }

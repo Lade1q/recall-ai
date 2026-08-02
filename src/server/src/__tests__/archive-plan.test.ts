@@ -27,7 +27,7 @@ jest.mock('../services/analysis.service', () => ({
 const mockedUpdate = updatePlanStatus as jest.Mock;
 
 const USER_ID = 'user-owner-uuid';
-const PLAN_ID = 'plan-uuid';
+const PLAN_ID = '11111111-1111-4111-8111-111111111111';
 
 const archivedPlan = {
   id: PLAN_ID,
@@ -78,13 +78,26 @@ describe('updatePlanStatusController', () => {
   });
 
   // --- Test 2: thiếu :id ---
-  it('throws 400 BAD_REQUEST when the plan id param is missing', async () => {
+  it('throws ZodError (400 VALIDATION_ERROR) when the plan id param is missing', async () => {
     const req = { userId: USER_ID, params: {}, body: { status: 'archived' } } as unknown as Request;
     const res = mockRes();
 
     const error = await updatePlanStatusController(req, res).catch((e) => e);
-    expect(error).toBeInstanceOf(AppError);
-    expect(error).toMatchObject({ statusCode: 400, code: 'BAD_REQUEST' });
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedUpdate).not.toHaveBeenCalled();
+  });
+
+  // --- Test 2b: id không đúng định dạng UUID (PR #160) ---
+  it('throws ZodError (400 VALIDATION_ERROR) when the plan id is not a valid UUID', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { id: 'not-a-uuid' },
+      body: { status: 'archived' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updatePlanStatusController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
     expect(mockedUpdate).not.toHaveBeenCalled();
   });
 

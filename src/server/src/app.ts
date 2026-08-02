@@ -5,6 +5,7 @@ import { errorHandler, AppError } from './middleware/errorHandler';
 import { authMiddleware } from './middleware/auth.middleware';
 import { authRouter } from './routes/auth.routes';
 import { planRouter } from './routes/plan.routes';
+import { reviewQueueRouter } from './routes/review-queue.routes';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // API Routes
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/plans', authMiddleware, planRouter);
+app.use('/api/v1/review-queue', authMiddleware, reviewQueueRouter);
 
 // Catch-all route for non-existent resources
 app.use((_req: Request, _res: Response, next: NextFunction) => {

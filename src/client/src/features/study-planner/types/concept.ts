@@ -4,6 +4,10 @@ export interface Concept {
   description?: string;
   mastery_score: number | null; // null means untested
   difficulty?: number | null;
+  /** Last time an interview graded this concept — DB-06's `last_tested_at` (Issue #168). */
+  lastTestedAt?: string | null;
+  /** Second, orthogonal channel next to mastery band: pending in the AE-07 review queue. */
+  isRemediating?: boolean;
 }
 
 export interface ConceptEdge {
@@ -84,12 +88,49 @@ export interface BackendConcept {
   name: string;
   difficulty: number | null;
   masteryScore: number | null;
+  lastTestedAt?: string | null;
+  isRemediating?: boolean;
 }
 
 export interface BackendEdge {
   id: string;
   fromConceptId: string;
   toConceptId: string;
+}
+
+/** One passage of the source document a concept was extracted from (DB-06 "Trích từ tài liệu"). */
+export interface ConceptSourceExcerpt {
+  documentId: string;
+  filename: string;
+  kind: 'pdf' | 'image' | 'text';
+  pageFrom: number | null;
+  pageTo: number | null;
+  excerpt: string | null;
+}
+
+/** One row of the DB-06 "Lịch sử học tập" list. */
+export interface ConceptHistoryEntry {
+  kind: 'interview' | 'focus';
+  id: string;
+  at: string;
+  score: number | null;
+  turnCount: number | null;
+  durationMinutes: number | null;
+}
+
+export type RemediationReason = 'traceback' | 'spaced_repetition' | 'deadline_priority' | 'manual';
+
+/** GET /plans/:id/concepts/:conceptId response — the DB-06 panel's data (Issue #168). */
+export interface ConceptDetail {
+  id: string;
+  name: string;
+  difficulty: number | null;
+  masteryScore: number | null;
+  lastTestedAt: string | null;
+  isRemediating: boolean;
+  remediationReason: RemediationReason | null;
+  sources: ConceptSourceExcerpt[];
+  history: ConceptHistoryEntry[];
 }
 
 export interface BackendPlanDetails {
