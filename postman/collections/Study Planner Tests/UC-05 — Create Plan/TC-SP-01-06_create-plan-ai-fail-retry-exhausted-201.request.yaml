@@ -14,9 +14,9 @@ body:
       key: deadline
       value: '2026-12-31'
     - key: file
-      src: sample_lecture.pdf
+      src: ../../test-data/TC-SP-Studyplanner/fail_trigger.txt
       type: file
-      contentType: application/pdf
+      contentType: text/plain
 scripts:
   - type: afterResponse
     code: |-
