@@ -1,0 +1,191 @@
+import type { QuestionMode, Verdict } from '../schemas/ai-interview.schema';
+import { TURN_WEIGHTS } from './mastery';
+
+/**
+ * The Interview state machine (I6.3 / #115, UC-04 UC-11) — the one place that decides what
+ * happens after a turn is graded.
+ *
+ * Pure function: no Prisma, no Gemini, no clock. Constraint C4 says this routing is
+ * deterministic software logic and no prompt may ever ask the model "what should I do next",
+ * and SDP risk R05 says that logic must stay provable with the database and the API key
+ * switched off — which is only true if it lives in a module neither of them can reach.
+ * `interview.service.ts` reads the state from the DB, calls this, and executes the answer.
+ *
+ * Lives in `utils/` for that reason, rather than inside `interview.service.ts` as #115's
+ * sketch drew it: that file imports Prisma, so importing it from a test would need a
+ * DATABASE_URL. Same split as `utils/interview-grading.ts` (I6.2) and `utils/mastery.ts` (I7.2).
+ */
+
+/** What the session does next. Ordered as the decision table in #115 reads. */
+export type NextStep = 'ask_deeper' | 'ask_probe' | 'finish_concept' | 'finish_session';
+
+/**
+ * Deliberately **no** `finish_concept_with_traceback` (audit A5): whether a finished concept
+ * needs remediation is decided by `finalizeConceptResult()` (I7.2) from the concept's final
+ * weighted mastery score, not from one turn's verdict. A `deep → deep → wrong` concept can end
+ * on `wrong` and still score 0.65, above the 0.6 threshold — the two conditions genuinely
+ * disagree, so only one of them may own the decision.
+ */
+export interface InterviewStateInput {
+  /** Verdict of the turn that was just graded. */
+  verdict: Verdict;
+  /** 1-based index of that turn within the current concept. */
+  turnIndex: number;
+  /** The session's `maxTurnsPerConcept` — the C6 hard limit, read from the DB, never the client. */
+  maxTurns: number;
+  /** Concepts still queued *after* the current one. */
+  remainingConcepts: number;
+}
+
+/** Default N in "at most N turns per concept" (UC-11), overridable per session within C6. */
+export const DEFAULT_MAX_TURNS_PER_CONCEPT = 3;
+
+/**
+ * The ceiling a session's `maxTurnsPerConcept` may not exceed, whatever the client asks for.
+ *
+ * Tied to the weighted-average formula rather than picked separately: `calculateMasteryScore`
+ * has one weight per turn (`TURN_WEIGHTS`) and throws a RangeError past the last one, because
+ * guessing a fourth weight would quietly produce a wrong mastery score — and mastery is what
+ * drives remediation. C6 and that formula are the same limit seen from two sides.
+ */
+export const MAX_TURNS_PER_CONCEPT = TURN_WEIGHTS.length;
+
+/**
+ * How many concepts one session may cover ("Số khái niệm tối đa mỗi phiên" — UC-11's
+ * State Machine limits). Every concept costs up to `maxTurns` pairs of Gemini calls, so this
+ * is what keeps a session inside a sitting and inside the API budget.
+ */
+export const MAX_CONCEPTS_PER_SESSION = 5;
+
+/** Concepts pulled from the review queue when the client doesn't name any (AE-01). */
+export const DEFAULT_CONCEPTS_PER_SESSION = 3;
+
+/**
+ * Decides the next step after a turn is graded (#115's decision table, UC-11):
+ *
+ * | verdict   | turns left | step                            |
+ * | --------- | ---------- | ------------------------------- |
+ * | `deep`    | yes        | `ask_deeper` — same concept     |
+ * | `shallow` | yes        | `ask_probe` — same concept      |
+ * | `wrong`   | –          | end the concept immediately     |
+ * | any       | no         | end the concept (C6 hard limit) |
+ *
+ * Ending a concept is reported as `finish_concept` while the queue still holds another one and
+ * as `finish_session` on the last, but both mean "finalise this concept first": the caller runs
+ * `finalizeConceptResult()` on either, so every concept gets its mastery score and its
+ * spaced-repetition row even when the student answered it perfectly (audit A4).
+ */
+export function decideNextStep({
+  verdict,
+  turnIndex,
+  maxTurns,
+  remainingConcepts,
+}: InterviewStateInput): NextStep {
+  // C6: `turnIndex` is the turn just answered, so another one is only allowed while it is
+  // strictly below the limit. `>=` here rather than `===` so a session whose limit was somehow
+  // lowered mid-flight still stops instead of running away.
+  const hasTurnsLeft = turnIndex < maxTurns;
+
+  // `wrong` ends the concept even with turns to spare: AE-02 step 9 says the feedback explains
+  // the mistake and the concept stops there, rather than spending two more questions on
+  // material the student has just shown they do not have.
+  if (verdict !== 'wrong' && hasTurnsLeft) {
+    return verdict === 'deep' ? 'ask_deeper' : 'ask_probe';
+  }
+
+  return remainingConcepts > 0 ? 'finish_concept' : 'finish_session';
+}
+
+/** The `generate_question` mode each continuing step asks for. The model never picks it (C4). */
+const MODE_BY_STEP: Partial<Record<NextStep, QuestionMode>> = {
+  ask_deeper: 'deeper',
+  ask_probe: 'probe',
+};
+
+/** `null` for the two terminal steps — they end a concept instead of asking anything. */
+export function questionModeForStep(step: NextStep): QuestionMode | null {
+  return MODE_BY_STEP[step] ?? null;
+}
+
+/** True while `turnIndex` is a turn the session is allowed to ask (C6, checked server-side). */
+export function isTurnWithinLimit(turnIndex: number, maxTurns: number): boolean {
+  return turnIndex >= 1 && turnIndex <= Math.min(maxTurns, MAX_TURNS_PER_CONCEPT);
+}
+
+// --- AE-05 / AE-06: Flashcard fallback stepping ------------------------------------------
+
+/** AE-06: at most 2 pre-generated flashcard questions per concept (R01 cost limit). */
+export const MAX_CACHED_QUESTIONS_PER_CONCEPT = 2;
+
+/** What the fallback flow does next for the current concept (UC-12). */
+export type FallbackStep =
+  | { type: 'ask_cached'; cacheIndex: number }
+  | { type: 'finish_concept' }
+  | { type: 'no_cache_available' };
+
+export interface FallbackStateInput {
+  /** How many `question_cache` rows exist for the current concept (capped upstream at 2). */
+  cachedQuestionCount: number;
+  /**
+   * Turns of this concept already served *from the cache* (`source: 'cache_fallback'`) —
+   * the 0-based index into the concept's cached rows. Deliberately NOT the same as "every turn
+   * of this concept": grading failure (the common trigger for fallback, AE-02 E2) always fires
+   * *after* a question was already asked by AI, so the concept typically already has one or more
+   * `source: 'ai'` turns before fallback ever touches its cache — those must not be mistaken for
+   * consumed cache slots, or a concept with two fresh, never-served cached questions finishes
+   * having served zero of them.
+   */
+  cachedTurnsServed: number;
+  /** Every turn of this concept in this session, whatever its `source` — for the E1 check and C6. */
+  totalTurnsServed: number;
+  /** The session's own C6 limit — the fallback path may not exceed it either. */
+  maxTurns: number;
+}
+
+/**
+ * AE-05's flashcard-fallback stepping (UC-12): linear and deterministic. Unlike `decideNextStep`,
+ * this never looks at a `deep`/`shallow`/`wrong` verdict — a concept in fallback mode always asks
+ * every cached question it has left, in order, then finishes, whatever the student self-graded.
+ *
+ * `cachedTurnsServed` doubles as the 0-based index into the concept's cached rows (ordered by
+ * `generatedAt`) — same "re-derive from what's stored" philosophy as `decideNextStep`, so a
+ * resumed session picks up the same cached question a crashed request was about to serve.
+ */
+export function resolveFallbackStep({
+  cachedQuestionCount,
+  cachedTurnsServed,
+  totalTurnsServed,
+  maxTurns,
+}: FallbackStateInput): FallbackStep {
+  // UC-12 E1: this concept has never had a question served (AI or cache) and there is nothing
+  // cached to fall back to either. Distinct from "cache ran out after one question" below.
+  if (totalTurnsServed === 0 && cachedQuestionCount === 0) {
+    return { type: 'no_cache_available' };
+  }
+
+  const cacheLimit = Math.min(cachedQuestionCount, MAX_CACHED_QUESTIONS_PER_CONCEPT);
+  // C6: whatever mix of ai/cache_fallback turns already happened, the concept may not exceed
+  // maxTurns in total — a cache with slots left over is not a licence to bypass that limit.
+  const turnBudgetLeft = maxTurns - totalTurnsServed;
+  if (cachedTurnsServed < cacheLimit && turnBudgetLeft > 0) {
+    return { type: 'ask_cached', cacheIndex: cachedTurnsServed };
+  }
+  return { type: 'finish_concept' };
+}
+
+/** AE-05: what the student picked when self-grading a flashcard. */
+export type SelfGrade = 'correct' | 'partial' | 'wrong';
+
+/** Hard-coded mapping (UC-04 UC-12 step 5) — no free-form score input is ever allowed. */
+export const SELF_GRADE_SCORE: Record<SelfGrade, number> = {
+  correct: 1,
+  partial: 0.5,
+  wrong: 0,
+};
+
+/** Keeps the transcript's verdict column populated for a self-graded turn. */
+export const SELF_GRADE_VERDICT: Record<SelfGrade, Verdict> = {
+  correct: 'deep',
+  partial: 'shallow',
+  wrong: 'wrong',
+};

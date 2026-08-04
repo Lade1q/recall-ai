@@ -1,6 +1,7 @@
 import { processAnalysisJob } from '../services/analysis.service';
 import prisma from '../config/prisma';
 import { extractConcepts } from '../services/gemini.service';
+import { pregenerateForPlan } from '../services/question-cache.service';
 
 // Mock Prisma client — $transaction chạy callback với cùng mock client, mô phỏng
 // đúng interactive transaction API của Prisma (giống pattern trong retry-plan.test.ts).
@@ -41,9 +42,15 @@ jest.mock('../services/gemini.service', () => ({
 jest.mock('../services/graph.service', () => ({
   validateDAG: jest.fn().mockResolvedValue(undefined),
 }));
+// AE-06: pregenerateForPlan is fired-and-forgotten from processAnalysisJob (see the dedicated
+// hook test below) — mocked here so this file stays focused on the analysis pipeline itself.
+jest.mock('../services/question-cache.service', () => ({
+  pregenerateForPlan: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockedPrisma = prisma as jest.Mocked<typeof prisma>;
 const mockedExtractConcepts = extractConcepts as jest.Mock;
+const mockedPregenerateForPlan = pregenerateForPlan as jest.Mock;
 
 const JOB_ID = 'job-uuid';
 const PLAN_ID = 'plan-uuid';
@@ -146,6 +153,8 @@ describe('processAnalysisJob', () => {
       data: { status: 'done', completedAt: expect.any(Date) },
     });
     expectMarkFailedNotCalled();
+    // AE-06 hook: fired fire-and-forget once the job's transaction (incl. validateDAG) succeeds.
+    expect(mockedPregenerateForPlan).toHaveBeenCalledWith(PLAN_ID);
   });
 
   // --- Guard cuối transaction: job bị lấy mất trạng thái 'processing' giữa chừng ---
@@ -173,6 +182,8 @@ describe('processAnalysisJob', () => {
     // (tránh leak message nội bộ ra UI qua #183, và tránh ép sai retryCount).
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no longer processing'));
     expectMarkFailedNotCalled();
+    // The transaction rolled back, so there is nothing to pre-generate cache from.
+    expect(mockedPregenerateForPlan).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });
@@ -200,6 +211,7 @@ describe('processAnalysisJob', () => {
       where: { id: JOB_ID },
       data: expect.objectContaining({ status: 'failed' }),
     });
+    expect(mockedPregenerateForPlan).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
   });

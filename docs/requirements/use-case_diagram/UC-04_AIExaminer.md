@@ -172,8 +172,9 @@ FUNCTION traceback(C):
 ### Luồng chính
 
 1. Hệ thống thu thập tất cả `{concept_name, mastery_score, verdict_history}` của phiên vừa xong
-2. **[AI Call]** Gửi dữ liệu điểm số đến AI, yêu cầu viết nhận xét tự nhiên:
-   - Phần kiến thức đã vững (score >= 0.7)
+2. **[AI Call]** Gửi dữ liệu điểm số đến AI, yêu cầu viết nhận xét tự nhiên, chia theo đúng ba dải của `classifyMastery()`:
+   - Phần đã vững (score >= 0.8)
+   - Phần đang học (0.6 <= score < 0.8)
    - Phần còn yếu (score < 0.6)
    - Gợi ý ôn lại cụ thể
 3. Hiển thị trang kết quả với:
@@ -181,6 +182,10 @@ FUNCTION traceback(C):
    - Nhận xét tự nhiên do AI viết
    - Danh sách khái niệm được thêm vào lịch ôn tiếp theo (do UC-13)
    - Nút "Bắt đầu phiên học tiếp theo"
+
+> ⚠️ **Đã sửa mốc "đã vững" ở bước 2 (chốt 2026-08-04):** bản cũ ghi `>= 0.7` và chỉ liệt kê hai nhóm, để trống khoảng `0.6 <= score < 0.7` — khái niệm 0.65 không thuộc nhóm nào. Mốc đang chạy trong code là `MASTERY_STRONG_THRESHOLD = 0.8` (`src/server/src/utils/mastery.ts`), chia ba dải liền mạch và là thứ quyết định màu hiển thị. Giữ hai con số khác nhau thì cùng một khái niệm sẽ vừa nằm ở danh sách "đã vững" AI viết vừa mang màu "đang học" trên biểu đồ ngay cạnh đó (màn AE-09).
+>
+> Lưu ý phân biệt với mốc `0.6` ở phần PRUNING của thuật toán truy ngược phía trên: chỗ đó "đã vững" trả lời câu hỏi **có đủ vững để ngừng duyệt sâu không** (`MASTERY_THRESHOLD`, dùng chung với `traceback.service.ts`), không phải dải hiển thị.
 
 ### Luồng ngoại lệ
 

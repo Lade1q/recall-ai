@@ -5,40 +5,164 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Recall AI — Focus Session</title>
+  <title>Recall AI — Phiên học tập trung</title>
+  <meta name="description"
+    content="FS-01: phiên học có quản lý thời gian. Khái niệm do đồ thị xếp lên đầu hàng đợi, tài liệu ẩn mặc định, đồng hồ tách thời gian tập trung khỏi thời gian trôi qua." />
   <link rel="stylesheet" href="tokens.css" />
   <style>
+    /* ── Token cục bộ ─────────────────────────────────────────────────────
+       "Rời tab" KHÔNG dùng --mastery-weak. Đó là token đo mức thành thạo;
+       mượn nó cho một chỉ số xao nhãng là làm hỏng nghĩa của màu — nhìn thấy
+       đỏ trên màn hình này sẽ tưởng khái niệm đang yếu. Đặt tên riêng. */
+    body {
+      --fs-drift: oklch(0.55 0.1 45);
+    }
+
+    .dark body,
+    body.dark {
+      --fs-drift: oklch(0.75 0.11 45);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Bàn phím phải tới thẳng được cụm điều khiển — đó là thứ duy nhất
+       người dùng thao tác trong lúc phiên chạy. */
+    .skip-link {
+      position: absolute;
+      left: 12px;
+      top: -60px;
+      z-index: 20;
+      background: var(--card);
+      border: 1px solid var(--foreground);
+      border-radius: calc(var(--radius) * 0.6);
+      padding: 9px 14px;
+      font-size: 13px;
+      color: var(--foreground);
+      text-decoration: none;
+      transition: top var(--duration-fast) var(--ease-standard);
+    }
+
+    .skip-link:focus {
+      top: 12px;
+    }
+
+    /* Vòng focus dùng chung — tokens.css chỉ tả .btn về mặt hình thức, không
+       có focus ring nào. Phiên học điều khiển gần như hoàn toàn bằng bàn phím
+       (xem hàng phím tắt) nên thiếu vòng focus là hỏng cả luồng. */
+    .btn:focus-visible,
+    .exit:focus-visible,
+    .seg button:focus-visible,
+    .icon-btn:focus-visible,
+    .switch:focus-visible,
+    .link:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+      border-radius: calc(var(--radius) * 0.5);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        /* Phải zero cả delay: stagger của .reveal-stagger nằm ở transition-delay
+           chứ không phải duration, chỉ tắt duration thì nội dung vẫn đợi tới
+           160ms mới hiện — với người bật reduced-motion thì đó là trang bị
+           đứng hình, không phải hiệu ứng. */
+        transition-delay: 0s !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
     /* ── Khung phiên ───────────────────────────────────────────────────────
        minmax(0, 1fr) chứ không phải 1fr: track auto-minimum sẽ phình theo
-       nội dung con và làm khung vượt quá chiều cao màn hình. */
+       nội dung con và làm khung vượt quá chiều cao màn hình.
+       height chứ không phải min-height: với min-height, chiều cao container
+       vẫn là auto nên 1fr đo theo nội dung — `overflow-y: auto` của .fs-body
+       không bao giờ kích hoạt, cả trang cuộn thay cho phần thân. Hệ quả trên
+       màn hình thấp: thanh trên (Hủy phiên / Kết thúc phiên học / công tắc
+       Tài liệu) trôi mất, và phiên học chạy thẳng vào phụ lục bên dưới không
+       còn ranh giới. Khóa đúng một viewport thì phần thân tự cuộn bên trong.
+       Phụ lục nằm ngoài .fs-shell nên trang vẫn cuộn xuống được như thường. */
     .fs-shell {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 560px;
+      overflow: hidden;
       background: var(--background);
     }
 
+    /* ── Thanh trên: 3 vùng ────────────────────────────────────────────────
+       Trái = đường ra, giữa = tiến độ phiên, phải = công cụ tùy chọn.
+       Bản cũ dồn tất cả về bên phải: link "Hủy phiên" (hủy, mất thời gian) nằm
+       sát nút "Kết thúc phiên học" (lưu, giữ thời gian) — hai hành động hậu quả
+       ngược nhau, cạnh nhau, cùng cỡ chữ. Giờ tách hẳn hai đầu màn hình. */
     .fs-top {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto;
       align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      padding: 14px 28px;
+      gap: 20px;
+      padding: 12px 22px;
       border-bottom: 1px solid var(--border);
       background: var(--card);
+    }
+
+    .fs-top__lead {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .exit {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: none;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--card);
+      color: var(--muted-foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 12px 7px 10px;
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+    }
+
+    .exit:hover {
+      background: var(--muted);
+      color: var(--foreground);
     }
 
     .fs-top__id {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 9px;
       min-width: 0;
     }
 
     .fs-top__title {
-      font-family: var(--font-heading);
-      font-size: 17px;
-      letter-spacing: -0.02em;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     .fs-top__plan {
@@ -49,10 +173,54 @@
       text-overflow: ellipsis;
     }
 
+    /* ── Tiến độ Pomodoro ──────────────────────────────────────────────────
+       Trước đây cụm này nằm ở giữa thanh trên, cách đồng hồ chính ~600px.
+       Hai thứ đo cùng một trục thời gian mà vẽ bằng hai ngôn ngữ khác nhau
+       (4 vạch thẳng vs một cung tròn) và đặt ở hai đầu màn hình: muốn biết
+       "tôi đang ở đâu trong phiên" phải nhìn hai chỗ rồi tự ghép lại.
+       Giờ nó nằm ngay dưới vòng đồng hồ — mọi thông tin thời gian gom về
+       một điểm nhìn. Chữ "2 / 4" vẫn đứng cạnh vì màu không bao giờ được
+       là tín hiệu duy nhất. */
+    .meter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 5px 10px;
+    }
+
+    .meter__pips {
+      display: flex;
+      gap: 4px;
+      flex: none;
+    }
+
+    .meter__seg {
+      width: 20px;
+      height: 4px;
+      border-radius: 9999px;
+      background: var(--border);
+    }
+
+    .meter__seg--done {
+      background: var(--focus-session);
+    }
+
+    .meter__seg--now {
+      background: var(--focus-session);
+      box-shadow: 0 0 0 3px oklch(from var(--focus-session) l c h / 0.18);
+    }
+
+    .meter__text {
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
     .fs-top__right {
       display: flex;
       align-items: center;
-      gap: 14px;
+      justify-content: flex-end;
+      gap: 10px;
     }
 
     .seg {
@@ -63,13 +231,14 @@
       background: var(--muted);
     }
 
+    /* Chữ thường, không phải IN HOA. Nhãn này chỉ để trả lời "Ẩn cái gì?" —
+       viết hoa toàn bộ biến nó thành một tiêu đề đang hét, trong khi nó là
+       phần ít quan trọng nhất của thanh trên. */
     .seg > span {
       align-self: center;
-      font-size: 11px;
+      font-size: 12px;
       color: var(--muted-foreground);
       padding: 0 10px 0 12px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
     }
 
     .seg button {
@@ -84,6 +253,11 @@
       font-weight: 500;
       padding: 7px 13px;
       cursor: pointer;
+      transition: color var(--duration-fast) var(--ease-standard);
+    }
+
+    .seg button:hover {
+      color: var(--foreground);
     }
 
     .seg button[aria-pressed="true"] {
@@ -92,9 +266,24 @@
       box-shadow: var(--shadow-soft);
     }
 
-    .seg button:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: -2px;
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--card);
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard),
+        color var(--duration-fast) var(--ease-standard);
+    }
+
+    .icon-btn:hover {
+      background: var(--muted);
+      color: var(--foreground);
     }
 
     .link {
@@ -102,6 +291,7 @@
       color: var(--muted-foreground);
       text-decoration: none;
       border-bottom: 1px solid transparent;
+      transition: color var(--duration-fast) var(--ease-standard);
     }
 
     .link:hover {
@@ -120,59 +310,60 @@
       border-bottom-color: var(--foreground);
     }
 
-    /* ── Sân khấu: mặc định MỘT cột, căn giữa ──────────────────────────────
-       Đây là lập luận thiết kế chính của màn hình: khi tài liệu đang ẩn,
-       trên màn hình chỉ còn đúng một khái niệm, một đồng hồ, một lý do.
+    /* ── Sân khấu: MỘT cột, căn giữa ───────────────────────────────────────
+       Đây là lập luận thiết kế chính của màn hình: khi tài liệu đang ẩn, trên
+       màn hình chỉ còn đúng một khái niệm, một đồng hồ, một lý do.
        Bố cục hai cột (tài liệu + timer) là trạng thái TÙY CHỌN — xem phụ lục. */
     .fs-body {
       display: grid;
       place-items: center;
-      padding: 28px 32px 36px;
+      padding: 24px 32px 30px;
       overflow-y: auto;
     }
 
     .stage {
       width: 100%;
-      max-width: 560px;
+      max-width: 520px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      align-items: center;
+      gap: 24px;
     }
 
     /* ── FS-06 · Vì sao là khái niệm này, hôm nay ──────────────────────────
-       FS-06 là <<include>> của FS-01 và ưu tiên High (UC-Overview.md:53,119)
-       — bắt buộc, không phải tùy chọn. Bản mockup cũ không có gì ở đây. */
-    .why {
-      border: 1px solid var(--border);
-      border-left: 2px solid var(--remediate);
-      border-radius: calc(var(--radius) * 0.9);
-      background: var(--card);
-      padding: 16px 18px;
-    }
-
-    .why__row {
+       FS-06 là <<include>> ưu tiên High của FS-01 (UC-Overview.md:53,119).
+       Đây cũng là chỗ duy nhất trên màn hình này phân biệt Recall AI với một
+       cái đồng hồ Pomodoro: khái niệm không do Sinh viên chọn bừa, nó do đồ
+       thị khái niệm xếp lên đầu hàng đợi.
+       Bản cũ nhốt nó trong một thẻ có viền, cỡ chữ 20px — nhỏ hơn cả con số
+       đếm ngược. Giờ nó là tiêu đề thật của màn hình, không có khung. */
+    .concept {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 8px;
+      gap: 9px;
+      text-align: center;
     }
 
-    .why__concept {
+    .concept__name {
       font-family: var(--font-heading);
-      font-size: 20px;
-      letter-spacing: -0.02em;
+      font-size: 34px;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      margin: 0;
+      text-wrap: balance;
     }
 
-    .why__body {
+    .concept__why {
       font-size: 13px;
       line-height: 1.65;
       color: var(--muted-foreground);
       margin: 0;
+      max-width: 46ch;
       text-wrap: pretty;
     }
 
-    .why__body strong {
+    .concept__why strong {
       color: var(--foreground);
       font-weight: 500;
     }
@@ -198,24 +389,21 @@
     }
 
     /* ── Đồng hồ ───────────────────────────────────────────────────────────
-       Hai con số chứ không phải một: thời gian TẬP TRUNG tách khỏi thời gian
-       TRÔI QUA. `focus_sessions.duration_minutes` hiện chỉ lưu một con số —
-       xem ghi chú lệch schema ở cuối file. */
-    .clockcard {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
+       Không còn thẻ có viền: vòng tròn đứng trần trên nền, đó là vật thể nặng
+       nhất của màn hình. Bản cũ đặt nó trong .clockcard cạnh một cột 4 dòng
+       thống kê, ba con số thời gian cùng cỡ chữ tranh nhau — không biết nhìn
+       cái nào. Giờ: một con số lớn, ba con số phụ nhỏ nằm dưới. */
+    .clock {
+      display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 28px;
-      border: 1px solid var(--border);
-      border-radius: calc(var(--radius) * 1.1);
-      background: var(--card);
-      padding: 20px 26px;
+      gap: 15px;
     }
 
     .ring {
       position: relative;
-      width: 140px;
-      height: 140px;
+      width: 196px;
+      height: 196px;
       flex: none;
     }
 
@@ -235,10 +423,11 @@
 
     .ring__time {
       font-family: var(--font-mono);
-      font-size: 30px;
+      font-size: 44px;
       font-weight: 600;
       font-variant-numeric: tabular-nums;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
+      line-height: 1;
     }
 
     .ring__label {
@@ -246,128 +435,166 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--muted-foreground);
-      margin-top: 2px;
+      margin-top: 6px;
     }
 
-    .stats {
+    /* ── Dòng đối chiếu ───────────────────────────────────────────────────
+       Bản trước để ba ô số cùng cỡ, cùng font mono, ngăn bằng vạch dọc:
+       Tập trung 22:31 · Trôi qua 24:06 · Rời tab 1:35. Cộng cả vòng đồng hồ
+       nữa là BỐN con số thời gian trên một màn hình, ba hệ quy chiếu khác
+       nhau (còn lại / đã tập trung / đã trôi). Người học phải tự trừ mới
+       hiểu chúng liên quan thế nào.
+
+       Bỏ hẳn "Trôi qua": nó suy ra được (tập trung + rời tab), và là con số
+       ít hành động được nhất — trong lúc phiên chạy không ai làm gì với nó.
+       Bảng tổng kết cuối phiên vẫn hiện đủ cả ba, vì ở đó mới là lúc đối
+       chiếu. Còn lại đúng một dòng chữ nhỏ: con số mà sản phẩm mang tên. */
+    .tally {
       display: flex;
-      flex-direction: column;
-      gap: 12px;
-      min-width: 0;
-    }
-
-    .stat {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      font-size: 13px;
-    }
-
-    .stat__k {
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 3px 0;
+      margin: -4px 0 0;
+      font-size: 12px;
       color: var(--muted-foreground);
     }
 
-    .stat__v {
-      font-family: var(--font-mono);
-      font-size: 14px;
-      font-variant-numeric: tabular-nums;
+    .tally__item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 11px;
     }
 
-    .stat--lead .stat__k,
-    .stat--lead .stat__v {
+    /* Dấu chấm ngăn thay cho vạch dọc: vạch dọc dựng ba ô số thành một bảng,
+       mà đây không phải bảng — đây là một câu. */
+    .tally__item + .tally__item::before {
+      content: "";
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--border);
+      margin-right: 11px;
+      margin-left: -11px;
+      flex: none;
+    }
+
+    .tally__v {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
       color: var(--foreground);
+    }
+
+    .tally__item--lead .tally__v {
       font-weight: 600;
     }
 
-    .stat--drift .stat__v {
-      color: var(--mastery-weak);
+    .tally__item--drift .tally__v {
+      color: var(--fs-drift);
     }
 
-    .stats__rule {
-      height: 1px;
-      background: var(--border);
+    /* Nghiêm ngặt ở đây là CHỈ BÁO, không phải công tắc — xem ghi chú ở khối
+       .strictrow bên dưới. Nó nói "đang bật", và không mời bấm. */
+    .tally__item--strict {
+      color: var(--focus-session);
     }
 
-    .stats__foot {
-      font-size: 12px;
-      line-height: 1.55;
-      color: var(--muted-foreground);
-      margin: 0;
+    .tally__item--strict svg {
+      flex: none;
     }
 
-    /* Chu kỳ Pomodoro — users.pomodoro_config {work, short_break, long_break, cycles:4}
-       (UC-Overview.md §5.5). Bản cũ không hiển thị chu kỳ nào. */
-    .cycles {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--muted-foreground);
-    }
-
-    .dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      border: 1px solid var(--focus-session);
-    }
-
-    .dot--done {
-      background: var(--focus-session);
-    }
-
-    .dot--now {
-      background: var(--focus-session);
-      box-shadow: 0 0 0 3px oklch(from var(--focus-session) l c h / 0.18);
-    }
-
-    .dot--break {
-      border-color: var(--border);
-      border-style: dashed;
-      width: 7px;
-      height: 7px;
-    }
-
-    .actions {
+    /* ── Điều khiển ────────────────────────────────────────────────────────
+       Alt flow 3: chỉ Tạm dừng / Tiếp tục. Bản cũ để "Tạm dừng" trôi lơ lửng
+       ở một hàng riêng giữa hai thẻ, cùng cỡ với một link điều hướng sang màn
+       hình khác. Nó là nút được bấm nhiều nhất trong phiên nên đứng ngay dưới
+       đồng hồ, và "Kết thúc phiên học" đứng cạnh vì đó là lối ra CÓ lưu. */
+    .controls {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .actions__spacer {
-      flex: 1;
+    .btn-pause {
+      background: oklch(from var(--focus-session) l c h / 0.12);
+      border-color: oklch(from var(--focus-session) l c h / 0.45);
+      color: var(--focus-session);
+      font-weight: 600;
+      padding: 11px 22px;
+    }
+
+    .btn-pause:hover {
+      background: oklch(from var(--focus-session) l c h / 0.2);
+    }
+
+    /* Phím tắt — thêm mới, không có trong spec. Màn hình này người dùng nhìn
+       nhiều hơn bấm, và mỗi lần với chuột là một lần rời khỏi trạng thái tập
+       trung. Ba phím là đủ; chúng có thật, không phải trang trí. */
+    .keys {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+    }
+
+    .keys span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
     }
 
     /* ── Chế độ nghiêm ngặt ────────────────────────────────────────────────
-       SPEC_FS-01 Alt flow 2 hứa "khóa/chặn các trang web hoặc tab gây xao
-       nhãng" — một web app trong sandbox trình duyệt KHÔNG làm được việc đó.
-       Phiên bản ở đây là thứ làm được thật: Page Visibility API. */
-    .strict {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: start;
-      gap: 14px;
+       Khối này KHÔNG còn nằm trên màn hình đang chạy. Nó là một tùy chọn cấu
+       hình, mà cấu hình thì thuộc về lúc trước khi cam kết, không phải lúc
+       đang tập trung — trên màn hình chạy nó lại còn là vật thể nặng nhất
+       (viền, icon, hai dòng chữ, một công tắc) đứng ngay dưới cụm điều khiển.
+
+       Còn một lý do nữa, nặng hơn: bật/tắt giữa chừng thì số lần rời tab đã
+       đếm được xử lý ra sao? Tắt xong có xóa không, có giữ không, đồng hồ tập
+       trung có cộng bù không — không câu trả lời nào là hiển nhiên. Bỏ cái
+       công tắc đó khỏi phiên đang chạy thì câu hỏi biến mất.
+
+       Giờ nó xuất hiện ở "Chưa bắt đầu" (chỗ duy nhất còn đổi được) và trong
+       panel cấu hình Pomodoro. Trên màn hình chạy chỉ còn chỉ báo trạng thái
+       ở dòng .tally — nói cho biết, không mời bấm. */
+    .strictrow {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      width: 100%;
+      padding: 11px 15px;
       border: 1px solid var(--border);
-      border-radius: calc(var(--radius) * 0.9);
+      border-radius: calc(var(--radius) * 0.8);
       background: var(--card);
-      padding: 14px 16px;
     }
 
-    .strict__icon {
+    .strictrow__icon {
       color: var(--focus-session);
-      margin-top: 1px;
+      flex: none;
+      display: flex;
     }
 
-    .strict__t {
+    /* Căn trái tường minh: khối này giờ nằm trong .panel (căn giữa) ở trạng
+       thái "Chưa bắt đầu". Một hàng icon–chữ–công tắc mà chữ căn giữa thì
+       hai mép chữ không thẳng với thứ gì cả. */
+    .strictrow__body {
+      min-width: 0;
+      flex: 1;
+      text-align: left;
+    }
+
+    .strictrow__t {
       font-size: 13px;
       font-weight: 500;
-      margin-bottom: 3px;
     }
 
-    .strict__d {
+    .strictrow__d {
       font-size: 12px;
-      line-height: 1.6;
+      line-height: 1.5;
       color: var(--muted-foreground);
       margin: 0;
       text-wrap: pretty;
@@ -382,17 +609,30 @@
       background: oklch(from var(--focus-session) l c h / 0.22);
       position: relative;
       cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard),
+        border-color var(--duration-fast) var(--ease-standard);
     }
 
+    /* Núm trượt bằng transform, không phải đổi left/right. Hai lý do: chỉ
+       transform mới nội suy được (left:2px ↔ right:2px là hai thuộc tính khác
+       nhau, trình duyệt không nối được), và transform chạy trên compositor
+       nên không gây reflow.
+
+       Công tắc này giờ nằm ở trạng thái "Chưa bắt đầu" trong phụ lục — ngoài
+       .fs-shell — nên được phép chuyển động. Nếu sau này nó quay lại bên trong
+       phiên đang chạy thì §0 tự tắt, không cần sửa gì ở đây. */
     .switch::after {
       content: "";
       position: absolute;
       top: 2px;
-      right: 2px;
+      left: 2px;
       width: 16px;
       height: 16px;
       border-radius: 50%;
       background: var(--focus-session);
+      transform: translateX(16px);
+      transition: transform var(--duration-fast) var(--ease-standard),
+        background var(--duration-fast) var(--ease-standard);
     }
 
     .switch[aria-checked="false"] {
@@ -401,60 +641,30 @@
     }
 
     .switch[aria-checked="false"]::after {
-      right: auto;
-      left: 2px;
+      transform: translateX(0);
       background: var(--mastery-untested);
     }
 
-    /* ── Khoảng trống schema: đánh dấu, không vẽ giả ───────────────────────
-       Model `SessionNote` chưa tồn tại (database-design.md:416 — "Deferred to
-       Sprint 5 … not yet in the schema"). Bản mockup cũ vẽ một textarea đã
-       điền sẵn chữ, tức là demo một tính năng không có chỗ để lưu. */
-    .gap {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 12px;
-      border: 1px dashed var(--border);
-      border-radius: calc(var(--radius) * 0.9);
-      padding: 13px 16px;
-      background: transparent;
+    /* ── Motion — CHỈ trong phụ lục ────────────────────────────────────────
+       design-system.md §0: phiên đang chạy giữ animation = 0, .focus-session-active
+       tắt sạch bằng !important và không được gỡ. Phụ lục nằm ngoài .fs-shell
+       nên không dính ràng buộc đó.
+
+       Mọi bộ chọn dưới đây đều bắt đầu bằng .gallery — không có gì với tới
+       được màn hình phiên. Script ở cuối file cũng chỉ quét trong .gallery.
+
+       §5.3 quy định .reveal-on-scroll (đã có sẵn trong tokens.css) và
+       .reveal-stagger + --index; tokens.css mới có cái đầu, nên cái thứ hai
+       khai báo cục bộ ở đây theo đúng công thức calc(--index * 80ms). */
+    .gallery .reveal-stagger {
+      transition-delay: calc(var(--index, 0) * 80ms);
     }
 
-    .gap__t {
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 3px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .gap__d {
-      font-size: 12px;
-      line-height: 1.6;
-      color: var(--muted-foreground);
-      margin: 0;
-      text-wrap: pretty;
-    }
-
-    .gap__d code {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      background: var(--muted);
-      padding: 1px 5px;
-      border-radius: 4px;
-    }
-
-    .badge-defer {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 500;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted-foreground);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 1px 6px;
+    /* Demo panel không bấm được nên KHÔNG có hover-lift: nhấc một khối không
+       phải nút lên khi rê chuột là hứa hẹn một hành động không tồn tại.
+       Motion ở đây chỉ dành cho thứ thật sự bấm được. */
+    .gallery .state__demo {
+      transition: border-color var(--duration-fast) var(--ease-standard);
     }
 
     /* ── Phụ lục trạng thái ────────────────────────────────────────────────*/
@@ -512,6 +722,11 @@
       border-radius: 4px;
       padding: 1px 7px;
       background: var(--card);
+    }
+
+    .tag--new {
+      border-color: oklch(from var(--focus-session) l c h / 0.5);
+      color: var(--focus-session);
     }
 
     .state__desc {
@@ -631,6 +846,64 @@
       background: linear-gradient(to bottom, transparent, var(--background));
     }
 
+    /* Khối ghi chú kỹ thuật trong phụ lục — dành cho người làm, không phải
+       chữ hiển thị cho Sinh viên. */
+    .note {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      border: 1px dashed var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      padding: 13px 16px;
+      margin-bottom: 16px;
+      background: transparent;
+    }
+
+    .note__icon {
+      color: var(--muted-foreground);
+      margin-top: 2px;
+      display: flex;
+    }
+
+    .note__t {
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .note__d {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .note__d code,
+    .state__desc code,
+    .done__d code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--muted);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .badge-defer {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+    }
+
     /* Lỗ hổng đã lấp — một hạng mục từng "không có dữ liệu để làm" nay đã có schema. */
     .done {
       display: grid;
@@ -646,6 +919,7 @@
     .done__icon {
       color: var(--mastery-strong);
       margin-top: 1px;
+      display: flex;
     }
 
     .done__t {
@@ -664,12 +938,8 @@
     }
 
     .done__d code {
-      font-family: var(--font-mono);
-      font-size: 11px;
       background: var(--card);
       border: 1px solid var(--border);
-      padding: 1px 5px;
-      border-radius: 4px;
     }
 
     /* Trạng thái đơn giản dùng chung trong phụ lục */
@@ -767,6 +1037,12 @@
       text-wrap: pretty;
     }
 
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     .modal {
       border: 1px solid var(--border);
       border-radius: calc(var(--radius) * 1.1);
@@ -805,24 +1081,142 @@
       padding: 34px 32px;
     }
 
+    /* Panel ghi chú nhanh (FS-05) — trượt vào từ phải, không phải modal:
+       ghi chú phải viết được TRONG LÚC vẫn nhìn thấy khái niệm và đồng hồ. */
+    .notes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      min-height: 300px;
+    }
+
+    .notes__stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 28px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .notes__side {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 18px 20px;
+      background: var(--card);
+    }
+
+    .notes__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .notes__title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .notes__saved {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+    }
+
+    .notes__area {
+      width: 100%;
+      min-height: 96px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 10px 12px;
+    }
+
+    .notes__list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .notes__item {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted-foreground);
+      border-left: 2px solid var(--border);
+      padding-left: 10px;
+    }
+
+    .notes__time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted-foreground);
+      display: block;
+    }
+
     @media (max-width: 900px) {
-      .split {
+      .split,
+      .notes {
         grid-template-columns: minmax(0, 1fr);
       }
 
-      .split__doc {
+      .split__doc,
+      .notes__stage {
         border-right: 0;
         border-bottom: 1px solid var(--border);
       }
 
-      .clockcard {
-        grid-template-columns: minmax(0, 1fr);
-        justify-items: center;
-        gap: 20px;
+      .fs-top__plan {
+        display: none;
       }
 
-      .stats {
-        width: 100%;
+      .seg > span {
+        display: none;
+      }
+    }
+
+    /* ── Màn hình hẹp ─────────────────────────────────────────────────────
+       Thanh trên có hai cụm: cụm trái (đường ra + tên phiên) và cụm phải
+       (chọn tài liệu + công cụ). Dưới ~560px riêng cụm phải đã chiếm 298 trên
+       375px, nên track 1fr của cụm trái co lại còn 13px và nút "Hủy phiên"
+       tràn ra đè lên bộ chọn tài liệu — hai thứ bấm được nằm chồng nhau.
+       Cho mỗi cụm một hàng riêng thì hết chồng, đổi lại thanh trên cao thêm
+       một dòng.
+
+       .tally cũng xếp dọc ở đây. Khi nó tự xuống dòng, dấu chấm ngăn ::before
+       rơi xuống đầu dòng mới và trông như một dấu đầu dòng lạc. Xếp dọc thì
+       bỏ hẳn dấu ngăn — mỗi mục một dòng đã đủ tách nhau rồi. */
+    @media (max-width: 560px) {
+      .fs-top {
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 10px;
+      }
+
+      .fs-top__right {
+        justify-content: flex-start;
+      }
+
+      .tally {
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .tally__item {
+        padding: 0;
+      }
+
+      .tally__item + .tally__item::before {
+        display: none;
       }
     }
   </style>
@@ -834,11 +1228,29 @@
     Class đặt trên .fs-shell chứ không phải <body> — ràng buộc chỉ áp cho
     giao diện phiên đang chạy; phụ lục tài liệu bên dưới giữ hành vi bình thường.
   -->
+  <a class="skip-link" href="#dieu-khien">Tới cụm điều khiển phiên</a>
+
   <main class="fs-shell focus-session-active">
     <header class="fs-top">
-      <div class="fs-top__id">
-        <span class="fs-top__title">Phiên học</span>
-        <span class="fs-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+      <div class="fs-top__lead">
+        <!--
+          Alt flow 4: "Hủy" khác "Kết thúc" — hủy thì không ghi thời gian.
+          Nó là đường ra DUY NHẤT không lưu, nên đứng riêng ở vị trí quen thuộc
+          của nút quay lại, có mũi tên, màu chữ mờ, và luôn phải qua hộp thoại
+          xác nhận (phụ lục · trạng thái Hủy phiên). Bản cũ để nó là một link
+          trần nằm sát nút "Kết thúc phiên học".
+        -->
+        <button class="exit" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5M11 18l-6-6 6-6" />
+          </svg>
+          Hủy phiên
+        </button>
+        <div class="fs-top__id">
+          <span class="fs-top__title">Phiên học</span>
+          <span class="fs-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+        </div>
       </div>
 
       <div class="fs-top__right">
@@ -846,17 +1258,37 @@
           FS-04 là <<extend>> (UC-Overview.md:121) = TÙY CHỌN. Mặc định "Ẩn".
           Bản mockup cũ không có công tắc nào: tài liệu chiếm cột 1fr, luôn
           hiện, không tắt được — trên một màn hình tên là "Focus".
-          "Trích đoạn" hiện bị chặn bởi schema — xem trạng thái 1 ở phụ lục.
+          "Trích đoạn" trước đây bị disabled vì thiếu neo vị trí; concept_sources
+          đã có page_from/page_to/excerpt nên nút này bật được rồi.
         -->
         <div class="seg" role="group" aria-label="Hiển thị tài liệu">
           <span>Tài liệu</span>
           <button type="button" aria-pressed="true">Ẩn</button>
-          <button type="button" aria-pressed="false" disabled title="Cần source anchor trong schema">Trích đoạn</button>
+          <button type="button" aria-pressed="false">Trích đoạn</button>
           <button type="button" aria-pressed="false">Toàn văn</button>
         </div>
 
-        <a href="#huy" class="link">Hủy phiên</a>
-        <button class="btn btn-secondary" type="button">Kết thúc phiên học</button>
+        <!-- FS-05 — mở panel ghi chú (phụ lục · trạng thái Ghi chú nhanh) -->
+        <button class="icon-btn" type="button" aria-label="Ghi chú nhanh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+            <path d="M14 4v6h6" />
+          </svg>
+        </button>
+
+        <!--
+          FS-02 là <<include>> của FS-01 (UC-Overview.md:120). Bản cũ để nó là
+          link điều hướng sang screen-profile.html — bấm vào là rời khỏi phiên
+          đang chạy. Ở đây nó mở panel cấu hình tại chỗ, phiên không gián đoạn.
+        -->
+        <button class="icon-btn" type="button" aria-label="Cấu hình Pomodoro">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -864,42 +1296,43 @@
       <div class="stage">
 
         <!--
-          FS-06 · Gợi ý khái niệm từ SRE. Đây là <<include>> ưu tiên High của
-          FS-01 (UC-Overview.md:53) — bắt buộc chạy, nhưng bản cũ không vẽ.
-          Dữ liệu: review_queue_items {reason, source_concept_id, depth}.
-          Đây cũng là chỗ duy nhất trên màn hình này phân biệt Recall AI với
-          một cái đồng hồ Pomodoro: khái niệm không do Sinh viên chọn bừa,
-          nó do đồ thị khái niệm xếp lên đầu hàng đợi.
+          FS-06 · Gợi ý khái niệm từ SRE. Dữ liệu: review_queue_items
+          {reason, source_concept_id, depth}.
         -->
-        <section class="why" aria-labelledby="why-h">
-          <div class="why__row">
-            <h1 class="why__concept" id="why-h">Ngăn xếp (Stack)</h1>
-            <span class="chip">Truy ngược · tầng 1</span>
-          </div>
-          <p class="why__body">
+        <section class="concept" aria-labelledby="concept-h">
+          <span class="chip">Truy ngược · tầng 1</span>
+          <h1 class="concept__name" id="concept-h">Ngăn xếp (Stack)</h1>
+          <!--
+            Bỏ link "xem trên đồ thị". Nó là một lối ĐI RA nằm giữa thân màn
+            hình của một phiên tập trung: bấm vào là điều hướng khỏi trang,
+            phiên đang chạy mất luôn — và nếu chế độ nghiêm ngặt đang bật thì
+            màn hình vừa tự mời người học làm đúng cái việc mà nó đang đếm và
+            trừ điểm. Một màn hình focus không được có link ra ngoài trong
+            phần thân. Lý do chọn khái niệm (FS-06) vẫn giữ nguyên vì đó là
+            thứ phân biệt Recall AI với một cái đồng hồ Pomodoro; chỉ có chỗ
+            bấm là bỏ. Đường sang đồ thị nằm ở bảng tổng kết cuối phiên —
+            lúc đó rời đi không mất gì.
+          -->
+          <p class="concept__why">
             Phiên kiểm tra <strong>24/07</strong> chấm <strong>Đệ quy</strong> ở mức
-            <strong>0.42</strong> — dưới ngưỡng 0.60. Duyệt ngược đồ thị tìm ra
-            <strong>Ngăn xếp</strong> là khái niệm tiên quyết chưa vững, nên nó được
-            xếp lên đầu hàng đợi hôm nay.
-          </p>
-          <p class="why__body" style="margin-top:10px;">
-            <a href="#" class="link link--u">Xem trên đồ thị khái niệm</a>
+            <strong>0.42</strong>. Duyệt ngược đồ thị tìm ra Ngăn xếp là khái niệm
+            tiên quyết chưa vững.
           </p>
         </section>
 
         <!--
-          Hai con số, không phải một. Thời gian TRÔI QUA là thứ mọi app Pomodoro
-          đều đếm được; thời gian TẬP TRUNG mới là thứ tương xứng với cái tên
-          "Focus Session". Lệch schema: focus_sessions chỉ có duration_minutes
-          (database-design.md §3.9) — xem ghi chú cuối file.
+          Hai con số, không phải một. Lệch schema: focus_sessions chỉ có
+          duration_minutes (database-design.md §3.9) — xem ghi chú ở phụ lục.
+          role="timer" + aria-live="off": đồng hồ nhảy mỗi giây, để "polite"
+          thì trình đọc màn hình đọc liên tục không dứt.
         -->
-        <section class="clockcard" aria-label="Đồng hồ phiên học">
-          <div class="ring">
-            <svg width="140" height="140" viewBox="0 0 140 140" aria-hidden="true">
-              <circle cx="70" cy="70" r="64" fill="none" stroke="var(--border)" stroke-width="3" />
-              <!-- 18:24 còn lại trên 25:00 → đã đi 26.4% → dash 106 / 402 -->
-              <circle cx="70" cy="70" r="64" fill="none" stroke="var(--focus-session)" stroke-width="3"
-                stroke-linecap="round" stroke-dasharray="106 296" />
+        <section class="clock" aria-label="Đồng hồ phiên học">
+          <div class="ring" role="timer" aria-live="off">
+            <svg width="196" height="196" viewBox="0 0 196 196" aria-hidden="true">
+              <circle cx="98" cy="98" r="90" fill="none" stroke="var(--border)" stroke-width="6" />
+              <!-- 18:24 còn lại trên 25:00 → đã đi 26.4% → dash 149 / 416 (chu vi 565.5) -->
+              <circle cx="98" cy="98" r="90" fill="none" stroke="var(--focus-session)" stroke-width="6"
+                stroke-linecap="round" stroke-dasharray="149 416" />
             </svg>
             <div class="ring__inner">
               <div class="ring__time">18:24</div>
@@ -907,101 +1340,78 @@
             </div>
           </div>
 
-          <div class="stats">
-            <div class="stat stat--lead">
-              <span class="stat__k">Tập trung</span>
-              <span class="stat__v">22:31</span>
-            </div>
-            <div class="stat">
-              <span class="stat__k">Trôi qua</span>
-              <span class="stat__v">24:06</span>
-            </div>
-            <div class="stat stat--drift">
-              <span class="stat__k">Rời tab</span>
-              <span class="stat__v">2 lần · 1:35</span>
-            </div>
-            <div class="stats__rule"></div>
-            <div class="cycles">
-              <span class="dot dot--done"></span>
-              <span class="dot dot--break"></span>
-              <span class="dot dot--now"></span>
-              <span class="dot dot--break"></span>
-              <span class="dot"></span>
-              <span class="dot dot--break"></span>
-              <span class="dot"></span>
-              <span style="margin-left:4px;">Pomodoro 2/4 · nghỉ 5 phút sau lượt này</span>
-            </div>
+          <!-- Chu kỳ Pomodoro — users.pomodoro_config {work, short_break,
+               long_break, cycles: 4} (UC-Overview.md §5.5). Đứng sát vòng đồng
+               hồ chứ không phải ở giữa thanh trên: cùng một trục thời gian thì
+               nằm cùng một chỗ. -->
+          <div class="meter">
+            <span class="meter__pips" aria-hidden="true">
+              <span class="meter__seg meter__seg--done"></span>
+              <span class="meter__seg meter__seg--now"></span>
+              <span class="meter__seg"></span>
+              <span class="meter__seg"></span>
+            </span>
+            <span class="meter__text">Pomodoro 2 / 4 · nghỉ 5 phút sau lượt này</span>
           </div>
         </section>
 
-        <div class="actions">
-          <!-- Alt flow 3: chỉ Tạm dừng / Tiếp tục. Không có "Bỏ qua" ở use case này. -->
-          <button class="btn btn-secondary" type="button">Tạm dừng</button>
-          <span class="actions__spacer"></span>
-          <a href="screen-profile.html#pomodoro" class="link">Đổi cấu hình Pomodoro</a>
-        </div>
-
-        <!--
-          Alt flow 2 của SPEC_FS-01 viết Strict Mode là "khóa/chặn các trang web
-          hoặc tab gây xao nhãng". Một SPA chạy trong sandbox trình duyệt không
-          làm được điều đó — không có API nào cho phép. Ở đây thay bằng thứ
-          thật sự cài được: Page Visibility API đếm số lần rời tab và trừ khỏi
-          thời gian tập trung. Xem đề xuất sửa câu chữ spec ở cuối file.
-        -->
-        <section class="strict">
-          <span class="strict__icon" aria-hidden="true">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
+        <p class="tally">
+          <span class="tally__item tally__item--lead">
+            Tập trung <span class="tally__v">22:31</span>
+          </span>
+          <span class="tally__item tally__item--strict">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z" />
               <path d="M9 12l2 2 4-4" />
             </svg>
+            Nghiêm ngặt đang bật
           </span>
-          <div>
-            <div class="strict__t">Chế độ nghiêm ngặt</div>
-            <p class="strict__d">
-              Recall AI không chặn được tab hay ứng dụng khác — trình duyệt không cho phép.
-              Thay vào đó: mỗi lần bạn rời khỏi tab này, đồng hồ tập trung dừng lại và
-              lần rời tab được ghi vào phiên. Thời gian tập trung, không phải thời gian
-              mở tab, mới là thứ được lưu.
-            </p>
-          </div>
-          <button class="switch" role="switch" aria-checked="true" aria-label="Chế độ nghiêm ngặt"
-            type="button"></button>
-        </section>
+          <!-- Chỉ hiện khi đã có lần rời tab. Không rời lần nào thì dòng này
+               chỉ còn hai mục — màn hình không cần thông báo một số không. -->
+          <!-- Ngoặc đơn chứ không phải dấu chấm giữa "2 lần" và "1:35": dấu
+               chấm ở đây trùng đúng ký hiệu đang dùng để ngăn các mục, đọc
+               thành bốn mục thay vì ba. -->
+          <span class="tally__item tally__item--drift">
+            Rời tab <span class="tally__v">2 lần (1:35)</span>
+          </span>
+        </p>
+
+        <div class="controls" id="dieu-khien">
+          <button class="btn btn-pause" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="6" y="5" width="4" height="14" rx="1" />
+              <rect x="14" y="5" width="4" height="14" rx="1" />
+            </svg>
+            Tạm dừng
+          </button>
+          <button class="btn btn-secondary" type="button">Kết thúc phiên học</button>
+        </div>
+
+        <p class="keys">
+          <span><kbd>Space</kbd> tạm dừng</span>
+          <span><kbd>N</kbd> ghi chú</span>
+          <span><kbd>D</kbd> tài liệu</span>
+        </p>
 
         <!--
-          FS-05 (Ghi chú nhanh) là <<extend>>, Low, Sprint 4-5. Model SessionNote
-          CHƯA có trong schema — database-design.md:416 ghi rõ "Deferred to
-          Sprint 5 … not yet in the schema; documented here as a known gap",
-          schema.prisma:302 cũng chỉ có comment. Bản mockup cũ vẽ một textarea
-          đã điền sẵn nội dung, tức là demo một tính năng không có chỗ lưu.
-          Ở đây đánh dấu thẳng thay vì vẽ giả.
+          Đồng hồ phải aria-live="off" vì nó nhảy mỗi giây — để "polite" thì
+          trình đọc màn hình đọc không dứt. Nhưng như thế người dùng trình đọc
+          không nghe được GÌ hết, kể cả lúc hết lượt hay vào giờ nghỉ. Vùng này
+          bù đúng chỗ đó: chỉ phát các mốc rời rạc, không phát từng giây.
         -->
-        <section class="gap">
-          <span aria-hidden="true" style="color:var(--muted-foreground); margin-top:2px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-              <path d="M14 4v6h6" />
-            </svg>
-          </span>
-          <div>
-            <div class="gap__t">Ghi chú nhanh <span class="badge-defer">Sprint 5</span></div>
-            <p class="gap__d">
-              FS-05 chưa bật được: bảng <code>session_notes</code> chưa có trong schema
-              (<code>database-design.md:416</code>). Post-condition của SPEC_FS-01
-              — <em>"ghi chú được lưu trữ và liên kết đúng với concept"</em> — vì vậy
-              chưa đạt được ở Sprint 4.
-            </p>
-          </div>
-        </section>
+        <p class="sr-only" role="status" aria-live="polite">
+          Pomodoro 2 trên 4, còn 18 phút 24 giây.
+        </p>
 
       </div>
     </div>
   </main>
 
   <!-- ══════════════════════════════════════════════════════════════════════
-       PHỤ LỤC — các trạng thái spec có mô tả nhưng bản mockup cũ không vẽ
+       PHỤ LỤC — các trạng thái spec có mô tả nhưng bản mockup cũ không vẽ,
+       cộng thêm những trạng thái spec KHÔNG mô tả nhưng phiên học thật sẽ
+       rơi vào (rời tab, chưa bắt đầu).
        ══════════════════════════════════════════════════════════════════════ -->
   <section class="gallery">
     <div class="gallery__wrap">
@@ -1011,11 +1421,176 @@
         <p>
           SPEC_FS-01 và UC-09 định nghĩa ít nhất bảy trạng thái. Bản thiết kế trước vẽ
           đúng một trạng thái — "đang chạy, có tài liệu". Phần dưới bổ sung số còn lại,
-          kèm tham chiếu tới đúng bước trong spec.
+          kèm tham chiếu tới đúng bước trong spec, và thêm hai trạng thái spec bỏ sót.
         </p>
       </div>
 
-      <!-- ── 1 · Trích đoạn theo khái niệm — schema đã có ─────────────────── -->
+      <!-- ── 1 · Chưa bắt đầu ─────────────────────────────────────────────── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Chưa bắt đầu</span>
+          <span class="tag">FS-01 · bước 5</span>
+          <span class="tag tag--new">Bổ sung</span>
+        </div>
+        <p class="state__desc">
+          Basic flow bước 5 là "Sinh viên nhấn nút Bắt đầu" — tức là có một khoảnh khắc
+          màn hình đã dựng nhưng đồng hồ chưa chạy. Bản cũ không vẽ, nên không ai thấy
+          được rằng phiên học không tự đếm ngay khi mở. Đây cũng là chỗ duy nhất Sinh viên
+          còn đổi được độ dài lượt trước khi cam kết — và giờ là chỗ bật/tắt
+          <strong>chế độ nghiêm ngặt</strong>, thứ trước đây nằm ở cuối màn hình đang chạy.
+          Cam kết trước khi bắt đầu thì rõ ràng; đổi giữa chừng thì không có câu trả lời
+          hiển nhiên cho đống số đã đếm.
+        </p>
+        <div class="state__demo">
+          <div class="panel">
+            <span class="chip">Truy ngược · tầng 1</span>
+            <div class="panel__t" style="font-size:26px;">Ngăn xếp (Stack)</div>
+            <div class="panel__k panel__k--muted">25:00</div>
+            <p class="panel__d">
+              Bốn lượt 25 phút, nghỉ 5 phút giữa các lượt. Đồng hồ chỉ chạy khi bạn bắt đầu.
+            </p>
+
+            <section class="strictrow">
+              <span class="strictrow__icon" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+              </span>
+              <div class="strictrow__body">
+                <div class="strictrow__t">Chế độ nghiêm ngặt</div>
+                <p class="strictrow__d">Rời khỏi tab thì đồng hồ tập trung dừng, và lần rời được ghi vào phiên.</p>
+              </div>
+              <button class="switch" role="switch" aria-checked="true" aria-label="Chế độ nghiêm ngặt"
+                type="button"></button>
+            </section>
+
+            <div class="actions">
+              <button class="btn btn-primary" type="button">Bắt đầu</button>
+              <button class="btn btn-secondary" type="button">Đổi độ dài lượt</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 2 · Rời tab trong chế độ nghiêm ngặt ─────────────────────────── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Quay lại sau khi rời tab</span>
+          <span class="tag">FS-01 · Alt flow 2</span>
+          <span class="tag tag--new">Bổ sung</span>
+        </div>
+        <p class="state__desc">
+          Alt flow 2 mô tả cơ chế đếm lần rời tab nhưng không nói Sinh viên <em>nhìn thấy</em>
+          gì khi quay lại. Nếu không có trạng thái này thì cả tính năng là vô hình: đồng hồ
+          tập trung tự lệch khỏi đồng hồ trôi qua mà không giải thích tại sao. Thông báo
+          nói đúng việc đã xảy ra, không trách móc — đây là công cụ đo, không phải giám thị.
+        </p>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5M12 16h.01" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">Sai lệch giữa spec và thứ trình duyệt cho phép</div>
+            <p class="note__d">
+              Bản spec trước viết Strict Mode là "khóa/chặn các trang web hoặc tab gây xao nhãng".
+              Một SPA chạy trong sandbox trình duyệt không có API nào làm được điều đó. Alt flow 2
+              hiện tại đã sửa lại thành theo dõi bằng <code>Page Visibility API</code> — đó là thứ
+              cài được thật, và là thứ màn hình này vẽ.
+            </p>
+          </div>
+        </div>
+
+        <div class="state__demo">
+          <div class="panel">
+            <div class="panel__k panel__k--muted">18:24</div>
+            <div class="panel__t">Đồng hồ tập trung đã dừng</div>
+            <p class="panel__d">
+              Bạn rời tab lúc 20:41 và quay lại sau <strong>58 giây</strong>. Khoảng đó không
+              tính vào thời gian tập trung. Tổng trong phiên này: 2 lần · 1 phút 35 giây.
+            </p>
+            <div class="actions">
+              <button class="btn btn-primary" type="button">Tiếp tục</button>
+              <button class="btn btn-secondary" type="button">Tắt chế độ nghiêm ngặt</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 3 · Ghi chú nhanh ────────────────────────────────────────────── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Ghi chú nhanh</span>
+          <span class="tag">FS-05</span>
+          <span class="tag">Cần 1 bảng mới</span>
+        </div>
+        <p class="state__desc">
+          Bản trước đánh dấu FS-05 là không làm được và để một ô gạch chân trên màn hình chính.
+          Nhưng thứ còn thiếu chỉ là một bảng — không phải một pipeline, không phải một call AI.
+          Nên ở đây vẽ đúng thứ sẽ dựng: panel trượt vào từ phải, khái niệm và đồng hồ vẫn nhìn
+          thấy, ghi chú tự lưu và neo sẵn vào concept đang học (basic flow bước 7–8). Panel mở
+          bằng phím <kbd>N</kbd> hoặc nút ghi chú trên thanh trên.
+        </p>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+              <path d="M14 4v6h6" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">Việc còn phải làm <span class="badge-defer">1 migration</span></div>
+            <p class="note__d">
+              <code>session_notes</code> chưa có trong schema (<code>database-design.md:416</code>,
+              <code>schema.prisma:302</code> mới chỉ là comment). Bảng cần đúng bốn cột có nghĩa —
+              <code>session_id</code>, <code>concept_id</code>, <code>body</code>,
+              <code>created_at</code> — nên post-condition <em>"ghi chú được lưu trữ và liên kết
+              đúng với concept"</em> đạt được ngay khi migration chạy. Không có ràng buộc nào khác
+              chặn FS-05.
+            </p>
+          </div>
+        </div>
+
+        <div class="state__demo">
+          <div class="notes">
+            <div class="notes__stage">
+              <span class="chip">Truy ngược · tầng 1</span>
+              <div class="panel__t" style="font-size:22px;">Ngăn xếp (Stack)</div>
+              <div class="panel__k panel__k--muted" style="font-size:34px;">18:24</div>
+              <p class="panel__d" style="font-size:12px;">
+                Đồng hồ không dừng khi mở ghi chú — viết ghi chú là một phần của việc học.
+              </p>
+            </div>
+            <div class="notes__side">
+              <div class="notes__head">
+                <span class="notes__title">Ghi chú · Ngăn xếp</span>
+                <span class="notes__saved">Đã lưu 20:47</span>
+              </div>
+              <textarea class="notes__area" aria-label="Ghi chú cho khái niệm Ngăn xếp">Chỗ hay nhầm: pop() trên stack rỗng. Java trả EmptyStackException, còn Python list.pop() trả IndexError — không phải None.</textarea>
+              <ul class="notes__list">
+                <li class="notes__item">
+                  <span class="notes__time">20:39</span>
+                  Call stack chính là lý do đệ quy sâu quá thì tràn — liên hệ ngược lại khái niệm Đệ quy.
+                </li>
+                <li class="notes__item">
+                  <span class="notes__time">20:31</span>
+                  Cài bằng mảng động: push/pop trung bình O(1), nhưng lúc cấp phát lại thì không.
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4 · Trích đoạn theo khái niệm — schema đã có ─────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Tài liệu · Trích đoạn theo khái niệm</span>
@@ -1023,9 +1598,9 @@
           <span class="tag">Schema đã có</span>
         </div>
         <p class="state__desc">
-          Đây là thứ màn hình <em>nên</em> hiển thị: chỉ phần tài liệu thuộc khái niệm đang học,
-          kèm vị trí gốc để đối chiếu. Giờ đã dựng được — schema có neo vị trí và pipeline
-          điền dữ liệu ngay khi phân tích tài liệu.
+          Đây là thứ màn hình <em>nên</em> hiển thị khi Sinh viên mở tài liệu: chỉ phần thuộc
+          khái niệm đang học, kèm vị trí gốc để đối chiếu. Giờ đã dựng được — schema có neo
+          vị trí và pipeline điền dữ liệu ngay khi phân tích tài liệu.
         </p>
 
         <div class="done">
@@ -1046,7 +1621,8 @@
               mỗi khái niệm vào đoạn tài liệu qua <code>page_from</code>/<code>page_to</code> +
               <code>excerpt</code>. Dữ liệu do <code>extract_concepts</code> điền ngay khi phân tích
               (trả thêm <code>source_page</code> + <code>source_excerpt</code> mỗi concept — vẫn 4
-              lệnh gọi cố định, C4).
+              lệnh gọi cố định, C4). Vì thế nút "Trích đoạn" trên thanh trên đã bật được, không
+              còn disabled như bản trước.
               <br /><br />
               Nhờ đó trích dẫn nguồn ở màn hình AI Examiner
               (<em>"Chương 3, tr. 4 — Định nghĩa LIFO"</em>) đã có chỗ dựa thật, và C5
@@ -1089,7 +1665,7 @@
                 <div class="panel__k" style="font-size:34px;">18:24</div>
                 <div class="ring__label">Còn lại · Pomodoro 2/4</div>
               </div>
-              <p class="gap__d">
+              <p class="note__d">
                 Vùng tô sáng là đoạn khớp với khái niệm đang học. Phần còn lại của tài liệu
                 vẫn mở được, nhưng không mặc định chiếm màn hình.
               </p>
@@ -1099,17 +1675,16 @@
         </div>
       </article>
 
-      <!-- ── 2 · Toàn văn ────────────────────────────────────────────────── -->
+      <!-- ── 5 · Toàn văn ────────────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Tài liệu · Toàn văn</span>
           <span class="tag">FS-04</span>
-          <span class="tag">Làm được ở Sprint 4</span>
         </div>
         <p class="state__desc">
-          Không có neo vị trí thì đây là mức cao nhất hiện làm được: mở nguyên tệp PDF, Sinh viên
-          tự tìm. Cần có thanh điều hướng trang và ô tìm kiếm — bản cũ không có cái nào, chỉ là
-          một khối chữ tĩnh. Đây là chế độ Sinh viên phải chủ động bật, không phải mặc định.
+          Mức cao nhất của FS-04: mở nguyên tệp PDF, Sinh viên tự tìm. Cần có thanh điều hướng
+          trang và ô tìm kiếm — bản cũ không có cái nào, chỉ là một khối chữ tĩnh. Đây là chế độ
+          Sinh viên phải chủ động bật, không phải mặc định.
         </p>
         <div class="state__demo">
           <div class="split">
@@ -1127,7 +1702,8 @@
                   <button class="icon-btn" type="button" aria-label="Trang trước"
                     style="width:26px;height:26px;">‹</button>
                   41 / 186
-                  <button class="icon-btn" type="button" aria-label="Trang sau" style="width:26px;height:26px;">›</button>
+                  <button class="icon-btn" type="button" aria-label="Trang sau"
+                    style="width:26px;height:26px;">›</button>
                 </span>
               </div>
               <div class="page fade">
@@ -1150,7 +1726,7 @@
                 <div class="panel__k" style="font-size:34px;">18:24</div>
                 <div class="ring__label">Còn lại · Pomodoro 2/4</div>
               </div>
-              <p class="gap__d">
+              <p class="note__d">
                 Đang mở toàn văn. Thời gian tập trung vẫn chạy vì bạn còn ở trong tab này.
               </p>
               <button class="btn btn-secondary" type="button">Ẩn tài liệu</button>
@@ -1159,17 +1735,17 @@
         </div>
       </article>
 
-      <!-- ── 3 · Nghỉ giải lao ───────────────────────────────────────────── -->
+      <!-- ── 6 · Nghỉ giải lao ───────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Nghỉ giải lao</span>
           <span class="tag">pomodoro_config.short_break</span>
         </div>
         <p class="state__desc">
-          <code style="font-family:var(--font-mono);font-size:12px;">users.pomodoro_config</code>
-          có <code style="font-family:var(--font-mono);font-size:12px;">{work, short_break, long_break, cycles}</code>
+          <code>users.pomodoro_config</code> có <code>{work, short_break, long_break, cycles}</code>
           (UC-Overview.md §5.5) nhưng bản cũ không hiển thị chu kỳ nào — chỉ có một con số đếm ngược
           duy nhất. Trong lúc nghỉ, tài liệu tự ẩn: nghỉ mà vẫn nhìn tài liệu thì không phải nghỉ.
+          Sau lượt 4 thì đây là <code>long_break</code> chứ không phải <code>short_break</code>.
         </p>
         <div class="state__demo">
           <div class="panel">
@@ -1187,7 +1763,7 @@
         </div>
       </article>
 
-      <!-- ── 4 · Hoàn thành + bàn giao AI Examiner ───────────────────────── -->
+      <!-- ── 7 · Hoàn thành + bàn giao AI Examiner ───────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Hoàn thành phiên · bàn giao AI Examiner</span>
@@ -1198,8 +1774,7 @@
           Bước 12 của basic flow yêu cầu màn hình tổng kết kèm lối đi tiếp — bản cũ dừng ở nút
           "Kết thúc phiên học" rồi hết. Đây là chỗ khép vòng lặp học tập (UC-Overview §4):
           đọc xong thì phải bị hỏi lại, nếu không thì phiên học chỉ là đọc lại tài liệu.
-          Lưu ý bước 11: phiên học <strong>không</strong> ghi
-          <code style="font-family:var(--font-mono);font-size:12px;">mastery_score</code> — chỉ ghi
+          Lưu ý bước 11: phiên học <strong>không</strong> ghi <code>mastery_score</code> — chỉ ghi
           thống kê thời gian.
         </p>
         <div class="state__demo">
@@ -1223,27 +1798,26 @@
               <div class="handoff__t">Kiểm tra lại ngay: Ngăn xếp (Stack)</div>
               <p class="handoff__d">
                 Đọc xong chưa chứng minh được là hiểu. Phiên kiểm tra vấn đáp 3 lượt sẽ chấm
-                <code style="font-family:var(--font-mono);font-size:11px;">mastery_score</code>
-                và quyết định có cần truy ngược tiếp hay không. Mất khoảng 6 phút.
+                <code>mastery_score</code> và quyết định có cần truy ngược tiếp hay không.
+                Mất khoảng 6 phút.
               </p>
               <div class="actions">
-                <button class="btn btn-primary" type="button">Bắt đầu kiểm tra</button>
-                <a href="#" class="link">Để sau — về Dashboard</a>
+                <a class="btn btn-primary" href="screen-interview.html">Bắt đầu kiểm tra</a>
+                <a href="screen-dashboard.html" class="link">Để sau — về Dashboard</a>
               </div>
             </div>
           </div>
         </div>
       </article>
 
-      <!-- ── 5 · Phiên bị gián đoạn ──────────────────────────────────────── -->
+      <!-- ── 8 · Phiên bị gián đoạn ──────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Phiên bị gián đoạn</span>
           <span class="tag">UC-09 · E2</span>
         </div>
         <p class="state__desc">
-          Đóng tab giữa phiên: <code style="font-family:var(--font-mono);font-size:12px;">started_at</code>
-          nằm trong <code style="font-family:var(--font-mono);font-size:12px;">localStorage</code>, lần mở sau
+          Đóng tab giữa phiên: <code>started_at</code> nằm trong <code>localStorage</code>, lần mở sau
           hệ thống phải hỏi có ghi nhận không. Con số đề nghị là thời gian <em>tập trung</em> đã đo
           được, không phải khoảng cách giữa hai mốc thời gian — nếu không thì một phiên bỏ quên qua
           đêm sẽ được ghi thành 9 tiếng học.
@@ -1265,7 +1839,7 @@
         </div>
       </article>
 
-      <!-- ── 6 · Hủy phiên ───────────────────────────────────────────────── -->
+      <!-- ── 9 · Hủy phiên ───────────────────────────────────────────────── -->
       <article class="state" id="huy">
         <div class="state__head">
           <span class="state__name">Hủy phiên học</span>
@@ -1273,8 +1847,9 @@
         </div>
         <p class="state__desc">
           Alt flow 4 phân biệt rõ "Hủy" với "Kết thúc": hủy thì hỏi xác nhận, rồi ghi trạng thái
-          <code style="font-family:var(--font-mono);font-size:12px;">cancelled</code> và không tính
-          thời gian. Bản cũ có link "Hủy phiên học" nhưng không có bước xác nhận nào.
+          <code>cancelled</code> và không tính thời gian. Bản cũ có link "Hủy phiên học" nhưng không
+          có bước xác nhận nào. Hộp thoại phải nói ra con số sắp mất, và phải chỉ đường sang lối
+          ra CÓ lưu — người bấm nhầm "Hủy" thường thật ra muốn "Kết thúc".
         </p>
         <div class="state__demo">
           <div class="center-pad">
@@ -1294,8 +1869,122 @@
         </div>
       </article>
 
+      <!-- ── Ghi chú lệch schema ─────────────────────────────────────────── -->
+      <article class="state">
+        <div class="state__head">
+          <span class="state__name">Lệch schema còn lại</span>
+          <span class="tag">Cho người làm</span>
+        </div>
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l9 16H3z" />
+              <path d="M12 9v4M12 16h.01" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">Một cột không đủ chứa hai con số</div>
+            <p class="note__d">
+              Màn hình này hiển thị <em>thời gian tập trung</em> tách khỏi <em>thời gian trôi qua</em>,
+              nhưng <code>focus_sessions</code> mới chỉ có <code>duration_minutes</code>
+              (<code>database-design.md §3.9</code>) — một con số. Không tách được thì "Focus Session"
+              chỉ đo đúng thứ mà một cái đồng hồ Pomodoro bất kỳ cũng đo được. Cần thêm
+              <code>focused_seconds</code> và <code>away_count</code>; cả hai đều do client tính sẵn
+              rồi gửi lên khi kết thúc phiên, không phát sinh truy vấn hay lệnh gọi AI nào.
+            </p>
+          </div>
+        </div>
+      </article>
+
     </div>
   </section>
+
+  <!--
+    Scroll-reveal cho phụ lục — design-system.md §5.3.
+
+    Ba ràng buộc được tôn trọng ở đây:
+
+    1. §5.3 bắt buộc IntersectionObserver, CẤM scroll event listener (hiệu năng).
+    2. §0 — phiên đang chạy phải giữ animation = 0. Vì thế mọi truy vấn đều
+       xuất phát từ biến `gallery`, không phải `document`. Không phần tử nào
+       trong .fs-shell bị đụng tới, kể cả gián tiếp.
+    3. Class ẩn được GẮN BẰNG JS chứ không viết sẵn trong HTML. Nếu script
+       lỗi, bị chặn, hoặc trình duyệt không có IntersectionObserver thì không
+       có gì bị opacity:0 cả — phụ lục hiện đầy đủ. Ẩn sẵn trong HTML rồi
+       trông chờ JS hiện lên là cách làm mất nội dung khi JS không chạy.
+  -->
+  <script>
+    (function () {
+      var gallery = document.querySelector('.gallery');
+      if (!gallery) return;
+
+      var targets = [];
+      gallery.querySelectorAll('.gallery__lede, .state').forEach(function (el) {
+        targets.push(el);
+      });
+
+      // Lưới 3 ô tổng kết là chỗ duy nhất có nhiều item ngang hàng cùng vào
+      // màn hình một lúc — đúng chỗ để stagger có nghĩa. Các .state cách nhau
+      // cả màn hình, xếp lịch trễ giữa chúng thì không ai thấy.
+      gallery.querySelectorAll('.summary__cell').forEach(function (el, i) {
+        el.classList.add('reveal-stagger');
+        el.style.setProperty('--index', i);
+        targets.push(el);
+      });
+
+      // Không có IntersectionObserver thì không ẩn gì hết — thà không có hiệu
+      // ứng còn hơn mất nội dung.
+      if (!('IntersectionObserver' in window)) return;
+
+      targets.forEach(function (el) {
+        el.classList.add('reveal-on-scroll');
+      });
+
+      var fired = false;
+      var io = new IntersectionObserver(
+        function (entries) {
+          fired = true;
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            entry.target.classList.add('is-visible');
+            // Hiện một lần rồi thôi: cuộn ngược lên mà nó mờ đi rồi hiện lại
+            // là nhấp nháy, không phải hiệu ứng.
+            io.unobserve(entry.target);
+          });
+        },
+        { rootMargin: '0px 0px -8% 0px', threshold: 0.05 }
+      );
+
+      targets.forEach(function (el) {
+        io.observe(el);
+      });
+
+      // Lưới an toàn. IO CÓ MẶT không đồng nghĩa với IO CHẠY: trình duyệt
+      // headless, bộ render khi xuất PDF, một số webview nhúng có API nhưng
+      // không bao giờ phát callback — gặp đúng trường hợp đó khi kiểm thử màn
+      // hình này. Khi ấy toàn bộ phụ lục đứng ở opacity 0 vĩnh viễn, tức là
+      // mất nội dung chứ không phải mất hiệu ứng.
+      //
+      // Trình duyệt thật luôn phát một callback khởi tạo cho mọi target ngay
+      // sau observe() (kể cả target đang ngoài màn hình), nên `fired` bật gần
+      // như tức thì và nhánh dưới không bao giờ chạy. Nó chỉ cứu đúng trường
+      // hợp IO chết lặng.
+      //
+      // Ở đây GỠ .reveal-on-scroll chứ không thêm .is-visible. Khác biệt quan
+      // trọng: .is-visible hiện nội dung BẰNG MỘT TRANSITION, mà môi trường
+      // làm IO chết lặng thường cũng là môi trường không chạy compositor —
+      // transition đứng luôn ở frame đầu và nội dung vẫn vô hình. Gỡ hẳn class
+      // ẩn thì phần tử trở về trạng thái tự nhiên, không phụ thuộc frame nào.
+      setTimeout(function () {
+        if (fired) return;
+        io.disconnect();
+        targets.forEach(function (el) {
+          el.classList.remove('reveal-on-scroll');
+        });
+      }, 1200);
+    })();
+  </script>
 </body>
 
 </html>

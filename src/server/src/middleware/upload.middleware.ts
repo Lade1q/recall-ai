@@ -1,7 +1,6 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { Request, Response, NextFunction } from 'express';
 import { AppError } from './errorHandler';
 
 // Temporary staging directory — files are moved to final storage by StorageService
@@ -12,7 +11,7 @@ if (!fs.existsSync(STAGING_DIR)) {
 }
 
 const ALLOWED_MIMES = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit (inclusive)
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -26,13 +25,14 @@ const storage = multer.diskStorage({
 
 /**
  * Multer middleware configured for file uploads.
- * Restricts files to PDF, TXT, PNG, and JPG up to 10MB.
+ * Restricts files to PDF, TXT, PNG, and JPG up to 10MB (inclusive).
  *
- * `limits.fileSize` được cấu hình dư 1 byte (MAX_FILE_SIZE + 1) vì busboy so sánh
- * `fileSize === fileSizeLimit` để đánh dấu stream "truncated", nên nếu đặt đúng
- * MAX_FILE_SIZE thì một file có kích thước CHÍNH XÁC 10MB cũng bị coi là vượt giới
- * hạn và bị abort oan. Việc từ chối file thực sự > 10MB do `enforceFileSizeLimit`
- * đảm nhiệm sau khi file đã được ghi xong.
+ * `limits.fileSize` đặt dư 1 byte (MAX_FILE_SIZE + 1) vì busboy đánh dấu stream
+ * "truncated" và bắn `LIMIT_FILE_SIZE` ngay khi `fileSize === fileSizeLimit`. Nếu
+ * đặt đúng MAX_FILE_SIZE thì file có kích thước CHÍNH XÁC 10MB cũng bị từ chối oan
+ * (bug #195). Với limit MAX_FILE_SIZE + 1, file <= 10MB được chấp nhận, còn file
+ * > 10MB (tức >= MAX_FILE_SIZE + 1 bytes) vẫn bị busboy abort sớm và trả về
+ * FILE_TOO_LARGE qua errorHandler — không cần kiểm tra kích thước thủ công sau upload.
  */
 export const upload = multer({
   storage,
@@ -51,18 +51,3 @@ export const upload = multer({
     }
   },
 });
-
-/**
- * Từ chối file có kích thước thực tế vượt quá MAX_FILE_SIZE (giới hạn 10MB là inclusive,
- * tức size == MAX_FILE_SIZE vẫn hợp lệ). Phải đặt sau `upload.single()`/`upload.array()`
- * trong route vì cần `req.file` đã được multer gắn vào.
- */
-export function enforceFileSizeLimit(req: Request, _res: Response, next: NextFunction): void {
-  if (req.file && req.file.size > MAX_FILE_SIZE) {
-    fs.unlink(req.file.path, () => {
-      next(new AppError('File size exceeds maximum limit of 10MB', 400, 'FILE_TOO_LARGE'));
-    });
-    return;
-  }
-  next();
-}

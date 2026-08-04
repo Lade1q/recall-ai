@@ -1,9 +1,14 @@
 import {
   DEFAULT_DEADLINE_HORIZON_DAYS,
+  DEFAULT_TODAY_LIMIT,
+  MINUTES_PER_TURN,
+  TRACEBACK_RELEARN_MINUTES,
   buildReasonText,
   calculatePriority,
+  estimateReviewMinutes,
   sortReviewItems,
 } from '../services/scheduling.service';
+import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 
 /**
  * Unit tests for the deterministic half of I7.3 (#124). No Prisma, no clock — same "provable
@@ -136,5 +141,92 @@ describe('sortReviewItems', () => {
     const original = [...items];
     sortReviewItems(items);
     expect(items).toEqual(original);
+  });
+});
+
+describe('estimateReviewMinutes', () => {
+  it('is answering time alone for a non-traceback item', () => {
+    expect(
+      estimateReviewMinutes({
+        reason: 'spaced_repetition',
+        depth: null,
+        maxTurnsPerConcept: 3,
+      })
+    ).toBe(3 * MINUTES_PER_TURN);
+  });
+
+  it('falls back to the schema default when no source session set the turn count', () => {
+    expect(
+      estimateReviewMinutes({
+        reason: 'spaced_repetition',
+        depth: null,
+        maxTurnsPerConcept: null,
+      })
+    ).toBe(
+      estimateReviewMinutes({
+        reason: 'spaced_repetition',
+        depth: null,
+        maxTurnsPerConcept: DEFAULT_MAX_TURNS_PER_CONCEPT,
+      })
+    );
+  });
+
+  it("scales with the session's maxTurnsPerConcept (a 1-turn session is cheaper than a 3-turn one)", () => {
+    const short = estimateReviewMinutes({
+      reason: 'spaced_repetition',
+      depth: null,
+      maxTurnsPerConcept: 1,
+    });
+    const long = estimateReviewMinutes({
+      reason: 'spaced_repetition',
+      depth: null,
+      maxTurnsPerConcept: 3,
+    });
+    expect(long - short).toBe(2 * MINUTES_PER_TURN);
+  });
+
+  it('adds re-learning time for a traceback item, more of it deeper in the prerequisite chain', () => {
+    const base = { reason: 'traceback' as const, maxTurnsPerConcept: 3 };
+    const plain = estimateReviewMinutes({
+      reason: 'spaced_repetition',
+      depth: null,
+      maxTurnsPerConcept: 3,
+    });
+
+    expect(estimateReviewMinutes({ ...base, depth: 1 })).toBe(plain + TRACEBACK_RELEARN_MINUTES);
+    expect(estimateReviewMinutes({ ...base, depth: 2 })).toBe(
+      plain + 2 * TRACEBACK_RELEARN_MINUTES
+    );
+  });
+
+  it('treats a traceback item with unknown depth as depth 1 rather than free', () => {
+    const base = { reason: 'traceback' as const, maxTurnsPerConcept: 3 };
+    expect(estimateReviewMinutes({ ...base, depth: null })).toBe(
+      estimateReviewMinutes({ ...base, depth: 1 })
+    );
+  });
+
+  it('ignores depth on a non-traceback item (no reason to re-read a prerequisite)', () => {
+    expect(
+      estimateReviewMinutes({ reason: 'spaced_repetition', depth: 2, maxTurnsPerConcept: 3 })
+    ).toBe(
+      estimateReviewMinutes({ reason: 'spaced_repetition', depth: null, maxTurnsPerConcept: 3 })
+    );
+  });
+
+  // Calibration guard for the two constants: the mockup header reads "Hàng đợi hôm nay · ≈ 50
+  // phút" for a default /today page (docs/analysis and design/claude-design/screen-dashboard.html
+  // line 440). Changing MINUTES_PER_TURN or TRACEBACK_RELEARN_MINUTES should fail here first.
+  it("adds up to the mockup's ≈50 minutes over a default today page", () => {
+    const page = [
+      { reason: 'traceback' as const, depth: 1, maxTurnsPerConcept: null },
+      ...Array.from({ length: DEFAULT_TODAY_LIMIT - 1 }, () => ({
+        reason: 'spaced_repetition' as const,
+        depth: null,
+        maxTurnsPerConcept: null,
+      })),
+    ];
+
+    expect(page.reduce((total, item) => total + estimateReviewMinutes(item), 0)).toBe(50);
   });
 });

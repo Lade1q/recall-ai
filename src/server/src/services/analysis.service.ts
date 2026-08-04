@@ -8,10 +8,11 @@ import { validateAndFixDag } from '../utils/dag';
 import { buildConceptSourceRows } from '../utils/concept-source';
 import { planConceptMerge, normalizeConceptKey } from '../utils/concept-merge';
 import { toSafeErrorMessage } from '../utils/error-message';
+import { UPLOAD_DIR, resolveMaterialSource } from '../utils/material';
 import { validateDAG } from './graph.service';
+import { pregenerateForPlan } from './question-cache.service';
 import { AiExtractResponse } from '../schemas/ai-extract.schema';
 
-const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
 const MAX_ATTEMPTS = 3; // 1 initial call + 2 retries, per I3.2 acceptance criteria
 const BACKOFF_BASE_MS = 2000;
 
@@ -20,36 +21,24 @@ const BACKOFF_BASE_MS = 2000;
 // callAiWithRetry) — shared with plan.service's retry staleness check (Issue #178).
 export const STALE_JOB_THRESHOLD_MS = 10 * 60 * 1000;
 
-const MIME_BY_EXT: Record<string, string> = {
-  '.pdf': 'application/pdf',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-};
-
 /** Reports which real sub-step of `callAi` is running, for the UI's 4-phase progress (#186). */
 type OnPhase = (phase: AnalysisJobPhase) => Promise<void>;
 
 async function callAi(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
   const absolutePath = path.join(UPLOAD_DIR, fileKey);
-  const ext = path.extname(fileKey).toLowerCase();
+  const source = resolveMaterialSource(fileKey);
 
   // .txt goes inline (no File API upload), so there is no "sending to AI service" step to report.
-  if (ext === '.txt') {
+  if (source.kind === 'text') {
     await onPhase('extracting');
     const text = await fs.promises.readFile(absolutePath, 'utf-8');
     return extractConcepts({ kind: 'text', text });
   }
 
-  const mimeType = MIME_BY_EXT[ext];
-  if (!mimeType) {
-    throw new Error(`Unsupported file extension for AI extraction: ${ext}`);
-  }
   await onPhase('sending_to_ai');
-  const uploaded = await uploadFile(absolutePath, mimeType);
+  const uploaded = await uploadFile(absolutePath, source.mimeType);
   await onPhase('extracting');
-  const kind = mimeType === 'application/pdf' ? 'document' : 'image';
-  return extractConcepts({ kind, uri: uploaded.uri, mimeType: uploaded.mimeType });
+  return extractConcepts({ kind: source.kind, uri: uploaded.uri, mimeType: uploaded.mimeType });
 }
 
 async function callAiWithRetry(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
@@ -286,6 +275,15 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
   // name, the edges actually persisted can differ from the set that was validated.
   // Re-check what landed in the DB, by concept id, and repair it if needed (I3.3).
   await validateDAG(planId);
+
+  // AE-06: pre-generate flashcard-fallback questions (R01). Fire-and-forget — this must never
+  // turn a successful analysis into a failed AnalysisJob, so it is never awaited by the caller
+  // and its own errors are only console.warn'd inside pregenerateForPlan, never thrown here.
+  // Hooked here rather than at each of triggerAnalysis's 4 controller call sites so create,
+  // retry, change-document, and reanalyze all get it for free.
+  void pregenerateForPlan(planId).catch((err) =>
+    console.warn(`[analysis] question cache pregeneration failed for plan ${planId}:`, err)
+  );
 }
 
 /** Looks up the pending job created alongside a plan and runs it. */

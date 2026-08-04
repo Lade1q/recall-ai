@@ -1,9 +1,16 @@
+/**
+ * Provenance của một khái niệm (enum `ConceptSource` phía server). Quan trọng với microcopy:
+ * `difficulty` của khái niệm `manual` là giá trị mặc định server đặt (1), không phải ước lượng
+ * của ai cả — nên không được gắn nhãn "AI ước lượng" cho nó.
+ */
+export type ConceptSource = 'ai_generated' | 'manual' | 'imported';
+
 export interface Concept {
   id: string;
   name: string;
-  description?: string;
   mastery_score: number | null; // null means untested
   difficulty?: number | null;
+  source?: ConceptSource;
   /** Last time an interview graded this concept — DB-06's `last_tested_at` (Issue #168). */
   lastTestedAt?: string | null;
   /** Second, orthogonal channel next to mastery band: pending in the AE-07 review queue. */
@@ -90,6 +97,7 @@ export interface BackendConcept {
   masteryScore: number | null;
   lastTestedAt?: string | null;
   isRemediating?: boolean;
+  source?: ConceptSource;
 }
 
 export interface BackendEdge {

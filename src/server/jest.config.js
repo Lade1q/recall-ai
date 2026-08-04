@@ -8,6 +8,7 @@ module.exports = {
   collectCoverageFrom: [
     'src/utils/dag.ts',
     'src/utils/mastery.ts',
+    'src/utils/interview-state.ts',
     'src/services/traceback.service.ts',
   ],
 };

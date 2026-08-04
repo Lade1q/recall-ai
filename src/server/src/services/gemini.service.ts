@@ -10,18 +10,16 @@ import {
   generateQuestionJsonSchema,
   gradeAnswerResponseSchema,
   gradeAnswerJsonSchema,
+  summarizeSessionResponseSchema,
+  summarizeSessionJsonSchema,
   GenerateQuestionResponse,
   GradeAnswerResponse,
+  SummarizeSessionResponse,
   QuestionMode,
   Verdict,
 } from '../schemas/ai-interview.schema';
 import { reconcileVerdict } from '../utils/interview-grading';
-import {
-  mockGenerateQuestion,
-  mockGradeAnswer,
-  MOCK_EXTRACT_RESULT,
-  MOCK_EXTRACT_RESULT_CYCLE,
-} from '../utils/mock-ai';
+import { mockGenerateQuestion, mockGradeAnswer, mockSummarizeSession } from '../utils/mock-ai';
 import { AppError } from '../middleware/errorHandler';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -352,6 +350,72 @@ export async function gradeAnswer(params: GradeAnswerParams): Promise<GradeAnswe
     );
   }
   return { ...graded, verdict };
+}
+
+// ===================================================================================
+// AI Examiner: summarize_session (I6.5 / AE-09) — the fourth and last AI call.
+//
+// Unlike generate_question/grade_answer, this call takes NO material and NO document upload:
+// it only sees the numbers I6.3/I7.2 already computed, never the source text. That keeps the
+// call cheap (a few lines of JSON in, not a whole document) and structurally unable to grade
+// or re-grade anything — it can only comment on scores that already exist (C4).
+// ===================================================================================
+
+const SUMMARIZE_SYSTEM_INSTRUCTION = `You are writing a short study report for a university student who just finished
+a self-assessment interview. You are given ONLY their scores and verdicts.
+Rules:
+- Do NOT invent facts about the subject matter. Comment only on performance.
+- strengths: concepts scoring >= 0.7. weaknesses: concepts scoring < 0.6.
+- recommendations: concrete, actionable, max 3 items.
+- Write in the same language as the concept names. Warm but honest tone.
+- Return ONLY the JSON object matching the provided schema.`;
+
+/** One concept's result for the session, as summarize_session sees it — scores only. */
+export interface SessionConceptSummaryInput {
+  conceptName: string;
+  /** `null` when the concept was queued but never actually assessed. */
+  masteryScore: number | null;
+  /** Every turn's verdict for this concept, oldest first. */
+  verdicts: Verdict[];
+}
+
+export interface SummarizeSessionParams {
+  concepts: SessionConceptSummaryInput[];
+  /** From extract_concepts' `language_detected`; falls back to the material's language. */
+  language?: string;
+}
+
+/** Renders the scores as plain text — the only input this call ever sees (no material). */
+function formatConceptResults(concepts: SessionConceptSummaryInput[]): string {
+  return concepts
+    .map((concept) => {
+      const mastery =
+        concept.masteryScore === null ? 'not graded' : concept.masteryScore.toFixed(2);
+      const verdicts = concept.verdicts.length > 0 ? concept.verdicts.join(', ') : 'none';
+      return `- ${concept.conceptName}: mastery_score=${mastery}, verdicts=[${verdicts}]`;
+    })
+    .join('\n');
+}
+
+/** Calls the summarize_session schema (AE-09). Never sees the source document. */
+export async function summarizeSession(
+  params: SummarizeSessionParams
+): Promise<SummarizeSessionResponse> {
+  const { concepts, language } = params;
+
+  if (process.env.USE_MOCK_AI === 'true') {
+    return mockSummarizeSession(concepts);
+  }
+
+  const languageLine = language ? `\nWrite in ${language}.` : '';
+  const prompt = `Student's results this session:\n${formatConceptResults(concepts)}${languageLine}`;
+
+  return callStructured(
+    SUMMARIZE_SYSTEM_INSTRUCTION,
+    summarizeSessionJsonSchema,
+    summarizeSessionResponseSchema,
+    prompt
+  );
 }
 
 // --- Plan material cache -----------------------------------------------------------

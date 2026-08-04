@@ -48,7 +48,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card className="[--card-spacing:--spacing(7)]">
         <CardHeader className="gap-1.5">
-          <div className="font-heading mb-[26px] text-base tracking-tight">Recall AI</div>
+          <div className="font-heading mb-6.5 text-base tracking-tight">Recall AI</div>
           <CardTitle className="font-heading text-[23px] font-bold leading-[1.2] tracking-tight">
             Đăng nhập
           </CardTitle>

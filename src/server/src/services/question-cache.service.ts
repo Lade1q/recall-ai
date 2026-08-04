@@ -1,0 +1,138 @@
+import prisma from '../config/prisma';
+import { generateQuestion, type AiMaterial, type PreviousTurn } from './gemini.service';
+import { loadMaterial } from './interview.service';
+import { MAX_CACHED_QUESTIONS_PER_CONCEPT } from '../utils/interview-state';
+
+/**
+ * AE-06 (I6.4) — pre-generates flashcard-fallback questions so AE-05 has something to serve
+ * when Gemini goes down mid-session (SDP risk R01, the highest-exposure risk in the plan).
+ *
+ * Runs fire-and-forget right after an `AnalysisJob` reaches `done` (see the trigger in
+ * `analysis.service.ts`) — never awaited by the request that triggered analysis, and its own
+ * failures must never turn a successful analysis into a failed job, so every error here is only
+ * `console.warn`'d, never thrown out of `pregenerateForPlan`.
+ */
+
+/**
+ * Small delay between Gemini calls so a plan with many concepts doesn't burn the free-tier rate
+ * limit in one burst (R01). Skipped entirely under mocks, where there is no real rate limit.
+ * Read on every call (not cached at module scope) so tests can flip `USE_MOCK_AI` per case.
+ */
+function pregenDelayMs(): number {
+  return process.env.USE_MOCK_AI === 'true'
+    ? 0
+    : Number(process.env.QUESTION_CACHE_DELAY_MS ?? 1500);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Pre-generates up to `MAX_CACHED_QUESTIONS_PER_CONCEPT` questions for every active concept of a
+ * plan, skipping concepts that already have enough cached (idempotent — a re-analysis or a retry
+ * that runs this again spends no extra Gemini calls on concepts already covered).
+ */
+export async function pregenerateForPlan(planId: string): Promise<void> {
+  const concepts = await prisma.concept.findMany({
+    where: { planId, status: 'active' },
+    select: { id: true, name: true },
+  });
+  if (concepts.length === 0) return;
+
+  const counts = await prisma.questionCache.groupBy({
+    by: ['conceptId'],
+    where: { conceptId: { in: concepts.map((concept) => concept.id) } },
+    _count: { _all: true },
+  });
+  const cachedCountByConcept = new Map(counts.map((row) => [row.conceptId, row._count._all]));
+
+  const pendingConcepts = concepts.filter(
+    (concept) => (cachedCountByConcept.get(concept.id) ?? 0) < MAX_CACHED_QUESTIONS_PER_CONCEPT
+  );
+  if (pendingConcepts.length === 0) return;
+
+  const plan = await prisma.studyPlan.findUnique({
+    where: { id: planId },
+    select: { languageDetected: true },
+  });
+
+  let material: AiMaterial;
+  try {
+    material = await loadMaterial(planId);
+  } catch (error) {
+    // A plan with no document / an upload failure would fail identically for every concept —
+    // warn once instead of repeating the same error N times below.
+    console.warn(
+      `[question-cache] could not load material for plan ${planId}, skipping pregeneration:`,
+      error
+    );
+    return;
+  }
+
+  let callsMade = 0;
+
+  for (const concept of pendingConcepts) {
+    const alreadyCached = cachedCountByConcept.get(concept.id) ?? 0;
+
+    try {
+      // Only the questions generated in this loop, so the prompt's "don't repeat a question
+      // already asked" instruction can't reference a real student's turns — there are none.
+      const previousTurns: PreviousTurn[] = [];
+
+      for (
+        let turnIndex = alreadyCached + 1;
+        turnIndex <= MAX_CACHED_QUESTIONS_PER_CONCEPT;
+        turnIndex++
+      ) {
+        // Re-checked on every iteration rather than trusted from the count read at the top of
+        // this function: a concurrent `pregenerateForPlan` run for the same plan (e.g. two
+        // reanalyze requests close together) can fill this concept's cache while this run is
+        // still working through earlier concepts, especially on a plan with many concepts where
+        // the throttle stretches the whole run to tens of seconds. No DB-level lock or schema
+        // change — just don't spend a Gemini call once another run already finished this slot.
+        const currentCount = await prisma.questionCache.count({
+          where: { conceptId: concept.id },
+        });
+        if (currentCount >= MAX_CACHED_QUESTIONS_PER_CONCEPT) break;
+
+        if (callsMade > 0) {
+          await sleep(pregenDelayMs());
+        }
+        callsMade += 1;
+
+        const question = await generateQuestion({
+          conceptName: concept.name,
+          material,
+          turnIndex,
+          // 'deeper'/'probe' prompts reference "the student's previous answer" — meaningless
+          // with no real session, so every pre-generated question uses the opening mode.
+          mode: 'initial',
+          previousTurns,
+          language: plan?.languageDetected ?? undefined,
+        });
+
+        await prisma.questionCache.create({
+          data: {
+            conceptId: concept.id,
+            questionText: question.question_text,
+            questionType: question.question_type,
+            // generate_question has no hint field today; adding one means touching the shared
+            // AI schema/prompt for the live interview path too, for a column AE-05/AE-06 don't
+            // require to be populated.
+            answerHint: null,
+          },
+        });
+
+        previousTurns.push({ questionText: question.question_text });
+      }
+    } catch (error) {
+      // One concept's Gemini failure must not stop the rest of the plan from getting cached
+      // (R01) — and must never bubble up to fail the AnalysisJob that triggered this.
+      console.warn(
+        `[question-cache] pregeneration failed for concept ${concept.id} (${concept.name}):`,
+        error
+      );
+    }
+  }
+}

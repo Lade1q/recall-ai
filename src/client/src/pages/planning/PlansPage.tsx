@@ -164,7 +164,7 @@ export default function PlansPage() {
       {/* No subtitle: the mockup's paragraph here explains to a reviewer why this screen
           exists separately from the dashboard, which is not something a student needs told.
           The title and the three tabs already say what the page holds. */}
-      <header className="mb-[26px] flex flex-wrap items-center justify-between gap-6">
+      <header className="mb-6.5 flex flex-wrap items-center justify-between gap-6">
         <h1 className="font-heading text-[30px] leading-[1.15] tracking-[-0.02em]">
           Kế hoạch ôn tập
         </h1>
@@ -185,7 +185,7 @@ export default function PlansPage() {
           <div
             role="tablist"
             aria-label="Lọc theo trạng thái"
-            className="border-border mb-[22px] flex items-center gap-1.5 border-b"
+            className="border-border mb-5.5 flex items-center gap-1.5 border-b"
           >
             {TABS.map(({ status, label }) => (
               <button
@@ -269,7 +269,7 @@ export default function PlansPage() {
 function LoadErrorNotice({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="border-border bg-background rounded-xl border px-7 py-6">
-      <div className="mx-auto my-6 max-w-[560px] text-center">
+      <div className="max-w-140 mx-auto my-6 text-center">
         <h2 className="font-heading mb-2 text-[21px] tracking-[-0.02em]">
           Không thể tải danh sách kế hoạch
         </h2>
@@ -291,8 +291,8 @@ function LoadErrorNotice({ onRetry }: { onRetry: () => void }) {
 function EmptyState() {
   return (
     <div className="border-border bg-background rounded-xl border px-7 py-6">
-      <div className="mx-auto my-6 max-w-[560px] text-center">
-        <div className="text-muted-foreground mb-[18px] flex justify-center opacity-55">
+      <div className="max-w-140 mx-auto my-6 text-center">
+        <div className="text-muted-foreground mb-4.5 flex justify-center opacity-55">
           <svg
             width="44"
             height="44"

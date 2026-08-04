@@ -29,4 +29,12 @@ export default defineConfig([
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    // File test và helper test không bao giờ nằm trong đồ thị Fast Refresh của Vite dev server,
+    // nên ràng buộc "chỉ export component" không áp dụng cho chúng (vd custom render + `export *`).
+    files: ['**/*.test.{ts,tsx}', '**/setupTests.ts', '**/utils/test-utils.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ]);

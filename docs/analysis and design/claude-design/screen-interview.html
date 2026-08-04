@@ -1,4 +1,4 @@
-<!-- @dsCard group="Screens" subtitle="AE-02 — Phiên kiểm tra vấn đáp (text + voice)" -->
+<!-- @dsCard group="Screens" subtitle="AE-02 — Phiên kiểm tra vấn đáp (gõ + giọng nói)" -->
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -6,39 +6,132 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Recall AI — Phiên kiểm tra vấn đáp</title>
-  <meta name="description" content="AE-02: phiên vấn đáp nhiều lượt do state machine tất định điều phối, hỗ trợ trả lời bằng văn bản hoặc giọng nói." />
+  <meta name="description" content="AE-02: phiên vấn đáp nhiều lượt do state machine tất định điều phối. Mặc định trả lời bằng cách gõ; giọng nói là tầng nhập/xuất tùy chọn phủ lên trên." />
   <link rel="stylesheet" href="tokens.css" />
   <style>
+    /* Alias cục bộ: "đang ghi âm" mượn hue của --destructive nhưng KHÔNG mang
+       nghĩa lỗi. Đặt tên riêng để sau này đổi màu ghi âm không đụng nút xoá. */
+    body {
+      --recording: var(--destructive);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Bàn phím phải tới thẳng được khu trả lời — hội thoại có thể dài hàng chục lượt. */
+    .skip-link {
+      position: absolute;
+      left: 12px;
+      top: -60px;
+      z-index: 20;
+      background: var(--card);
+      border: 1px solid var(--foreground);
+      border-radius: calc(var(--radius) * 0.6);
+      padding: 9px 14px;
+      font-size: 13px;
+      color: var(--foreground);
+      text-decoration: none;
+      transition: top var(--duration-fast) var(--ease-standard);
+    }
+
+    .skip-link:focus {
+      top: 12px;
+    }
+
+    /* Vòng focus dùng chung — tokens.css chỉ định nghĩa .btn về mặt hình thức,
+       không có focus ring nào. Điều hướng bằng bàn phím là bắt buộc ở màn này
+       vì cả phiên có thể làm mà không rời tay khỏi bàn phím. */
+    .btn:focus-visible,
+    .linkish:focus-visible,
+    .exit:focus-visible,
+    .seg button:focus-visible,
+    .self-grade:focus-visible,
+    .chip-choice:focus-visible,
+    .icon-btn:focus-visible,
+    [contenteditable]:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 2px;
+    }
+
     /* ─────────── Khung màn hình ─────────── */
     /* minmax(0, 1fr) chứ không phải 1fr: track auto-minimum sẽ phình theo
-       nội dung con và làm khung vượt quá chiều cao màn hình. */
+       nội dung con và làm khung vượt quá chiều cao màn hình.
+       height chứ không phải min-height: với min-height, chiều cao container
+       vẫn là auto nên 1fr đo theo nội dung — hội thoại dài đẩy khu trả lời
+       xuống dưới mép màn hình (lỗi có sẵn ở bản cũ). Khóa đúng một viewport
+       thì hội thoại tự cuộn bên trong, ô trả lời luôn nhìn thấy. Phụ lục nằm
+       ngoài .ex-shell nên trang vẫn cuộn xuống được như thường. */
     .ex-shell {
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
-      min-height: 100dvh;
+      height: 100dvh;
+      min-height: 560px;
+      overflow: hidden;
     }
 
+    /* 3 vùng, không phải một hàng 6 nút như bản cũ: đường ra ở trái, tiến độ ở
+       giữa, công tắc chế độ ở phải. Bản cũ nhét "Tạm dừng & thoát" (thoát phiên)
+       cạnh "Bỏ qua khái niệm" (bỏ 1 khái niệm) cùng cỡ, cùng style — hai hành
+       động có hậu quả khác hẳn nhau mà trông y hệt. */
     .ex-top {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      padding: 14px 28px;
+      gap: 20px;
+      padding: 12px 24px;
       border-bottom: 1px solid var(--border);
       background: var(--card);
+    }
+
+    .ex-top__lead {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .exit {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: none;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--card);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 12px 7px 10px;
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard);
+    }
+
+    .exit:hover {
+      background: var(--muted);
     }
 
     .ex-top__id {
       display: flex;
       align-items: baseline;
-      gap: 10px;
+      gap: 9px;
       min-width: 0;
     }
 
     .ex-top__title {
-      font-family: var(--font-heading);
-      font-size: 17px;
-      letter-spacing: -0.02em;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     .ex-top__plan {
@@ -49,10 +142,51 @@
       text-overflow: ellipsis;
     }
 
+    /* Thanh tiến độ mang luôn nghĩa mastery: mỗi đoạn là một khái niệm và tô
+       theo mức đã chấm, nên nó không phải "progress bar" trang trí. Con số
+       3 / 5 đứng cạnh vì màu không bao giờ được là tín hiệu duy nhất (§0.3). */
+    .ex-top__mid {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .meter {
+      display: flex;
+      gap: 4px;
+    }
+
+    .meter__seg {
+      width: 26px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--mastery-untested);
+    }
+
+    .meter__seg--strong {
+      background: var(--mastery-strong);
+    }
+
+    .meter__seg--learning {
+      background: var(--mastery-learning);
+    }
+
+    .meter__seg--now {
+      background: var(--ai-accent);
+    }
+
+    .meter__text {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
     .ex-top__right {
       display: flex;
       align-items: center;
-      gap: 14px;
+      justify-content: flex-end;
+      gap: 12px;
     }
 
     .clock {
@@ -72,6 +206,15 @@
       background: var(--muted);
     }
 
+    .seg>span {
+      align-self: center;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      padding: 0 9px 0 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
     .seg button {
       display: inline-flex;
       align-items: center;
@@ -82,6 +225,7 @@
       font-family: var(--font-sans);
       font-size: 13px;
       font-weight: 500;
+      white-space: nowrap;
       padding: 7px 13px;
       cursor: pointer;
       transition: background var(--duration-fast) var(--ease-standard),
@@ -118,15 +262,10 @@
       border-color: var(--muted-foreground);
     }
 
-    .icon-btn:focus-visible {
-      outline: 2px solid var(--ring);
-      outline-offset: 2px;
-    }
-
     /* ─────────── Bố cục 2 cột ─────────── */
     .ex-body {
       display: grid;
-      grid-template-columns: 288px 1fr;
+      grid-template-columns: 288px minmax(0, 1fr);
       min-height: 0;
     }
 
@@ -146,14 +285,14 @@
       letter-spacing: 0.07em;
       text-transform: uppercase;
       color: var(--muted-foreground);
-      margin-bottom: 10px;
+      margin: 0 0 10px;
     }
 
     /* Hàng đợi khái niệm — AE-02 bước 11 (lặp cho tới hết hàng đợi).
        Không có widget này thì sinh viên không biết bài kiểm tra dài bao nhiêu. */
     .qitem {
       display: grid;
-      grid-template-columns: 22px 1fr auto;
+      grid-template-columns: 22px minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
       padding: 8px 10px;
@@ -186,9 +325,11 @@
       margin: 2px -10px;
     }
 
+    /* Bản cũ dùng opacity 0.72 chồng lên --muted-foreground → tụt dưới ngưỡng
+       tương phản. Khái niệm chưa tới vẫn phải đọc được, nó là thứ cho biết
+       bài kiểm tra còn dài bao nhiêu. */
     .qitem--wait {
       color: var(--muted-foreground);
-      opacity: 0.72;
     }
 
     /* Máy trạng thái 3 lượt + trọng số — hiện thực hoá ràng buộc C6 và
@@ -202,7 +343,7 @@
 
     .turnrow {
       display: grid;
-      grid-template-columns: 20px 1fr auto;
+      grid-template-columns: 20px minmax(0, 1fr) auto;
       align-items: center;
       gap: 10px;
       padding: 10px 12px;
@@ -214,13 +355,7 @@
       border-bottom: 0;
     }
 
-    .turnrow__n {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--muted-foreground);
-      font-variant-numeric: tabular-nums;
-    }
-
+    .turnrow__n,
     .turnrow__w {
       font-family: var(--font-mono);
       font-size: 11px;
@@ -234,7 +369,6 @@
 
     .turnrow--locked {
       color: var(--muted-foreground);
-      opacity: 0.66;
     }
 
     .rail__note {
@@ -255,12 +389,85 @@
     /* ─────────── Cột hội thoại ─────────── */
     .conv-wrap {
       display: grid;
-      grid-template-rows: minmax(0, 1fr) auto;
+      grid-template-rows: auto minmax(0, 1fr) auto;
       min-height: 0;
     }
 
+    /* Thanh khái niệm — phần thiếu lớn nhất của bản cũ. Tên khái niệm đang bị
+       hỏi, vị trí trong hàng đợi và số lượt chỉ tồn tại trong rail; dưới 1080px
+       rail bị display:none nên sinh viên không còn biết mình đang bị hỏi về cái
+       gì. Đưa vào cột chính thì rail trở thành phần bổ trợ, không phải chỗ duy
+       nhất chứa ngữ cảnh. "Bỏ qua khái niệm" cũng chuyển xuống đây vì nó là
+       hành động theo khái niệm (AE-02 Alt flow 3, kích hoạt từ bước 4 hoặc 5),
+       không phải hành động cấp phiên như "Tạm dừng & thoát". */
+    .cbar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      padding: 14px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--background);
+    }
+
+    .cbar__id {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .cbar__concept {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0;
+    }
+
+    .cbar__pos {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .cbar__turn {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-left: auto;
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+
+    .pips {
+      display: flex;
+      gap: 3px;
+    }
+
+    .pip {
+      width: 16px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+
+    .pip--done {
+      background: var(--mastery-strong);
+    }
+
+    .pip--now {
+      background: var(--ai-accent);
+    }
+
+    /* Trong sản phẩm thật, khung này luôn được ghim xuống tin nhắn mới nhất.
+       File tĩnh không có JS nên nó mở ra ở đầu hội thoại — đọc từ lượt 1
+       xuống, cuộn để tới câu hỏi đang chờ trả lời. */
     .conv {
-      padding: 28px 32px 6px;
+      padding: 20px 32px 8px;
       overflow-y: auto;
       min-height: 0;
     }
@@ -270,26 +477,48 @@
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
     }
 
-    .turn-sep {
+    .turn {
       display: flex;
-      align-items: center;
+      flex-direction: column;
       gap: 12px;
-      margin: 14px 0 4px;
-      font-size: 11px;
-      letter-spacing: 0.07em;
-      text-transform: uppercase;
+    }
+
+    /* Nhãn lượt là <h3> thật, không phải div kẻ ngang: hội thoại 3 lượt × 5
+       khái niệm là một tài liệu dài, trình đọc màn hình cần nhảy theo mục. */
+    .turn__label {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 16px 0 2px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 500;
       color: var(--muted-foreground);
     }
 
-    .turn-sep::before,
-    .turn-sep::after {
-      content: "";
-      flex: 1;
-      height: 1px;
-      background: var(--border);
+    .turn:first-child .turn__label {
+      margin-top: 0;
+    }
+
+    .turn__w {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Câu hỏi là nội dung chính của màn hình, không nên bị bó trong 68% chiều
+       rộng cột như một tin nhắn chat. */
+    .conv .chat-bubble-ai {
+      max-width: 100%;
+    }
+
+    .chat-bubble-user {
+      align-self: flex-end;
+      max-width: 82%;
     }
 
     /* Trích dẫn nguồn trên MỖI câu hỏi — ràng buộc C5: AI không được bịa,
@@ -309,17 +538,20 @@
       text-underline-offset: 3px;
     }
 
+    .cite a:hover {
+      color: var(--foreground);
+    }
+
     /* Thẻ chấm điểm — grade_answer trả {score, feedback, verdict}.
-       Bản cũ chỉ hiện score + verdict và BỎ HẲN feedback, tức là giấu đi
-       phần duy nhất giải thích vì sao bị điểm đó. */
+       Bản cũ căn phải (align-self: flex-end) nên nó trông như một tin nhắn của
+       sinh viên, trong khi đây là đầu ra của hệ thống về câu trả lời vừa gửi.
+       Giờ nó chiếm cả chiều rộng cột, gắn ngay dưới câu trả lời được chấm. */
     .grade {
       border: 1px solid var(--border);
       border-left: 2px solid var(--border);
       border-radius: calc(var(--radius) * 0.8);
       background: var(--card);
       padding: 14px 16px;
-      align-self: flex-end;
-      max-width: 78%;
     }
 
     .grade--deep {
@@ -342,6 +574,12 @@
       margin-bottom: 8px;
     }
 
+    /* Badge đã có chữ nên màu không phải tín hiệu duy nhất; icon thêm vào để
+       phân biệt được cả khi in đen trắng (màn screen-interview-print). */
+    .badge svg {
+      flex: none;
+    }
+
     .grade__score {
       font-family: var(--font-mono);
       font-size: 13px;
@@ -352,12 +590,14 @@
       font-family: var(--font-mono);
       font-size: 11px;
       color: var(--muted-foreground);
+      margin-left: auto;
     }
 
     .grade__text {
       font-size: 13.5px;
       line-height: 1.6;
       color: var(--foreground);
+      margin: 0;
     }
 
     .grade__foot {
@@ -365,15 +605,6 @@
       padding-top: 9px;
       border-top: 1px solid var(--border);
       font-size: 12px;
-    }
-
-    .grade__foot a {
-      color: var(--muted-foreground);
-      text-underline-offset: 3px;
-    }
-
-    .grade__foot a:hover {
-      color: var(--foreground);
     }
 
     /* Sự kiện hệ thống — tách bạch rõ với bong bóng AI.
@@ -391,13 +622,14 @@
       color: var(--muted-foreground);
     }
 
+    /* Sentence case, không phải UPPERCASE. Bản cũ có 4 kiểu chữ hoa khác nhau
+       cùng lúc (nhãn rail, vạch lượt, tag hệ thống, badge) — hoa quá nhiều thì
+       không còn cái nào nổi. Giữ chữ hoa cho badge verdict và nhãn rail. */
     .sys__tag {
       flex: none;
       font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      padding: 2px 6px;
+      font-size: 11px;
+      padding: 1px 7px;
       border: 1px solid var(--border);
       border-radius: 4px;
       background: var(--card);
@@ -417,15 +649,79 @@
       color: var(--foreground);
     }
 
-    /* ─────────── Câu hỏi ở chế độ giọng nói ─────────── */
+    .linkish {
+      background: none;
+      border: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+
+    .linkish:hover {
+      color: var(--foreground);
+    }
+
+    /* ─────────── Khu trả lời ─────────── */
+    .dock {
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      padding: 16px 32px 18px;
+    }
+
+    .dock__inner {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .composer textarea {
+      display: block;
+      width: 100%;
+      min-height: 92px;
+      max-height: 200px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      padding: 13px 15px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.62;
+      color: var(--foreground);
+      background: var(--background);
+    }
+
+    .composer textarea:focus {
+      outline: 2px solid oklch(from var(--ring) l c h / 0.18);
+      border-color: var(--ring);
+    }
+
+    .dock__bar {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 11px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .dock__count {
+      margin-left: auto;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+    }
+
+    /* ─────────── Tầng giọng nói (tùy chọn) ─────────── */
     /* AE-02 bước 4: TTS đọc câu hỏi, CÓ THỂ ẩn văn bản tới khi sinh viên
-       bấm "Hiện câu hỏi". Vẫn phải giữ đường thoát về văn bản. */
+       bấm "Hiện văn bản". Vẫn phải giữ đường thoát về văn bản. */
     .q-audio {
       display: flex;
       align-items: center;
       gap: 14px;
       padding: 15px 18px;
-      max-width: 78%;
     }
 
     .play-btn {
@@ -516,44 +812,6 @@
       color: var(--muted-foreground);
     }
 
-    .linkish {
-      background: none;
-      border: 0;
-      padding: 0;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      color: var(--muted-foreground);
-      text-decoration: underline;
-      text-underline-offset: 3px;
-      cursor: pointer;
-    }
-
-    .linkish:hover {
-      color: var(--foreground);
-    }
-
-    /* ─────────── Khu vực trả lời ─────────── */
-    .dock {
-      border-top: 1px solid var(--border);
-      background: var(--card);
-      padding: 16px 32px 18px;
-    }
-
-    .dock__inner {
-      max-width: 680px;
-      margin: 0 auto;
-    }
-
-    .dock__hint {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      font-size: 12px;
-      color: var(--muted-foreground);
-      margin-top: 10px;
-    }
-
     /* Bản ghi âm được chuyển thành văn bản và CHO SỬA trước khi gửi —
        AE-02 bước 6. Bắt buộc: grade_answer chấm trên văn bản, nên lỗi
        nhận dạng giọng nói sẽ bị tính thành lỗi kiến thức nếu không cho sửa. */
@@ -570,7 +828,6 @@
     .transcript:focus-within {
       border-color: var(--ring);
       outline: 2px solid oklch(from var(--ring) l c h / 0.18);
-      outline-offset: 0;
     }
 
     .stt-low {
@@ -595,7 +852,7 @@
       height: 46px;
       border-radius: 14px;
       border: 1px solid transparent;
-      background: var(--destructive);
+      background: var(--recording);
       color: var(--primary-foreground);
       cursor: pointer;
       transition: transform var(--duration-fast) var(--ease-standard);
@@ -603,11 +860,6 @@
 
     .mic-btn:active {
       transform: scale(0.97);
-    }
-
-    .mic-btn--idle {
-      background: var(--primary);
-      color: var(--primary-foreground);
     }
 
     .rec-state {
@@ -630,7 +882,7 @@
       width: 7px;
       height: 7px;
       border-radius: 9999px;
-      background: var(--destructive);
+      background: var(--recording);
       animation: rec-pulse 1.4s var(--ease-standard) infinite;
     }
 
@@ -646,6 +898,16 @@
       }
     }
 
+    .dock__hint {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 10px;
+    }
+
     .dock__actions {
       display: flex;
       align-items: center;
@@ -657,30 +919,182 @@
       flex: 1;
     }
 
-    .composer {
+    /* ─────────── Trạng thái chờ AI ─────────── */
+    /* Đây là trạng thái sinh viên gặp NHIỀU NHẤT sau câu hỏi và câu trả lời
+       (2 lần mỗi lượt: generate_question ở bước 3, grade_answer ở bước 7) và
+       bản cũ không vẽ nó. Skeleton theo đúng hình dạng bong bóng câu hỏi chứ
+       không phải spinner tròn — sinh viên biết cái gì sắp hiện ra. */
+    .skel {
       display: flex;
-      gap: 10px;
-      align-items: flex-end;
+      flex-direction: column;
+      gap: 9px;
     }
 
-    .composer textarea {
-      flex: 1;
-      min-height: 74px;
-      max-height: 160px;
+    .skel__line {
+      height: 11px;
+      border-radius: 3px;
+      background: oklch(from var(--ai-accent) l c h / 0.16);
+      animation: skel-fade 1.5s var(--ease-standard) infinite;
+    }
+
+    .skel__line:nth-child(2) {
+      animation-delay: 160ms;
+    }
+
+    .skel__line:nth-child(3) {
+      animation-delay: 320ms;
+    }
+
+    @keyframes skel-fade {
+
+      0%,
+      100% {
+        opacity: 0.45;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .thinking {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    /* ─────────── Form khiếu nại (AE-02 Alt 4 / DB-03 Alt 5) ─────────── */
+    .appeal {
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--muted-foreground);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--background);
+      padding: 15px 16px;
+      margin-top: 10px;
+    }
+
+    .appeal__q {
+      font-size: 13px;
+      font-weight: 500;
+      margin: 0 0 10px;
+    }
+
+    .chipset {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 11px;
+    }
+
+    .chip-choice {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--card);
+      color: var(--muted-foreground);
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      padding: 6px 11px;
+      cursor: pointer;
+      transition: border-color var(--duration-fast) var(--ease-standard);
+    }
+
+    .chip-choice:hover {
+      border-color: var(--muted-foreground);
+      color: var(--foreground);
+    }
+
+    .chip-choice[aria-pressed="true"] {
+      border-color: var(--foreground);
+      background: var(--muted);
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    .appeal textarea {
+      display: block;
+      width: 100%;
+      min-height: 58px;
       resize: vertical;
       border: 1px solid var(--border);
-      border-radius: calc(var(--radius) * 0.8);
-      padding: 13px 15px;
+      border-radius: calc(var(--radius) * 0.6);
+      padding: 10px 12px;
       font-family: var(--font-sans);
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.6;
       color: var(--foreground);
-      background: var(--background);
+      background: var(--card);
     }
 
-    .composer textarea:focus {
-      outline: 2px solid oklch(from var(--ring) l c h / 0.18);
-      border-color: var(--ring);
+    .appeal__note {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted-foreground);
+      margin: 11px 0 0;
+    }
+
+    .appeal__actions {
+      display: flex;
+      gap: 9px;
+      margin-top: 13px;
+    }
+
+    /* ─────────── Hộp xác nhận trong luồng ─────────── */
+    /* Không dùng modal: "Bỏ qua" và "Tạm dừng" đều là quyết định cần đọc hậu
+       quả trước khi bấm, mà modal thì che mất chính cái ngữ cảnh đó (đang ở
+       lượt mấy, đã trả lời gì). Panel mở tại chỗ giữ nguyên hội thoại phía sau. */
+    .confirm {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      background: var(--card);
+      padding: 18px 20px;
+      max-width: 560px;
+    }
+
+    .confirm__title {
+      font-size: 14.5px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .confirm__body {
+      font-size: 13px;
+      line-height: 1.62;
+      color: var(--muted-foreground);
+      margin: 0 0 6px;
+    }
+
+    .confirm__list {
+      margin: 10px 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      font-size: 13px;
+      color: var(--foreground);
+    }
+
+    .confirm__list li {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      line-height: 1.5;
+    }
+
+    .confirm__list svg {
+      flex: none;
+      margin-top: 3px;
+      color: var(--muted-foreground);
+    }
+
+    .confirm__actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      flex-wrap: wrap;
     }
 
     /* ─────────── Phụ lục trạng thái ─────────── */
@@ -697,17 +1111,20 @@
 
     .gallery__title {
       font-family: var(--font-heading);
-      font-size: 24px;
+      font-size: 26px;
+      font-weight: 600;
       letter-spacing: -0.02em;
-      margin-bottom: 6px;
+      line-height: 1.15;
+      margin: 0 0 8px;
     }
 
     .gallery__lead {
       font-size: 14px;
       color: var(--muted-foreground);
       max-width: 62ch;
-      margin-bottom: 36px;
+      margin: 0 0 36px;
       line-height: 1.65;
+      text-wrap: pretty;
     }
 
     .state {
@@ -719,13 +1136,14 @@
       display: flex;
       align-items: baseline;
       gap: 12px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       flex-wrap: wrap;
     }
 
     .state__name {
       font-size: 15px;
       font-weight: 600;
+      margin: 0;
     }
 
     .state__ref {
@@ -739,7 +1157,8 @@
       color: var(--muted-foreground);
       line-height: 1.6;
       max-width: 62ch;
-      margin-bottom: 16px;
+      margin: 0 0 16px;
+      text-wrap: pretty;
     }
 
     .state__demo {
@@ -747,6 +1166,10 @@
       border-radius: calc(var(--radius) * 1.1);
       background: var(--card);
       padding: 20px;
+    }
+
+    .state__demo+.state__demo {
+      margin-top: 14px;
     }
 
     /* Flashcard tự chấm — AE-05, kích hoạt khi AI fail/timeout */
@@ -804,39 +1227,172 @@
       font-variant-numeric: tabular-nums;
     }
 
+    /* Bàn giao sang màn Tổng hợp cuối phiên (AE-02 bước 12) */
+    .handoff {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      border: 1px dashed var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      background: var(--background);
+      padding: 16px 18px;
+      margin-top: 14px;
+    }
+
+    .handoff__score {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    /* ─────────── Responsive ─────────── */
+    @media (max-width: 1180px) {
+      .ex-top__plan {
+        display: none;
+      }
+    }
+
+    /* Bản cũ: display:none cho rail dưới 1080px → mất sạch hàng đợi, bảng lượt
+       và trọng số, tức là mất đúng phần khiến màn này không phải một khung chat.
+       Giờ rail trở thành dải ngang cuộn được phía trên hội thoại. */
     @media (max-width: 1080px) {
       .ex-body {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
       }
 
       .rail {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      .rail__label,
+      .rail__turns,
+      .rail__note,
+      .rail__source {
         display: none;
+      }
+
+      .rail__queue {
+        display: flex;
+        gap: 8px;
+      }
+
+      .qitem {
+        margin: 0;
+        white-space: nowrap;
+        border: 1px solid var(--border);
+        background: var(--card);
+      }
+
+      .qitem--now {
+        margin: 0;
+      }
+
+      .cbar,
+      .conv,
+      .dock {
+        padding-left: 20px;
+        padding-right: 20px;
+      }
+
+      /* Dải hàng đợi ngang đã liệt kê đủ 5 khái niệm kèm điểm — nhiều thông
+         tin hơn hẳn thanh 5 đoạn ở header, nên bỏ thanh đó đi thay vì nhồi
+         hai cách hiển thị cùng một thứ vào một hàng đã chật. */
+      .ex-top {
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .ex-top__mid,
+      .seg>span {
+        display: none;
+      }
+    }
+
+    @media (max-width: 860px) {
+      .gallery {
+        padding: 44px 20px 60px;
+      }
+    }
+
+    /* Chuyển động ở đây chỉ để báo trạng thái (đang đọc, đang ghi, đang chờ AI),
+       không phải trang trí — nhưng vẫn phải tắt được. */
+    @media (prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .wave span {
+        transform: scaleY(0.6);
       }
     }
   </style>
 </head>
 
 <body>
+  <a class="skip-link" href="#answer">Tới ô trả lời</a>
+
   <div class="ex-shell">
 
     <!-- ══════════ Thanh trên ══════════ -->
     <header class="ex-top">
-      <div class="ex-top__id">
-        <span class="ex-top__title">Phiên kiểm tra</span>
-        <span class="ex-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+      <div class="ex-top__lead">
+        <!-- AE-02 Alt flow 2: "Tạm dừng" lưu trạng thái RỒI THOÁT giao diện.
+             Đây là đường ra duy nhất của màn hình nên nó đứng ở vị trí quen
+             thuộc của nút quay lại, có mũi tên, không nằm lẫn giữa các nút khác. -->
+        <button class="exit" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5M11 18l-6-6 6-6" />
+          </svg>
+          Tạm dừng &amp; thoát
+        </button>
+        <div class="ex-top__id">
+          <span class="ex-top__title">Kiểm tra vấn đáp</span>
+          <span class="ex-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+        </div>
+      </div>
+
+      <!-- Mỗi đoạn = 1 khái niệm, tô theo mastery đã chấm (0.86 vững, 0.71 đang
+           học, khái niệm 3 đang vấn đáp). Không phải progress bar trang trí. -->
+      <div class="ex-top__mid">
+        <div class="meter" aria-hidden="true">
+          <span class="meter__seg meter__seg--strong"></span>
+          <span class="meter__seg meter__seg--learning"></span>
+          <span class="meter__seg meter__seg--now"></span>
+          <span class="meter__seg"></span>
+          <span class="meter__seg"></span>
+        </div>
+        <span class="meter__text">Khái niệm 3 / 5</span>
       </div>
 
       <div class="ex-top__right">
-        <span class="clock">18:42 / ~25:00</span>
+        <span class="clock" title="Thời gian đã trôi qua trong phiên">18:42</span>
 
         <!--
           Tầng giọng nói (I6.9) là lớp NHẬP/XUẤT phủ lên trên, không viết lại
           state machine — theo sprint-4-spec-audit mục E.4. Chuyển chế độ giữa
           chừng phiên là hợp lệ, lịch sử hội thoại và số lượt giữ nguyên.
+          Mặc định Sprint 4 là "Gõ" (SPEC_AE-02 §4 + bước 5) — đó cũng là lý do
+          trạng thái chính của màn hình này vẽ ở chế độ gõ, còn giọng nói nằm ở
+          phụ lục: bản cũ vẽ ngược, lấy nhánh tùy chọn làm ảnh chính.
           TTS dùng speechSynthesis của trình duyệt, KHÔNG phải call thứ 5 tới Gemini.
         -->
         <div class="seg" role="group" aria-label="Chế độ trả lời">
-          <button type="button" aria-pressed="false">
+          <span>Trả lời</span>
+          <button type="button" aria-pressed="true">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 7V5h16v2" />
               <path d="M9 19h6" />
@@ -844,7 +1400,7 @@
             </svg>
             Gõ
           </button>
-          <button type="button" aria-pressed="true">
+          <button type="button" aria-pressed="false">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <rect x="9" y="3" width="6" height="11" rx="3" />
               <path d="M5 11a7 7 0 0 0 14 0" />
@@ -854,10 +1410,6 @@
           </button>
         </div>
 
-        <!-- AE-02 Alt flow 2: "Tạm dừng" lưu trạng thái RỒI THOÁT giao diện —
-             đây chính là đường ra của màn hình này, nên nói thẳng ra trên nhãn. -->
-        <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Tạm dừng &amp; thoát</button>
-        <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Bỏ qua khái niệm</button>
         <button class="icon-btn" aria-label="Cài đặt phiên kiểm tra">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
@@ -870,34 +1422,35 @@
     <div class="ex-body">
 
       <!-- ══════════ Cột trái: phạm vi bài kiểm tra ══════════ -->
-      <aside class="rail">
+      <aside class="rail" aria-label="Phạm vi bài kiểm tra">
         <section>
-          <h2 class="rail__label">Hàng đợi khái niệm · 3/5</h2>
-
-          <div class="qitem qitem--done">
-            <span class="qitem__no">01</span>
-            <span>Mảng &amp; Con trỏ</span>
-            <span class="qitem__score" style="color:var(--mastery-strong);">0.86</span>
-          </div>
-          <div class="qitem qitem--done">
-            <span class="qitem__no">02</span>
-            <span>Đệ quy</span>
-            <span class="qitem__score" style="color:var(--mastery-strong);">0.71</span>
-          </div>
-          <div class="qitem qitem--now">
-            <span class="qitem__no">03</span>
-            <span>Ngăn xếp</span>
-            <span class="qitem__score" style="color:var(--muted-foreground);">—</span>
-          </div>
-          <div class="qitem qitem--wait">
-            <span class="qitem__no">04</span>
-            <span>Hàng đợi</span>
-            <span class="qitem__score">—</span>
-          </div>
-          <div class="qitem qitem--wait">
-            <span class="qitem__no">05</span>
-            <span>Duyệt đồ thị DFS</span>
-            <span class="qitem__score">—</span>
+          <h2 class="rail__label">Hàng đợi khái niệm</h2>
+          <div class="rail__queue">
+            <div class="qitem qitem--done">
+              <span class="qitem__no">01</span>
+              <span>Mảng &amp; Con trỏ</span>
+              <span class="qitem__score" style="color:var(--mastery-strong);">0.86</span>
+            </div>
+            <div class="qitem qitem--done">
+              <span class="qitem__no">02</span>
+              <span>Đệ quy</span>
+              <span class="qitem__score" style="color:var(--mastery-learning);">0.71</span>
+            </div>
+            <div class="qitem qitem--now" aria-current="step">
+              <span class="qitem__no">03</span>
+              <span>Ngăn xếp</span>
+              <span class="qitem__score" style="color:var(--muted-foreground);">—</span>
+            </div>
+            <div class="qitem qitem--wait">
+              <span class="qitem__no">04</span>
+              <span>Hàng đợi</span>
+              <span class="qitem__score">—</span>
+            </div>
+            <div class="qitem qitem--wait">
+              <span class="qitem__no">05</span>
+              <span>Duyệt đồ thị DFS</span>
+              <span class="qitem__score">—</span>
+            </div>
           </div>
         </section>
 
@@ -909,7 +1462,7 @@
           Sinh viên biết lượt 3 quyết định phần lớn điểm thì mới hiểu vì sao
           nên cố ở lượt cuối thay vì bỏ ngang.
         -->
-        <section>
+        <section class="rail__turns">
           <h2 class="rail__label">Lượt hỏi — Ngăn xếp</h2>
           <div class="turnbox">
             <div class="turnrow">
@@ -932,153 +1485,126 @@
             </div>
           </div>
           <p class="rail__note" style="margin-top:10px;">
-            Truy ngược lỗ hổng chỉ chạy sau khi chốt điểm cả khái niệm, không chạy sau từng lượt.
+            Kết thúc sớm thì trọng số được chuẩn hóa lại trên số lượt thực có —
+            hai lượt thành <span class="meta-mono">0.4 / 0.6</span>.
+            Truy ngược lỗ hổng chỉ chạy sau khi chốt điểm cả khái niệm.
           </p>
         </section>
 
         <div class="rail__source">
           Chấm theo tài liệu bạn tải lên:<br />
           <strong style="color:var(--foreground); font-weight:500;">Giáo trình CTDL — Chương 3.pdf</strong><br />
-          <span class="meta-mono" style="font-size:11px;">rubric v2 · 34 trang</span>
+          <span class="meta-mono" style="font-size:11px;">PDF · 34 trang</span>
         </div>
       </aside>
 
-      <!-- ══════════ Cột phải: hội thoại + khu trả lời ══════════ -->
+      <!-- ══════════ Cột phải: khái niệm + hội thoại + khu trả lời ══════════ -->
       <div class="conv-wrap">
-        <main class="conv">
+
+        <!-- Ngữ cảnh không được nằm duy nhất trong rail: tên khái niệm, vị trí
+             trong hàng đợi và số lượt phải còn nguyên cả khi rail thu lại. -->
+        <div class="cbar">
+          <div class="cbar__id">
+            <h1 class="cbar__concept">Ngăn xếp</h1>
+            <span class="cbar__pos">khái niệm 3 / 5</span>
+          </div>
+          <p class="cbar__turn">
+            <span class="pips" aria-hidden="true">
+              <span class="pip pip--done"></span>
+              <span class="pip pip--now"></span>
+              <span class="pip"></span>
+            </span>
+            Lượt <strong style="color:var(--foreground);">2</strong> / 3 · trọng số <span class="meta-mono">0.3</span>
+          </p>
+          <!-- AE-02 Alt flow 3 — hành động theo khái niệm, không phải theo phiên. -->
+          <button class="linkish" type="button">Bỏ qua khái niệm</button>
+        </div>
+
+        <main class="conv" id="conv" role="log" aria-live="polite" aria-label="Hội thoại vấn đáp">
           <div class="conv__inner">
+            <h2 class="sr-only">Hội thoại vấn đáp — khái niệm Ngăn xếp</h2>
 
-            <div class="turn-sep">Lượt 1</div>
+            <section class="turn" aria-labelledby="turn-1">
+              <h3 class="turn__label" id="turn-1">
+                <span>Lượt 1 — đã chấm</span>
+                <span class="turn__w">×0.2</span>
+              </h3>
 
-            <!-- AE-02 bước 3-4: câu hỏi sinh từ generate_question, kèm trích dẫn nguồn -->
-            <article class="chat-bubble-ai">
-              Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu mình push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?
-              <div class="cite">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-                  <path d="M14 3v5h5" />
-                </svg>
-                <a href="#">Chương 3, tr. 4 — Định nghĩa LIFO</a>
-              </div>
-            </article>
-
-            <div class="chat-bubble-user" style="align-self:flex-end;">Còn lại số 3 ạ, vì pop lần lượt lấy ra 7 rồi 5.</div>
-
-            <!-- AE-02 bước 8: grade_answer trả {score, feedback, verdict}.
-                 feedback là thứ biến chấm điểm thành nhận xét — phải hiển thị. -->
-            <div class="grade grade--deep">
-              <div class="grade__head">
-                <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Hiểu sâu</span>
-                <span class="grade__score">0.90</span>
-                <span class="grade__weight">lượt 1 · trọng số 0.2</span>
-              </div>
-              <p class="grade__text" style="margin:0;">
-                Bạn xác định đúng thứ tự lấy ra và nêu được lý do 3 nằm dưới cùng. Câu trả lời khớp với ví dụ ở trang 4. Nếu muốn chắc hơn, thử nói xem điều gì xảy ra khi pop trên ngăn xếp rỗng.
-              </p>
-              <div class="grade__foot">
-                <a href="#">Không đồng ý với điểm này</a>
-              </div>
-            </div>
-
-            <!-- AE-02 bước 9: điều phối do phần mềm quyết, không phải AI (ràng buộc C4) -->
-            <div class="sys">
-              <span class="sys__tag">Hệ thống</span>
-              <span>Kết quả <strong>hiểu sâu</strong> và còn lượt → yêu cầu AI ra câu hỏi đào sâu hơn. Chuyển sang lượt 2 trong 3.</span>
-            </div>
-
-            <div class="turn-sep">Lượt 2</div>
-
-            <!--
-              AE-02 bước 4, nhánh giọng nói: hệ thống đọc câu hỏi bằng TTS và
-              CÓ THỂ ẩn văn bản tới khi sinh viên bấm "Hiện văn bản".
-              Luôn giữ "Nghe lại" và "Hiện văn bản" — câu hỏi kỹ thuật dài
-              không thể chỉ nghe một lần rồi trả lời.
-            -->
-            <article class="chat-bubble-ai q-audio">
-              <button class="play-btn" aria-label="Tạm dừng đọc câu hỏi">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                  <path d="M9 5v14M15 5v14" />
-                </svg>
-              </button>
-              <div class="q-audio__meta">
-                <div class="speak-row">
-                  <div class="wave" aria-hidden="true">
-                    <span style="animation-delay:0ms"></span>
-                    <span style="animation-delay:130ms"></span>
-                    <span style="animation-delay:260ms"></span>
-                    <span style="animation-delay:390ms"></span>
-                    <span style="animation-delay:520ms"></span>
-                  </div>
-                  <div class="speak-track" role="progressbar" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ đọc câu hỏi">
-                    <span style="width:64%"></span>
-                  </div>
+              <!-- AE-02 bước 3-4: câu hỏi sinh từ generate_question, kèm trích dẫn nguồn -->
+              <article class="chat-bubble-ai">
+                Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu mình push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?
+                <div class="cite">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3v5h5" />
+                  </svg>
+                  <a href="#nguon">Chương 3, tr. 4 — Định nghĩa LIFO</a>
                 </div>
-                <div class="q-audio__row">
-                  <span>0:09 / 0:14</span>
-                  <button class="linkish" type="button">Hiện văn bản</button>
-                  <button class="linkish" type="button">Nghe lại</button>
+              </article>
+
+              <p class="chat-bubble-user">Còn lại số 3 ạ, vì pop lần lượt lấy ra 7 rồi 5.</p>
+
+              <!-- AE-02 bước 8: grade_answer trả {score, feedback, verdict}.
+                   feedback là thứ biến chấm điểm thành nhận xét — phải hiển thị. -->
+              <div class="grade grade--deep">
+                <div class="grade__head">
+                  <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M20 6L9 17l-5-5" />
+                    </svg>
+                    Hiểu sâu
+                  </span>
+                  <span class="grade__score">0.90</span>
+                  <span class="grade__weight">lượt 1 · ×0.2</span>
+                </div>
+                <p class="grade__text">
+                  Bạn xác định đúng thứ tự lấy ra và nêu được lý do 3 nằm dưới cùng. Câu trả lời khớp với ví dụ ở trang 4. Nếu muốn chắc hơn, thử nói xem điều gì xảy ra khi pop trên ngăn xếp rỗng.
+                </p>
+                <div class="grade__foot">
+                  <button class="linkish" type="button" aria-expanded="false">Không đồng ý với điểm này</button>
                 </div>
               </div>
-            </article>
 
-            <div class="cite" style="align-self:flex-start; margin:-6px 0 0 4px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-                <path d="M14 3v5h5" />
-              </svg>
-              <a href="#">Chương 3, mục 3.2 — Ngăn xếp lời gọi hàm</a>
-            </div>
+              <!-- AE-02 bước 9: điều phối do phần mềm quyết, không phải AI (ràng buộc C4) -->
+              <div class="sys" role="status">
+                <span class="sys__tag">Hệ thống</span>
+                <span>Kết quả <strong>hiểu sâu</strong> và còn lượt → yêu cầu AI ra câu hỏi đào sâu hơn. Chuyển sang lượt 2 trong 3.</span>
+              </div>
+            </section>
+
+            <section class="turn" aria-labelledby="turn-2">
+              <h3 class="turn__label" id="turn-2">
+                <span>Lượt 2 — đang trả lời</span>
+                <span class="turn__w">×0.3</span>
+              </h3>
+
+              <article class="chat-bubble-ai">
+                Khi một hàm đệ quy không có điều kiện dừng, điều gì xảy ra với ngăn xếp lời gọi hàm? Mô tả giúp mình cái gì được đẩy vào mỗi lần gọi và vì sao chương trình dừng lại ở dạng lỗi tràn.
+                <div class="cite">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3v5h5" />
+                  </svg>
+                  <a href="#nguon">Chương 3, mục 3.2 — Ngăn xếp lời gọi hàm</a>
+                </div>
+              </article>
+            </section>
 
           </div>
         </main>
 
-        <!-- ══════════ Khu trả lời — đang ở chế độ giọng nói ══════════ -->
+        <!-- ══════════ Khu trả lời — chế độ gõ (mặc định Sprint 4) ══════════ -->
         <footer class="dock">
           <div class="dock__inner">
-
-            <div class="rec-bar">
-              <button class="mic-btn" aria-label="Dừng ghi âm">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />
-                </svg>
-              </button>
-              <div class="rec-state">
-                <div class="rec-state__top">
-                  <span class="rec-dot" aria-hidden="true"></span>
-                  <span>Đang ghi âm câu trả lời</span>
-                  <span class="clock">0:23</span>
-                </div>
-                <span style="font-size:12px; color:var(--muted-foreground);">
-                  Ngừng nói 2 giây sẽ tự dừng. Bấm <kbd>Space</kbd> để dừng ngay.
-                </span>
+            <form class="composer" onsubmit="return false;">
+              <label class="sr-only" for="answer">Câu trả lời của bạn cho lượt 2</label>
+              <textarea id="answer" spellcheck="false">Mỗi lần gọi hàm sẽ đẩy thêm một khung (stack frame) vào ngăn xếp lời gọi, trong đó có tham số và địa chỉ quay về. Không có điều kiện dừng thì ngăn xếp lớn dần cho tới khi vượt quá vùng nhớ hệ điều hành cấp cho nó</textarea>
+              <div class="dock__bar">
+                <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> để gửi</span>
+                <span class="dock__count">42 từ</span>
+                <button class="btn btn-primary" type="submit">Gửi câu trả lời</button>
               </div>
-              <button class="btn btn-ghost" style="padding:7px 13px; font-size:13px;">Chuyển sang gõ</button>
-            </div>
-
-            <!--
-              AE-02 bước 6: "câu trả lời được chuyển thành văn bản để Sinh viên
-              xem và SỬA LẠI trước khi gửi".
-              Đây là chi tiết quan trọng nhất của tầng voice: grade_answer chấm
-              trên văn bản, nên một từ bị nhận nhầm sẽ bị tính thành lỗi kiến thức.
-              Từ có độ tin cậy thấp được gạch chân để sinh viên soát nhanh.
-            -->
-            <div class="transcript" contenteditable="true" role="textbox" aria-label="Bản ghi câu trả lời, có thể chỉnh sửa" spellcheck="false">Nếu hàm đệ quy không có điều kiện dừng thì mỗi lần gọi sẽ đẩy thêm một <span class="stt-low">không ngăn xếp</span> mới, đến khi hết vùng nhớ dành cho ngăn xếp thì chương trình bị lỗi tràn ngăn xếp.</div>
-
-            <div class="dock__hint">
-              <span>1 từ độ tin cậy thấp — soát lại trước khi gửi. Bản ghi này là thứ được đem đi chấm.</span>
-              <span class="meta-mono">36 từ</span>
-            </div>
-
-            <div class="dock__actions">
-              <button class="btn btn-secondary">Ghi lại từ đầu</button>
-              <span class="spacer"></span>
-              <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted-foreground);">
-                <input type="checkbox" checked />
-                Tự đọc câu hỏi tiếp theo
-              </label>
-              <button class="btn btn-primary">Gửi câu trả lời</button>
-            </div>
-
+            </form>
           </div>
         </footer>
       </div>
@@ -1087,74 +1613,356 @@
 
   <!-- ══════════════════════════════════════════════════════════════
        PHỤ LỤC: các trạng thái còn lại của AE-02
-       Tách ra đây thay vì bỏ trống — mỗi trạng thái đều là một nhánh
-       có thật trong spec, và đều từng thiếu trong bản mockup cũ.
+       Mỗi trạng thái là một nhánh có thật trong đặc tả. Bản mockup cũ vẽ 4
+       nhánh; 5 nhánh còn lại dưới đây chưa từng được vẽ, trong đó có nhánh
+       sinh viên gặp nhiều nhất (chờ AI) và nhánh kết thúc phiên.
        ══════════════════════════════════════════════════════════════ -->
-  <section class="gallery">
+  <section class="gallery" id="phu-luc">
     <div class="gallery__inner">
       <h2 class="gallery__title">Các trạng thái còn lại của phiên kiểm tra</h2>
       <p class="gallery__lead">
-        Bốn nhánh dưới đây đều nằm trong đặc tả AE-02 / AE-05 / AE-07 nhưng chưa từng được vẽ.
-        Không có chúng thì bản thiết kế chỉ mô tả được đường đi thuận lợi.
+        Chín nhánh dưới đây nằm trong AE-02, AE-05, AE-07 và DB-03. Không có chúng thì
+        bản thiết kế chỉ mô tả được đường đi thuận lợi — trong khi phần lớn thời gian
+        thật của một phiên là chờ AI, đọc lại nhận xét, hoặc quyết định có bỏ qua hay không.
       </p>
 
-      <!-- ── 1. Chế độ gõ ── -->
+      <!-- ── 1. Chế độ giọng nói ── -->
       <article class="state">
         <div class="state__head">
-          <span class="state__name">Chế độ gõ</span>
-          <span class="state__ref">AE-02 · bước 5 · mặc định Sprint 4</span>
+          <h3 class="state__name">Chế độ giọng nói</h3>
+          <span class="state__ref">AE-02 · bước 4 và 6 · I6.9 · tùy chọn</span>
         </div>
         <p class="state__desc">
-          Luồng mặc định, không cần quyền micro. Chuyển qua lại giữa gõ và giọng nói bất kỳ lúc nào
-          mà không mất lịch sử hội thoại hay số lượt còn lại.
+          Tầng nhập/xuất phủ lên trên, không viết lại state machine: vẫn 3 lượt, vẫn cùng
+          verdict, vẫn cùng trọng số. Bật/tắt giữa chừng phiên là hợp lệ và không mất lịch sử
+          hội thoại. TTS chạy bằng <span class="meta-mono">speechSynthesis</span> của trình duyệt,
+          không phải một lệnh gọi thứ năm tới AI Service.
         </p>
+
+        <!-- Câu hỏi đọc bằng TTS, văn bản có thể ẩn tới khi sinh viên bấm "Hiện văn bản".
+             Luôn giữ "Nghe lại" — câu hỏi kỹ thuật dài không thể chỉ nghe một lần. -->
         <div class="state__demo">
-          <div class="composer">
-            <textarea placeholder="Nhập câu trả lời của bạn…"></textarea>
-            <button class="btn btn-primary">Gửi</button>
+          <article class="chat-bubble-ai q-audio" style="max-width:none;">
+            <button class="play-btn" aria-label="Tạm dừng đọc câu hỏi">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M9 5v14M15 5v14" />
+              </svg>
+            </button>
+            <div class="q-audio__meta">
+              <div class="speak-row">
+                <div class="wave" aria-hidden="true">
+                  <span style="animation-delay:0ms"></span>
+                  <span style="animation-delay:130ms"></span>
+                  <span style="animation-delay:260ms"></span>
+                  <span style="animation-delay:390ms"></span>
+                  <span style="animation-delay:520ms"></span>
+                </div>
+                <div class="speak-track" role="progressbar" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100" aria-label="Tiến độ đọc câu hỏi">
+                  <span style="width:64%"></span>
+                </div>
+              </div>
+              <div class="q-audio__row">
+                <span>0:09 / 0:14</span>
+                <button class="linkish" type="button">Hiện văn bản</button>
+                <button class="linkish" type="button">Nghe lại</button>
+              </div>
+            </div>
+          </article>
+
+          <div class="cite" style="margin:9px 0 0 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+              <path d="M14 3v5h5" />
+            </svg>
+            <a href="#nguon">Chương 3, mục 3.2 — Ngăn xếp lời gọi hàm</a>
           </div>
+        </div>
+
+        <!--
+          AE-02 bước 6: "câu trả lời được chuyển thành văn bản để Sinh viên xem
+          và SỬA LẠI trước khi gửi". Đây là chi tiết quan trọng nhất của tầng
+          voice: grade_answer chấm trên văn bản, nên một từ bị nhận nhầm sẽ bị
+          tính thành lỗi kiến thức. Từ có độ tin cậy thấp được đánh dấu để soát.
+        -->
+        <div class="state__demo">
+          <div class="rec-bar">
+            <button class="mic-btn" aria-label="Dừng ghi âm">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            <div class="rec-state">
+              <div class="rec-state__top">
+                <span class="rec-dot" aria-hidden="true"></span>
+                <span>Đang ghi âm câu trả lời</span>
+                <span class="clock">0:23</span>
+              </div>
+              <span style="font-size:12px; color:var(--muted-foreground);">
+                Ngừng nói 2 giây sẽ tự dừng. Bấm <kbd>Space</kbd> để dừng ngay.
+              </span>
+            </div>
+            <button class="btn btn-ghost" type="button" style="padding:7px 13px; font-size:13px;">Chuyển sang gõ</button>
+          </div>
+
+          <div class="transcript" contenteditable="true" role="textbox" aria-label="Bản ghi câu trả lời, có thể chỉnh sửa" spellcheck="false">Nếu hàm đệ quy không có điều kiện dừng thì mỗi lần gọi sẽ đẩy thêm một <span class="stt-low">không ngăn xếp</span> mới, đến khi hết vùng nhớ dành cho ngăn xếp thì chương trình bị lỗi tràn ngăn xếp.</div>
+
           <div class="dock__hint">
-            <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> để gửi</span>
-            <span class="meta-mono">lượt 2 / 3</span>
+            <span>1 từ độ tin cậy thấp — soát lại trước khi gửi. Bản ghi này là thứ được đem đi chấm.</span>
+            <span class="meta-mono">36 từ</span>
+          </div>
+
+          <div class="dock__actions">
+            <button class="btn btn-secondary" type="button">Ghi lại từ đầu</button>
+            <span class="spacer"></span>
+            <label style="display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--muted-foreground);">
+              <input type="checkbox" checked />
+              Tự đọc câu hỏi tiếp theo
+            </label>
+            <button class="btn btn-primary" type="button">Gửi câu trả lời</button>
           </div>
         </div>
       </article>
 
-      <!-- ── 2. Micro bị từ chối ── -->
+      <!-- ── 2. Chờ AI ── -->
       <article class="state">
         <div class="state__head">
-          <span class="state__name">Không dùng được micro</span>
-          <span class="state__ref">AE-02 · pre-condition tùy chọn</span>
+          <h3 class="state__name">Đang chờ AI</h3>
+          <span class="state__ref">AE-02 · bước 3 và bước 7 · trạng thái gặp nhiều nhất</span>
         </div>
         <p class="state__desc">
-          Quyền micro là điều kiện <em>tùy chọn</em>, chỉ cần khi bật tầng giọng nói. Bị từ chối thì
-          phiên vẫn chạy tiếp bằng văn bản — không chặn, không modal, không mất lượt.
+          Mỗi lượt có đúng hai lần chờ: sinh câu hỏi và chấm câu trả lời. Skeleton dựng theo
+          hình dạng của thứ sắp hiện ra, không phải spinner tròn — sinh viên biết mình đang
+          chờ một câu hỏi hay một thẻ điểm. Ô trả lời bị khóa trong lúc chấm để không gửi
+          đè lên lượt đang xử lý. Quá 2 lần thử thất bại thì rơi xuống trạng thái 7.
         </p>
         <div class="state__demo">
-          <div class="sys sys--warn" style="margin-bottom:16px;">
+          <article class="chat-bubble-ai" style="max-width:100%;">
+            <div class="skel" aria-hidden="true">
+              <div class="skel__line" style="width:100%"></div>
+              <div class="skel__line" style="width:92%"></div>
+              <div class="skel__line" style="width:54%"></div>
+            </div>
+            <p class="thinking" role="status" style="margin:12px 0 0;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" opacity="0.3" />
+                <path d="M12 3a9 9 0 0 1 9 9" />
+              </svg>
+              Đang soạn câu hỏi lượt 3 từ Chương 3, mục 3.2
+            </p>
+          </article>
+        </div>
+        <div class="state__demo">
+          <p class="chat-bubble-user" style="margin:0 0 14px auto;">Mỗi lần gọi hàm sẽ đẩy thêm một khung vào ngăn xếp lời gọi, có tham số và địa chỉ quay về.</p>
+          <div class="grade" style="border-left-color: var(--border);">
+            <div class="grade__head">
+              <span class="skel__line" style="width:96px; height:18px; border-radius:9999px;" aria-hidden="true"></span>
+              <span class="skel__line" style="width:38px; height:13px;" aria-hidden="true"></span>
+              <span class="grade__weight">lượt 2 · ×0.3</span>
+            </div>
+            <div class="skel" aria-hidden="true">
+              <div class="skel__line" style="width:100%"></div>
+              <div class="skel__line" style="width:72%"></div>
+            </div>
+            <p class="thinking" role="status" style="margin:12px 0 0;">Đang đối chiếu câu trả lời với tài liệu gốc — ô trả lời tạm khóa.</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 3. Bỏ qua khái niệm ── -->
+      <article class="state">
+        <div class="state__head">
+          <h3 class="state__name">Bỏ qua khái niệm</h3>
+          <span class="state__ref">AE-02 · Alternative flow 3 · từ bước 4 hoặc 5</span>
+        </div>
+        <p class="state__desc">
+          Hủy các lượt còn lại và bỏ chấm khái niệm này. Phải nói rõ hậu quả trước khi bấm vì
+          nó khác hẳn kết thúc sớm do trả lời sai: bỏ qua thì không có điểm mới, còn kết thúc
+          sớm vẫn chấm trên các lượt đã trả lời với trọng số chuẩn hóa lại.
+          Panel mở tại chỗ chứ không phải modal — che mất hội thoại thì sinh viên mất đúng
+          thông tin cần để quyết định.
+        </p>
+        <div class="state__demo">
+          <div class="confirm">
+            <h4 class="confirm__title">Bỏ qua khái niệm “Ngăn xếp”?</h4>
+            <p class="confirm__body">Bạn đã trả lời 1 trong 3 lượt.</p>
+            <ul class="confirm__list">
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+                Hai lượt còn lại bị hủy, khái niệm này không có <span class="meta-mono">mastery_score</span> mới.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 8v5M12 16h.01" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                Điểm cũ <span class="meta-mono">0.54</span> từ phiên 24/07 được giữ nguyên, nên Ngăn xếp vẫn nằm trong nhóm cần ôn.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+                Phiên chạy tiếp sang khái niệm 4 — <strong>Hàng đợi</strong>.
+              </li>
+            </ul>
+            <p class="confirm__body" style="margin-top:14px;">
+              Nếu chỉ muốn dừng lại nghỉ, dùng <strong>Tạm dừng &amp; thoát</strong> — cách đó giữ nguyên số lượt.
+            </p>
+            <div class="confirm__actions">
+              <button class="btn btn-secondary" type="button" style="font-size:13px;">Bỏ qua khái niệm</button>
+              <button class="btn btn-ghost" type="button" style="font-size:13px;">Quay lại trả lời</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4. Khiếu nại điểm ── -->
+      <article class="state">
+        <div class="state__head">
+          <h3 class="state__name">Không đồng ý với điểm</h3>
+          <span class="state__ref">AE-02 · Alternative flow 4 · DB-03 Alt 5 · UC-15</span>
+        </div>
+        <p class="state__desc">
+          Bản cũ có sẵn liên kết “Không đồng ý với điểm này” nhưng chưa vẽ chỗ nó dẫn tới.
+          Form mở ngay dưới thẻ điểm đang khiếu nại, vài lý do chọn sẵn cộng ô mô tả không
+          bắt buộc, ghi vào <span class="meta-mono">grading_feedback</span>. Phải nói thẳng
+          phạm vi MVP ngay trong form: điểm không tự đổi — hứa ngầm điều ngược lại thì lần sau
+          sinh viên hết tin cả thẻ điểm.
+        </p>
+        <div class="state__demo">
+          <div class="grade grade--shallow">
+            <div class="grade__head">
+              <span class="badge" style="background: oklch(from var(--mastery-learning) l c h / 0.16); color: var(--mastery-learning);">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+                  <path d="M5 12h14" />
+                </svg>
+                Hời hợt
+              </span>
+              <span class="grade__score">0.55</span>
+              <span class="grade__weight">lượt 2 · ×0.3</span>
+            </div>
+            <p class="grade__text">
+              Bạn nêu đúng là ngăn xếp lớn dần nhưng chưa nói khung lời gọi chứa gì, nên chưa
+              thấy được vì sao mỗi lần gọi lại tốn thêm bộ nhớ.
+            </p>
+            <div class="grade__foot">
+              <button class="linkish" type="button" aria-expanded="true">Không đồng ý với điểm này</button>
+            </div>
+          </div>
+
+          <form class="appeal" onsubmit="return false;">
+            <p class="appeal__q">Điểm này chưa đúng ở đâu?</p>
+            <div class="chipset">
+              <button class="chip-choice" type="button" aria-pressed="true">Chấm thấp hơn thực tế</button>
+              <button class="chip-choice" type="button" aria-pressed="false">Nhận xét không khớp câu trả lời</button>
+              <button class="chip-choice" type="button" aria-pressed="false">Câu hỏi ngoài tài liệu</button>
+              <button class="chip-choice" type="button" aria-pressed="false">Bản ghi giọng nói bị sai từ</button>
+            </div>
+            <label class="sr-only" for="appeal-why">Mô tả thêm</label>
+            <textarea id="appeal-why" placeholder="Mô tả thêm (không bắt buộc)" spellcheck="false"></textarea>
+            <p class="appeal__note">
+              Phản hồi được ghi lại để chỉnh rubric chấm. Ở bản này điểm <span class="meta-mono">0.55</span>
+              của lượt 2 giữ nguyên và <span class="meta-mono">mastery_score</span> không tự điều chỉnh.
+            </p>
+            <div class="appeal__actions">
+              <button class="btn btn-primary" type="submit" style="font-size:13px;">Gửi phản hồi</button>
+              <button class="btn btn-ghost" type="button" style="font-size:13px;">Hủy</button>
+            </div>
+          </form>
+        </div>
+      </article>
+
+      <!-- ── 5. Tạm dừng & thoát ── -->
+      <article class="state">
+        <div class="state__head">
+          <h3 class="state__name">Tạm dừng &amp; thoát</h3>
+          <span class="state__ref">AE-02 · Alternative flow 2 · quay lại qua DB-03 Alt 2</span>
+        </div>
+        <p class="state__desc">
+          Đường ra của màn hình, và là nút duy nhất kết thúc use case này giữa chừng. Lưu lịch
+          sử hội thoại cùng số lượt còn lại rồi thoát; phiên chuyển sang
+          <span class="meta-mono">status = paused</span>. Khi quay lại, hệ thống phát lại câu
+          hỏi từ bước 4 chứ không sinh câu hỏi mới — nếu sinh mới thì lượt đã tiêu bị mất trắng.
+        </p>
+        <div class="state__demo">
+          <div class="confirm">
+            <h4 class="confirm__title">Tạm dừng phiên kiểm tra?</h4>
+            <ul class="confirm__list">
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Giữ nguyên 2 khái niệm đã chấm và lượt 1 của <strong>Ngăn xếp</strong>.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Lần sau mở lại, câu hỏi lượt 2 được đọc lại nguyên văn — bạn không mất lượt.
+              </li>
+              <li>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 8v5M12 16h.01" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+                Truy ngược lỗ hổng chưa chạy vì <strong>Ngăn xếp</strong> chưa chốt điểm.
+              </li>
+            </ul>
+            <p class="confirm__body" style="margin-top:14px;">
+              Mở lại từ <strong>Lịch sử phiên</strong> → “Tiếp tục phiên”.
+            </p>
+            <div class="confirm__actions">
+              <button class="btn btn-primary" type="button" style="font-size:13px;">Tạm dừng &amp; thoát</button>
+              <button class="btn btn-ghost" type="button" style="font-size:13px;">Ở lại phiên</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 6. Micro bị từ chối ── -->
+      <article class="state">
+        <div class="state__head">
+          <h3 class="state__name">Không dùng được micro</h3>
+          <span class="state__ref">AE-02 · Alternative flow 5 · pre-condition tùy chọn</span>
+        </div>
+        <p class="state__desc">
+          Quyền micro là điều kiện <em>tùy chọn</em>, chỉ cần khi bật tầng giọng nói. Bị từ chối
+          thì phiên chạy tiếp bằng văn bản — không chặn, không modal, không mất lượt. Đây
+          không phải một lần gián đoạn phiên như trạng thái 5.
+        </p>
+        <div class="state__demo">
+          <div class="sys sys--warn" role="status" style="margin-bottom:16px;">
             <span class="sys__tag">Hệ thống</span>
             <span>Trình duyệt đã chặn quyền micro nên phiên chuyển về chế độ gõ. Bạn vẫn đang ở lượt 2 của khái niệm <strong>Ngăn xếp</strong>. Có thể cấp lại quyền trong cài đặt trình duyệt rồi bật lại giọng nói.</span>
           </div>
           <div class="composer">
-            <textarea placeholder="Nhập câu trả lời của bạn…"></textarea>
-            <button class="btn btn-primary">Gửi</button>
+            <label class="sr-only" for="answer-fallback">Câu trả lời của bạn</label>
+            <textarea id="answer-fallback" placeholder="Nhập câu trả lời của bạn…"></textarea>
+            <div class="dock__bar">
+              <span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> để gửi</span>
+              <span class="dock__count">lượt 2 / 3</span>
+              <button class="btn btn-primary" type="button">Gửi câu trả lời</button>
+            </div>
           </div>
         </div>
       </article>
 
-      <!-- ── 3. Fallback flashcard ── -->
+      <!-- ── 7. Fallback flashcard ── -->
       <article class="state">
         <div class="state__head">
-          <span class="state__name">AI không phản hồi — flashcard tự chấm</span>
-          <span class="state__ref">AE-05 · AE-02 Alt flow 1 · UC-12</span>
+          <h3 class="state__name">AI không phản hồi — flashcard tự chấm</h3>
+          <span class="state__ref">AE-05 · AE-02 Alternative flow 1 · UC-12</span>
         </div>
         <p class="state__desc">
           Khi Gemini timeout, sai schema hoặc hết quota, hệ thống lấy câu hỏi đã sinh sẵn trong
           <span class="meta-mono">question_cache</span> (AE-06) và để sinh viên tự đánh giá.
-          Điểm tự chấm vẫn ghi vào <span class="meta-mono">mastery_score</span> nên vòng lặp lập lịch không đứt.
+          Điểm tự chấm vẫn ghi vào <span class="meta-mono">mastery_score</span> nên vòng lặp lập
+          lịch không đứt, nhưng được đánh dấu <span class="meta-mono">source = cache_fallback</span>
+          — hai loại điểm này không cùng độ tin cậy.
         </p>
         <div class="state__demo">
-          <div class="sys sys--warn" style="margin-bottom:18px;">
+          <div class="sys sys--warn" role="status" style="margin-bottom:18px;">
             <span class="sys__tag">Hệ thống</span>
             <span>Không nhận được phản hồi chấm điểm sau 2 lần thử. Chuyển sang flashcard tự chấm cho khái niệm này. Câu hỏi lấy từ bộ đã soạn sẵn, không gọi AI.</span>
           </div>
@@ -1165,48 +1973,42 @@
             Tự trả lời trong đầu, rồi chọn mức độ đúng của bạn.
           </p>
           <div class="flash-actions">
-            <button class="self-grade">Đúng <span class="self-grade__val">1.0</span></button>
-            <button class="self-grade">Một phần <span class="self-grade__val">0.5</span></button>
-            <button class="self-grade">Sai <span class="self-grade__val">0.0</span></button>
-            <button class="btn btn-ghost" style="font-size:13px;">Xem gợi ý đáp án</button>
+            <button class="self-grade" type="button">Đúng <span class="self-grade__val">1.0</span></button>
+            <button class="self-grade" type="button">Một phần <span class="self-grade__val">0.5</span></button>
+            <button class="self-grade" type="button">Sai <span class="self-grade__val">0.0</span></button>
+            <button class="btn btn-ghost" type="button" style="font-size:13px;">Xem gợi ý đáp án</button>
           </div>
         </div>
       </article>
 
-      <!-- ── 4. Truy ngược lỗ hổng ── -->
+      <!-- ── 8. Truy ngược lỗ hổng ── -->
       <article class="state">
         <div class="state__head">
-          <span class="state__name">Truy ngược lỗ hổng sau khi chốt điểm khái niệm</span>
+          <h3 class="state__name">Truy ngược lỗ hổng sau khi chốt điểm khái niệm</h3>
           <span class="state__ref">AE-07 · AE-08 · include của AE-02</span>
         </div>
         <p class="state__desc">
           Đây là thứ phân biệt sản phẩm này với một khung chat hỏi đáp. Khi điểm cả khái niệm
-          xuống dưới ngưỡng, engine chạy BFS ngược trên đồ thị khái niệm, giới hạn 2 tầng, cắt nhánh ở
-          khái niệm đã vững — hoàn toàn tất định, không gọi AI, unit-test được.
-          Sinh viên giữ quyền quyết định cuối (AE-07 bước 8 và Alt flow 3).
+          xuống dưới ngưỡng, hệ thống chạy BFS ngược trên đồ thị khái niệm, giới hạn 2 tầng,
+          cắt nhánh ở khái niệm đã vững — hoàn toàn tất định, không gọi AI, unit-test được.
+          Sinh viên giữ quyền quyết định cuối (AE-07 bước 8 và Alternative flow 3).
         </p>
         <div class="state__demo">
-          <div class="sys sys--remediate" style="display:block; padding:16px 18px;">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
-              <span class="sys__tag" style="background: transparent; border-color: oklch(from var(--remediate) l c h / 0.45); color: var(--remediate);">Engine lập lịch</span>
+          <div class="sys sys--remediate" role="status" style="display:block; padding:16px 18px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+              <span class="sys__tag" style="background: transparent; border-color: oklch(from var(--remediate) l c h / 0.45); color: var(--remediate);">Hệ thống</span>
               <span style="font-size:13px; font-weight:600;">Khái niệm <strong>Duyệt đồ thị DFS</strong> đạt 0.42 — dưới ngưỡng 0.60</span>
             </div>
             <p style="font-size:13.5px; line-height:1.6; margin:0 0 6px; color:var(--foreground);">
-              Truy ngược 2 tầng tiên quyết tìm được 2 khái niệm nền cần củng cố trước. Chúng sẽ được
+              Truy ngược 2 tầng tiên quyết tìm được 1 khái niệm nền cần củng cố trước. Nó sẽ được
               xếp lên đầu phiên kế tiếp, học trước khi quay lại DFS.
             </p>
             <p style="font-size:12px; color:var(--muted-foreground); margin:0 0 14px;">
-              Bỏ qua tầng 2 của <strong>Đệ quy</strong> vì khái niệm này đã đạt 0.71 — nhánh được cắt tại đó.
+              Nhánh <strong>Ngăn xếp</strong> bị cắt vì khái niệm này vừa đạt 0.78 ở khái niệm 3 của
+              chính phiên này — trên ngưỡng 0.60 thì dừng, không duyệt tiếp tầng 2 phía sau nó.
             </p>
 
             <div style="border-top:1px solid oklch(from var(--remediate) l c h / 0.25); padding-top:4px;">
-              <div class="prereq">
-                <span><strong style="font-weight:500;">Ngăn xếp</strong> — nền của DFS đệ quy</span>
-                <span style="display:flex; align-items:center; gap:14px;">
-                  <span class="prereq__meta">tầng 1 · 0.54</span>
-                  <button class="linkish" type="button">Bỏ khỏi lịch</button>
-                </span>
-              </div>
               <div class="prereq">
                 <span><strong style="font-weight:500;">Danh sách kề</strong> — chưa từng kiểm tra</span>
                 <span style="display:flex; align-items:center; gap:14px;">
@@ -1216,10 +2018,42 @@
               </div>
             </div>
 
-            <div style="display:flex; align-items:center; gap:10px; margin-top:16px;">
-              <button class="btn btn-primary" style="font-size:13px;">Đồng ý, thêm vào lịch</button>
-              <button class="btn btn-secondary" style="font-size:13px;">Xem trên đồ thị khái niệm</button>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:16px; flex-wrap:wrap;">
+              <button class="btn btn-primary" type="button" style="font-size:13px;">Đồng ý, thêm vào lịch</button>
+              <button class="btn btn-secondary" type="button" style="font-size:13px;">Xem trên đồ thị khái niệm</button>
             </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 9. Kết thúc phiên ── -->
+      <article class="state">
+        <div class="state__head">
+          <h3 class="state__name">Hết hàng đợi — bàn giao sang màn Tổng hợp</h3>
+          <span class="state__ref">AE-02 · bước 12 · nối sang screen-interview-result.html</span>
+        </div>
+        <p class="state__desc">
+          Bản cũ không vẽ đoạn kết: màn hình chạy hết 5 khái niệm rồi không có gì. Bước 12 nói
+          rõ hệ thống thông báo kết thúc và <em>tự động chuyển</em> sang màn Tổng hợp cuối phiên,
+          nên ở đây chỉ cần khoảnh khắc bàn giao — điểm trung bình, số khái niệm được truy ngược,
+          và một đường đi tiếp. Nội dung đầy đủ thuộc màn Tổng hợp (AE-09), đã dựng riêng; các
+          con số dưới đây là cùng một phiên với màn đó nên phải khớp từng chữ số.
+        </p>
+        <div class="state__demo">
+          <div class="sys" role="status" style="margin-bottom:14px;">
+            <span class="sys__tag">Hệ thống</span>
+            <span>Hàng đợi đã hết. Đã chấm 5 khái niệm, ghi <span class="meta-mono">mastery_score</span> vào kế hoạch <strong>Cấu trúc dữ liệu &amp; Giải thuật</strong>.</span>
+          </div>
+          <div class="handoff">
+            <div>
+              <p style="font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted-foreground); margin:0 0 6px;">Điểm trung bình</p>
+              <p class="handoff__score" style="margin:0;">0.66</p>
+            </div>
+            <p style="font-size:13px; line-height:1.6; color:var(--muted-foreground); margin:0; flex:1; min-width:240px;">
+              1 khái niệm vững, 2 đang học, 2 dưới ngưỡng. Hai khái niệm tiên quyết đã được xếp vào
+              đầu phiên kế tiếp.
+            </p>
+            <a class="btn btn-primary" href="screen-interview-result.html" style="font-size:13px; text-decoration:none;">Xem tổng hợp cuối phiên</a>
           </div>
         </div>
       </article>

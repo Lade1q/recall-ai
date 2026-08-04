@@ -132,7 +132,7 @@ export function AnalysisProgressPanel({
   const clockMeta = [pageCount ? `${pageCount} trang` : null, elapsed].filter(Boolean).join(' · ');
 
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-1 flex w-full max-w-[620px] flex-col gap-3.5 duration-300">
+    <div className="animate-in fade-in slide-in-from-bottom-1 max-w-155 flex w-full flex-col gap-3.5 duration-300">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[15px] font-semibold">
           Đang phân tích &ldquo;{filename ?? 'tài liệu'}&rdquo;
@@ -165,7 +165,7 @@ export function AnalysisProgressPanel({
             >
               <span
                 key={p.state}
-                className={`animate-in zoom-in-50 fade-in flex size-[15px] flex-none items-center justify-center duration-300 ${PHASE_ICON_COLOR[p.state]}`}
+                className={`animate-in zoom-in-50 fade-in size-3.75 flex flex-none items-center justify-center duration-300 ${PHASE_ICON_COLOR[p.state]}`}
                 aria-hidden="true"
               >
                 <Icon />

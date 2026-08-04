@@ -7,7 +7,12 @@ jest.mock('@google/genai', () => ({
   })),
 }));
 
-import { generateQuestion, gradeAnswer, AiMaterial } from '../services/gemini.service';
+import {
+  generateQuestion,
+  gradeAnswer,
+  summarizeSession,
+  AiMaterial,
+} from '../services/gemini.service';
 import { AppError } from '../middleware/errorHandler';
 
 /**
@@ -173,6 +178,68 @@ describe('AI Examiner Gemini calls', () => {
       );
 
       expect(verdicts).toEqual(['wrong', 'shallow', 'deep']);
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('summarizeSession', () => {
+    const okSummary = {
+      summary_text: 'Solid session overall.',
+      strengths: ['Stack'],
+      weaknesses: ['Recursion'],
+      recommendations: ['Review recursion base cases.'],
+    };
+    const CONCEPTS = [
+      { conceptName: 'Stack', masteryScore: 0.85, verdicts: ['deep' as const] },
+      { conceptName: 'Recursion', masteryScore: 0.4, verdicts: ['wrong' as const] },
+    ];
+
+    it('returns the validated report on the first try', async () => {
+      mockCreate.mockResolvedValueOnce(reply(okSummary));
+
+      await expect(summarizeSession({ concepts: CONCEPTS })).resolves.toEqual(okSummary);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it('never sends the source material — only concept names, scores and verdicts', async () => {
+      mockCreate.mockResolvedValueOnce(reply(okSummary));
+
+      await summarizeSession({ concepts: CONCEPTS });
+
+      const { input } = mockCreate.mock.calls[0][0];
+      expect(typeof input).toBe('string');
+      expect(input).toContain('Stack');
+      expect(input).toContain('Recursion');
+      expect(input).toContain('deep');
+      expect(input).toContain('wrong');
+    });
+
+    it('reports a transport failure as AI_UNAVAILABLE (UC-14 E1 trigger)', async () => {
+      mockCreate.mockRejectedValue(new Error('socket hang up'));
+
+      await expect(summarizeSession({ concepts: CONCEPTS })).rejects.toMatchObject({
+        code: 'AI_UNAVAILABLE',
+        statusCode: 502,
+      });
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it('gives up with AI_BAD_FORMAT after the retry also fails schema validation', async () => {
+      mockCreate.mockResolvedValue(reply({ summary_text: '', strengths: [], weaknesses: [] }));
+
+      await expect(summarizeSession({ concepts: CONCEPTS })).rejects.toMatchObject({
+        code: 'AI_BAD_FORMAT',
+      });
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it('short-circuits to the mock without calling Gemini', async () => {
+      process.env.USE_MOCK_AI = 'true';
+
+      const result = await summarizeSession({ concepts: CONCEPTS });
+
+      expect(result.strengths).toEqual(['Stack']);
+      expect(result.weaknesses).toEqual(['Recursion']);
       expect(mockCreate).not.toHaveBeenCalled();
     });
   });

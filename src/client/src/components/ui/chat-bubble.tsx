@@ -19,7 +19,7 @@ function ChatBubble({
       data-slot="chat-bubble"
       data-role={role}
       className={cn(
-        'max-w-[68%] px-[18px] py-3.5 text-sm',
+        'px-4.5 max-w-[68%] py-3.5 text-sm',
         role === 'ai' ? 'chat-bubble-ai self-start' : 'chat-bubble-user self-end',
         className
       )}

@@ -2,6 +2,7 @@ import { AiExtractResponse } from '../schemas/ai-extract.schema';
 import type {
   GenerateQuestionResponse,
   GradeAnswerResponse,
+  SummarizeSessionResponse,
   QuestionMode,
 } from '../schemas/ai-interview.schema';
 
@@ -119,5 +120,33 @@ export function mockGradeAnswer(answerText: string): GradeAnswerResponse {
     score: 0.15,
     feedback: '[mock] That does not answer the question — revisit this concept in the material.',
     verdict: 'wrong',
+  };
+}
+
+const MOCK_STRONG_THRESHOLD = 0.7;
+const MOCK_WEAK_THRESHOLD = 0.6;
+
+/**
+ * Fixed sample session summary (I6.5 / AE-09), deterministic from the scores given — same
+ * strengths/weaknesses thresholds the real prompt asks Gemini to use, so a developer on mocks
+ * sees the same shape of report. Takes only `conceptName`/`masteryScore` (not the full
+ * `SessionConceptSummaryInput`, which lives in `gemini.service.ts`) to avoid importing back
+ * into the module that already imports this one.
+ */
+export function mockSummarizeSession(
+  concepts: Array<{ conceptName: string; masteryScore: number | null }>
+): SummarizeSessionResponse {
+  const strengths = concepts
+    .filter((c) => (c.masteryScore ?? 0) >= MOCK_STRONG_THRESHOLD)
+    .map((c) => c.conceptName);
+  const weaknesses = concepts
+    .filter((c) => c.masteryScore !== null && c.masteryScore < MOCK_WEAK_THRESHOLD)
+    .map((c) => c.conceptName);
+
+  return {
+    summary_text: `[mock] Bạn đã hoàn thành phiên với ${concepts.length} khái niệm được đánh giá.`,
+    strengths,
+    weaknesses,
+    recommendations: weaknesses.slice(0, 3).map((name) => `Ôn lại khái niệm "${name}".`),
   };
 }

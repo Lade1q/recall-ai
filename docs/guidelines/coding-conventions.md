@@ -31,7 +31,7 @@ Nấc 4: Nếu cả 3 nấc trên đều KHÔNG có --> Mới viết code mới 
 
 ```tsx
 // SAI - Cài thêm thư viện react-datepicker khi shadcn/ui đã có sẵn
-import DatePicker from "react-datepicker";
+import DatePicker from 'react-datepicker';
 
 function DueDateInput() {
   return <DatePicker selected={date} onChange={setDate} />;
@@ -40,7 +40,7 @@ function DueDateInput() {
 
 ```tsx
 // ĐÚNG - Nấc 3: Dùng DatePicker của shadcn/ui (thư viện đã có trong dự án)
-import { DatePicker } from "@/components/ui/date-picker";
+import { DatePicker } from '@/components/ui/date-picker';
 
 function DueDateInput() {
   return <DatePicker date={date} onDateChange={setDate} />;
@@ -51,16 +51,16 @@ function DueDateInput() {
 
 ```typescript
 // SAI - Cài thêm moment.js hoặc date-fns chỉ để format ngày
-import { format } from "date-fns";
-const formatted = format(new Date(), "dd/MM/yyyy");
+import { format } from 'date-fns';
+const formatted = format(new Date(), 'dd/MM/yyyy');
 ```
 
 ```typescript
 // ĐÚNG - Nấc 1: Trình duyệt có sẵn Intl.DateTimeFormat
-const formatted = new Intl.DateTimeFormat("vi-VN", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
+const formatted = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
 }).format(new Date());
 ```
 
@@ -68,7 +68,7 @@ const formatted = new Intl.DateTimeFormat("vi-VN", {
 
 ```typescript
 // SAI - Cài thêm lodash chỉ để dùng cloneDeep
-import { cloneDeep } from "lodash";
+import { cloneDeep } from 'lodash';
 const copy = cloneDeep(originalObject);
 ```
 
@@ -91,24 +91,24 @@ function apiGet(url: string) {
 ```typescript
 // ĐÚNG - Nấc 3: Cấu hình Axios interceptor 1 lần, dùng trực tiếp
 // file: src/lib/axios.ts (cấu hình 1 lần)
-const api = axios.create({ baseURL: "/api/v1" });
+const api = axios.create({ baseURL: '/api/v1' });
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 export default api;
 
 // file: sử dụng trực tiếp
-import api from "@/lib/axios";
-const plans = await api.get("/plans");
+import api from '@/lib/axios';
+const plans = await api.get('/plans');
 ```
 
 #### Ví dụ 5: Hộp thoại Modal / Dialog
 
 ```tsx
 // SAI - Cài thêm react-modal khi shadcn/ui đã có Dialog
-import Modal from "react-modal";
+import Modal from 'react-modal';
 
 function ConfirmDelete() {
   return <Modal isOpen={isOpen}>Bạn có chắc muốn xóa?</Modal>;
@@ -117,12 +117,7 @@ function ConfirmDelete() {
 
 ```tsx
 // ĐÚNG - Nấc 3: Dùng Dialog của shadcn/ui
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 function ConfirmDelete() {
   return (
@@ -149,10 +144,10 @@ function groupBy<T>(arr: T[], key: keyof T): Record<string, T[]> {
       (acc[k] = acc[k] || []).push(item);
       return acc;
     },
-    {} as Record<string, T[]>,
+    {} as Record<string, T[]>
   );
 }
-const grouped = groupBy(tasks, "category");
+const grouped = groupBy(tasks, 'category');
 ```
 
 ```typescript
@@ -241,10 +236,10 @@ function processData(data: any) {
 ```typescript
 // ĐÚNG - Dùng unknown + type guard
 function processData(data: unknown): string {
-  if (typeof data === "object" && data !== null && "name" in data) {
+  if (typeof data === 'object' && data !== null && 'name' in data) {
     return (data as { name: string }).name;
   }
-  throw new Error("Định dạng dữ liệu không hợp lệ");
+  throw new Error('Định dạng dữ liệu không hợp lệ');
 }
 ```
 
@@ -268,15 +263,15 @@ export function calculateScore(answers: string[], correct: string[]): number {
 
 ```typescript
 // Ưu tiên: Union type - nhẹ hơn, tree-shake tốt hơn
-type TaskStatus = "pending" | "in_progress" | "completed" | "cancelled";
-type TaskCategory = "academic" | "lifestyle";
+type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+type TaskCategory = 'academic' | 'lifestyle';
 
 // Chấp nhận: Const object khi cần nhóm giá trị phức tạp
 const TASK_STATUS = {
-  PENDING: "pending",
-  IN_PROGRESS: "in_progress",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
 } as const;
 type TaskStatus2 = (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
 ```
@@ -295,10 +290,8 @@ interface User {
 }
 
 // Type cho union, utility
-type CreateUserInput = Omit<User, "id">;
-type ApiResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type CreateUserInput = Omit<User, 'id'>;
+type ApiResponse<T> = { success: true; data: T } | { success: false; error: string };
 ```
 
 ### 2.6. Import/Export
@@ -308,14 +301,14 @@ type ApiResponse<T> =
 
 ```typescript
 // Thứ tự import
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
-import { PlanCard } from "./PlanCard";
-import type { PlanListProps } from "./types";
+import { PlanCard } from './PlanCard';
+import type { PlanListProps } from './types';
 ```
 
 ---
@@ -363,7 +356,7 @@ Trước khi tự viết component UI, kiểm tra shadcn/ui có component tươn
 // SAI - Tự viết button component
 function MyButton({ children, ...props }: ButtonProps) {
   return (
-    <button className="bg-blue-500 text-white px-4 py-2 rounded" {...props}>
+    <button className="rounded bg-blue-500 px-4 py-2 text-white" {...props}>
       {children}
     </button>
   );
@@ -372,7 +365,7 @@ function MyButton({ children, ...props }: ButtonProps) {
 
 ```tsx
 // ĐÚNG - Dùng Button của shadcn/ui, customize qua variant và className
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 
 <Button variant="default" className="w-full">
   Tạo kế hoạch
@@ -416,10 +409,10 @@ export function usePlans() {
   const fetchPlans = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await api.get<Plan[]>("/plans");
+      const response = await api.get<Plan[]>('/plans');
       setPlans(response.data);
     } catch (err) {
-      setError("Không thể tải danh sách kế hoạch");
+      setError('Không thể tải danh sách kế hoạch');
     } finally {
       setIsLoading(false);
     }
@@ -487,9 +480,9 @@ Luồng dữ liệu: `Route -> Controller -> Service -> Repository -> Database`
 ```typescript
 // Middleware xác thực JWT
 export function authenticate(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.replace("Bearer ", "");
+  const token = req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
-    throw new AppError("Token không được cung cấp", 401);
+    throw new AppError('Token không được cung cấp', 401);
   }
 
   try {
@@ -497,7 +490,7 @@ export function authenticate(req: Request, res: Response, next: NextFunction) {
     req.user = payload;
     next();
   } catch {
-    throw new AppError("Token không hợp lệ hoặc đã hết hạn", 401);
+    throw new AppError('Token không hợp lệ hoặc đã hết hạn', 401);
   }
 }
 ```
@@ -512,20 +505,15 @@ export class AppError extends Error {
   constructor(
     public message: string,
     public statusCode: number,
-    public code?: string,
+    public code?: string
   ) {
     super(message);
-    this.name = "AppError";
+    this.name = 'AppError';
   }
 }
 
 // Middleware xử lý lỗi tập trung (đặt cuối cùng)
-export function errorHandler(
-  err: Error,
-  _req: Request,
-  res: Response,
-  _next: NextFunction,
-) {
+export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -533,10 +521,10 @@ export function errorHandler(
     });
   }
 
-  console.error("Lỗi không xử lý được:", err);
+  console.error('Lỗi không xử lý được:', err);
   return res.status(500).json({
     success: false,
-    error: { code: "INTERNAL_ERROR", message: "Lỗi hệ thống" },
+    error: { code: 'INTERNAL_ERROR', message: 'Lỗi hệ thống' },
   });
 }
 ```
@@ -546,13 +534,13 @@ export function errorHandler(
 Validate ở controller layer trước khi gọi service:
 
 ```typescript
-import { z } from "zod";
+import { z } from 'zod';
 
 // Schema xác thực
 const createPlanSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(5000),
-  category: z.enum(["academic", "lifestyle"]).optional(),
+  category: z.enum(['academic', 'lifestyle']).optional(),
 });
 
 type CreatePlanInput = z.infer<typeof createPlanSchema>;
@@ -584,7 +572,7 @@ Luôn dùng `async/await`. Bọc controller bằng wrapper để bắt lỗi t�
 ```typescript
 // Wrapper tránh try-catch lặp lại
 export function asyncHandler(
-  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>,
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res, next).catch(next);
@@ -592,7 +580,7 @@ export function asyncHandler(
 }
 
 // Sử dụng
-router.post("/plans", authenticate, asyncHandler(createPlan));
+router.post('/plans', authenticate, asyncHandler(createPlan));
 ```
 
 ---
@@ -652,9 +640,9 @@ Quy tắc:
 ```typescript
 // ĐÚNG - Dùng Prisma Client
 const plans = await prisma.plan.findMany({
-  where: { userId, status: "active" },
+  where: { userId, status: 'active' },
   include: { tasks: true },
-  orderBy: { createdAt: "desc" },
+  orderBy: { createdAt: 'desc' },
   take: 20,
   skip: 0,
 });
@@ -673,12 +661,12 @@ File seed đặt tại `prisma/seed.ts`. Dữ liệu seed phải idempotent (ch�
 async function seed() {
   // Dùng upsert thay vì create để đảm bảo idempotent
   await prisma.user.upsert({
-    where: { email: "test@example.com" },
+    where: { email: 'test@example.com' },
     update: {},
     create: {
-      email: "test@example.com",
-      passwordHash: await bcrypt.hash("password123", 10),
-      name: "Test User",
+      email: 'test@example.com',
+      passwordHash: await bcrypt.hash('password123', 10),
+      name: 'Test User',
     },
   });
 }
@@ -846,3 +834,12 @@ Không review:
 
 - Code style (đã có Prettier + ESLint tự động xử lý)
 - Thứ tự import (đã có ESLint rule)
+
+---
+
+## 8. Testing (Frontend)
+
+- Sử dụng **Vitest** kết hợp với **React Testing Library**.
+- **Vị trí đặt file test:** Đặt cùng cấp với component, sử dụng đuôi `*.test.tsx`.
+- **Nguyên tắc test FE:** Không phụ thuộc API/Server thật, bắt buộc mock dữ liệu hoặc truyền qua props.
+- Không test implementation detail (như state bên trong), hãy test behavior (thao tác người dùng lên UI thay đổi ra sao).

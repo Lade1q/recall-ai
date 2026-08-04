@@ -1,6 +1,7 @@
 import type { ReviewItemStatus, ReviewReason } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 import { daysUntil } from '../utils/mastery';
 
 /**
@@ -59,6 +60,49 @@ export function calculatePriority({
   return Math.round((1 / remainingDays) * masteryGap * 100) / 100;
 }
 
+/**
+ * How long one Interview turn takes end to end — read the question, write an answer, read the
+ * feedback. A guess, not a measurement: nothing records real durations yet, so this is the one
+ * number to re-calibrate once `InterviewTurn.askedAt`/`answeredAt` have enough history.
+ */
+export const MINUTES_PER_TURN = 3;
+
+/**
+ * Extra minutes a traceback item costs on top of answering: the prerequisite is by definition
+ * something the student did *not* have ready, so it needs re-reading before the questions make
+ * sense. Scaled by `depth` — a prerequisite of a prerequisite (depth 2) sits further from what
+ * was actually tested, so it is the less familiar of the two.
+ */
+export const TRACEBACK_RELEARN_MINUTES = 5;
+
+export interface EstimateReviewMinutesInput {
+  reason: ReviewReason;
+  /** 1 or 2 for a traceback item (`max_depth = 2`), `null` for every other reason. */
+  depth: number | null;
+  /** From the session that queued the item; `null` → the schema default of 3. */
+  maxTurnsPerConcept: number | null;
+}
+
+/**
+ * How long reviewing one concept should take (DB-04, #201) — arithmetic only, no AI, exactly
+ * like `calculatePriority()` above.
+ *
+ * `estimate = maxTurns * MINUTES_PER_TURN + (traceback ? TRACEBACK_RELEARN_MINUTES * depth : 0)`
+ *
+ * Calibrated against the dashboard mockup's "Hàng đợi hôm nay · ≈ 50 phút": a default
+ * `/review-queue/today` page is `DEFAULT_TODAY_LIMIT` = 5 items, and the shape the mockup shows
+ * (one depth-1 traceback ahead of plain spaced-repetition items) gives 14 + 4 × 9 = 50.
+ */
+export function estimateReviewMinutes({
+  reason,
+  depth,
+  maxTurnsPerConcept,
+}: EstimateReviewMinutesInput): number {
+  const turns = maxTurnsPerConcept ?? DEFAULT_MAX_TURNS_PER_CONCEPT;
+  const relearnMinutes = reason === 'traceback' ? TRACEBACK_RELEARN_MINUTES * (depth ?? 1) : 0;
+  return turns * MINUTES_PER_TURN + relearnMinutes;
+}
+
 export interface ReviewQueueItemResponse {
   /** `null` for a virtual A3-fallback suggestion — no real row exists yet, so nothing to PATCH. */
   id: string | null;
@@ -71,11 +115,21 @@ export interface ReviewQueueItemResponse {
   depth: number | null;
   masteryScore: number | null;
   status: ReviewItemStatus;
+  /** #201: heuristic minutes for this one concept — see `estimateReviewMinutes()`. */
+  estimatedMinutes: number;
+  /**
+   * #201: when the Interview session that queued this item ended, so the dashboard can say
+   * "…trong phiên kiểm tra tối qua" (AE-08 narrative). `null` when the item has no source
+   * session — A3-fallback suggestions and manually added items.
+   */
+  sourceSessionEndedAt: Date | null;
 }
 
 export interface ReviewQueueListResponse {
   items: ReviewQueueItemResponse[];
   message: string | null;
+  /** #201: sum of `estimatedMinutes` over `items`. `0` for an empty queue. */
+  totalEstimatedMinutes: number;
 }
 
 /**
@@ -127,6 +181,7 @@ interface ToResponseItemInput {
   status: ReviewItemStatus;
   sourceConceptName: string | null;
   daysUntilDeadline: number | null;
+  sourceSession: SourceSessionInfo | null;
 }
 
 function toResponseItem(input: ToResponseItemInput): ReviewQueueItemResponse {
@@ -148,6 +203,12 @@ function toResponseItem(input: ToResponseItemInput): ReviewQueueItemResponse {
     depth: input.depth,
     masteryScore: input.masteryScore,
     status: input.status,
+    estimatedMinutes: estimateReviewMinutes({
+      reason: input.reason,
+      depth: input.depth,
+      maxTurnsPerConcept: input.sourceSession?.maxTurnsPerConcept ?? null,
+    }),
+    sourceSessionEndedAt: input.sourceSession?.endedAt ?? null,
   };
 }
 
@@ -169,6 +230,39 @@ async function resolveSourceConceptNames(
     select: { id: true, name: true },
   });
   return new Map(sourceConcepts.map((concept) => [concept.id, concept.name]));
+}
+
+interface SourceSessionInfo {
+  /** `null` while the session is still running — it queued the item but has not ended yet. */
+  endedAt: Date | null;
+  maxTurnsPerConcept: number;
+}
+
+/**
+ * `sourceSessionId` is a soft reference too (audit A1's dedupe key, no FK), so the same batched
+ * treatment as `resolveSourceConceptNames()`: one lookup for the whole page, never per row.
+ * Carries `maxTurnsPerConcept` along with `endedAt` because the estimate needs it and it is free
+ * to select here.
+ */
+async function resolveSourceSessions(
+  rows: readonly { sourceSessionId: string | null }[]
+): Promise<Map<string, SourceSessionInfo>> {
+  const ids = [
+    ...new Set(rows.map((row) => row.sourceSessionId).filter((id): id is string => id !== null)),
+  ];
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const sessions = await prisma.interviewSession.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, endedAt: true, maxTurnsPerConcept: true },
+  });
+  return new Map(
+    sessions.map((session) => [
+      session.id,
+      { endedAt: session.endedAt, maxTurnsPerConcept: session.maxTurnsPerConcept },
+    ])
+  );
 }
 
 /**
@@ -200,6 +294,7 @@ async function buildFallbackItems(
       status: 'pending',
       sourceConceptName: null,
       daysUntilDeadline,
+      sourceSession: null,
     })
   );
 }
@@ -239,7 +334,10 @@ async function resolvePlanQueue(
     },
   });
 
-  const sourceConceptNames = await resolveSourceConceptNames(rows);
+  const [sourceConceptNames, sourceSessions] = await Promise.all([
+    resolveSourceConceptNames(rows),
+    resolveSourceSessions(rows),
+  ]);
   const daysUntilDeadline = daysUntil(plan.deadline, now);
 
   const items = rows.map((row) =>
@@ -255,6 +353,7 @@ async function resolvePlanQueue(
         ? (sourceConceptNames.get(row.sourceConceptId) ?? null)
         : null,
       daysUntilDeadline,
+      sourceSession: row.sourceSessionId ? (sourceSessions.get(row.sourceSessionId) ?? null) : null,
     })
   );
 
@@ -295,14 +394,18 @@ export async function getReviewQueueForPlan(
   }
 
   if (plan.status !== 'active') {
-    return { items: [], message: PLAN_NOT_ACTIVE_MESSAGE };
+    return { items: [], message: PLAN_NOT_ACTIVE_MESSAGE, totalEstimatedMinutes: 0 };
   }
 
   const now = new Date();
   const { items, hasHistory } = await resolvePlanQueue(plan, now, { dueOnly: false });
   const sorted = sortReviewItems(items).slice(0, limit);
 
-  return { items: sorted, message: resolveEmptyMessage(sorted, hasHistory) };
+  return {
+    items: sorted,
+    message: resolveEmptyMessage(sorted, hasHistory),
+    totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
+  };
 }
 
 /**
@@ -319,7 +422,7 @@ export async function getTodayReviewQueue(
   });
 
   if (activePlans.length === 0) {
-    return { items: [], message: NO_ACTIVE_PLAN_MESSAGE };
+    return { items: [], message: NO_ACTIVE_PLAN_MESSAGE, totalEstimatedMinutes: 0 };
   }
 
   const now = new Date();
@@ -331,7 +434,11 @@ export async function getTodayReviewQueue(
   const hasHistory = resolutions.some((resolution) => resolution.hasHistory);
   const sorted = sortReviewItems(allItems).slice(0, limit);
 
-  return { items: sorted, message: resolveEmptyMessage(sorted, hasHistory) };
+  return {
+    items: sorted,
+    message: resolveEmptyMessage(sorted, hasHistory),
+    totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
+  };
 }
 
 export interface ReviewQueueItemUpdate {

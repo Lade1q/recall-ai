@@ -18,6 +18,7 @@ import {
   Concept,
   ConceptEdge,
 } from '@/features/study-planner/types/concept';
+import { formatDeadlineFull } from '@/features/study-planner/utils/planDates';
 
 /** Dấu ">" ngăn cách các mốc breadcrumb — tách ra để không lặp 4 lần cùng một khối svg. */
 function BreadcrumbSep() {
@@ -541,7 +542,7 @@ export default function PlanDetailPage() {
             </h1>
             {plan?.deadline && (
               <p className="text-muted-foreground mt-1 text-[13px]">
-                Deadline: {new Date(plan.deadline).toLocaleDateString('vi-VN')}
+                Deadline: {formatDeadlineFull(plan.deadline)}
               </p>
             )}
           </div>

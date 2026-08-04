@@ -7,6 +7,7 @@ import { planApi } from '../api/plan.api';
 import { ConceptDetail } from '../types/concept';
 import { masteryBand, masteryLabel, type MasteryBand } from '@/components/ui/concept-node';
 import { formatAbsoluteDate, formatRelativeDays, formatDayTime } from '../utils/planDates';
+import { ConceptSourceList } from './ConceptSources';
 
 /** One row of the "Tiên quyết" / "Phụ thuộc" lists — resolved from the graph the client
  *  already holds (see `ConceptDetailResponse`'s doc comment for why the server doesn't
@@ -91,36 +92,6 @@ function RelatedConceptRow({
         {concept.masteryScore !== null ? concept.masteryScore.toFixed(2) : '—'}
       </Badge>
     </div>
-  );
-}
-
-/**
- * Tô đậm tên khái niệm ngay trong trích đoạn gốc — đây là chỗ ràng buộc C5 ("AI không bịa")
- * trở thành thứ nhìn thấy được: không chỉ nói "khái niệm này đến từ trang 118", mà chỉ đúng
- * chữ trên trang đó.
- */
-function HighlightedExcerpt({ text, term }: { text: string; term: string }) {
-  const needle = term.trim();
-  if (!needle) return <>{text}</>;
-
-  // Tên khái niệm là dữ liệu người dùng/AI sinh ra ("Mảng & Con trỏ", "Cây AVL (tự cân bằng)"),
-  // không phải hằng số — phải escape trước khi nhét vào RegExp.
-  const pattern = new RegExp(`(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  // Nhóm bắt trong `split` đẩy mọi đoạn KHỚP vào chỉ số lẻ, đoạn còn lại vào chỉ số chẵn.
-  const parts = text.split(pattern);
-
-  return (
-    <>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <mark key={i} className="bg-remediate/16 rounded-[2px] px-0.5 text-inherit">
-            {part}
-          </mark>
-        ) : (
-          part
-        )
-      )}
-    </>
   );
 }
 
@@ -259,38 +230,11 @@ export function ConceptDetailPanel({
             <h4 className="text-muted-foreground mb-2.5 text-[11px] font-semibold uppercase tracking-[0.06em]">
               Trích từ tài liệu
             </h4>
-            {detail && detail.sources.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
-                {detail.sources.map((source, idx) => (
-                  <div
-                    key={idx}
-                    className="border-border rounded-[calc(var(--radius)*0.8)] border px-3.5 py-3"
-                  >
-                    <div className="mb-2 flex items-baseline justify-between gap-2.5 text-[12px]">
-                      <span className="min-w-0 truncate">{source.filename}</span>
-                      {source.pageFrom !== null && (
-                        <span className="text-muted-foreground shrink-0 font-mono">
-                          {source.pageFrom === source.pageTo
-                            ? `tr. ${source.pageFrom}`
-                            : `tr. ${source.pageFrom}–${source.pageTo}`}
-                        </span>
-                      )}
-                    </div>
-                    {source.excerpt ? (
-                      <blockquote className="text-muted-foreground border-border m-0 text-pretty border-l-2 pl-2.5 text-[12.5px] leading-[1.65]">
-                        <HighlightedExcerpt text={source.excerpt} term={conceptName} />
-                      </blockquote>
-                    ) : (
-                      <p className="text-muted-foreground text-[12px] italic">
-                        Không có trích đoạn.
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-[13px] italic">Không có trích đoạn gốc.</p>
-            )}
+            <ConceptSourceList
+              sources={detail?.sources ?? []}
+              conceptName={conceptName}
+              prerequisiteNames={prerequisites.map((p) => p.name)}
+            />
           </div>
 
           <div>

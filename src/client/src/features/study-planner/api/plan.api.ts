@@ -100,6 +100,7 @@ export const planApi = {
       mastery_score: c.masteryScore,
       lastTestedAt: c.lastTestedAt ?? null,
       isRemediating: c.isRemediating ?? false,
+      source: c.source,
     }));
 
     const mappedEdges: ConceptEdge[] = backendData.edges.map((e) => ({
