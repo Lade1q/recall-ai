@@ -1,0 +1,129 @@
+import { isAxiosError } from 'axios';
+import apiClient from '@/lib/apiClient';
+import { ENDPOINTS } from '@/lib/endpoints';
+import type {
+  AbandonInterviewResponse,
+  GetInterviewResponse,
+  PauseInterviewResponse,
+  ResumeInterviewResponse,
+  SelfGrade,
+  StartInterviewResponse,
+  SubmitAnswerResponse,
+} from '../types/interview.types';
+
+/** Backend bọc mọi response trong `{ success: true, data: {...} }`. */
+interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+}
+
+/**
+ * Các lệnh gọi phải chờ AI (chấm điểm 10–20s, sinh câu hỏi) cần timeout dài hơn hẳn
+ * global timeout 10s của `apiClient`. Ghi đè per-request thay vì sửa global để mọi
+ * endpoint khác vẫn giữ 10s như cũ.
+ */
+const AI_WAIT_TIMEOUT_MS = 60000;
+
+/**
+ * Chuyển lỗi Axios thành thông báo tiếng Việt dựa trên `error.code` server trả về,
+ * theo đúng phong cách `auth.api.ts` — không render thẳng `error.message` (server trả
+ * tiếng Anh). Phần lớn lỗi phiên là "phiên đã đổi trạng thái, hãy tải lại", cộng một
+ * nhánh riêng cho mất mạng để người dùng biết có thể thử lại.
+ */
+export function getInterviewErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return 'Đã xảy ra lỗi, vui lòng thử lại.';
+  }
+  // Không có response = mất mạng / server không phản hồi / AI quá giờ chờ.
+  if (!error.response) {
+    return 'Không kết nối được tới máy chủ. Vui lòng thử lại.';
+  }
+  const code: string | undefined = error.response.data?.error?.code;
+  switch (code) {
+    case 'NOT_FOUND':
+      return 'Không tìm thấy phiên kiểm tra này.';
+    case 'SESSION_NOT_ACTIVE':
+      return 'Phiên này không còn ở trạng thái đang diễn ra. Vui lòng tải lại trang.';
+    case 'SESSION_PAUSED':
+      return 'Phiên đang tạm dừng — đang mở lại, vui lòng thử lại.';
+    case 'NO_ACTIVE_CONCEPTS':
+      return 'Không có khái niệm nào để kiểm tra. Hãy chọn khái niệm khác.';
+    case 'VALIDATION_ERROR':
+      return 'Thông tin gửi lên chưa hợp lệ.';
+    default:
+      return 'Đã xảy ra lỗi, vui lòng thử lại.';
+  }
+}
+
+export const interviewApi = {
+  /** AE-01 — bắt đầu phiên. Bỏ `conceptIds` để server tự chọn hàng đợi ôn hôm nay. */
+  startInterview: async (payload: {
+    planId: string;
+    conceptIds?: string[];
+    maxTurnsPerConcept?: number;
+  }): Promise<StartInterviewResponse> => {
+    const response = await apiClient.post<ApiEnvelope<StartInterviewResponse>>(
+      ENDPOINTS.INTERVIEWS.BASE,
+      payload,
+      { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /** Khôi phục toàn bộ trạng thái phiên khi tải lại — server là nguồn chân lý. */
+  getInterview: async (id: string): Promise<GetInterviewResponse> => {
+    const response = await apiClient.get<ApiEnvelope<GetInterviewResponse>>(
+      ENDPOINTS.INTERVIEWS.DETAIL(id)
+    );
+    return response.data.data;
+  },
+
+  /** AE-02 — gửi câu trả lời gõ, chờ AI chấm rồi trả câu hỏi kế tiếp. */
+  submitAnswer: async (id: string, answerText: string): Promise<SubmitAnswerResponse> => {
+    const response = await apiClient.post<ApiEnvelope<SubmitAnswerResponse>>(
+      ENDPOINTS.INTERVIEWS.ANSWERS(id),
+      { answerText },
+      { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /** AE-05 — chế độ flashcard fallback: sinh viên tự chấm thay vì AI. */
+  submitSelfGrade: async (id: string, selfGrade: SelfGrade): Promise<SubmitAnswerResponse> => {
+    const response = await apiClient.post<ApiEnvelope<SubmitAnswerResponse>>(
+      ENDPOINTS.INTERVIEWS.ANSWERS(id),
+      { selfGrade },
+      { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /** AE-02 Alt 2 — lưu trạng thái rồi thoát; phiên có thể tiếp tục sau. */
+  pauseInterview: async (id: string): Promise<PauseInterviewResponse> => {
+    const response = await apiClient.post<ApiEnvelope<PauseInterviewResponse>>(
+      ENDPOINTS.INTERVIEWS.PAUSE(id)
+    );
+    return response.data.data;
+  },
+
+  /** Tiếp tục một phiên đã tạm dừng — có thể phải sinh lại câu hỏi (chờ AI). */
+  resumeInterview: async (id: string): Promise<ResumeInterviewResponse> => {
+    const response = await apiClient.post<ApiEnvelope<ResumeInterviewResponse>>(
+      ENDPOINTS.INTERVIEWS.RESUME(id),
+      undefined,
+      { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * SPEC_DB-03 AF2 — kết thúc phiên đang dở và chấm khái niệm dở dang trên số lượt đã trả lời.
+   * Không gọi AI (phiên `abandoned` không có nhận xét tổng hợp) nên giữ timeout mặc định.
+   */
+  abandonInterview: async (id: string): Promise<AbandonInterviewResponse> => {
+    const response = await apiClient.post<ApiEnvelope<AbandonInterviewResponse>>(
+      ENDPOINTS.INTERVIEWS.ABANDON(id)
+    );
+    return response.data.data;
+  },
+};

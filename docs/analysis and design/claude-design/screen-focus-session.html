@@ -71,6 +71,13 @@
       border-radius: calc(var(--radius) * 0.5);
     }
 
+    /* tokens.css tả .btn cho <button>. Mấy lối đi sang màn hình khác lại phải
+       là <a> thật (bàn phím, chuột giữa, "mở tab mới"), và lúc đó gạch chân mặc
+       định của link vẫn còn nguyên — nút chính có chữ bị gạch chân. */
+    a.btn {
+      text-decoration: none;
+    }
+
     @media (prefers-reduced-motion: reduce) {
 
       *,
@@ -558,9 +565,11 @@
        trung có cộng bù không — không câu trả lời nào là hiển nhiên. Bỏ cái
        công tắc đó khỏi phiên đang chạy thì câu hỏi biến mất.
 
-       Giờ nó xuất hiện ở "Chưa bắt đầu" (chỗ duy nhất còn đổi được) và trong
-       panel cấu hình Pomodoro. Trên màn hình chạy chỉ còn chỉ báo trạng thái
-       ở dòng .tally — nói cho biết, không mời bấm. */
+       Giờ nó xuất hiện ở "Chưa bắt đầu" — chỗ duy nhất còn đổi được — kể cả
+       khi chỗ đó là panel cấu hình Pomodoro mở TRƯỚC lúc bắt đầu. Panel mở
+       giữa phiên chỉ hiện nó dưới dạng chỉ báo đã khóa (phụ lục · trạng thái
+       "Panel cấu hình Pomodoro tại chỗ"). Trên màn hình chạy còn một chỉ báo
+       nữa ở dòng .tally — cả hai đều nói cho biết, không mời bấm. */
     .strictrow {
       display: flex;
       align-items: center;
@@ -1164,6 +1173,221 @@
       display: block;
     }
 
+    /* ── Ba nhánh của một lối vào ─────────────────────────────────────────
+       Trạng thái "vào /focus khi chưa chọn khái niệm" không phải ba màn hình,
+       nó là ba câu trả lời của cùng một endpoint. Nên chúng nằm trong CÙNG một
+       .state, phân cách bằng nhãn nhỏ, chứ không tách thành ba mục ngang hàng
+       với "Nghỉ giải lao" hay "Hủy phiên" — tách ra là mất mất cái ý rằng người
+       làm chỉ phải viết một nhánh điều kiện. */
+    .branch + .branch {
+      margin-top: 26px;
+    }
+
+    .branch__h {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 5px;
+    }
+
+    .branch__t {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .branch__d {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 0 0 12px;
+      max-width: 720px;
+      text-wrap: pretty;
+    }
+
+    .branch__d code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--muted);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ── Panel cấu hình Pomodoro (FS-02 · tại chỗ) ─────────────────────────
+       Panel neo ngay dưới nút bánh răng — không phải modal, cũng không phải
+       tấm trượt bên phải như panel ghi chú.
+
+       Modal thì tối cả màn hình và cắt đứt phiên đúng vào lúc câu hỏi cần trả
+       lời là "đổi cái này thì đồng hồ kia thành ra sao". Tấm trượt bên phải thì
+       trùng ngôn ngữ với FS-05: hai tấm giống hệt nhau mở ra từ hai nút đứng
+       cạnh nhau, mở nhầm là chuyện sớm muộn. Ghi chú cần chiều cao để viết;
+       cấu hình là năm ô số, cần đứng gần đúng cái nút vừa bấm.
+
+       Không khai báo transition nào ở đây, và cũng không cần: panel này sống
+       bên trong .focus-session-active (tokens.css:125–129 tắt sạch bằng
+       !important). Nó hiện tức thì — đó là ràng buộc §0, không phải thiếu sót. */
+    /* Panel neo bằng position:absolute nên nó KHÔNG kéo dài được khung cha, mà
+       .state__demo lại overflow:hidden — thiếu chiều cao là panel bị cắt cụt
+       chứ không tràn ra ngoài cho ta thấy. Con số dưới đây = 54 (mốc neo) +
+       chiều cao panel + lề đáy. */
+    .popstage {
+      position: relative;
+      min-height: 524px;
+    }
+
+    .popbody {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    .pop {
+      position: absolute;
+      top: 54px;
+      right: 16px;
+      z-index: 2;
+      width: 316px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      background: var(--card);
+      box-shadow: var(--shadow-soft);
+      padding: 15px 16px 16px;
+      text-align: left;
+    }
+
+    .pop__title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* Dòng phạm vi, không phải phụ đề trang trí: nó là chỗ duy nhất phân biệt
+       panel này với phần Pomodoro ở trang Hồ sơ. Bỏ nó đi thì hai màn hình
+       trông y hệt nhau mà ghi vào hai chỗ khác nhau. */
+    .pop__scope {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+
+    .pop__fields {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .pop__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .pop__row label {
+      font-size: 12.5px;
+    }
+
+    .pop__num {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      flex: none;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.5);
+      background: var(--background);
+      padding: 4px 9px;
+    }
+
+    .pop__num input {
+      width: 30px;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: var(--foreground);
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .pop__num u {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      text-decoration: none;
+    }
+
+    .pop__sep {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 0;
+    }
+
+    /* Câu duy nhất trang Hồ sơ không nói được: ở đó tổng một khối là con số
+       trừu tượng (130 phút), ở đây là một giờ đồng hồ có thật. */
+    .pop__eta {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--muted-foreground);
+      margin: 0;
+    }
+
+    .pop__eta b {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    .pop__locked {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--muted-foreground);
+    }
+
+    .pop__locked svg {
+      flex: none;
+      margin-top: 1px;
+      color: var(--focus-session);
+    }
+
+    .pop__foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pop__foot .btn {
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+
+    .pop__esc {
+      margin-left: auto;
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    /* Câu cuối là CHỮ, không phải link — chủ ý. Xem ghi chú ở trạng thái. */
+    .pop__default {
+      font-size: 11.5px;
+      line-height: 1.5;
+      color: var(--muted-foreground);
+      margin: 0;
+    }
+
+    .icon-btn[aria-expanded="true"] {
+      background: var(--muted);
+      color: var(--foreground);
+    }
+
     @media (max-width: 900px) {
       .split,
       .notes {
@@ -1217,6 +1441,24 @@
 
       .tally__item + .tally__item::before {
         display: none;
+      }
+
+      /* Dưới 560px thanh trên xếp thành hai hàng, nên mốc neo `top: 54px` của
+         panel rơi vào giữa hàng thứ hai — panel đè lên chính cái nút vừa mở nó.
+         Hẹp đến mức này thì bỏ hẳn lối neo: panel về dòng chảy bình thường,
+         nằm ngay dưới thanh trên. Vẫn không phải modal. */
+      .pop {
+        position: static;
+        width: auto;
+        margin: 14px 16px 0;
+      }
+
+      .popstage {
+        min-height: 0;
+      }
+
+      .popbody {
+        padding: 28px 20px;
       }
     }
   </style>
@@ -1280,9 +1522,12 @@
         <!--
           FS-02 là <<include>> của FS-01 (UC-Overview.md:120). Bản cũ để nó là
           link điều hướng sang screen-profile.html — bấm vào là rời khỏi phiên
-          đang chạy. Ở đây nó mở panel cấu hình tại chỗ, phiên không gián đoạn.
+          đang chạy. Ở đây nó mở panel cấu hình tại chỗ, phiên không gián đoạn
+          (phụ lục · trạng thái Panel cấu hình Pomodoro tại chỗ). Panel ghi vào
+          state của phiên này, KHÔNG ghi vào users.pomodoro_config — đổi mặc
+          định là việc của trang Hồ sơ (#166).
         -->
-        <button class="icon-btn" type="button" aria-label="Cấu hình Pomodoro">
+        <button class="icon-btn" type="button" aria-label="Cấu hình Pomodoro" aria-expanded="false"
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
@@ -1421,11 +1666,188 @@
         <p>
           SPEC_FS-01 và UC-09 định nghĩa ít nhất bảy trạng thái. Bản thiết kế trước vẽ
           đúng một trạng thái — "đang chạy, có tài liệu". Phần dưới bổ sung số còn lại,
-          kèm tham chiếu tới đúng bước trong spec, và thêm hai trạng thái spec bỏ sót.
+          kèm tham chiếu tới đúng bước trong spec, và thêm bốn trạng thái spec bỏ sót:
+          rời tab, chưa bắt đầu, và hai lối vào đã có sẵn trên màn hình mà không bước nào
+          của spec mô tả — vào <code>/focus</code> từ sidebar, và nút bánh răng trên thanh trên.
         </p>
       </div>
 
-      <!-- ── 1 · Chưa bắt đầu ─────────────────────────────────────────────── -->
+      <!-- ── 1 · Vào phiên học khi chưa chọn khái niệm ─────────────────────── -->
+      <article class="state" id="loi-vao">
+        <div class="state__head">
+          <span class="state__name">Vào phiên học khi chưa chọn khái niệm</span>
+          <span class="tag">FS-01 · trước bước 1</span>
+          <span class="tag tag--new">Bổ sung</span>
+        </div>
+        <p class="state__desc">
+          Sidebar của <strong>cả sáu màn</strong> đều có mục <em>Focus Session</em>, và app đã có
+          route <code>/focus</code> — Sinh viên bấm thẳng vào được, không đi qua Dashboard. Nhưng mọi
+          trạng thái phía dưới đều bắt đầu từ một khái niệm <em>đã được chọn từ trước</em>. Đây là
+          khoảnh khắc trước đó.
+          <br /><br />
+          Nguyên tắc của cả trạng thái này gói trong một câu: <strong>màn hình Focus không dựng lại
+          hàng đợi</strong>. Nó hỏi <code>GET /review-queue/today</code> rồi đọc đúng
+          <code>items[0]</code>. Ba nhánh dưới đây là <em>ba câu trả lời của cùng một lời gọi</em>,
+          không phải ba màn hình — người làm chỉ viết một nhánh điều kiện trên envelope đã có sẵn.
+        </p>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v5M12 16h.01" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">Ranh giới với Dashboard — DB-04 giữ hàng đợi (#169)</div>
+            <p class="note__d">
+              Dashboard hiển thị <em>cả</em> danh sách (<code>items</code>) kèm hai lối thoát
+              <em>Hoãn đến mai</em> / <em>Bỏ qua gợi ý</em>. Màn hình này đọc đúng một phần tử. Hai
+              chỗ cùng vẽ một danh sách với hai cách sắp xếp là cách chắc chắn nhất để chúng lệch
+              nhau — và lúc lệch thì không ai biết chỗ nào đúng.
+              <br /><br />
+              Câu chữ lúc rỗng cũng <strong>không viết lại ở client</strong>: dùng nguyên
+              <code>message</code> backend trả về (<code>scheduling.service.ts</code> —
+              <code>COMPLETED_TODAY_MESSAGE</code> cho nhánh 2,
+              <code>NO_ACTIVE_PLAN_MESSAGE</code> cho nhánh 3), đúng ràng buộc #169 đã chốt. Kể cả
+              biểu tượng 🎉 trong câu đó: nó là dữ liệu từ server, không phải trang trí do màn hình
+              tự thêm — muốn bỏ thì sửa một chỗ ở backend, không sửa ở đây.
+            </p>
+          </div>
+        </div>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16M4 12h16M4 17h10" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">Ở cả ba nhánh, chưa có phiên nào tồn tại</div>
+            <p class="note__d">
+              <code>POST /focus-sessions</code> chỉ chạy khi Sinh viên nhấn <em>Bắt đầu</em>. Trước
+              đó: <strong>không</strong> có nút "Hủy phiên" ở góc trái (không có gì để hủy),
+              <strong>không</strong> có đồng hồ đang đếm, và khung <strong>chưa</strong> mang class
+              <code>focus-session-active</code> — ràng buộc §0 gắn với đồng hồ đang chạy, không phải
+              với đường dẫn <code>/focus</code>. Thanh trên ở ba nhánh này chỉ còn tên phiên.
+              <br /><br />
+              Một điểm dễ bỏ qua khi ước lượng: nhánh 1 <em>không</em> bị chặn bởi #232.
+              <code>createFocusSessionSchema</code> để <code>planId</code> ở dạng
+              <code>optional()</code> và chỉ bắt buộc <code>conceptIds</code> — thứ mà item hàng đợi
+              đã có. Đây là chỗ khác với CTA "Vào thẳng phiên kiểm tra" của Dashboard:
+              <code>POST /interviews</code> bắt buộc <code>planId</code>, nên nút đó mới phải chờ.
+            </p>
+          </div>
+        </div>
+
+        <!-- ── Nhánh 1 ── -->
+        <div class="branch">
+          <div class="branch__h">
+            <span class="tag">Nhánh 1</span>
+            <span class="branch__t">Hàng đợi hôm nay có item</span>
+          </div>
+          <p class="branch__d">
+            Lấy <code>items[0]</code> và vào thẳng trạng thái <em>Chưa bắt đầu</em> — không chen một
+            bước chọn nào vào giữa. Khác biệt duy nhất so với trạng thái 2: <strong>lý do FS-06 phải
+            có mặt ngay ở đây</strong>. Đi qua Dashboard thì Sinh viên vừa đọc câu giải thích xong;
+            đi từ sidebar thì đây là lần đầu họ nhìn thấy nó, mà một khái niệm hiện ra không kèm lý
+            do thì đúng là "chọn bừa" — thứ màn hình này tồn tại để phủ nhận. Không tách hai biến
+            thể: cả hai đường vào đều hiện cùng một khối.
+            <br />
+            Thêm đúng một lối đi — <em>"chọn khái niệm khác →"</em> về Dashboard. Rời đi lúc này
+            không mất gì vì chưa có phiên nào chạy; đó cũng là lý do lối đi này
+            <strong>không</strong> mâu thuẫn với luật "không có lối ra nào trong phần thân".
+          </p>
+          <div class="state__demo">
+            <!--
+              Cố tình KHÔNG vẽ lại hàng "Chế độ nghiêm ngặt" ở đây. Nó không đổi
+              gì so với trạng thái 2, mà vẽ lần thứ hai là tạo bản sao thứ hai để
+              sau này lệch nhau — đúng cái lỗi mà cả trạng thái này đang tránh với
+              hàng đợi của Dashboard.
+            -->
+            <div class="panel">
+              <span class="chip">Truy ngược · tầng 1</span>
+              <div class="panel__t" style="font-size:26px;">Ngăn xếp (Stack)</div>
+              <p class="panel__d">
+                Phiên kiểm tra <strong>24/07</strong> chấm <strong>Đệ quy</strong> ở mức
+                <strong>0.42</strong>. Duyệt ngược đồ thị tìm ra Ngăn xếp là khái niệm tiên quyết
+                chưa vững.
+              </p>
+              <div class="panel__k panel__k--muted">25:00</div>
+              <div class="actions">
+                <button class="btn btn-primary" type="button">Bắt đầu</button>
+                <button class="btn btn-secondary" type="button">Đổi độ dài lượt</button>
+              </div>
+              <a class="link link--u" href="screen-dashboard.html">Chọn khái niệm khác →</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Nhánh 2 ── -->
+        <div class="branch">
+          <div class="branch__h">
+            <span class="tag">Nhánh 2</span>
+            <span class="branch__t">Hàng đợi rỗng — UC-19 [E1]</span>
+          </div>
+          <p class="branch__d">
+            <code>items: []</code> kèm <code>message</code> đã hoàn thành. Không chặn Sinh viên,
+            nhưng cũng không mọc ra một bộ chọn khái niệm ở đây: chỗ duyệt <em>toàn bộ</em> khái
+            niệm là màn đồ thị, và panel chi tiết của nó đã có sẵn nút <em>"Học lại khái niệm
+            này"</em> (DB-06 &laquo;extend&raquo; FS-01). Lối ra thứ hai vì thế là một liên kết chứ
+            không phải một danh sách mới.
+            <br />
+            Nút chính vẫn là <em>Về Dashboard</em>, không phải "ôn thêm". Lịch ôn tập giãn dần theo
+            mức nắm — ôn sớm hơn lịch không làm nhớ lâu hơn, nên màn hình không nên rủ rê làm điều
+            đó. Chỉ là không cấm.
+          </p>
+          <div class="state__demo">
+            <div class="panel">
+              <div class="panel__t">Bạn đã hoàn thành kế hoạch hôm nay 🎉</div>
+              <p class="panel__d">
+                Không còn khái niệm nào đến hạn. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức
+                bạn nắm.
+              </p>
+              <div class="actions">
+                <a class="btn btn-primary" href="screen-dashboard.html">Về Dashboard</a>
+              </div>
+              <a class="link link--u" href="screen-concept-graph.html">
+                Vẫn muốn ôn thêm — chọn khái niệm trên đồ thị →
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Nhánh 3 ── -->
+        <div class="branch">
+          <div class="branch__h">
+            <span class="tag">Nhánh 3</span>
+            <span class="branch__t">Chưa có kế hoạch nào</span>
+          </div>
+          <p class="branch__d">
+            Onboarding, không phải chặn — và <strong>không</strong> phải một luồng onboarding thứ
+            hai. Dùng đúng câu và đúng CTA mà DB-01 [E1] đã dựng ở Dashboard
+            (<em>"Tạo kế hoạch đầu tiên"</em>). Ở đây chỉ cần một câu nói rõ vì sao màn hình này
+            không mở được: phiên học lấy khái niệm từ kế hoạch, chưa có kế hoạch thì không có gì
+            để mở.
+          </p>
+          <div class="state__demo">
+            <div class="panel">
+              <div class="panel__t">Bạn chưa có kế hoạch ôn tập nào đang hoạt động.</div>
+              <p class="panel__d">
+                Phiên học lấy khái niệm từ kế hoạch ôn tập. Tải tài liệu môn học lên, hệ thống dựng
+                đồ thị khái niệm rồi xếp lịch — sau đó màn hình này biết phải mở gì.
+              </p>
+              <div class="actions">
+                <a class="btn btn-primary" href="screen-create-plan.html">Tạo kế hoạch đầu tiên</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 2 · Chưa bắt đầu ─────────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Chưa bắt đầu</span>
@@ -1474,7 +1896,225 @@
         </div>
       </article>
 
-      <!-- ── 2 · Rời tab trong chế độ nghiêm ngặt ─────────────────────────── -->
+      <!-- ── 3 · Panel cấu hình Pomodoro tại chỗ ──────────────────────────── -->
+      <article class="state" id="panel-pomodoro">
+        <div class="state__head">
+          <span class="state__name">Panel cấu hình Pomodoro tại chỗ</span>
+          <span class="tag">FS-02</span>
+          <span class="tag tag--new">Bổ sung</span>
+        </div>
+        <p class="state__desc">
+          Nút bánh răng trên thanh trên đã có từ bản này, kèm một lời hứa viết thẳng trong comment:
+          <em>"mở panel cấu hình tại chỗ, phiên không gián đoạn"</em>. Nút ghi chú đứng ngay cạnh thì
+          có trạng thái được vẽ; nút bánh răng thì không — nên người làm #127 sẽ phải tự bịa ra
+          panel đó. Đây là bản vẽ, và bốn quyết định đi kèm:
+        </p>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">① Hiện đủ cả năm trường — ② áp dụng từ ranh giới lượt kế tiếp</div>
+            <p class="note__d">
+              Cắt bớt trường theo kiểu "chỉ hiện thứ đổi được giữa phiên" tạo ra hai phiên bản khác
+              nhau của cùng một cấu hình, và người dùng phải nhớ cái nào ở đâu. Hiện đủ năm
+              (<code>work</code>, <code>short_break</code>, <code>long_break</code>,
+              <code>cycles</code>, <code>sound</code>) — giống hệt trang Hồ sơ.
+              <br /><br />
+              Đổi lại cần đúng <strong>một</strong> quy tắc, và nó phủ được cả năm:
+              <strong>lượt đang chạy không bao giờ đổi độ dài giữa chừng; mọi thay đổi có hiệu lực ở
+              ranh giới lượt kế tiếp.</strong> Không cần bảng ngoại lệ, vì cả chuông báo
+              (<code>sound</code>) lẫn quyết định nghỉ ngắn / nghỉ dài / kết thúc
+              (<code>cycles</code>) đều chỉ xảy ra đúng ở ranh giới đó — "áp từ lượt sau" và "áp ngay
+              bây giờ" là cùng một thứ với hai trường ấy. Dải 4 vạch tiến độ vẽ lại ngay khi đổi
+              <code>cycles</code>: nó tả kế hoạch, không tả quá khứ.
+            </p>
+          </div>
+        </div>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 7H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h4M15 7h4a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-4M8 12h8" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">③ Một panel, hai cửa vào — ranh giới với trang Hồ sơ (#166)</div>
+            <p class="note__d">
+              Nút <em>"Đổi độ dài lượt"</em> ở trạng thái 2 và nút bánh răng ở thanh trên mở
+              <strong>cùng một panel</strong>. Cả hai chỉ ghi vào state của phiên
+              — <strong>không</strong> cái nào <code>PATCH /users/me/pomodoro-config</code>. Khác
+              nhau đúng hai chỗ: dòng phạm vi (<em>"áp ngay khi bắt đầu"</em> so với <em>"áp từ lượt
+              kế tiếp"</em>), và hàng <em>Chế độ nghiêm ngặt</em> — mở trước khi bắt đầu thì nó là
+              công tắc thật, mở giữa phiên thì chỉ còn là chỉ báo đã khóa. Lý do khóa vẫn là lý do
+              cũ: tắt giữa chừng thì không có câu trả lời hiển nhiên cho số lần rời tab đã đếm. Chỗ
+              tắt duy nhất giữa phiên là hộp thoại lúc quay lại sau khi rời tab, và tắt là tắt hẳn
+              cho phiên đó.
+              <br /><br />
+              Hai chữ <em>phiên</em> và <em>lượt</em> ở đây <strong>không</strong> thay nhau được.
+              #166 ghi vào <code>users.pomodoro_config</code> nên câu của nó là <em>"Áp dụng từ
+              <strong>phiên</strong> học tiếp theo"</em> — mặc định cho những phiên chưa tồn tại.
+              Panel này chỉ sống trong một phiên nên câu của nó là <em>"áp từ <strong>lượt</strong>
+              kế tiếp"</em>. Dùng lẫn hai chữ là hứa sai một trong hai chỗ.
+              <br /><br />
+              Cũng vì thế panel <strong>không</strong> nhắc lại dải trực quan 4 chu kỳ và phép tính
+              <code>4 × 25 + 3 × 5 + 15 = 130</code> của trang Hồ sơ: ở đó tổng một khối là con số
+              trừu tượng cho mọi phiên về sau, ở đây thứ trả lời được là một giờ đồng hồ có thật của
+              phiên đang chạy. Và câu cuối panel — "đổi mặc định nằm ở trang Hồ sơ" — là
+              <strong>chữ, không phải liên kết</strong>: mời bấm là mời rời khỏi phiên, đúng thứ mà
+              cả màn hình này được dựng để không làm. Ở cửa vào trước khi bắt đầu thì nó được phép
+              là liên kết thật, vì lúc đó chưa có gì để mất.
+            </p>
+          </div>
+        </div>
+
+        <div class="note">
+          <span class="note__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M13 2L4.5 13H12l-1 9 8.5-11H12z" />
+            </svg>
+          </span>
+          <div>
+            <div class="note__t">④ Panel hiện tức thì — và đó là lý do nó neo dưới nút</div>
+            <p class="note__d">
+              <code>tokens.css:125–129</code> tắt sạch <code>animation</code> và
+              <code>transition</code> bên trong <code>.focus-session-active</code> bằng
+              <code>!important</code>. Không có trượt vào, không có mờ dần: panel đang không có, rồi
+              có. Một tấm trượt bên phải mất hiệu ứng trượt thì chỉ còn là một khối 320px nhảy ra ở
+              rìa màn hình, không rõ từ đâu tới. Neo ngay dưới cái nút vừa bấm thì xuất hiện tức thì
+              lại là hành vi <em>đúng</em>, không phải hiệu ứng bị hỏng — hình dạng phải chọn theo
+              ràng buộc chứ không phải chống lại nó.
+              <br /><br />
+              Không có lớp phủ mờ nào phía sau panel. Phiên không bị gián đoạn thì màn hình cũng
+              không được tỏ ra là đang bị chặn — khái niệm và đồng hồ vẫn đọc được nguyên vẹn, vì
+              câu hỏi cần trả lời khi mở panel này chính là "đổi cái này thì đồng hồ kia thành ra
+              sao".
+            </p>
+          </div>
+        </div>
+
+        <div class="state__demo">
+          <div class="popstage">
+            <header class="fs-top">
+              <div class="fs-top__lead">
+                <button class="exit" type="button">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M19 12H5M11 18l-6-6 6-6" />
+                  </svg>
+                  Hủy phiên
+                </button>
+                <div class="fs-top__id">
+                  <span class="fs-top__title">Phiên học</span>
+                  <span class="fs-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+                </div>
+              </div>
+              <div class="fs-top__right">
+                <div class="seg" role="group" aria-label="Hiển thị tài liệu">
+                  <span>Tài liệu</span>
+                  <button type="button" aria-pressed="true">Ẩn</button>
+                  <button type="button" aria-pressed="false">Trích đoạn</button>
+                  <button type="button" aria-pressed="false">Toàn văn</button>
+                </div>
+                <button class="icon-btn" type="button" aria-label="Ghi chú nhanh">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+                    <path d="M14 4v6h6" />
+                  </svg>
+                </button>
+                <!-- aria-expanded chứ không phải aria-pressed: nút này điều khiển
+                     một vùng bung ra, không phải một trạng thái bật/tắt. -->
+                <button class="icon-btn" type="button" aria-label="Cấu hình Pomodoro" aria-expanded="true">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1" />
+                  </svg>
+                </button>
+              </div>
+            </header>
+
+            <div class="popbody">
+              <span class="chip">Truy ngược · tầng 1</span>
+              <div class="panel__t" style="font-size:22px;">Ngăn xếp (Stack)</div>
+              <div class="panel__k panel__k--muted" style="font-size:38px;">18:24</div>
+              <div class="meter">
+                <span class="meter__pips" aria-hidden="true">
+                  <span class="meter__seg meter__seg--done"></span>
+                  <span class="meter__seg meter__seg--now"></span>
+                  <span class="meter__seg"></span>
+                  <span class="meter__seg"></span>
+                </span>
+                <span class="meter__text">Pomodoro 2 / 4 · nghỉ 5 phút sau lượt này</span>
+              </div>
+            </div>
+
+            <div class="pop" role="dialog" aria-label="Cấu hình Pomodoro">
+              <div>
+                <div class="pop__title">Chu kỳ Pomodoro</div>
+                <div class="pop__scope">Chỉ đổi cho phiên này · áp dụng từ lượt kế tiếp</div>
+              </div>
+
+              <div class="pop__fields">
+                <div class="pop__row">
+                  <label for="pop-work">Học</label>
+                  <span class="pop__num"><input id="pop-work" type="number" value="25" /><u>phút</u></span>
+                </div>
+                <div class="pop__row">
+                  <label for="pop-short">Nghỉ ngắn</label>
+                  <span class="pop__num"><input id="pop-short" type="number" value="5" /><u>phút</u></span>
+                </div>
+                <div class="pop__row">
+                  <label for="pop-long">Nghỉ dài</label>
+                  <span class="pop__num"><input id="pop-long" type="number" value="15" /><u>phút</u></span>
+                </div>
+                <div class="pop__row">
+                  <label for="pop-cycles">Số chu kỳ</label>
+                  <span class="pop__num"><input id="pop-cycles" type="number" value="4" /><u>lượt</u></span>
+                </div>
+                <div class="pop__row">
+                  <label id="pop-sound-lbl">Âm báo khi hết giờ</label>
+                  <button class="switch" type="button" role="switch" aria-checked="true"
+                    aria-labelledby="pop-sound-lbl"></button>
+                </div>
+              </div>
+
+              <hr class="pop__sep" />
+
+              <p class="pop__eta">
+                Còn <b>2 lượt</b> sau lượt này — với cấu hình trên, phiên xong khoảng <b>22:05</b>.
+              </p>
+
+              <div class="pop__locked">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <span>Chế độ nghiêm ngặt đang bật, giữ nguyên cho tới hết phiên.</span>
+              </div>
+
+              <div class="pop__foot">
+                <button class="btn btn-primary" type="button">Áp dụng</button>
+                <button class="btn btn-ghost" type="button">Đóng</button>
+                <span class="pop__esc"><kbd>Esc</kbd></span>
+              </div>
+
+              <p class="pop__default">Đổi mặc định cho mọi phiên: trang Hồ sơ.</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4 · Rời tab trong chế độ nghiêm ngặt ─────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Quay lại sau khi rời tab</span>
@@ -1523,7 +2163,7 @@
         </div>
       </article>
 
-      <!-- ── 3 · Ghi chú nhanh ────────────────────────────────────────────── -->
+      <!-- ── 5 · Ghi chú nhanh ────────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Ghi chú nhanh</span>
@@ -1590,7 +2230,7 @@
         </div>
       </article>
 
-      <!-- ── 4 · Trích đoạn theo khái niệm — schema đã có ─────────────────── -->
+      <!-- ── 6 · Trích đoạn theo khái niệm — schema đã có ─────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Tài liệu · Trích đoạn theo khái niệm</span>
@@ -1675,7 +2315,7 @@
         </div>
       </article>
 
-      <!-- ── 5 · Toàn văn ────────────────────────────────────────────────── -->
+      <!-- ── 7 · Toàn văn ────────────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Tài liệu · Toàn văn</span>
@@ -1735,7 +2375,7 @@
         </div>
       </article>
 
-      <!-- ── 6 · Nghỉ giải lao ───────────────────────────────────────────── -->
+      <!-- ── 8 · Nghỉ giải lao ───────────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Nghỉ giải lao</span>
@@ -1763,7 +2403,7 @@
         </div>
       </article>
 
-      <!-- ── 7 · Hoàn thành + bàn giao AI Examiner ───────────────────────── -->
+      <!-- ── 9 · Hoàn thành + bàn giao AI Examiner ───────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Hoàn thành phiên · bàn giao AI Examiner</span>
@@ -1810,7 +2450,7 @@
         </div>
       </article>
 
-      <!-- ── 8 · Phiên bị gián đoạn ──────────────────────────────────────── -->
+      <!-- ── 10 · Phiên bị gián đoạn ──────────────────────────────────────── -->
       <article class="state">
         <div class="state__head">
           <span class="state__name">Phiên bị gián đoạn</span>
@@ -1839,7 +2479,7 @@
         </div>
       </article>
 
-      <!-- ── 9 · Hủy phiên ───────────────────────────────────────────────── -->
+      <!-- ── 11 · Hủy phiên ───────────────────────────────────────────────── -->
       <article class="state" id="huy">
         <div class="state__head">
           <span class="state__name">Hủy phiên học</span>

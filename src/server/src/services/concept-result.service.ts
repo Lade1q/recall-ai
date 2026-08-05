@@ -61,8 +61,12 @@ interface ReviewItemDraft {
  * already queued by an earlier concept of this session gets its priority raised rather than a
  * second row.
  *
- * `status` is deliberately only set on insert. Once the student has accepted or skipped a
- * recommendation that decision is theirs to keep; #124 keeps skipped rows for the same reason.
+ * `status` is deliberately only set on insert — same code as before #224, different reason. It
+ * is no longer "don't overwrite the student's approval": there is no approval step any more, and
+ * the `create` branch not naming `status` is exactly how the concept lands on the schedule at
+ * `@default(pending)` inside the grading transaction, before the student sees anything. What the
+ * `update` branch must still not touch is a *removal*: a concept the student took off their
+ * schedule stays off it, however many later sessions re-queue the same prerequisite.
  */
 async function upsertReviewItem(tx: Prisma.TransactionClient, draft: ReviewItemDraft) {
   const { planId, conceptId, sourceSessionId, ...schedule } = draft;

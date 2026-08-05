@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { CreatePlanInput, UpdatePlanStatusInput } from '../schemas/plan.schema';
 import { createStorageService } from './storage.service';
 import { STALE_JOB_THRESHOLD_MS } from './analysis.service';
+import { ON_SCHEDULE_WHERE } from './scheduling.service';
 import { summariseMasteryDistribution } from '../utils/mastery';
 import {
   CreatePlanResponse,
@@ -192,11 +193,12 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
       orderBy: { createdAt: 'desc' },
       select: { status: true, phase: true, createdAt: true, errorMessage: true },
     }),
-    // "Đang ôn lại" for the DB-05 filter chip and the node outline (Issue #168). `pending`
-    // only: an item the student already accepted, skipped or finished is history, and a node
-    // still pulsing for it would be telling them to do something they have done.
+    // "Đang ôn lại" for the DB-05 filter chip and the node outline (Issue #168). Only items
+    // still on the schedule: one the student removed, or has finished, is history, and a node
+    // still pulsing for it would be telling them to do something they no longer have to.
+    // Same predicate as the review queue itself — see `OFF_SCHEDULE_STATUSES` (#224).
     prisma.reviewQueueItem.findMany({
-      where: { planId, status: 'pending' },
+      where: { planId, ...ON_SCHEDULE_WHERE },
       select: { conceptId: true },
       distinct: ['conceptId'],
     }),

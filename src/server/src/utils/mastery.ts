@@ -70,6 +70,19 @@ export function calculateMasteryScore(turnScores: number[]): number | null {
   return round2(clamp(weightedSum / totalWeight, 0, 1));
 }
 
+/**
+ * The turn scores of one concept that count towards its mastery, in the order they were asked —
+ * exactly what `calculateMasteryScore` above takes.
+ *
+ * An ungraded turn (`score === null`) is dropped rather than read as a zero: it is either the
+ * question the student is still looking at, or one the AI could not grade (AE-05). Dropping it
+ * is what lets the weights renormalise over the turns that actually happened, which is the whole
+ * reason a session ended early (#243) can still be scored honestly.
+ */
+export function gradedTurnScores(turns: readonly { score: number | null }[]): number[] {
+  return turns.map((turn) => turn.score).filter((score): score is number => score !== null);
+}
+
 /** At or above this, a concept reads as fully mastered rather than still being learned. */
 export const MASTERY_STRONG_THRESHOLD = 0.8;
 

@@ -1,4 +1,5 @@
 import type {
+  DocumentKind,
   InterviewSessionStatus,
   QuestionType,
   ReviewItemStatus,
@@ -43,6 +44,29 @@ export interface InterviewSessionState {
   progress: InterviewProgress;
 }
 
+/**
+ * Where a question's concept was taken from: the document and page `extract_concepts` anchored
+ * it to. This is constraint C5 ("AI không bịa") inside the interview screen — the student can
+ * see which page the thing they are being asked about actually came from.
+ *
+ * Read back from what the turn itself recorded when it was asked, not from where the concept is
+ * anchored now (#240): a plan's document can be swapped or re-analysed mid-session, and a
+ * re-derived citation would quietly renumber old questions onto the new file.
+ *
+ * Narrower than `ConceptSourceItemResponse` on purpose: no `excerpt`. A transcript holds up to
+ * 5 concepts × 3 turns, and a 2000-character excerpt on each would be ~30KB nobody reads; the
+ * citation block under a question is a single line. Verbatim passages belong to the concept
+ * detail panel (DB-06) and the focus screen (FS-04), which show one concept at a time.
+ */
+export interface QuestionSourceResponse {
+  documentId: string;
+  filename: string;
+  kind: DocumentKind;
+  /** `null` for material that has no pages — plain text, or an image. */
+  pageFrom: number | null;
+  pageTo: number | null;
+}
+
 /** The question waiting for an answer. `turnId` is what `POST /answers` writes onto. */
 export interface InterviewQuestionResponse {
   turnId: string;
@@ -53,6 +77,9 @@ export interface InterviewQuestionResponse {
   questionType: QuestionType | null;
   /** `ai` normally, `cache_fallback` once the session is in flashcard fallback (AE-05). */
   source: TurnSource;
+  /** `null` when the question recorded no anchor, or when the document it recorded is gone or
+   * has been replaced since — see `utils/question-citation.ts` for each case. */
+  sourceCitation: QuestionSourceResponse | null;
 }
 
 /** One line of the transcript. Answered turns carry the grade the AI gave them. */
@@ -69,6 +96,8 @@ export interface InterviewTurnResponse {
   verdict: TurnVerdict | null;
   askedAt: Date;
   answeredAt: Date | null;
+  /** Same anchor as on the pending question — the transcript cites answered turns too. */
+  sourceCitation: QuestionSourceResponse | null;
 }
 
 /** A weak prerequisite the traceback queued ahead of the concept just finished (AE-07). */
@@ -160,6 +189,18 @@ export interface ResumeInterviewResponse {
   session: InterviewSessionState;
   currentQuestion: InterviewQuestionResponse | null;
   fallback: InterviewFallbackResponse | null;
+}
+
+/**
+ * `POST /interviews/:id/abandon` (#243) — SPEC_DB-03 AF2, "Kết thúc và chấm phần đã làm".
+ *
+ * Same `conceptCompleted` shape `POST /answers` returns when a concept ends normally, so a
+ * client can show "đã chấm xong khái niệm X" from either. `null` when nothing was scored: no
+ * turn of the concept the session stopped on could be graded, or the queue had already run out.
+ */
+export interface AbandonInterviewResponse {
+  session: InterviewSessionState;
+  conceptCompleted: ConceptCompletedResponse | null;
 }
 
 /**

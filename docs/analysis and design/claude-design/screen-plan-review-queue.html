@@ -1,0 +1,1089 @@
+<!-- @dsCard group="Screens" subtitle="SP-07 · SP-08 — Hàng đợi ôn của một kế hoạch" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Hàng đợi ôn</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ── Đầu trang ─────────────────────────────────────────────────────────
+       Màn con của "Kế hoạch ôn tập", không phải một mục menu thứ bảy: câu hứa
+       ở cuối phiên vấn đáp chỉ tên đúng một chỗ, và người dùng phải hạ cánh
+       trong chính chỗ đó. Vì thế mục sidebar vẫn sáng, và breadcrumb là đường
+       về danh sách kế hoạch. */
+    .crumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      margin-bottom: 14px;
+    }
+
+    .crumb a {
+      color: var(--muted-foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .crumb a:hover {
+      color: var(--foreground);
+    }
+
+    .crumb b {
+      font-weight: 500;
+      color: var(--foreground);
+    }
+
+    h1.page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+    }
+
+    .lede {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      margin: 0;
+      max-width: 620px;
+      text-wrap: pretty;
+    }
+
+    /* Thanh tổng: số mục + tổng phút của cả hàng đợi (totalEstimatedMinutes).
+       Đặt trên danh sách chứ không dưới, vì "hết bao lâu" là câu hỏi quyết định
+       người ta có ngồi xuống học hay không. */
+    .qsum {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin: 30px 0 0;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .qsum__count {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+    }
+
+    .qsum__count b {
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .qsum__links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12.5px;
+    }
+
+    .qsum__links a {
+      color: var(--muted-foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .qsum__links a:hover {
+      color: var(--foreground);
+    }
+
+    /* ── Hàng đợi ──────────────────────────────────────────────────────────
+       Danh sách chứ không phải lưới thẻ: thứ tự ở đây MANG NGHĨA (sortReviewItems
+       sắp hai tầng — mọi mục truy ngược trước, rồi priority giảm dần), mà lưới thẻ
+       thì đọc theo hàng lẫn theo cột nên thứ tự tan mất. Số thứ tự do CSS counter
+       sinh ra, nên gỡ/đưa lại một mục là cả cột số tự đánh lại. */
+    .queue {
+      list-style: none;
+      counter-reset: qi;
+      margin: 0;
+      padding: 0;
+    }
+
+    .qi {
+      display: grid;
+      grid-template-columns: 30px minmax(0, 1fr) auto auto auto;
+      align-items: baseline;
+      gap: 0 16px;
+      padding: 16px 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .qi__no {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .qi__no::before {
+      counter-increment: qi;
+      content: counter(qi, decimal-leading-zero);
+    }
+
+    /* Chip đứng cùng dòng với tên chứ không phải trên một dòng riêng: cột phải
+       (mastery · phút · thao tác) canh theo baseline dòng đầu, nên chip chiếm
+       một dòng riêng sẽ đẩy cả cột phải lên ngang tấm nhãn thay vì ngang tên
+       khái niệm — thứ duy nhất người ta thật sự đang đọc. */
+    .qi__name {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 4px 9px;
+      font-size: 15px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    /* Câu chữ lý do do backend sinh (buildReasonText) — chép nguyên văn, client
+       không tự ghép. Bốn câu tương ứng bốn giá trị của enum ReviewReason. */
+    .qi__why {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin-top: 3px;
+      text-wrap: pretty;
+    }
+
+    /* Truy ngược là loại mục duy nhất có thứ hạng riêng, nên là loại duy nhất
+       được mang màu. `depth` hiện ở đây; tên khái niệm gốc KHÔNG lặp lại vì
+       reasonText đã nêu ('Nền tảng của X mà bạn còn yếu'). */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: oklch(from var(--remediate) l c h / 0.12);
+      color: var(--remediate);
+    }
+
+    /* Điểm mastery: ba dải của classifyMastery cộng ô xám cho null. Chữ đi kèm
+       chấm màu — người không phân biệt được màu vẫn đọc được dải. */
+    .mast {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      white-space: nowrap;
+    }
+
+    .mast i {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: block;
+      flex: none;
+    }
+
+    .mast b {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .mast--weak i {
+      background: var(--mastery-weak);
+    }
+
+    .mast--learning i {
+      background: var(--mastery-learning);
+    }
+
+    .mast--strong i {
+      background: var(--mastery-strong);
+    }
+
+    .mast--untested i {
+      background: var(--mastery-untested);
+    }
+
+    .qi__min {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      min-width: 62px;
+      text-align: right;
+    }
+
+    .linkish {
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      background: none;
+      border: 0;
+      padding: 0;
+      color: var(--muted-foreground);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .linkish:hover {
+      color: var(--foreground);
+      border-bottom-color: var(--foreground);
+    }
+
+    /* Mục ảo (id = null, gợi ý A3): không có hàng thật trong DB nên không PATCH
+       được. Chỗ của nút để trống hẳn — hiện nút rồi chặn là hứa hão. */
+    .qi__act--none {
+      width: 1px;
+    }
+
+    /* ── Vừa gỡ ────────────────────────────────────────────────────────────
+       Mục gỡ xong không nhảy đi mất: chỗ cũ của nó thành một dòng xác nhận có
+       Hoàn tác ngay tại đó. Người vừa bấm nhìn thấy hậu quả ở đúng chỗ mắt
+       đang nhìn, không phải đi tìm toast ở góc màn hình. */
+    .qi--gone {
+      grid-template-columns: 30px minmax(0, 1fr) auto;
+      color: var(--muted-foreground);
+      background: var(--muted);
+      border-radius: calc(var(--radius) * 0.6);
+      align-items: center;
+    }
+
+    .qi--gone .qi__no::before {
+      counter-increment: none;
+      content: '—';
+    }
+
+    .qi__gone-text {
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+
+    .qi__gone-text b {
+      font-weight: 500;
+      color: var(--foreground);
+    }
+
+    /* ── Nhóm đã gỡ ────────────────────────────────────────────────────────
+       Gỡ rồi phải đưa lại được, nếu không thì cổng xác nhận cũ chỉ đổi thành
+       cửa một chiều. Hàng không bị xoá khỏi DB (status = 'skipped'), nên màn
+       này cũng không được giấu chúng đi. */
+    .removed {
+      margin-top: 26px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      background: var(--muted);
+    }
+
+    .removed > summary {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      list-style: none;
+      cursor: pointer;
+      padding: 13px 16px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+
+    .removed > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .removed > summary b {
+      font-weight: 500;
+      color: var(--foreground);
+    }
+
+    .removed__chevron {
+      flex: none;
+      transition: transform var(--duration-fast) var(--ease-standard);
+    }
+
+    .removed[open] .removed__chevron {
+      transform: rotate(90deg);
+    }
+
+    .removed__body {
+      padding: 0 16px 8px;
+    }
+
+    .removed__hint {
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      margin: 0 0 4px;
+      max-width: 620px;
+      text-wrap: pretty;
+    }
+
+    .removed .qi {
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .removed .qi:last-child {
+      border-bottom: 0;
+    }
+
+    .removed .qi__name {
+      font-weight: 400;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Trạng thái rỗng ───────────────────────────────────────────────────*/
+    .empty {
+      max-width: 520px;
+      margin: 34px auto 26px;
+      text-align: center;
+    }
+
+    .empty__art {
+      color: var(--muted-foreground);
+      opacity: 0.55;
+      margin-bottom: 16px;
+    }
+
+    .empty h3 {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .empty p {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 18px;
+      text-wrap: pretty;
+    }
+
+    /* Dải thông báo cho hàng đợi ảo: nói thẳng "đây chưa phải lịch của bạn"
+       trước khi người ta kịp tin vào danh sách bên dưới. */
+    .notice {
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--mastery-untested);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--muted);
+      padding: 13px 15px;
+      margin-bottom: 6px;
+    }
+
+    .notice svg {
+      flex: none;
+      margin-top: 2px;
+      color: var(--muted-foreground);
+    }
+
+    .notice p {
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .notice p b {
+      font-weight: 500;
+      color: var(--foreground);
+    }
+
+    /* ── Phụ lục trạng thái ────────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 680px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 760px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 24px 26px;
+    }
+
+    @media (max-width: 720px) {
+
+      .qi,
+      .removed .qi {
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 6px 12px;
+      }
+
+      .removed .qi {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .qi > .mast,
+      .qi > .qi__min,
+      .qi > .qi__act {
+        grid-column: 2;
+        justify-self: start;
+        text-align: left;
+      }
+
+      .removed .qi > .mast,
+      .removed .qi > .qi__act {
+        grid-column: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <nav class="app-sidebar" aria-label="Điều hướng chính">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <!-- Vẫn là mục "Kế hoạch ôn tập" đang sáng: đây là màn con của nó, không
+           phải mục menu mới. Câu hứa cuối phiên vấn đáp chỉ tới cái tên này. -->
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-plans.html" aria-current="true">Kế hoạch ôn
+        tập</a>
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </nav>
+
+    <main class="app-main">
+      <!--
+        SP-07 (xem lịch ôn) + SP-08 (sửa lịch thủ công) trên cùng một màn: xem
+        và sửa ở đây là một việc, tách ra thì người dùng phải học thêm một lối đi
+        cho mỗi thao tác gỡ.
+
+        Hàng đợi thuộc VỀ MỘT KẾ HOẠCH, không toàn cục — GET /review-queue bắt
+        buộc có planId. Vì thế màn này luôn đi kèm tên kế hoạch ở breadcrumb, và
+        không có đường vào nào không đi qua một thẻ kế hoạch cụ thể.
+
+        Khác với "Gợi ý hôm nay" (DB-04) ở Tổng quan: bên đó là top-K ĐẾN HẠN
+        HÔM NAY của mọi kế hoạch, chỉ đọc. Bên này là TOÀN BỘ hàng đợi của MỘT
+        kế hoạch, và sửa được. Hai bề mặt khác nhau, không nhân bản nhau.
+      -->
+      <nav class="crumb" aria-label="Đường dẫn">
+        <a href="screen-plans.html">Kế hoạch ôn tập</a>
+        <span aria-hidden="true">/</span>
+        <b>Cấu trúc dữ liệu &amp; Giải thuật</b>
+      </nav>
+
+      <h1 class="page-title">Hàng đợi ôn</h1>
+      <p class="lede">
+        Toàn bộ khái niệm đang chờ ôn của kế hoạch này — không chỉ phần đến hạn hôm nay.
+        Thứ tự do hệ thống xếp; bạn bỏ bớt hoặc đưa lại bất cứ lúc nào.
+      </p>
+
+      <div class="qsum">
+        <div class="qsum__count" data-sum>
+          <b>8</b> khái niệm · ≈ <b>92</b> phút
+        </div>
+        <div class="qsum__links">
+          <a href="screen-concept-graph.html">Xem trên đồ thị khái niệm</a>
+          <a href="screen-history.html">Lịch sử ôn tập</a>
+        </div>
+      </div>
+
+      <!--
+        Thứ tự = sortReviewItems(): TẦNG 1 là mọi mục reason 'traceback', tầng 2
+        là phần còn lại; trong mỗi tầng thì priority giảm dần. Sắp xếp hai tầng
+        thật, không phải cộng điểm thưởng cho traceback — nên mục 03 (0.21) vẫn
+        đứng trên mục 04 (0.33), và đó không phải lỗi vẽ.
+
+        priority = (1 / max(hạn - hôm nay, 1)) × (1 - mastery), làm tròn 2 chữ số.
+        Kế hoạch này còn 3 ngày, nên mọi số dưới đây đều là (1 - mastery) / 3.
+      -->
+      <ol class="queue" data-queue>
+        <li class="qi" data-order="10">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name"><span class="chip">Truy ngược · tầng 1</span>Danh sách liên kết</div>
+            <div class="qi__why">Nền tảng của 'Hàng đợi' mà bạn còn yếu</div>
+          </div>
+          <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+          <span class="qi__min" data-min="14">≈ 14 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <li class="qi" data-order="20">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name"><span class="chip">Truy ngược · tầng 1</span>Danh sách kề</div>
+            <div class="qi__why">Nền tảng của 'Duyệt đồ thị DFS' mà bạn còn yếu</div>
+          </div>
+          <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+          <span class="qi__min" data-min="14">≈ 14 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <!-- Tầng 2 của truy ngược: nền của nền. Ước lượng thời gian cao hơn vì
+             TRACEBACK_RELEARN_MINUTES nhân theo depth — cách khái niệm được hỏi
+             hai bước thì lạ hơn, phải đọc lại nhiều hơn. -->
+        <li class="qi" data-order="30">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name"><span class="chip">Truy ngược · tầng 2</span>Con trỏ hàm</div>
+            <div class="qi__why">Nền tảng của 'Duyệt đồ thị DFS' mà bạn còn yếu</div>
+          </div>
+          <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.38</b> yếu</span>
+          <span class="qi__min" data-min="19">≈ 19 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <!-- Hết tầng truy ngược. Từ đây xuống là priority giảm dần thuần tuý. -->
+        <li class="qi" data-order="40">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name">Cây nhị phân tìm kiếm</div>
+            <div class="qi__why">Khái niệm chưa được kiểm tra</div>
+          </div>
+          <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+          <span class="qi__min" data-min="9">≈ 9 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <li class="qi" data-order="50">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name">Duyệt đồ thị DFS</div>
+            <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+          </div>
+          <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.42</b> yếu</span>
+          <span class="qi__min" data-min="9">≈ 9 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <li class="qi" data-order="60">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name">Hàng đợi</div>
+            <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+          </div>
+          <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.55</b> yếu</span>
+          <span class="qi__min" data-min="9">≈ 9 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <li class="qi" data-order="70">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name">Bảng băm</div>
+            <div class="qi__why">Deadline sắp tới, cần ưu tiên ôn tập</div>
+          </div>
+          <span class="mast mast--learning"><i aria-hidden="true"></i><b>0.61</b> đang học</span>
+          <span class="qi__min" data-min="9">≈ 9 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+
+        <!-- reason 'manual': khái niệm do chính sinh viên thêm vào, không do
+             thuật toán chọn. Vẫn nằm chung một danh sách và vẫn gỡ được. -->
+        <li class="qi" data-order="80">
+          <span class="qi__no" aria-hidden="true"></span>
+          <div class="qi__main">
+            <div class="qi__name">Sắp xếp nhanh</div>
+            <div class="qi__why">Được thêm vào hàng đợi thủ công</div>
+          </div>
+          <span class="mast mast--learning"><i aria-hidden="true"></i><b>0.72</b> đang học</span>
+          <span class="qi__min" data-min="9">≈ 9 phút</span>
+          <button class="linkish qi__act" type="button" data-remove>Bỏ khỏi lịch</button>
+        </li>
+      </ol>
+
+      <!--
+        Mục đã gỡ không biến mất khỏi màn hình. Hàng vẫn ở trong DB (status =
+        'skipped'), nên nếu giao diện giấu chúng đi thì "sửa lại bất cứ lúc nào"
+        chỉ đúng một chiều. Thu gọn mặc định vì đây là phần phụ, không phải phần
+        chính — nhưng số đếm luôn hiện ngay cả khi đang gập.
+      -->
+      <details class="removed" data-removed-group>
+        <summary>
+          <svg class="removed__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 5l7 7-7 7" />
+          </svg>
+          <span>Đã gỡ khỏi lịch (<b data-removed-count>2</b>)</span>
+        </summary>
+        <div class="removed__body">
+          <p class="removed__hint">
+            Những khái niệm này không được đưa vào phiên học nào cho tới khi bạn đưa lại.
+          </p>
+
+          <ul class="queue" style="counter-reset:none;" data-removed-list>
+            <li class="qi" data-order="45">
+              <div class="qi__main">
+                <div class="qi__name">Cây AVL</div>
+                <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+              </div>
+              <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.31</b> yếu</span>
+              <button class="linkish qi__act" type="button" data-restore>Đưa lại vào lịch</button>
+            </li>
+            <li class="qi" data-order="75">
+              <div class="qi__main">
+                <div class="qi__name">Đệ quy</div>
+                <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+              </div>
+              <span class="mast mast--learning"><i aria-hidden="true"></i><b>0.68</b> đang học</span>
+              <button class="linkish qi__act" type="button" data-restore>Đưa lại vào lịch</button>
+            </li>
+          </ul>
+        </div>
+      </details>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PHỤ LỤC: các trạng thái còn lại
+       Ba trạng thái rỗng dưới đây là ba câu chuyện khác nhau. Dồn chúng vào một
+       màn "không có gì ở đây" là cách nhanh nhất để người dùng tin rằng hệ thống
+       hỏng, trong khi thật ra chỉ là họ chưa làm phiên vấn đáp nào.
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="gallery" aria-label="Các trạng thái khác">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái khác</h2>
+        <p>
+          Ba trạng thái rỗng và một trạng thái tức thì. Chúng phân biệt bằng dữ liệu có sẵn
+          trên response: hàng đợi có từng tồn tại chưa, còn mục nào không, và mục nào là hàng
+          thật trong cơ sở dữ liệu.
+        </p>
+      </div>
+
+      <!-- ── 1. Kế hoạch chưa từng có phiên vấn đáp ── -->
+      <section id="trang-thai-goi-y">
+        <div class="state__head">
+          <span class="state__name">Chưa có phiên vấn đáp nào — đang xem gợi ý</span>
+          <span class="tag">buildFallbackItems() · id = null</span>
+        </div>
+        <p class="state__desc">
+          Kế hoạch chưa từng chạy phiên vấn đáp thì không có hàng nào trong hàng đợi, và hệ thống
+          gợi ý thẳng từ danh sách khái niệm — chưa kiểm tra trước, rồi khó trước. Đây không phải
+          lịch của người dùng, nên không có gì để gỡ: mỗi mục là một dòng ảo, không có hàng thật
+          để ghi trạng thái. Chỗ của nút gỡ để trống hẳn, vì hiện nút rồi báo lỗi khi bấm còn tệ
+          hơn là không có nút.
+        </p>
+        <div class="state__demo">
+          <div class="notice">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 11v5" />
+              <path d="M12 7.6h.01" />
+            </svg>
+            <p>
+              <b>Đây là gợi ý, chưa phải lịch ôn của bạn.</b>
+              Kế hoạch này chưa có phiên vấn đáp nào, nên hệ thống chưa biết bạn yếu chỗ nào.
+              Làm một phiên là lịch thật được xếp và sửa được ngay tại đây.
+            </p>
+          </div>
+
+          <div class="qsum">
+            <div class="qsum__count"><b>3</b> gợi ý · ≈ <b>27</b> phút</div>
+            <div class="qsum__links">
+              <a href="screen-concept-graph.html">Xem trên đồ thị khái niệm</a>
+            </div>
+          </div>
+
+          <ol class="queue">
+            <li class="qi">
+              <span class="qi__no" aria-hidden="true"></span>
+              <div class="qi__main">
+                <div class="qi__name">Mô hình OSI</div>
+                <div class="qi__why">Khái niệm chưa được kiểm tra</div>
+              </div>
+              <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+              <span class="qi__min">≈ 9 phút</span>
+              <span class="qi__act--none"></span>
+            </li>
+            <li class="qi">
+              <span class="qi__no" aria-hidden="true"></span>
+              <div class="qi__main">
+                <div class="qi__name">Bắt tay ba bước TCP</div>
+                <div class="qi__why">Khái niệm chưa được kiểm tra</div>
+              </div>
+              <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+              <span class="qi__min">≈ 9 phút</span>
+              <span class="qi__act--none"></span>
+            </li>
+            <li class="qi">
+              <span class="qi__no" aria-hidden="true"></span>
+              <div class="qi__main">
+                <div class="qi__name">Định tuyến liên miền</div>
+                <div class="qi__why">Khái niệm chưa được kiểm tra</div>
+              </div>
+              <span class="mast mast--untested"><i aria-hidden="true"></i>chưa kiểm tra</span>
+              <span class="qi__min">≈ 9 phút</span>
+              <span class="qi__act--none"></span>
+            </li>
+          </ol>
+
+          <div style="margin-top:20px;">
+            <a class="btn btn-primary" href="screen-interview.html" style="text-decoration:none;">
+              Bắt đầu phiên vấn đáp
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2. Đã ôn hết ── -->
+      <section id="trang-thai-het">
+        <div class="state__head">
+          <span class="state__name">Hàng đợi trống — đã ôn hết</span>
+          <span class="tag">có lịch sử · items = []</span>
+        </div>
+        <p class="state__desc">
+          Khác hẳn trạng thái trên: kế hoạch này đã có phiên vấn đáp, hàng đợi đã từng có mục, và
+          giờ không còn mục nào đang chờ. Câu chữ phải nói ra điều đó — nếu dùng chung một màn
+          rỗng với trường hợp trên thì người vừa ôn xong và người chưa bắt đầu nhìn thấy y hệt nhau.
+        </p>
+        <!--
+          ⚠ Backend hiện trả COMPLETED_TODAY_MESSAGE = "Bạn đã hoàn thành kế hoạch hôm nay"
+          cho CẢ /review-queue lẫn /review-queue/today (resolveEmptyMessage). Chữ "hôm nay"
+          chỉ đúng cho hàng đợi đến hạn hôm nay; ở đây là toàn bộ hàng đợi của kế hoạch, nên
+          câu đó sai nghĩa. Mockup dùng câu đúng cho bề mặt này; sửa message ở backend là
+          việc ngoài phạm vi issue thiết kế.
+        -->
+        <div class="state__demo">
+          <div class="empty">
+            <div class="empty__art" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M8.2 12.4l2.6 2.6 5-5.4" />
+              </svg>
+            </div>
+            <h3>Không còn khái niệm nào chờ ôn</h3>
+            <p>
+              Bạn đã ôn hết kế hoạch này. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức bạn
+              đã nắm — chúng sẽ tự quay lại đây khi đến lịch.
+            </p>
+            <a class="btn btn-outline" href="screen-concept-graph.html" style="text-decoration:none;">
+              Xem đồ thị khái niệm
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. Đã gỡ hết ── -->
+      <section id="trang-thai-go-het">
+        <div class="state__head">
+          <span class="state__name">Đã gỡ hết — không phải màn trắng</span>
+          <span class="tag">items = [] · skipped &gt; 0</span>
+        </div>
+        <p class="state__desc">
+          Trường hợp dễ vẽ sai nhất: response cũng trả về danh sách rỗng, y như trạng thái trên,
+          nhưng lý do ngược hẳn — không phải đã ôn xong mà là người dùng đã gỡ hết. Vẽ chung một
+          màn "đã ôn hết" ở đây là nói dối, và tệ hơn: nó chôn luôn đường đưa lại. Nhóm đã gỡ mở
+          sẵn, vì lúc này nó là toàn bộ nội dung của màn.
+        </p>
+        <div class="state__demo">
+          <div class="empty" style="margin-bottom:8px;">
+            <div class="empty__art" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16" />
+                <path d="M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />
+                <path d="M6.5 7l.9 12.1A1.5 1.5 0 0 0 8.9 20.5h6.2a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
+              </svg>
+            </div>
+            <h3>Bạn đã gỡ tất cả khái niệm khỏi lịch</h3>
+            <p>
+              Kế hoạch này sẽ không xuất hiện trong phiên học nào cho tới khi bạn đưa lại ít nhất
+              một khái niệm. Không có gì bị xoá — cả ba vẫn ở dưới đây.
+            </p>
+          </div>
+
+          <details class="removed" open>
+            <summary>
+              <svg class="removed__chevron" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+              <span>Đã gỡ khỏi lịch (<b>3</b>)</span>
+            </summary>
+            <div class="removed__body">
+              <ul class="queue" style="counter-reset:none;">
+                <li class="qi">
+                  <div class="qi__main">
+                    <div class="qi__name">Bộ nhớ ảo</div>
+                    <div class="qi__why">Nền tảng của 'Phân trang' mà bạn còn yếu</div>
+                  </div>
+                  <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.29</b> yếu</span>
+                  <button class="linkish qi__act" type="button">Đưa lại vào lịch</button>
+                </li>
+                <li class="qi">
+                  <div class="qi__main">
+                    <div class="qi__name">Phân trang</div>
+                    <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+                  </div>
+                  <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.44</b> yếu</span>
+                  <button class="linkish qi__act" type="button">Đưa lại vào lịch</button>
+                </li>
+                <li class="qi">
+                  <div class="qi__main">
+                    <div class="qi__name">Lập lịch CPU</div>
+                    <div class="qi__why">Deadline sắp tới, cần ưu tiên ôn tập</div>
+                  </div>
+                  <span class="mast mast--learning"><i aria-hidden="true"></i><b>0.63</b> đang học</span>
+                  <button class="linkish qi__act" type="button">Đưa lại vào lịch</button>
+                </li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- ── 4. Vừa gỡ ── -->
+      <section id="trang-thai-vua-go">
+        <div class="state__head">
+          <span class="state__name">Vừa gỡ — phản hồi tức thì tại chỗ</span>
+          <span class="tag">PATCH status = 'skipped'</span>
+        </div>
+        <p class="state__desc">
+          Mục vừa gỡ để lại đúng một dòng ở chỗ cũ của nó, kèm Hoàn tác. Không dùng toast góc màn
+          hình: mắt người vừa bấm đang ở dòng đó, bắt họ đi tìm xác nhận ở chỗ khác là mất hai
+          lần nhìn cho một cú bấm. Số thứ tự của các mục còn lại đánh lại ngay, nên hàng đợi luôn
+          đọc được là 01, 02, 03 liên tục. Bấm thử ở danh sách phía trên — nó chạy thật.
+        </p>
+        <div class="state__demo">
+          <ol class="queue">
+            <li class="qi">
+              <span class="qi__no" aria-hidden="true"></span>
+              <div class="qi__main">
+                <div class="qi__name">Duyệt đồ thị DFS</div>
+                <div class="qi__why">Đã đến lịch ôn tập theo mức độ ghi nhớ</div>
+              </div>
+              <span class="mast mast--weak"><i aria-hidden="true"></i><b>0.42</b> yếu</span>
+              <span class="qi__min">≈ 9 phút</span>
+              <button class="linkish qi__act" type="button">Bỏ khỏi lịch</button>
+            </li>
+            <li class="qi qi--gone">
+              <span class="qi__no" aria-hidden="true"></span>
+              <span class="qi__gone-text">Đã bỏ <b>Hàng đợi</b> khỏi lịch</span>
+              <button class="linkish qi__act" type="button">Hoàn tác</button>
+            </li>
+            <li class="qi">
+              <span class="qi__no" aria-hidden="true"></span>
+              <div class="qi__main">
+                <div class="qi__name">Bảng băm</div>
+                <div class="qi__why">Deadline sắp tới, cần ưu tiên ôn tập</div>
+              </div>
+              <span class="mast mast--learning"><i aria-hidden="true"></i><b>0.61</b> đang học</span>
+              <span class="qi__min">≈ 9 phút</span>
+              <button class="linkish qi__act" type="button">Bỏ khỏi lịch</button>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <script>
+    // Mockup tương tác vừa đủ để đi trọn vòng gỡ → hoàn tác → đưa lại. Không có
+    // API, không lưu gì: mọi thay đổi mất khi tải lại trang. Bản thật thì PATCH
+    // /review-queue/:itemId và chính server giữ trạng thái.
+    (function () {
+      var queue = document.querySelector('[data-queue]');
+      var group = document.querySelector('[data-removed-group]');
+      if (!queue || !group) return;
+
+      var removedList = group.querySelector('[data-removed-list]');
+      var removedCount = group.querySelector('[data-removed-count]');
+      var sum = document.querySelector('[data-sum]');
+
+      // Chèn lại theo data-order để "đưa lại" trả mục về đúng chỗ của nó trong
+      // thứ tự hai tầng, thay vì rơi xuống cuối danh sách.
+      function insertByOrder(list, row) {
+        var order = Number(row.getAttribute('data-order'));
+        var siblings = list.querySelectorAll(':scope > .qi');
+        for (var i = 0; i < siblings.length; i++) {
+          if (Number(siblings[i].getAttribute('data-order')) > order) {
+            list.insertBefore(row, siblings[i]);
+            return;
+          }
+        }
+        list.appendChild(row);
+      }
+
+      function refresh() {
+        var rows = queue.querySelectorAll(':scope > .qi:not(.qi--gone)');
+        var minutes = 0;
+        rows.forEach(function (row) {
+          var cell = row.querySelector('[data-min]');
+          minutes += cell ? Number(cell.getAttribute('data-min')) : 0;
+        });
+        if (sum) {
+          sum.innerHTML = '<b>' + rows.length + '</b> khái niệm · ≈ <b>' + minutes + '</b> phút';
+        }
+        var gone = removedList.querySelectorAll(':scope > .qi');
+        if (removedCount) removedCount.textContent = String(gone.length);
+      }
+
+      function makeButton(label, action) {
+        var button = document.createElement('button');
+        button.className = 'linkish qi__act';
+        button.type = 'button';
+        button.setAttribute(action, '');
+        button.textContent = label;
+        return button;
+      }
+
+      // Gỡ: mục rời hàng đợi ngay, nhưng chỗ cũ giữ lại một dòng Hoàn tác. Bản
+      // đầy đủ của mục được cất trong chính dòng đó để hoàn tác là trả lại
+      // nguyên vẹn, không phải dựng lại từ chuỗi.
+      // Tên khái niệm nằm chung dòng với chip "Truy ngược · tầng N", nên phải
+      // bóc chip ra trước — nếu không câu xác nhận thành "Đã bỏ Truy ngược ·
+      // tầng 1Danh sách kề khỏi lịch".
+      function conceptName(row) {
+        var clone = row.querySelector('.qi__name').cloneNode(true);
+        var chip = clone.querySelector('.chip');
+        if (chip) clone.removeChild(chip);
+        return clone.textContent.trim();
+      }
+
+      function remove(row) {
+        var name = conceptName(row);
+        var marker = document.createElement('li');
+        marker.className = 'qi qi--gone';
+        marker.innerHTML =
+          '<span class="qi__no" aria-hidden="true"></span>' +
+          '<span class="qi__gone-text">Đã bỏ <b></b> khỏi lịch</span>';
+        marker.querySelector('b').textContent = name;
+
+        var undo = makeButton('Hoàn tác', 'data-undo');
+        marker.appendChild(undo);
+        queue.replaceChild(marker, row);
+
+        undo.addEventListener('click', function () {
+          queue.replaceChild(row, marker);
+          refresh();
+        });
+
+        // Dòng Hoàn tác chỉ sống tới lần tương tác sau; sau đó mục nằm gọn trong
+        // nhóm "Đã gỡ khỏi lịch" và vẫn đưa lại được từ đó.
+        window.setTimeout(function () {
+          if (!marker.parentNode) return;
+          marker.parentNode.removeChild(marker);
+          toRemovedGroup(row);
+          refresh();
+        }, 6000);
+      }
+
+      function toRemovedGroup(row) {
+        var action = row.querySelector('[data-remove], [data-restore]');
+        if (action) action.parentNode.removeChild(action);
+        var minutes = row.querySelector('[data-min]');
+        if (minutes) minutes.parentNode.removeChild(minutes);
+        row.appendChild(makeButton('Đưa lại vào lịch', 'data-restore'));
+        insertByOrder(removedList, row);
+      }
+
+      function restore(row) {
+        var action = row.querySelector('[data-restore]');
+        if (action) action.parentNode.removeChild(action);
+
+        if (!row.querySelector('.qi__no')) {
+          var no = document.createElement('span');
+          no.className = 'qi__no';
+          no.setAttribute('aria-hidden', 'true');
+          row.insertBefore(no, row.firstChild);
+        }
+        if (!row.querySelector('[data-min]')) {
+          var minutes = document.createElement('span');
+          minutes.className = 'qi__min';
+          minutes.setAttribute('data-min', '9');
+          minutes.textContent = '≈ 9 phút';
+          row.appendChild(minutes);
+        }
+        row.appendChild(makeButton('Bỏ khỏi lịch', 'data-remove'));
+        insertByOrder(queue, row);
+      }
+
+      document.addEventListener('click', function (event) {
+        var target = event.target;
+        if (!(target instanceof Element)) return;
+        var row = target.closest('.qi');
+        if (!row) return;
+
+        if (target.hasAttribute('data-remove') && queue.contains(row)) {
+          remove(row);
+          refresh();
+        } else if (target.hasAttribute('data-restore') && removedList.contains(row)) {
+          restore(row);
+          refresh();
+        }
+      });
+
+      refresh();
+    })();
+  </script>
+</body>
+
+</html>

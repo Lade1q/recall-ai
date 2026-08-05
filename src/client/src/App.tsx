@@ -19,6 +19,7 @@ import PlanDetailPage from '@/pages/planning/PlanDetailPage';
 import GraphIndexPage from '@/pages/planning/GraphIndexPage';
 import FocusPage from '@/pages/focus/FocusPage';
 import InterviewPage from '@/pages/verify/InterviewPage';
+import InterviewSessionPage from '@/pages/verify/InterviewSessionPage';
 import HistoryPage from '@/pages/history/HistoryPage';
 import ProfilePage from '@/pages/profile/ProfilePage';
 
@@ -50,6 +51,7 @@ function App() {
               <Route path="/graph" element={<GraphIndexPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/interview" element={<InterviewPage />} />
+              <Route path="/interview/:sessionId" element={<InterviewSessionPage />} />
               <Route path="/history" element={<HistoryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Route>

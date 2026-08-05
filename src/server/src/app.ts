@@ -7,6 +7,8 @@ import { authRouter } from './routes/auth.routes';
 import { planRouter } from './routes/plan.routes';
 import { reviewQueueRouter } from './routes/review-queue.routes';
 import { interviewRouter } from './routes/interview.routes';
+import { focusSessionRouter } from './routes/focus-session.routes';
+import { userRouter } from './routes/user.routes';
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/plans', authMiddleware, planRouter);
 app.use('/api/v1/review-queue', authMiddleware, reviewQueueRouter);
 app.use('/api/v1/interviews', authMiddleware, interviewRouter);
+app.use('/api/v1/focus-sessions', authMiddleware, focusSessionRouter);
+app.use('/api/v1/users', authMiddleware, userRouter);
 
 // Catch-all route for non-existent resources
 app.use((_req: Request, _res: Response, next: NextFunction) => {

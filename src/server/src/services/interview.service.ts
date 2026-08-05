@@ -28,7 +28,14 @@ import {
   type SelfGrade,
 } from '../utils/interview-state';
 import { UPLOAD_DIR, resolveMaterialSource } from '../utils/material';
+import {
+  anchorMatchesCachedQuestion,
+  buildTurnCitation,
+  type CitedDocumentRow,
+} from '../utils/question-citation';
+import { gradedTurnScores } from '../utils/mastery';
 import type {
+  AbandonInterviewResponse,
   ConceptCompletedResponse,
   GetInterviewResponse,
   InterviewFallbackResponse,
@@ -105,6 +112,10 @@ const turnSelect = {
   feedback: true,
   verdict: true,
   source: true,
+  // The C5 anchor frozen when this turn was asked (#240) — read back as-is, never re-derived.
+  sourceDocumentId: true,
+  sourcePageFrom: true,
+  sourcePageTo: true,
   askedAt: true,
   answeredAt: true,
   concept: { select: { name: true } },
@@ -113,7 +124,7 @@ const turnSelect = {
 type TurnRow = Prisma.InterviewTurnGetPayload<{ select: typeof turnSelect }>;
 
 /**
- * Everything one request needs about a session, read in two queries. Snapshot only — any
+ * Everything one request needs about a session, read in three queries. Snapshot only — any
  * function that writes reloads it rather than patching this object, so no caller can read a
  * value that the database has since moved past.
  */
@@ -129,6 +140,11 @@ interface SessionView {
   conceptTurns: TurnRow[];
   /** The turn still waiting for a verdict, if any. */
   pending: TurnRow | null;
+  /**
+   * The documents this session's turns froze a C5 anchor onto, by id — enough to name the file
+   * and to tell whether it has been replaced since. Empty when no turn carries a snapshot.
+   */
+  documents: Map<string, CitedDocumentRow>;
 }
 
 // --- Loading ----------------------------------------------------------------------------
@@ -209,6 +225,24 @@ async function buildView(session: SessionRow): Promise<SessionView> {
     select: turnSelect,
   });
 
+  // The turns already carry their own anchors (#240), so the read path only has to name the
+  // documents they point at — no lookup of what the concepts are anchored to *now*. Skipped
+  // entirely for a session whose turns all predate snapshotting, or whose concepts had no
+  // anchor to freeze.
+  const documentIds = [
+    ...new Set(
+      turns
+        .map((turn) => turn.sourceDocumentId)
+        .filter((documentId): documentId is string => documentId !== null)
+    ),
+  ];
+  const documents = documentIds.length
+    ? await prisma.document.findMany({
+        where: { id: { in: documentIds } },
+        select: { id: true, filename: true, kind: true, updatedAt: true },
+      })
+    : [];
+
   const conceptTurns = concept
     ? turns
         .filter((turn) => turn.conceptId === concept.id)
@@ -225,6 +259,7 @@ async function buildView(session: SessionRow): Promise<SessionView> {
     // A turn with no verdict is still open, whether or not an answer has been submitted for
     // it: an answer claimed but not yet graded is exactly the turn the student is waiting on.
     pending: conceptTurns.find((turn) => turn.verdict === null) ?? null,
+    documents: new Map(documents.map((document) => [document.id, document])),
   };
 }
 
@@ -279,7 +314,15 @@ export async function loadMaterial(planId: string): Promise<AiMaterial> {
 
 // --- Mapping to responses ---------------------------------------------------------------
 
-function toQuestionResponse(turn: TurnRow): InterviewQuestionResponse {
+/**
+ * Both mappers take the view's document map rather than reading anchors themselves: every
+ * entry point (`startInterview`, `getInterview`, `submitAnswer`) reaches the client through
+ * these two functions, so filling `sourceCitation` here is what makes C5 hold on all of them.
+ */
+function toQuestionResponse(
+  turn: TurnRow,
+  documents: Map<string, CitedDocumentRow>
+): InterviewQuestionResponse {
   return {
     turnId: turn.id,
     conceptId: turn.conceptId,
@@ -288,10 +331,14 @@ function toQuestionResponse(turn: TurnRow): InterviewQuestionResponse {
     questionText: turn.questionText,
     questionType: turn.questionType,
     source: turn.source,
+    sourceCitation: buildTurnCitation(turn, documents),
   };
 }
 
-function toTurnResponse(turn: TurnRow): InterviewTurnResponse {
+function toTurnResponse(
+  turn: TurnRow,
+  documents: Map<string, CitedDocumentRow>
+): InterviewTurnResponse {
   return {
     id: turn.id,
     conceptId: turn.conceptId,
@@ -305,11 +352,13 @@ function toTurnResponse(turn: TurnRow): InterviewTurnResponse {
     verdict: turn.verdict,
     askedAt: turn.askedAt,
     answeredAt: turn.answeredAt,
+    sourceCitation: buildTurnCitation(turn, documents),
   };
 }
 
 function toSessionState(view: SessionView): InterviewSessionState {
   const { session } = view;
+  const isEnded = session.status === 'completed' || session.status === 'abandoned';
 
   return {
     id: session.id,
@@ -318,7 +367,15 @@ function toSessionState(view: SessionView): InterviewSessionState {
     fallbackMode: session.fallbackMode,
     startedAt: session.startedAt,
     endedAt: session.endedAt,
-    currentConcept: view.concept,
+    // A finished session has no concept "currently" being asked. Most `completed` sessions
+    // already report `null` because the queue ran out (`view.concept` is null past its end),
+    // but two paths finish with a concept still in hand: `abandon` bumps the index past the
+    // concept it just scored, so `view.concept` is the *next, never-asked* one; and UC-12 E1
+    // completes a session while still pointing at a concept that had no question to serve.
+    // Reporting either as `currentConcept` would tell the client the session stopped somewhere
+    // it did not. `completedConcepts` still needs the bumped index, so only this field is
+    // nulled — see the bump in `abandonInterview`.
+    currentConcept: isEnded ? null : view.concept,
     progress: {
       conceptIndex: view.conceptIndex,
       conceptTotal: view.queue.length,
@@ -381,6 +438,39 @@ function toPreviousTurns(conceptTurns: TurnRow[]): PreviousTurn[] {
   }));
 }
 
+// --- The C5 anchor, frozen at ask time ---------------------------------------------------
+
+/** The concept's current anchor, as both ask paths read it. */
+type ConceptAnchorRow = {
+  documentId: string;
+  pageFrom: number | null;
+  pageTo: number | null;
+  createdAt: Date;
+} | null;
+
+/**
+ * The anchor a question asked *right now* would cite: the concept's oldest `concept_sources`
+ * row, the same one `getConceptDetail` (DB-06) lists first, so one concept reads as one
+ * citation everywhere. `null` for a concept with no anchor at all — a manual concept (#172) is
+ * a valid state, not an error.
+ */
+async function loadConceptAnchor(conceptId: string): Promise<ConceptAnchorRow> {
+  return prisma.conceptSourceRef.findFirst({
+    where: { conceptId },
+    orderBy: { createdAt: 'asc' },
+    select: { documentId: true, pageFrom: true, pageTo: true, createdAt: true },
+  });
+}
+
+/** The three snapshot columns of an `InterviewTurn`, all `null` when there is no anchor. */
+function toAnchorSnapshot(anchor: ConceptAnchorRow) {
+  return {
+    sourceDocumentId: anchor?.documentId ?? null,
+    sourcePageFrom: anchor?.pageFrom ?? null,
+    sourcePageTo: anchor?.pageTo ?? null,
+  };
+}
+
 /**
  * Generates one question and stores it as the session's next turn.
  *
@@ -416,6 +506,9 @@ async function askQuestion(
   });
 
   const identity = { sessionId: session.id, conceptId: concept.id, turnIndex };
+  // Read after `generateQuestion` resolved, not before: the anchor recorded has to be the one
+  // in force when the turn is written, and a question can wait 10–20s on Gemini (#115).
+  const anchor = await loadConceptAnchor(concept.id);
 
   try {
     return await prisma.interviewTurn.create({
@@ -423,6 +516,7 @@ async function askQuestion(
         ...identity,
         questionText: question.question_text,
         questionType: question.question_type,
+        ...toAnchorSnapshot(anchor),
       },
       select: turnSelect,
     });
@@ -483,9 +577,7 @@ async function finishConcept(
     orderBy: { turnIndex: 'asc' },
     select: { score: true },
   });
-  const turnScores = turns
-    .map((turn) => turn.score)
-    .filter((score): score is number => score !== null);
+  const turnScores = gradedTurnScores(turns);
 
   const result = await finalizeConceptResult({
     sessionId: view.session.id,
@@ -532,7 +624,12 @@ async function advanceToNextQuestion(
   completed: ConceptCompletedResponse[] = []
 ): Promise<AdvanceResult> {
   if (view.pending) {
-    return { view, question: toQuestionResponse(view.pending), completed, fallback: null };
+    return {
+      view,
+      question: toQuestionResponse(view.pending, view.documents),
+      completed,
+      fallback: null,
+    };
   }
 
   const concept = view.concept;
@@ -573,7 +670,12 @@ async function advanceToNextQuestion(
   try {
     const turn = await askQuestion(view, concept, view.conceptTurns.length + 1, mode);
     const fresh = await reloadView(view.session.id, view.session.userId);
-    return { view: fresh, question: toQuestionResponse(turn), completed, fallback: null };
+    return {
+      view: fresh,
+      question: toQuestionResponse(turn, fresh.documents),
+      completed,
+      fallback: null,
+    };
   } catch (error) {
     if (!isAiFailure(error)) throw error;
 
@@ -644,7 +746,12 @@ async function advanceFallback(
 
   const turn = await askCachedQuestion(view, concept, view.conceptTurns.length + 1, cacheRow);
   const fresh = await reloadView(view.session.id, view.session.userId);
-  return { view: fresh, question: toQuestionResponse(turn), completed, fallback: null };
+  return {
+    view: fresh,
+    question: toQuestionResponse(turn, fresh.documents),
+    completed,
+    fallback: null,
+  };
 }
 
 /**
@@ -656,7 +763,7 @@ async function askCachedQuestion(
   view: SessionView,
   concept: { id: string; name: string },
   turnIndex: number,
-  cacheRow: { questionText: string; questionType: string | null }
+  cacheRow: { questionText: string; questionType: string | null; generatedAt: Date }
 ): Promise<TurnRow> {
   const { session } = view;
 
@@ -669,6 +776,13 @@ async function askCachedQuestion(
   }
 
   const identity = { sessionId: session.id, conceptId: concept.id, turnIndex };
+  // A cached question is older than the turn serving it, so the concept's anchor is only this
+  // question's anchor if it was already in place when the question was generated — see
+  // `anchorMatchesCachedQuestion`. A re-analysis in between makes the current anchor somebody
+  // else's, and the turn cites nothing rather than the wrong page.
+  const anchor = await loadConceptAnchor(concept.id);
+  const questionAnchor =
+    anchor && anchorMatchesCachedQuestion(anchor.createdAt, cacheRow.generatedAt) ? anchor : null;
 
   try {
     return await prisma.interviewTurn.create({
@@ -677,6 +791,7 @@ async function askCachedQuestion(
         questionText: cacheRow.questionText,
         questionType: toQuestionType(cacheRow.questionType),
         source: 'cache_fallback',
+        ...toAnchorSnapshot(questionAnchor),
       },
       select: turnSelect,
     });
@@ -726,7 +841,7 @@ export async function startInterview(
     return {
       created: false,
       session: toSessionState(view),
-      question: view.pending ? toQuestionResponse(view.pending) : null,
+      question: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
       message: RESUME_MESSAGE,
       fallback: null,
     };
@@ -811,8 +926,8 @@ export async function getInterview(
   if (session.status !== 'active') {
     return {
       session: toSessionState(view),
-      currentQuestion: view.pending ? toQuestionResponse(view.pending) : null,
-      turns: view.turns.map(toTurnResponse),
+      currentQuestion: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
+      turns: view.turns.map((turn) => toTurnResponse(turn, view.documents)),
       fallback: null,
     };
   }
@@ -821,7 +936,7 @@ export async function getInterview(
   return {
     session: toSessionState(advance.view),
     currentQuestion: advance.question,
-    turns: advance.view.turns.map(toTurnResponse),
+    turns: advance.view.turns.map((turn) => toTurnResponse(turn, advance.view.documents)),
     fallback: advance.fallback,
   };
 }
@@ -970,7 +1085,7 @@ async function replayAnswer(
         ? { score: turn.score, feedback: turn.feedback, verdict: turn.verdict }
         : null,
     gradedTurnId: turn.id,
-    nextQuestion: view.pending ? toQuestionResponse(view.pending) : null,
+    nextQuestion: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
     // What the first request reported about the concept it may have finished is not
     // reconstructed here — GET /interviews/:id and the end-of-session summary (I6.5) carry it.
     conceptCompleted: null,
@@ -1002,7 +1117,7 @@ async function gradingUnavailable(
     session: toSessionState({ ...view, session }),
     grading: null,
     gradedTurnId: pending.id,
-    nextQuestion: toQuestionResponse(pending),
+    nextQuestion: toQuestionResponse(pending, view.documents),
     conceptCompleted: null,
     sessionCompleted: false,
     replayed: false,
@@ -1122,4 +1237,92 @@ export async function resumeInterview(
     currentQuestion: advance.question,
     fallback: advance.fallback,
   };
+}
+
+/**
+ * POST /interviews/:id/abandon — SPEC_DB-03 AF2, "Kết thúc và chấm phần đã làm" (#243).
+ *
+ * Closes an unfinished session and **scores** the concept it was in the middle of instead of
+ * throwing that work away: a student who answered two of three turns keeps those two in
+ * `mastery_score`, weighted over the turns that happened (`[0.2, 0.3] → [0.4, 0.6]`). That is
+ * the whole difference from "start a new one" — the wording the design uses everywhere, and the
+ * reason this is not simply a delete.
+ *
+ * Its own endpoint rather than a `force` flag on `POST /interviews`: the session history screen
+ * (DB-03) ends a session *without* opening a new one, while AE-01's dialog calls this and then
+ * creates. One flag serving both would tie the two together and DB-03 could not reuse it.
+ *
+ * `summarize_session` is deliberately **not** called (SPEC_DB-03 AF3): an abandoned session keeps
+ * `summary_text = NULL` and the history screen drops the commentary block rather than rendering
+ * an empty frame — so ending early costs no extra AI call (C4).
+ */
+export async function abandonInterview(
+  sessionId: string,
+  userId: string
+): Promise<AbandonInterviewResponse> {
+  const session = await loadSession(sessionId, userId);
+
+  // Idempotent, the same way `pauseInterview` is for an already-paused session: a retried or
+  // double-clicked request reports the state back, it does not score the concept twice.
+  if (session.status === 'abandoned') {
+    return { session: toSessionState(await buildView(session)), conceptCompleted: null };
+  }
+  if (session.status !== 'active' && session.status !== 'paused') {
+    throw new AppError('This interview session has already ended', 409, 'SESSION_ENDED');
+  }
+
+  const view = await buildView(session);
+  const conceptCompleted = view.concept ? await scoreConceptSoFar(view, view.concept) : null;
+
+  const abandoned = await prisma.interviewSession.update({
+    where: { id: session.id },
+    data: {
+      status: 'abandoned',
+      endedAt: new Date(),
+      // Only when something was actually scored: the queue has genuinely moved past that
+      // concept, and leaving the index behind would report `completedConcepts` one short of
+      // what was written to the graph.
+      ...(conceptCompleted ? { currentConceptIdx: view.conceptIndex + 1 } : {}),
+    },
+    select: sessionSelect,
+  });
+
+  return { session: toSessionState(await buildView(abandoned)), conceptCompleted };
+}
+
+/**
+ * Finalises the concept a session is stopping in the middle of, through the same I7.2 seam a
+ * concept that ran to the end goes through — mastery score, review schedule, traceback.
+ *
+ * `null` when no turn of the concept could be graded: there is nothing for the weighted average
+ * to average, and a spaced-repetition row for a concept the student never answered would claim
+ * an assessment that never happened. `finalizeConceptResult` already leaves the stored score
+ * alone in that case; not calling it at all keeps the review queue clean as well.
+ *
+ * Traceback (AE-07) still runs for a concept that *was* graded. The turns the student answered
+ * are real evidence, and a weak foundation found through them is worth queueing whether or not
+ * the session ran to the end — a deliberate decision, not a side effect of reusing I7.2.
+ */
+async function scoreConceptSoFar(
+  view: SessionView,
+  concept: { id: string; name: string }
+): Promise<ConceptCompletedResponse | null> {
+  const turns = await prisma.interviewTurn.findMany({
+    where: { sessionId: view.session.id, conceptId: concept.id },
+    orderBy: { turnIndex: 'asc' },
+    select: { score: true },
+  });
+
+  const turnScores = gradedTurnScores(turns);
+  if (turnScores.length === 0) {
+    return null;
+  }
+
+  const result = await finalizeConceptResult({
+    sessionId: view.session.id,
+    conceptId: concept.id,
+    turnScores,
+  });
+
+  return toConceptCompleted(result, concept.name);
 }

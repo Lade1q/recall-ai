@@ -77,9 +77,37 @@ describe('getReviewQueueController', () => {
 
     await getReviewQueueController(req, res);
 
-    expect(mockedGetQueue).toHaveBeenCalledWith(PLAN_ID, USER_ID, 3);
+    expect(mockedGetQueue).toHaveBeenCalledWith(PLAN_ID, USER_ID, 3, { includeSkipped: false });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ success: true, data: queueResponse });
+  });
+
+  // #224: the "Đã gỡ khỏi lịch" group is opt-in — I6.3's auto-pick has no use for it.
+  it('passes includeSkipped through when the client asks for the removed group', async () => {
+    mockedGetQueue.mockResolvedValue({ items: [], message: null, skippedItems: [] });
+    const req = {
+      userId: USER_ID,
+      query: { planId: PLAN_ID, includeSkipped: 'true' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await getReviewQueueController(req, res);
+
+    expect(mockedGetQueue).toHaveBeenCalledWith(PLAN_ID, USER_ID, undefined, {
+      includeSkipped: true,
+    });
+  });
+
+  it('rejects an includeSkipped that is neither "true" nor "false" rather than guessing', async () => {
+    const req = {
+      userId: USER_ID,
+      query: { planId: PLAN_ID, includeSkipped: 'yes' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await getReviewQueueController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedGetQueue).not.toHaveBeenCalled();
   });
 
   it('propagates a 404 from the service (plan not found / not owned)', async () => {
@@ -130,7 +158,7 @@ describe('getTodayReviewQueueController', () => {
 
 describe('updateReviewQueueItemController', () => {
   it('throws 401 UNAUTHORIZED when req.userId is missing', async () => {
-    const req = { params: { itemId: ITEM_ID }, body: { status: 'accepted' } } as unknown as Request;
+    const req = { params: { itemId: ITEM_ID }, body: { status: 'skipped' } } as unknown as Request;
     const res = mockRes();
 
     const error = await updateReviewQueueItemController(req, res).catch((e) => e);
@@ -140,7 +168,7 @@ describe('updateReviewQueueItemController', () => {
   });
 
   it('throws a ZodError (400 VALIDATION_ERROR) when itemId param is missing', async () => {
-    const req = { userId: USER_ID, params: {}, body: { status: 'accepted' } } as unknown as Request;
+    const req = { userId: USER_ID, params: {}, body: { status: 'skipped' } } as unknown as Request;
     const res = mockRes();
 
     const error = await updateReviewQueueItemController(req, res).catch((e) => e);
@@ -153,6 +181,34 @@ describe('updateReviewQueueItemController', () => {
     const req = {
       userId: USER_ID,
       params: { itemId: 'not-a-uuid' },
+      body: { status: 'skipped' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+  });
+
+  it('throws a ZodError when status is neither skipped nor pending', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { status: 'done' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+  });
+
+  // #224: 'accepted' là di tích của mô hình cũ (cổng "Đồng ý ôn lại" đã bỏ). Gửi lên phải 400
+  // hẳn, không được im lặng nhận rồi ghi một giá trị không ai đọc nữa.
+  it("rejects the deprecated 'accepted' instead of silently accepting it", async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
       body: { status: 'accepted' },
     } as unknown as Request;
     const res = mockRes();
@@ -162,7 +218,10 @@ describe('updateReviewQueueItemController', () => {
     expect(mockedUpdateItem).not.toHaveBeenCalled();
   });
 
-  it('throws a ZodError when status is neither accepted nor skipped', async () => {
+  // Chiều ngược lại của cùng một thao tác — không có nó thì "gỡ" là cửa một chiều.
+  it("updates status back to 'pending' when the student puts an item back and returns 200", async () => {
+    const updated = { id: ITEM_ID, conceptId: 'c1', planId: PLAN_ID, status: 'pending' as const };
+    mockedUpdateItem.mockResolvedValue(updated);
     const req = {
       userId: USER_ID,
       params: { itemId: ITEM_ID },
@@ -170,9 +229,11 @@ describe('updateReviewQueueItemController', () => {
     } as unknown as Request;
     const res = mockRes();
 
-    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
-    expect(error).toBeInstanceOf(ZodError);
-    expect(mockedUpdateItem).not.toHaveBeenCalled();
+    await updateReviewQueueItemController(req, res);
+
+    expect(mockedUpdateItem).toHaveBeenCalledWith(ITEM_ID, USER_ID, 'pending');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { item: updated } });
   });
 
   it("updates status to 'skipped' without deleting the row and returns 200", async () => {
@@ -198,7 +259,7 @@ describe('updateReviewQueueItemController', () => {
     const req = {
       userId: USER_ID,
       params: { itemId: ITEM_ID },
-      body: { status: 'accepted' },
+      body: { status: 'skipped' },
     } as unknown as Request;
     const res = mockRes();
 

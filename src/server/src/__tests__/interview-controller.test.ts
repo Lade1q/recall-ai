@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import {
+  abandonInterviewController,
   createInterviewController,
   getInterviewController,
   getSessionSummaryController,
@@ -9,6 +10,7 @@ import {
   submitAnswerController,
 } from '../controllers/interview.controller';
 import {
+  abandonInterview,
   getInterview,
   pauseInterview,
   resumeInterview,
@@ -30,6 +32,7 @@ jest.mock('../services/interview.service', () => ({
   submitSelfGrade: jest.fn(),
   pauseInterview: jest.fn(),
   resumeInterview: jest.fn(),
+  abandonInterview: jest.fn(),
 }));
 jest.mock('../services/session-summary.service', () => ({
   __esModule: true,
@@ -42,6 +45,7 @@ const mockedSubmit = submitAnswer as jest.Mock;
 const mockedSubmitSelfGrade = submitSelfGrade as jest.Mock;
 const mockedPause = pauseInterview as jest.Mock;
 const mockedResume = resumeInterview as jest.Mock;
+const mockedAbandon = abandonInterview as jest.Mock;
 const mockedGetSessionSummary = getSessionSummary as jest.Mock;
 
 const USER_ID = 'user-owner-uuid';
@@ -327,6 +331,53 @@ describe('pauseInterviewController / resumeInterviewController', () => {
 
     expect(mockedResume).toHaveBeenCalledWith(SESSION_ID, USER_ID);
     expect(res.json).toHaveBeenCalledWith({ success: true, data });
+  });
+});
+
+describe('abandonInterviewController', () => {
+  it('throws 401 UNAUTHORIZED when req.userId is missing', async () => {
+    const req = { params: { id: SESSION_ID } } as unknown as Request;
+
+    const error = await abandonInterviewController(req, mockRes()).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 401, code: 'UNAUTHORIZED' });
+    expect(mockedAbandon).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-UUID id before the service is reached', async () => {
+    const req = { userId: USER_ID, params: { id: 'not-a-uuid' } } as unknown as Request;
+
+    const error = await abandonInterviewController(req, mockRes()).catch((e) => e);
+
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedAbandon).not.toHaveBeenCalled();
+  });
+
+  it('responds 200 with the session and the concept it scored on the way out', async () => {
+    const data = {
+      session: { id: SESSION_ID, status: 'abandoned' },
+      conceptCompleted: { conceptId: CONCEPT_ID, masteryScore: 0.8 },
+    };
+    mockedAbandon.mockResolvedValue(data);
+    const req = { userId: USER_ID, params: { id: SESSION_ID } } as unknown as Request;
+    const res = mockRes();
+
+    await abandonInterviewController(req, res);
+
+    expect(mockedAbandon).toHaveBeenCalledWith(SESSION_ID, USER_ID);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data });
+  });
+
+  it('propagates a 409 from the service when the session has already finished', async () => {
+    mockedAbandon.mockRejectedValue(
+      new AppError('This interview session has already ended', 409, 'SESSION_ENDED')
+    );
+    const req = { userId: USER_ID, params: { id: SESSION_ID } } as unknown as Request;
+
+    const error = await abandonInterviewController(req, mockRes()).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 409, code: 'SESSION_ENDED' });
   });
 });
 

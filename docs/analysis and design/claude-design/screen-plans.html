@@ -82,6 +82,23 @@
       position: relative;
     }
 
+    /* Thẻ có HAI đường đi: cả thẻ dẫn sang đồ thị khái niệm (đường cũ, giữ
+       nguyên), còn chân thẻ dẫn sang hàng đợi ôn của đúng kế hoạch đó. Không
+       lồng được <a> trong <a>, nên thẻ thôi làm liên kết: tiêu đề mang liên kết
+       và trải rộng ra cả thẻ bằng ::after, còn liên kết ở chân nổi lên trên nhờ
+       z-index. Vùng bấm của thẻ không đổi một pixel nào. */
+    .plan__link {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .plan__link::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+    }
+
     .plan__top {
       display: flex;
       align-items: flex-start;
@@ -181,6 +198,7 @@
     .plan__foot {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
       margin-top: 14px;
       padding-top: 13px;
@@ -191,6 +209,33 @@
 
     .plan__foot svg {
       flex: none;
+    }
+
+    /* Lời hứa ở cuối phiên vấn đáp — "sửa lại bất cứ lúc nào trong Kế hoạch ôn
+       tập" — được thực hiện ở đúng đây. Dòng cũ đếm khái niệm yếu nhưng không
+       bấm được vào đâu; giờ nó là đường vào hàng đợi ôn của chính kế hoạch này.
+       Đếm theo số mục trong hàng đợi chứ không theo số khái niệm yếu: bấm vào
+       rồi thấy một con số khác hẳn thì dòng này đang nói dối. */
+    .plan__queue {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+      color: var(--foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1px;
+    }
+
+    .plan__queue:hover {
+      border-bottom-color: var(--foreground);
+    }
+
+    .plan__when {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      white-space: nowrap;
     }
 
     .pill {
@@ -388,7 +433,8 @@
         <div>
           <h1 class="page-title">Kế hoạch ôn tập</h1>
           <p>Nơi ở của mục menu cùng tên. Dashboard chỉ tóm tắt các kế hoạch đang hoạt động;
-            còn lưu trữ, xóa và kế hoạch đang chờ phân tích thì nằm ở đây.</p>
+            còn lưu trữ, xóa, kế hoạch đang chờ phân tích và hàng đợi ôn sửa được của từng kế
+            hoạch thì nằm ở đây.</p>
         </div>
         <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -409,9 +455,14 @@
       </div>
 
       <div class="plans">
-        <a class="card plan" href="screen-concept-graph.html">
+        <!--
+          Hàng đợi ôn là THEO TỪNG KẾ HOẠCH (GET /review-queue bắt buộc có
+          planId), nên đường vào duy nhất là từ một thẻ cụ thể. Ở bản thật link
+          mang ?planId=; mockup tĩnh nên cả ba trỏ vào cùng một tệp.
+        -->
+        <article class="card plan">
           <div class="plan__top">
-            <h2>Cấu trúc dữ liệu &amp; Giải thuật</h2>
+            <h2><a class="plan__link" href="screen-concept-graph.html">Cấu trúc dữ liệu &amp; Giải thuật</a></h2>
           </div>
           <div class="plan__meta">24 khái niệm · hạn 30/07 · còn 3 ngày</div>
           <div class="dist" aria-hidden="true">
@@ -427,17 +478,20 @@
             <span><i style="background:var(--mastery-untested);"></i><b>3</b> chưa kiểm tra</span>
           </div>
           <div class="plan__foot">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M13 2l-2 12h4l-2 8" />
-            </svg>
-            2 khái niệm yếu đang chờ ôn lại
+            <a class="plan__queue" href="screen-plan-review-queue.html">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2l-2 12h4l-2 8" />
+              </svg>
+              Hàng đợi ôn · 8 khái niệm
+            </a>
+            <span class="plan__when">≈ 92 phút</span>
           </div>
-        </a>
+        </article>
 
-        <a class="card plan" href="screen-concept-graph.html">
+        <article class="card plan">
           <div class="plan__top">
-            <h2>Hệ điều hành</h2>
+            <h2><a class="plan__link" href="screen-concept-graph.html">Hệ điều hành</a></h2>
           </div>
           <div class="plan__meta">18 khái niệm · hạn 05/08 · còn 9 ngày</div>
           <div class="dist" aria-hidden="true">
@@ -453,18 +507,20 @@
             <span><i style="background:var(--mastery-untested);"></i><b>1</b> chưa kiểm tra</span>
           </div>
           <div class="plan__foot">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7.6v5l3 1.7" />
-            </svg>
-            Ôn gần nhất 26/07
+            <a class="plan__queue" href="screen-plan-review-queue.html">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2l-2 12h4l-2 8" />
+              </svg>
+              Hàng đợi ôn · 3 khái niệm
+            </a>
+            <span class="plan__when">ôn gần nhất 26/07</span>
           </div>
-        </a>
+        </article>
 
-        <a class="card plan" href="screen-concept-graph.html">
+        <article class="card plan">
           <div class="plan__top">
-            <h2>Mạng máy tính</h2>
+            <h2><a class="plan__link" href="screen-concept-graph.html">Mạng máy tính</a></h2>
           </div>
           <div class="plan__meta">16 khái niệm · hạn 17/08 · còn 21 ngày</div>
           <div class="dist" aria-hidden="true">
@@ -478,16 +534,22 @@
             <span class="is-zero"><i style="background:var(--mastery-weak);"></i><b>0</b> yếu</span>
             <span><i style="background:var(--mastery-untested);"></i><b>8</b> chưa kiểm tra</span>
           </div>
+          <!-- Kế hoạch chưa từng có phiên vấn đáp: hàng đợi thật chưa tồn tại,
+               nên đường vào phải nói trước rằng bên trong là gợi ý (A3 fallback),
+               không phải lịch. Trỏ thẳng vào đúng trạng thái đó của màn kia. -->
           <div class="plan__foot">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 3l9 16H3z" />
-              <path d="M12 9.5v4.5" />
-              <path d="M12 17h.01" />
-            </svg>
-            8 khái niệm chưa kiểm tra lần nào
+            <a class="plan__queue" href="screen-plan-review-queue.html#trang-thai-goi-y">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 11v5" />
+                <path d="M12 7.6h.01" />
+              </svg>
+              Gợi ý ôn · chưa có phiên nào
+            </a>
+            <span class="plan__when">8 chưa kiểm tra</span>
           </div>
-        </a>
+        </article>
 
         <!--
           Kế hoạch nháp đang chờ AI phân tích (SP-06). Đây là lý do danh sách phải

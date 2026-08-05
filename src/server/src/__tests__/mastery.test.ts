@@ -7,6 +7,7 @@ import {
   calculateMasteryScore,
   classifyMastery,
   daysUntil,
+  gradedTurnScores,
   reviewIntervalDays,
   reviewPriority,
   summariseMasteryDistribution,
@@ -87,6 +88,31 @@ describe('calculateMasteryScore', () => {
   it('throws on more turns than C6 allows rather than inventing a weight', () => {
     expect(() => calculateMasteryScore([1, 1, 1, 1])).toThrow(RangeError);
     expect(TURN_WEIGHTS).toHaveLength(3);
+  });
+});
+
+describe('gradedTurnScores', () => {
+  it('keeps the graded turns in the order they were asked', () => {
+    expect(gradedTurnScores([{ score: 0.5 }, { score: 1 }])).toEqual([0.5, 1]);
+  });
+
+  it('drops an ungraded turn instead of reading it as a zero', () => {
+    // The half-finished concept of a session ended early (#243): turn 3 was never answered,
+    // so the score is the two-turn one, not a three-turn average dragged down by a phantom 0.
+    const scores = gradedTurnScores([{ score: 0.5 }, { score: 1 }, { score: null }]);
+
+    expect(scores).toEqual([0.5, 1]);
+    expect(calculateMasteryScore(scores)).toBe(0.8);
+    expect(calculateMasteryScore([0.5, 1, 0])).not.toBe(0.8);
+  });
+
+  it('returns an empty array when nothing was graded, which reads as "never assessed"', () => {
+    expect(gradedTurnScores([{ score: null }])).toEqual([]);
+    expect(calculateMasteryScore(gradedTurnScores([{ score: null }]))).toBeNull();
+  });
+
+  it('keeps a genuine 0 — answered and completely wrong is not the same as ungraded', () => {
+    expect(gradedTurnScores([{ score: 0 }])).toEqual([0]);
   });
 });
 

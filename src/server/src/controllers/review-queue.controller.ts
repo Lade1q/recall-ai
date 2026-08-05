@@ -13,17 +13,18 @@ import {
 import { AppError } from '../middleware/errorHandler';
 
 /**
- * GET /api/v1/review-queue?planId=&limit=
- * Priority-ordered review queue for one plan (I6.3 auto top-K, I6.7 traceback panel).
+ * GET /api/v1/review-queue?planId=&limit=&includeSkipped=
+ * Priority-ordered review queue for one plan (I6.3 auto top-K, #225's Kế hoạch ôn tập screen).
+ * `includeSkipped=true` adds the "Đã gỡ khỏi lịch" group to the envelope (#224).
  */
 export async function getReviewQueueController(req: Request, res: Response): Promise<void> {
   if (!req.userId) {
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  const { planId, limit } = getReviewQueueQuerySchema.parse(req.query);
+  const { planId, limit, includeSkipped } = getReviewQueueQuerySchema.parse(req.query);
 
-  const queue = await getReviewQueueForPlan(planId, req.userId, limit);
+  const queue = await getReviewQueueForPlan(planId, req.userId, limit, { includeSkipped });
 
   res.status(200).json({
     success: true,
@@ -52,7 +53,8 @@ export async function getTodayReviewQueueController(req: Request, res: Response)
 
 /**
  * PATCH /api/v1/review-queue/:itemId
- * Accepts or skips a suggestion. Skipped rows are kept, not deleted.
+ * Removes an item from the schedule (`skipped`) or puts it back (`pending`) — #224. Removed rows
+ * are kept, not deleted, and are read back via `GET /review-queue?includeSkipped=true`.
  */
 export async function updateReviewQueueItemController(req: Request, res: Response): Promise<void> {
   if (!req.userId) {

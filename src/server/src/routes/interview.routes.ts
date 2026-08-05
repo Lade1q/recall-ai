@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/errorHandler';
 import {
+  abandonInterviewController,
   createInterviewController,
   getInterviewController,
   getSessionSummaryController,
@@ -17,6 +18,7 @@ interviewRouter.get('/:id', asyncHandler(getInterviewController));
 interviewRouter.post('/:id/answers', asyncHandler(submitAnswerController));
 interviewRouter.post('/:id/pause', asyncHandler(pauseInterviewController));
 interviewRouter.post('/:id/resume', asyncHandler(resumeInterviewController));
+interviewRouter.post('/:id/abandon', asyncHandler(abandonInterviewController));
 interviewRouter.get('/:id/summary', asyncHandler(getSessionSummaryController));
 
 export { interviewRouter };

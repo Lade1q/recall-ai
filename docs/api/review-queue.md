@@ -11,20 +11,51 @@ tính lại bằng phép toán thuần mỗi lần đọc (đồ thị nhỏ nê
 
 ---
 
+## Ngữ nghĩa `status` (chốt 04/08/2026 — #224)
+
+Truy ngược **áp thẳng** khái niệm nền vào hàng đợi ngay khi phiên chấm xong. **Không còn cổng
+xác nhận**: sinh viên không phải bấm "Đồng ý ôn lại" để khái niệm vào lịch — nó đã ở đó rồi. Thao
+tác duy nhất còn lại là **gỡ** khỏi lịch và **đưa lại**, sửa được bất cứ lúc nào.
+
+| Giá trị    | Nghĩa                                                          | Ai ghi                                                     |
+| ---------- | -------------------------------------------------------------- | ---------------------------------------------------------- |
+| `pending`  | **Đã áp vào lịch.** Trạng thái bình thường, không chờ ai duyệt | `finalizeConceptResult()` lúc chấm xong; PATCH khi đưa lại |
+| `accepted` | ⛔ **Ngừng dùng** (deprecated 04/08/2026)                      | Không ai. Dữ liệu cũ đã backfill về `pending`              |
+| `skipped`  | **Người dùng đã gỡ khỏi lịch.** Hàng vẫn giữ, không xoá        | PATCH                                                      |
+| `done`     | Chưa dùng                                                      | Không ai                                                   |
+
+> ⚠️ Tên `pending` lệch nghĩa ("đang chờ" trong khi thực tế là "đang có hiệu lực"). Giữ nguyên
+> trong Sprint 4 — đổi giá trị enum kéo theo migration phá huỷ và chạm mọi chỗ đọc. Nợ kỹ thuật
+> đã ghi ở #220. **Đọc `pending` là "đã áp vào lịch", đừng hiển thị chữ "chờ duyệt" ở FE.**
+
+Hệ quả cho các bộ lọc đọc: mọi truy vấn "mục còn nằm trên lịch" **loại trừ** `skipped` + `done`,
+chứ không kén `status = 'pending'` (hằng số `OFF_SCHEDULE_STATUSES` trong `scheduling.service.ts`).
+Áp dụng cho cả `isRemediating` của `GET /plans/:id` và `GET /concepts/:id`.
+
+**Hợp đồng cho [#117](https://github.com/Lade1q/planning-ai/issues/117):** `GET /interviews/:id/summary`
+**vẫn** trả `traceback[].status` như cũ — không thêm field, không đổi tên field, không đổi shape.
+Chỉ cách đọc đổi: `pending` ở đó nghĩa là _"đã áp vào lịch"_, không phải _"chờ duyệt"_, nên màn
+tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
+
+---
+
 ### 1. Lấy Hàng đợi Ôn tập của một Plan (Get Review Queue for a Plan)
 
-- **Endpoint:** `GET /api/v1/review-queue?planId=<uuid>&limit=<number>`
+- **Endpoint:** `GET /api/v1/review-queue?planId=<uuid>&limit=<number>&includeSkipped=<bool>`
 - **Xác thực:** ✅ Yêu cầu Bearer Token
 - **Query params:**
   - `planId` (string, required): UUID của Study Plan.
   - `limit` (number, optional, mặc định `10`, tối đa `50`): số item tối đa trả về.
+  - `includeSkipped` (`"true"` | `"false"`, optional, mặc định `false`): gắn thêm mảng
+    `skippedItems` — nhóm "Đã gỡ khỏi lịch" (xem ngay dưới). Chỉ nhận đúng hai chữ đó; giá trị
+    khác trả 400 chứ không im lặng hiểu thành `false`.
 
 - **Dùng để:** AI Examiner ([I6.3](../../src/server/src/services)) tự chọn top-K khái niệm khi
-  tạo phiên Interview mới mà không chỉ định `conceptIds`; màn kết quả phiên (I6.7) hiển thị các
-  đề xuất traceback để sinh viên Đồng ý / Bỏ qua.
-  **Không lọc theo `scheduledFor`** — trả toàn bộ item `pending` của plan sắp theo ưu tiên, vì
-  nếu lọc theo ngày, một plan có toàn bộ hàng đợi đang giãn cách trong tương lai sẽ khiến I6.3
-  không có gì để tự chọn. (Khác với endpoint `/today` bên dưới — xem mục 2.)
+  tạo phiên Interview mới mà không chỉ định `conceptIds`; màn **Kế hoạch ôn tập** (#225) hiển thị
+  và cho sinh viên gỡ / đưa lại từng khái niệm.
+  **Không lọc theo `scheduledFor`** — trả toàn bộ item còn nằm trên lịch của plan sắp theo ưu
+  tiên, vì nếu lọc theo ngày, một plan có toàn bộ hàng đợi đang giãn cách trong tương lai sẽ
+  khiến I6.3 không có gì để tự chọn. (Khác với endpoint `/today` bên dưới — xem mục 2.)
 
 - **Response thành công (HTTP 200 OK):**
 
@@ -68,18 +99,65 @@ tính lại bằng phép toán thuần mỗi lần đọc (đồ thị nhỏ nê
   chưa có row `ReviewQueueItem` thật — không thể `PATCH` các item này) và
   `sourceSessionEndedAt: null` (chưa có phiên nào để truy ngược).
 
-- **Đã ôn hết / plan hết item pending (HTTP 200 OK, không phải lỗi):**
+- **Nhóm "Đã gỡ khỏi lịch" (`includeSkipped=true`):** envelope có thêm `skippedItems`, cùng
+  shape với `items` (mọi phần tử có `status: "skipped"`), sắp cùng một kiểu — mục đưa lại phải
+  rơi đúng chỗ scheduler xếp cho nó, không phải xuống cuối danh sách chỉ vì từng bị gỡ.
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [/* … như trên … */],
+      "message": null,
+      "totalEstimatedMinutes": 14,
+      "skippedItems": [
+        {
+          "id": "4b2f0d18-...-uuid",
+          "conceptId": "a1c2e3f4-...-uuid",
+          "name": "Cây AVL",
+          "priority": 0.02,
+          "reason": "spaced_repetition",
+          "reasonText": "Đã đến lịch ôn tập theo mức độ ghi nhớ",
+          "sourceConceptName": null,
+          "depth": null,
+          "masteryScore": 0.31,
+          "status": "skipped",
+          "estimatedMinutes": 9,
+          "sourceSessionEndedAt": null
+        }
+      ]
+    }
+  }
+  ```
+
+  - **Không truyền `includeSkipped`** → field `skippedItems` **vắng mặt hẳn**, không phải `[]`:
+    "sinh viên chưa gỡ gì" và "không ai hỏi tới" là hai sự thật khác nhau.
+  - `totalEstimatedMinutes` **không** cộng nhóm này — đó là thời gian của hàng đợi thật.
+  - `limit` áp cho cả hai mảng.
+  - Đưa một mục trở lại lịch: `PATCH /review-queue/:itemId` với `{"status":"pending"}` (mục 3).
+
+- **Đã ôn hết cả kế hoạch (HTTP 200 OK, không phải lỗi):**
 
   ```json
   {
     "success": true,
     "data": {
       "items": [],
-      "message": "Bạn đã hoàn thành kế hoạch hôm nay 🎉",
+      "message": "Bạn đã ôn hết kế hoạch này. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức bạn nắm.",
       "totalEstimatedMinutes": 0
     }
   }
   ```
+
+  ⚠️ **Khác câu của `/today`.** Endpoint này không lọc `scheduledFor`, nên rỗng ở đây nghĩa là
+  hết sạch hàng đợi của **cả kế hoạch**, không phải hết phần **đến hạn hôm nay**. Trước 05/08 hai
+  endpoint dùng chung một câu có chữ "hôm nay" — sai nghĩa ở bề mặt này, khiến sinh viên ngồi chờ
+  một đợt ôn mà hôm nay không có, đồng thời giấu mất thành tựu thật (#224).
+
+- **Sinh viên đã gỡ hết (`items: []` nhưng `skippedItems` khác rỗng):** backend vẫn trả
+  `message` như trên; **FE bỏ qua `message`** và vẽ trạng thái "đã gỡ hết" của mockup
+  `screen-plan-review-queue.html` (§3) — vì đây không phải đã ôn xong, và vẽ chung màn "đã ôn
+  hết" sẽ chôn luôn đường đưa lại. Nhóm đã gỡ mở sẵn trong trạng thái này.
 
 - **Plan chưa ở trạng thái `active` (HTTP 200 OK, không phải lỗi):**
 
@@ -142,27 +220,37 @@ tính lại bằng phép toán thuần mỗi lần đọc (đồ thị nhỏ nê
   Đây là trạng thái khác với "đã ôn hết hôm nay" — theo đúng fix của audit A3, không được dùng
   nhầm message 🎉 cho người chưa từng bắt đầu.
 
-- **Đã ôn đủ mọi plan hôm nay (HTTP 200 OK):** `message: "Bạn đã hoàn thành kế hoạch hôm nay 🎉"`
-  — giống mục 1.
+- **Đã ôn đủ mọi plan hôm nay (HTTP 200 OK):** `message: "Bạn đã hoàn thành kế hoạch hôm nay 🎉"`.
+  Đây là **bề mặt duy nhất** được nói chữ "hôm nay", vì cũng là bề mặt duy nhất thật sự lọc theo
+  `scheduledFor` — mục 1 có câu riêng của nó.
+
+- **Không có `includeSkipped` ở endpoint này:** nhóm "đã gỡ" là chuyện của một kế hoạch cụ thể
+  (màn Kế hoạch ôn tập), không phải của danh sách gợi ý gộp nhiều plan.
 
 - **Lỗi Validation query (HTTP 400 Bad Request):** giống mục 1, chỉ áp dụng cho `limit`.
 
 ---
 
-### 3. Đồng ý / Bỏ qua một Đề xuất (Accept / Skip a Review Queue Item)
+### 3. Gỡ khỏi lịch / Đưa lại (Remove from Schedule / Put Back)
 
 - **Endpoint:** `PATCH /api/v1/review-queue/:itemId`
 - **Xác thực:** ✅ Yêu cầu Bearer Token
-- **Dùng để:** màn kết quả phiên (I6.7) — nút Đồng ý / Bỏ qua từng đề xuất traceback.
+- **Dùng để:** màn **Kế hoạch ôn tập** (#225) — nút "Bỏ khỏi lịch" và "Đưa lại vào lịch" trên
+  từng khái niệm.
 
 - **Request body:**
 
   ```json
-  { "status": "accepted" }
+  { "status": "skipped" }
   ```
 
-  `status` chỉ chấp nhận `"accepted"` hoặc `"skipped"`. Không thể set lại `"pending"` hay
-  `"done"` qua endpoint này.
+  `status` chỉ chấp nhận **`"skipped"`** (gỡ khỏi lịch) hoặc **`"pending"`** (đưa lại). Đây là
+  hai chiều của cùng một thao tác — endpoint này không còn là cổng duyệt (#224), nên nó phải đi
+  được cả hai chiều, nếu không thì "sửa lại bất cứ lúc nào" chỉ là cửa một chiều.
+
+  - `"accepted"` → **400 VALIDATION_ERROR**. Giá trị đã ngừng dùng; gửi lên bị từ chối hẳn chứ
+    không im lặng ghi một trạng thái không ai đọc nữa.
+  - `"done"` → 400. Chưa code path nào ghi giá trị này, và nó không phải việc của người dùng.
 
 - **Response thành công (HTTP 200 OK):**
 
@@ -180,8 +268,9 @@ tính lại bằng phép toán thuần mỗi lần đọc (đồ thị nhỏ nê
   }
   ```
 
-  **Item bị skip không bị xoá** — chỉ đổi `status` thành `"skipped"` để giữ dấu vết, và nó sẽ
-  không còn xuất hiện trong `items` của mục 1/2 (chỉ trả `status: "pending"`).
+  **Item bị gỡ không bị xoá** — chỉ đổi `status` thành `"skipped"`. Nó rời `items` của mục 1/2
+  ngay lập tức, nhưng vẫn đọc lại được qua `includeSkipped=true` (mục 1) — chính chỗ đó làm cho
+  chiều `"pending"` với tới được. Reload xong trạng thái vẫn đúng ở cả hai chiều.
 
 - **Lỗi Validation body (HTTP 400 Bad Request):** thiếu `status` hoặc giá trị không hợp lệ.
 

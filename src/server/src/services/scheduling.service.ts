@@ -24,10 +24,41 @@ export const DEFAULT_DEADLINE_HORIZON_DAYS = 30;
 export const DEFAULT_QUEUE_LIMIT = 10;
 export const DEFAULT_TODAY_LIMIT = 5;
 
-const COMPLETED_TODAY_MESSAGE = 'Bạn đã hoàn thành kế hoạch hôm nay 🎉';
+/**
+ * Câu rỗng của `/review-queue/today` — bề mặt duy nhất thật sự lọc theo "đến hạn hôm nay", nên
+ * cũng là bề mặt duy nhất được nói chữ "hôm nay". Xem `COMPLETED_PLAN_MESSAGE` ngay dưới.
+ */
+export const COMPLETED_TODAY_MESSAGE = 'Bạn đã hoàn thành kế hoạch hôm nay 🎉';
+
+/**
+ * Câu rỗng của `GET /review-queue?planId=` (#224, bổ sung 05/08). Hai endpoint từng dùng chung
+ * `COMPLETED_TODAY_MESSAGE`, nhưng endpoint này **không** lọc `scheduledFor`: rỗng ở đây nghĩa
+ * là hết sạch hàng đợi của cả kế hoạch, không phải hết phần đến hạn hôm nay. Nói "xong phần hôm
+ * nay" ở đây khiến sinh viên ngồi chờ một đợt ôn mà hôm nay không có — và giấu mất thành tựu
+ * thật. Câu lấy từ mockup `screen-plan-review-queue.html` (trạng thái rỗng số 2).
+ */
+export const COMPLETED_PLAN_MESSAGE =
+  'Bạn đã ôn hết kế hoạch này. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức bạn nắm.';
+
 const NO_ACTIVE_PLAN_MESSAGE = 'Bạn chưa có kế hoạch ôn tập nào đang hoạt động.';
 const PLAN_NOT_ACTIVE_MESSAGE = 'Kế hoạch chưa ở trạng thái hoạt động.';
 const NOT_TESTED_REASON_TEXT = 'Khái niệm chưa được kiểm tra';
+
+/**
+ * "Không còn nằm trên lịch" (#224). Mọi bộ lọc đọc hàng đợi loại trừ đúng bộ này thay vì kén
+ * `status: 'pending'`:
+ *
+ * - `pending` giờ nghĩa là *đã áp vào lịch*, không phải *chờ duyệt* — nên nó phải lọt qua.
+ * - `accepted` đã ngừng dùng và được backfill về `pending`, nhưng một DB chưa chạy migration
+ *   vẫn còn hàng cũ; lọc `= 'pending'` sẽ làm chúng bốc hơi khỏi hàng đợi.
+ * - `skipped` là mục sinh viên đã gỡ — ra khỏi lịch, nhưng hàng vẫn giữ để đưa lại được.
+ * - `done` chưa code path nào ghi; liệt kê sẵn ở đây để ngày nó được ghi thì "đã ôn xong" tự
+ *   rời hàng đợi, không phải nhớ quay lại sửa bộ lọc.
+ */
+export const OFF_SCHEDULE_STATUSES: ReviewItemStatus[] = ['skipped', 'done'];
+
+/** `where` fragment dùng chung cho mọi truy vấn "mục còn nằm trên lịch" — xem trên. */
+export const ON_SCHEDULE_WHERE = { status: { notIn: OFF_SCHEDULE_STATUSES } } as const;
 
 export interface CalculatePriorityInput {
   masteryScore: number | null;
@@ -130,6 +161,13 @@ export interface ReviewQueueListResponse {
   message: string | null;
   /** #201: sum of `estimatedMinutes` over `items`. `0` for an empty queue. */
   totalEstimatedMinutes: number;
+  /**
+   * #224: the "Đã gỡ khỏi lịch" group, present **only** for `GET /review-queue` with
+   * `includeSkipped=true`. Absent — not `[]` — when it was not asked for: an empty array would
+   * claim the student has removed nothing, which is a different fact from not having looked.
+   * Every entry has `status: 'skipped'` and is put back with `PATCH { "status": "pending" }`.
+   */
+  skippedItems?: ReviewQueueItemResponse[];
 }
 
 /**
@@ -299,48 +337,36 @@ async function buildFallbackItems(
   );
 }
 
-interface PlanQueueResolution {
-  items: ReviewQueueItemResponse[];
-  /** `false` only when the plan has never had a `ReviewQueueItem` row (A3 fallback path). */
-  hasHistory: boolean;
+interface QueueRow {
+  id: string;
+  conceptId: string;
+  reason: ReviewReason;
+  depth: number | null;
+  status: ReviewItemStatus;
+  sourceConceptId: string | null;
+  sourceSessionId: string | null;
+  concept: { name: string; masteryScore: number | null };
 }
 
+const QUEUE_ROW_INCLUDE = {
+  concept: { select: { id: true, name: true, masteryScore: true } },
+} as const;
+
 /**
- * The shared core behind both GET endpoints: same data, same scoring — they differ only in
- * `dueOnly`. `/review-queue` (I6.3's auto top-K concept picker) needs every pending item
- * regardless of `scheduledFor`, or a plan whose whole queue is spaced out into the future would
- * give the Interview flow nothing to pick from. `/review-queue/today` (I8.2's "Gợi ý hôm nay"
- * tab) needs only what's actually due.
+ * Row → response for a page of rows, with the two soft-reference lookups batched once for the
+ * whole page. Shared by the queue itself and by the "đã gỡ khỏi lịch" group so the two lists
+ * can never drift into different shapes — #225 draws them with the same row component.
  */
-async function resolvePlanQueue(
-  plan: { id: string; deadline: Date | null },
-  now: Date,
-  options: { dueOnly: boolean }
-): Promise<PlanQueueResolution> {
-  const totalCount = await prisma.reviewQueueItem.count({ where: { planId: plan.id } });
-
-  if (totalCount === 0) {
-    return { items: await buildFallbackItems(plan, now), hasHistory: false };
-  }
-
-  const rows = await prisma.reviewQueueItem.findMany({
-    where: {
-      planId: plan.id,
-      status: 'pending',
-      ...(options.dueOnly ? { scheduledFor: { lte: now } } : {}),
-    },
-    include: {
-      concept: { select: { id: true, name: true, masteryScore: true } },
-    },
-  });
-
+async function toResponseItems(
+  rows: readonly QueueRow[],
+  daysUntilDeadline: number | null
+): Promise<ReviewQueueItemResponse[]> {
   const [sourceConceptNames, sourceSessions] = await Promise.all([
     resolveSourceConceptNames(rows),
     resolveSourceSessions(rows),
   ]);
-  const daysUntilDeadline = daysUntil(plan.deadline, now);
 
-  const items = rows.map((row) =>
+  return rows.map((row) =>
     toResponseItem({
       id: row.id,
       conceptId: row.conceptId,
@@ -356,19 +382,91 @@ async function resolvePlanQueue(
       sourceSession: row.sourceSessionId ? (sourceSessions.get(row.sourceSessionId) ?? null) : null,
     })
   );
+}
+
+interface PlanQueueResolution {
+  items: ReviewQueueItemResponse[];
+  /** `false` only when the plan has never had a `ReviewQueueItem` row (A3 fallback path). */
+  hasHistory: boolean;
+}
+
+/**
+ * The shared core behind both GET endpoints: same data, same scoring — they differ only in
+ * `dueOnly`. `/review-queue` (I6.3's auto top-K concept picker) needs every scheduled item
+ * regardless of `scheduledFor`, or a plan whose whole queue is spaced out into the future would
+ * give the Interview flow nothing to pick from. `/review-queue/today` (I8.2's "Gợi ý hôm nay"
+ * tab) needs only what's actually due.
+ *
+ * #224: the filter excludes `OFF_SCHEDULE_STATUSES` instead of demanding `status = 'pending'`.
+ * The old filter was a live bug, not just stale wording — PATCH `'accepted'` used to make an
+ * item vanish from the very queue the student had just accepted it into.
+ */
+async function resolvePlanQueue(
+  plan: { id: string; deadline: Date | null },
+  now: Date,
+  options: { dueOnly: boolean }
+): Promise<PlanQueueResolution> {
+  const totalCount = await prisma.reviewQueueItem.count({ where: { planId: plan.id } });
+
+  if (totalCount === 0) {
+    return { items: await buildFallbackItems(plan, now), hasHistory: false };
+  }
+
+  const rows = await prisma.reviewQueueItem.findMany({
+    where: {
+      planId: plan.id,
+      ...ON_SCHEDULE_WHERE,
+      ...(options.dueOnly ? { scheduledFor: { lte: now } } : {}),
+    },
+    include: QUEUE_ROW_INCLUDE,
+  });
+
+  const items = await toResponseItems(rows, daysUntil(plan.deadline, now));
 
   return { items, hasHistory: true };
 }
 
-/** `[]` + "already done" only means anything once there was history to be done with. */
+/**
+ * The "Đã gỡ khỏi lịch" group of `GET /review-queue?includeSkipped=true` (#224 → #225). Rows the
+ * student removed are never deleted, so this is what makes the removal reversible: without a way
+ * to read them back, PATCH `'skipped'` would be a one-way door with a `'pending'` handle on the
+ * far side that nothing can reach.
+ *
+ * Same sort as the live queue — an item put back should land where the scheduler would have put
+ * it, not at the bottom of the list because it was once removed.
+ */
+async function resolveSkippedItems(
+  plan: { id: string; deadline: Date | null },
+  now: Date,
+  limit: number
+): Promise<ReviewQueueItemResponse[]> {
+  const rows = await prisma.reviewQueueItem.findMany({
+    where: { planId: plan.id, status: 'skipped' },
+    include: QUEUE_ROW_INCLUDE,
+  });
+
+  const items = await toResponseItems(rows, daysUntil(plan.deadline, now));
+
+  return sortReviewItems(items).slice(0, limit);
+}
+
+/**
+ * `[]` + "already done" only means anything once there was history to be done with — a plan that
+ * has never been interviewed gets the A3 fallback list, not a congratulation.
+ *
+ * `completedMessage` is per-endpoint on purpose (#224, 05/08): the two surfaces filter
+ * differently, so an empty list means different things and must not share one sentence. See
+ * `COMPLETED_TODAY_MESSAGE` / `COMPLETED_PLAN_MESSAGE`.
+ */
 function resolveEmptyMessage(
   items: readonly ReviewQueueItemResponse[],
-  hasHistory: boolean
+  hasHistory: boolean,
+  completedMessage: string
 ): string | null {
   if (items.length > 0) {
     return null;
   }
-  return hasHistory ? COMPLETED_TODAY_MESSAGE : null;
+  return hasHistory ? completedMessage : null;
 }
 
 /**
@@ -382,7 +480,8 @@ function resolveEmptyMessage(
 export async function getReviewQueueForPlan(
   planId: string,
   userId: string,
-  limit: number = DEFAULT_QUEUE_LIMIT
+  limit: number = DEFAULT_QUEUE_LIMIT,
+  options: { includeSkipped?: boolean } = {}
 ): Promise<ReviewQueueListResponse> {
   const plan = await prisma.studyPlan.findUnique({
     where: { id: planId },
@@ -403,8 +502,11 @@ export async function getReviewQueueForPlan(
 
   return {
     items: sorted,
-    message: resolveEmptyMessage(sorted, hasHistory),
+    message: resolveEmptyMessage(sorted, hasHistory, COMPLETED_PLAN_MESSAGE),
     totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
+    ...(options.includeSkipped
+      ? { skippedItems: await resolveSkippedItems(plan, now, limit) }
+      : {}),
   };
 }
 
@@ -436,7 +538,7 @@ export async function getTodayReviewQueue(
 
   return {
     items: sorted,
-    message: resolveEmptyMessage(sorted, hasHistory),
+    message: resolveEmptyMessage(sorted, hasHistory, COMPLETED_TODAY_MESSAGE),
     totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
   };
 }
@@ -449,14 +551,22 @@ export interface ReviewQueueItemUpdate {
 }
 
 /**
- * PATCH /review-queue/:itemId — accept or skip a suggestion (I6.7). Skipped rows stay in the DB
- * with `status = 'skipped'` (never deleted — #124's own ràng buộc: what a student chose to skip
- * is worth keeping).
+ * PATCH /review-queue/:itemId — remove an item from the schedule (`'skipped'`) or put it back
+ * (`'pending'`). Since #224 this is not an approval gate: traceback already applied the concept
+ * to the schedule when the session was graded, so the only thing left for the student to do is
+ * change their mind, in either direction, at any time.
+ *
+ * Skipped rows stay in the DB (never deleted — #124's own ràng buộc: what a student chose to
+ * remove is worth keeping) and `GET /review-queue?includeSkipped=true` reads them back, which is
+ * what makes the `'pending'` direction reachable at all.
+ *
+ * Ownership is checked through `plan.userId`; an item that is missing and an item belonging to
+ * someone else are reported identically (404), same as the GET endpoints.
  */
 export async function updateReviewQueueItemStatus(
   itemId: string,
   userId: string,
-  status: 'accepted' | 'skipped'
+  status: 'skipped' | 'pending'
 ): Promise<ReviewQueueItemUpdate> {
   const item = await prisma.reviewQueueItem.findUnique({
     where: { id: itemId },

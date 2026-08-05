@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import {
+  abandonInterview,
   getInterview,
   pauseInterview,
   resumeInterview,
@@ -136,6 +137,26 @@ export async function resumeInterviewController(req: Request, res: Response): Pr
   const { id } = interviewIdParamSchema.parse(req.params);
 
   const result = await resumeInterview(id, req.userId);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+/**
+ * POST /api/v1/interviews/:id/abandon — SPEC_DB-03 AF2 (#243). Ends an unfinished session and
+ * scores the concept it stopped on, on the turns it actually got. Takes no body: what happens
+ * to the half-finished concept is the endpoint's own rule, not the client's to choose.
+ */
+export async function abandonInterviewController(req: Request, res: Response): Promise<void> {
+  if (!req.userId) {
+    throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+
+  const { id } = interviewIdParamSchema.parse(req.params);
+
+  const result = await abandonInterview(id, req.userId);
 
   res.status(200).json({
     success: true,

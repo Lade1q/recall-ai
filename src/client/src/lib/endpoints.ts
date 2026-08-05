@@ -18,4 +18,12 @@ export const ENDPOINTS = {
     REANALYZE: (id: string) => `/api/v1/plans/${id}/reanalyze`,
     CONCEPT: (planId: string, conceptId: string) => `/api/v1/plans/${planId}/concepts/${conceptId}`,
   },
+  INTERVIEWS: {
+    BASE: '/api/v1/interviews',
+    DETAIL: (id: string) => `/api/v1/interviews/${id}`,
+    ANSWERS: (id: string) => `/api/v1/interviews/${id}/answers`,
+    PAUSE: (id: string) => `/api/v1/interviews/${id}/pause`,
+    RESUME: (id: string) => `/api/v1/interviews/${id}/resume`,
+    ABANDON: (id: string) => `/api/v1/interviews/${id}/abandon`,
+  },
 } as const;

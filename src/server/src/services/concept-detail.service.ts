@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { buildConceptHistory } from '../utils/concept-history';
+import { ON_SCHEDULE_WHERE } from './scheduling.service';
 import { ConceptDetailResponse } from '../types/plan.types';
 
 /**
@@ -53,10 +54,11 @@ export async function getConceptDetail(
       },
       orderBy: { createdAt: 'asc' },
     }),
-    // `pending` only — same rule as the graph list's isRemediating flag (getPlanById):
-    // an accepted/skipped/done item is history, not a reason to still pulse the node.
+    // Only items still on the schedule — same rule (and same predicate) as the graph list's
+    // isRemediating flag in getPlanById: a removed or finished item is history, not a reason to
+    // still pulse the node. See `OFF_SCHEDULE_STATUSES` (#224).
     prisma.reviewQueueItem.findFirst({
-      where: { conceptId, planId, status: 'pending' },
+      where: { conceptId, planId, ...ON_SCHEDULE_WHERE },
       select: { reason: true },
       orderBy: { priority: 'desc' },
     }),

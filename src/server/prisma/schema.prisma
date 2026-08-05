@@ -86,6 +86,22 @@ enum ReviewReason {
   manual
 }
 
+/// Trạng thái của một mục trong hàng đợi ôn — ngữ nghĩa chốt lại ngày 04/08/2026 (#224).
+/// Truy ngược **áp thẳng** khái niệm nền vào lịch ngay khi chấm xong; không còn cổng xác nhận,
+/// nên các nhãn dưới đây mô tả *mục đang ở đâu trên lịch*, không phải *ai đã duyệt nó*.
+///
+/// - `pending`  — ĐÃ ÁP VÀO LỊCH. Trạng thái bình thường của một mục đang có hiệu lực, không
+///                chờ ai duyệt. Tên gọi lệch nghĩa nhưng giữ nguyên trong Sprint 4: đổi giá trị
+///                enum kéo theo migration phá huỷ và chạm mọi chỗ đọc (nợ kỹ thuật ghi ở #220).
+/// - `accepted` — ⛔ NGỪNG DÙNG (deprecated 04/08/2026). Di tích của mô hình cũ "sinh viên bấm
+///                Đồng ý ôn lại". Không code path nào ghi giá trị này nữa; dữ liệu cũ đã được
+///                backfill về `pending` (migration `..._review_item_status_applied_by_default`).
+///                Nhãn vẫn nằm trong enum vì gỡ một giá trị khỏi enum Postgres là thao tác phá
+///                huỷ (phải dựng lại type) — xoá hẳn để Sprint 5.
+/// - `skipped`  — NGƯỜI DÙNG ĐÃ GỠ KHỎI LỊCH. Hàng không bị xoá: cái sinh viên chọn bỏ là dữ
+///                liệu đáng giữ (ràng buộc gốc #124), và màn Kế hoạch ôn tập (#225) đọc lại
+///                nhóm này để đưa mục trở về lịch.
+/// - `done`     — chưa dùng, chưa code path nào ghi. Giữ chỗ cho "đã ôn xong mục này".
 enum ReviewItemStatus {
   pending
   accepted
@@ -196,20 +212,20 @@ model ConceptEdge {
 /// Job phân tích tài liệu bất đồng bộ (SP-06)
 /// Lưu ý: planDraftId không có FK constraint vì plan draft có thể chưa tồn tại (async flow)
 model AnalysisJob {
-  id          String            @id @default(uuid()) @db.Uuid
-  planDraftId String?           @map("plan_draft_id") @db.Uuid
-  fileKey     String?           @map("file_key")
-  status      AnalysisJobStatus @default(pending)
+  id           String            @id @default(uuid()) @db.Uuid
+  planDraftId  String?           @map("plan_draft_id") @db.Uuid
+  fileKey      String?           @map("file_key")
+  status       AnalysisJobStatus @default(pending)
   /// Null until the job starts `processing`; not reset on completion or failure — a caller
   /// only reads it while status is `processing` (Issue #186).
-  phase       AnalysisJobPhase?
-  retryCount  Int               @default(0) @map("retry_count")
+  phase        AnalysisJobPhase?
+  retryCount   Int               @default(0) @map("retry_count")
   /// Truncated, safe reason for the last `failed` transition (Issue #183) — set only by
   /// `markFailed()`'s real-error path, never by the stale-job sweep or the retry/reanalyze
   /// force-fail paths, which have no underlying error to report.
-  errorMessage String?          @map("error_message")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  completedAt DateTime?         @map("completed_at")
+  errorMessage String?           @map("error_message")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  completedAt  DateTime?         @map("completed_at")
 
   @@index([planDraftId])
   @@index([status])
@@ -260,19 +276,26 @@ model InterviewSession {
 
 /// Một lượt hỏi-đáp trong phiên (AE-02)
 model InterviewTurn {
-  id           String        @id @default(uuid()) @db.Uuid
-  sessionId    String        @map("session_id") @db.Uuid
-  conceptId    String        @map("concept_id") @db.Uuid
-  turnIndex    Int           @map("turn_index") // 1..maxTurnsPerConcept
-  questionText String        @map("question_text")
-  questionType QuestionType? @map("question_type")
-  answerText   String?       @map("answer_text")
-  score        Float? // 0.0 - 1.0 (enforce ở Zod)
-  feedback     String?
-  verdict      TurnVerdict?
-  source       TurnSource    @default(ai)
-  askedAt      DateTime      @default(now()) @map("asked_at")
-  answeredAt   DateTime?     @map("answered_at")
+  id               String        @id @default(uuid()) @db.Uuid
+  sessionId        String        @map("session_id") @db.Uuid
+  conceptId        String        @map("concept_id") @db.Uuid
+  turnIndex        Int           @map("turn_index") // 1..maxTurnsPerConcept
+  questionText     String        @map("question_text")
+  questionType     QuestionType? @map("question_type")
+  answerText       String?       @map("answer_text")
+  score            Float? // 0.0 - 1.0 (enforce ở Zod)
+  feedback         String?
+  verdict          TurnVerdict?
+  source           TurnSource    @default(ai)
+  /// Ảnh chụp neo nguồn C5 tại thời điểm hỏi (không FK — chỉ tham chiếu, xoá tài liệu không
+  /// được kéo theo lượt phỏng vấn). Suy lại neo lúc đọc sẽ gắn tài liệu *hiện tại* vào câu hỏi
+  /// sinh từ tài liệu *cũ* — trích dẫn sai mà không có dấu hiệu nào để phát hiện.
+  /// `null` cho lượt có trước migration này, và cho khái niệm không có neo.
+  sourceDocumentId String?       @map("source_document_id") @db.Uuid
+  sourcePageFrom   Int?          @map("source_page_from")
+  sourcePageTo     Int?          @map("source_page_to")
+  askedAt          DateTime      @default(now()) @map("asked_at")
+  answeredAt       DateTime?     @map("answered_at")
 
   session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   concept Concept          @relation(fields: [conceptId], references: [id], onDelete: Cascade)
@@ -286,14 +309,18 @@ model InterviewTurn {
 
 /// Phiên học Pomodoro (FS-01, FS-03)
 model FocusSession {
-  id              String             @id @default(uuid()) @db.Uuid
-  userId          String             @map("user_id") @db.Uuid
-  planId          String?            @map("plan_id") @db.Uuid
-  conceptIds      Json               @map("concept_ids") // string[]
-  status          FocusSessionStatus @default(running)
-  durationMinutes Int                @default(0) @map("duration_minutes") // thời gian HỌC thực tế, không tính pause
-  startedAt       DateTime           @default(now()) @map("started_at")
-  endedAt         DateTime?          @map("ended_at")
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  planId             String?            @map("plan_id") @db.Uuid
+  conceptIds         Json               @map("concept_ids") // string[]
+  status             FocusSessionStatus @default(running)
+  durationMinutes    Int                @default(0) @map("duration_minutes") // thời gian HỌC thực tế, không tính pause — cột dẫn xuất từ focusedSeconds
+  focusedSeconds     Int                @default(0) @map("focused_seconds") // thời gian tập trung thực tế, do client đo và gửi lên
+  awayCount          Int                @default(0) @map("away_count") // số lần rời tab (Page Visibility API)
+  pomodorosCompleted Int                @default(0) @map("pomodoros_completed") // số lượt work đã hoàn thành
+  strictMode         Boolean            @default(false) @map("strict_mode") // phiên này có bật chế độ nghiêm ngặt không
+  startedAt          DateTime           @default(now()) @map("started_at")
+  endedAt            DateTime?          @map("ended_at")
 
   user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan StudyPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
@@ -312,6 +339,12 @@ model ReviewQueueItem {
   sourceConceptId String?          @map("source_concept_id") @db.Uuid // khái niệm C đã kích hoạt traceback (không FK — chỉ tham chiếu)
   sourceSessionId String?          @map("source_session_id") @db.Uuid // audit A1: phiên Interview kích hoạt (I7.2 chống trùng, I6.5 lọc theo phiên)
   depth           Int? // 1 hoặc 2 (max_depth = 2)
+  /// `@default(pending)` = **đã áp vào lịch ngay lúc chấm xong**, không phải "chờ sinh viên
+  /// duyệt" (#224, 04/08/2026). `finalizeConceptResult()` cố ý không set `status` ở nhánh
+  /// `create` nên hàng rơi vào default này ngay trong transaction chấm điểm; nhánh `update`
+  /// cũng không đụng tới, để một lần gỡ của sinh viên không bị phiên sau ghi đè.
+  /// Chỉ `PATCH /review-queue/:itemId` đổi được giá trị này, và chỉ giữa `skipped` ↔ `pending`.
+  /// Xem doc của `enum ReviewItemStatus` cho nghĩa từng nhãn.
   status          ReviewItemStatus @default(pending)
   scheduledFor    DateTime?        @map("scheduled_for")
   createdAt       DateTime         @default(now()) @map("created_at")
@@ -337,6 +370,10 @@ model Document {
   pageCount Int?         @map("page_count") // null cho tài liệu không phân trang (vd: text thuần)
   byteSize  Int?         @map("byte_size")
   createdAt DateTime     @default(now()) @map("created_at")
+  /// SP-04 đổi tài liệu update hàng này tại chỗ (`plan.service.ts`): `id` giữ nguyên nhưng
+  /// `filename`/`fileKey` đổi hẳn. Không có mốc thời gian này thì "tệp đã bị thay sau khi hỏi"
+  /// là thứ không kiểm được, và trích dẫn cũ sẽ trỏ sang tệp mới mà vẫn trông hợp lệ.
+  updatedAt DateTime     @updatedAt @map("updated_at")
 
   plan           StudyPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
   conceptSources ConceptSourceRef[]
