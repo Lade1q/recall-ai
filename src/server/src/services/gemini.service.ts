@@ -19,7 +19,13 @@ import {
   Verdict,
 } from '../schemas/ai-interview.schema';
 import { reconcileVerdict } from '../utils/interview-grading';
-import { mockGenerateQuestion, mockGradeAnswer, mockSummarizeSession } from '../utils/mock-ai';
+import {
+  mockGenerateQuestion,
+  mockGradeAnswer,
+  mockSummarizeSession,
+  MOCK_EXTRACT_RESULT,
+  MOCK_EXTRACT_RESULT_CYCLE,
+} from '../utils/mock-ai';
 import { AppError } from '../middleware/errorHandler';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
