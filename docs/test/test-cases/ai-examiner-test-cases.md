@@ -24,8 +24,8 @@
 | **Các bước thực hiện**   | 1. Bắt đầu phiên kiểm tra với khái niệm đầu tiên.<br>2. Nhập câu trả lời chi tiết, chính xác.<br>3. Chờ AI chấm điểm và đưa ra câu hỏi tiếp theo.<br>4. Lặp lại bước 2-3 cho đến hết 3 lượt. |
 | **Dữ liệu đầu vào**      | Câu trả lời chính xác và đầy đủ ý nghĩa cho từng câu hỏi.                                                                                                                                    |
 | **Kết quả mong đợi**     | - Hệ thống đánh giá `mastery_score` cao.<br>- Mỗi lượt câu hỏi sâu hơn lượt trước.<br>- Không kích hoạt cơ chế traceback.                                                                    |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                                        |
-| **Trạng thái**           | Not Run                                                                                                                                                                                      |
+| **Kết quả thực tế**      | Verdict: `deep` (Score: 1.00). State Machine dừng đúng ở Lượt 3.                                                                                                                             |
+| **Trạng thái**           | PASS                                                                                                                                                                                         |
 | **Ghi chú**              |                                                                                                                                                                                              |
 | **Nhận xét**             |                                                                                                                                                                                              |
 
@@ -45,8 +45,8 @@
 | **Các bước thực hiện**   | 1. Nhận câu hỏi từ hệ thống.<br>2. Nhập câu trả lời chỉ chứa định nghĩa ngắn gọn, hời hợt.<br>3. Gửi câu trả lời và xem kết quả. |
 | **Dữ liệu đầu vào**      | Câu trả lời mang tính chất chép định nghĩa, hời hợt.                                                                             |
 | **Kết quả mong đợi**     | - Verdict trả về là `shallow`.<br>- Câu hỏi kế tiếp là câu truy vấn buộc giải thích rõ hơn.                                      |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                            |
-| **Trạng thái**           | Not Run                                                                                                                          |
+| **Kết quả thực tế**      | Verdict: `shallow` (Score: 0.50). State Machine bẻ lái hỏi VÌ SAO.                                                               |
+| **Trạng thái**           | PASS                                                                                                                             |
 | **Ghi chú**              |                                                                                                                                  |
 | **Nhận xét**             |                                                                                                                                  |
 
@@ -66,8 +66,8 @@
 | **Các bước thực hiện**   | 1. Nhận câu hỏi về khái niệm hiện tại.<br>2. Nhập câu trả lời sai hoàn toàn.<br>3. Gửi câu trả lời và kiểm tra kết quả.                               |
 | **Dữ liệu đầu vào**      | Câu trả lời sai.                                                                                                                                      |
 | **Kết quả mong đợi**     | - Kết thúc khái niệm hiện tại ngay lập tức.<br>- Cơ chế traceback chạy.<br>- Khái niệm tiên quyết (prereq) xuất hiện ở màn kết quả/câu hỏi tiếp theo. |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                 |
-| **Trạng thái**           | Not Run                                                                                                                                               |
+| **Kết quả thực tế**      | Verdict: `wrong` (0.00). Hệ thống KHÔNG Traceback mà vẫn hỏi Binary Search.                                                                           |
+| **Trạng thái**           | FAIL                                                                                                                                                  |
 | **Ghi chú**              | Kịch bản này bắt buộc phải ĐẠT để được demo.                                                                                                          |
 | **Nhận xét**             |                                                                                                                                                       |
 
@@ -87,8 +87,8 @@
 | **Các bước thực hiện**   | 1. Nhận câu hỏi về khái niệm cơ sở.<br>2. Nhập câu trả lời sai hoàn toàn.<br>3. Gửi câu trả lời và kiểm tra hành vi hệ thống. |
 | **Dữ liệu đầu vào**      | Câu trả lời sai.                                                                                                              |
 | **Kết quả mong đợi**     | - Không kích hoạt traceback.<br>- Hệ thống rơi vào chế độ lặp lại ngắt quãng (spaced repetition).                             |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                         |
-| **Trạng thái**           | Not Run                                                                                                                       |
+| **Kết quả thực tế**      | Verdict: `wrong` (0.00). Không đổi bài, vẫn hỏi tiếp Lượt 2 của bài cũ.                                                       |
+| **Trạng thái**           | FAIL                                                                                                                          |
 | **Ghi chú**              |                                                                                                                               |
 | **Nhận xét**             |                                                                                                                               |
 
@@ -108,8 +108,8 @@
 | **Các bước thực hiện**   | 1. Trả lời một câu hỏi bất kỳ và gửi đi.<br>2. API trả về lỗi do sai key/hết quota.<br>3. Kiểm tra giao diện và DB.                                                         |
 | **Dữ liệu đầu vào**      | Câu trả lời bất kỳ. `GEMINI_API_KEY` sai.                                                                                                                                   |
 | **Kết quả mong đợi**     | - Hệ thống chuyển sang màn Flashcard fallback (chấm điểm thủ công).<br>- Phiên không bị sập.<br>- Điểm tự chấm vẫn được ghi nhận vào DB với `InterviewTurn.source` phù hợp. |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                                                       |
-| **Trạng thái**           | Not Run                                                                                                                                                                     |
+| **Kết quả thực tế**      | Đứt API -> Chuyển mượt mà sang UI Flashcard tự chấm.                                                                                                                        |
+| **Trạng thái**           | PASS                                                                                                                                                                        |
 | **Ghi chú**              | Kịch bản này bắt buộc phải ĐẠT để được demo.                                                                                                                                |
 | **Nhận xét**             |                                                                                                                                                                             |
 
@@ -129,8 +129,8 @@
 | **Các bước thực hiện**   | 1. Nhấn F5 hoặc đóng trình duyệt hoàn toàn.<br>2. Mở lại trình duyệt và truy cập lại vào phiên học hiện tại.  |
 | **Dữ liệu đầu vào**      | Tương tác trình duyệt (F5/đóng tab).                                                                          |
 | **Kết quả mong đợi**     | - Phiên học được khôi phục chính xác khái niệm đang học.<br>- Khôi phục đúng số lượt hỏi còn lại trong phiên. |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                         |
-| **Trạng thái**           | Not Run                                                                                                       |
+| **Kết quả thực tế**      | F5 trang web -> Giao diện nhớ nguyên vị trí kẹt ở Flashcard.                                                  |
+| **Trạng thái**           | PASS                                                                                                          |
 | **Ghi chú**              |                                                                                                               |
 | **Nhận xét**             |                                                                                                               |
 
@@ -192,8 +192,8 @@
 | **Các bước thực hiện**   | 1. Trả lời câu hỏi thứ 1 (verdict deep/shallow).<br>2. Trả lời câu hỏi thứ 2.<br>3. Trả lời câu hỏi thứ 3.<br>4. Gửi câu trả lời và xem kết quả. |
 | **Dữ liệu đầu vào**      | Câu trả lời kích hoạt verdict cần hỏi thêm (deep liên tục).                                                                                      |
 | **Kết quả mong đợi**     | - Hệ thống bắt buộc phải dừng lại sau lượt thứ 3.<br>- Không được sinh ra câu hỏi thứ 4.                                                         |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                                            |
-| **Trạng thái**           | Not Run                                                                                                                                          |
+| **Kết quả thực tế**      | Hệ thống tự động dừng ở lượt 3 (CF-01) theo đúng ràng buộc C6.                                                                                   |
+| **Trạng thái**           | PASS                                                                                                                                             |
 | **Ghi chú**              |                                                                                                                                                  |
 | **Nhận xét**             |                                                                                                                                                  |
 
@@ -213,8 +213,8 @@
 | **Các bước thực hiện**   | 1. Đăng nhập với User A và lấy JWT Token.<br>2. Gọi API truy cập vào phiên kiểm tra của User B bằng Token của User A. |
 | **Dữ liệu đầu vào**      | Token của User A, API URL chứa session ID của User B.                                                                 |
 | **Kết quả mong đợi**     | - API trả về mã lỗi `404 Not Found` (không phải 403 để tránh lộ thông tin ID có tồn tại).                             |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                                 |
-| **Trạng thái**           | Not Run                                                                                                               |
+| **Kết quả thực tế**      | API trả về mã lỗi 404 Not Found khi dùng Token B gọi session của A.                                                   |
+| **Trạng thái**           | PASS                                                                                                                  |
 | **Ghi chú**              |                                                                                                                       |
 | **Nhận xét**             |                                                                                                                       |
 
@@ -234,8 +234,8 @@
 | **Các bước thực hiện**   | 1. Dùng tool gọi API gửi request POST `/answers` với cùng dữ liệu 2 lần gần như đồng thời.    |
 | **Dữ liệu đầu vào**      | Cùng một payload câu trả lời.                                                                 |
 | **Kết quả mong đợi**     | - Chỉ có 1 turn trả lời được tạo trong Database.<br>- Hệ thống xử lý request thứ hai an toàn. |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                         |
-| **Trạng thái**           | Not Run                                                                                       |
+| **Kết quả thực tế**      | Bị văng 409 Conflict cho cả 2 request thay vì xử lý 1 request.                                |
+| **Trạng thái**           | FAIL                                                                                          |
 | **Ghi chú**              |                                                                                               |
 | **Nhận xét**             |                                                                                               |
 
@@ -245,14 +245,14 @@
 
 | Mã TC     | Tiêu đề                                                                        | Loại                 | Độ ưu tiên | Trạng thái |
 | --------- | ------------------------------------------------------------------------------ | -------------------- | ---------- | ---------- |
-| TC-AE-001 | Trả lời tốt cả 3 lượt, hệ thống hỏi sâu hơn và không kích hoạt traceback       | Functionality        | High       | Not Run    |
-| TC-AE-002 | Trả lời hời hợt, hệ thống yêu cầu giải thích sâu hơn                           | Functionality        | High       | Not Run    |
-| TC-AE-003 | Trả lời sai ở khái niệm có tiên quyết, hệ thống chạy traceback                 | Functionality        | High       | Not Run    |
-| TC-AE-004 | Trả lời sai ở khái niệm không có tiên quyết, hệ thống rơi về spaced repetition | Functionality        | Medium     | Not Run    |
-| TC-AE-005 | Xử lý khi AI timeout hoặc hết API quota                                        | Functionality        | High       | Not Run    |
-| TC-AE-006 | Tạm dừng phiên, đóng tab và quay lại tiếp tục đúng tiến độ                     | Functionality        | High       | Not Run    |
+| TC-AE-001 | Trả lời tốt cả 3 lượt, hệ thống hỏi sâu hơn và không kích hoạt traceback       | Functionality        | High       | `PASS`     |
+| TC-AE-002 | Trả lời hời hợt, hệ thống yêu cầu giải thích sâu hơn                           | Functionality        | High       | `PASS`     |
+| TC-AE-003 | Trả lời sai ở khái niệm có tiên quyết, hệ thống chạy traceback                 | Functionality        | High       | `FAIL`     |
+| TC-AE-004 | Trả lời sai ở khái niệm không có tiên quyết, hệ thống rơi về spaced repetition | Functionality        | Medium     | `FAIL`     |
+| TC-AE-005 | Xử lý khi AI timeout hoặc hết API quota                                        | Functionality        | High       | `PASS`     |
+| TC-AE-006 | Tạm dừng phiên, đóng tab và quay lại tiếp tục đúng tiến độ                     | Functionality        | High       | `PASS`     |
 | TC-AE-007 | Bỏ qua khái niệm (AE-04)                                                       | Functionality        | Low        | Deferred   |
 | TC-AE-008 | Khiếu nại kết quả chấm của AI (AE-10)                                          | Functionality        | Low        | Deferred   |
-| TC-AE-009 | Hệ thống dừng ở tối đa 3 lượt hỏi sâu liên tục                                 | Functionality        | High       | Not Run    |
-| TC-AE-010 | User A truy cập API phiên của User B bị từ chối với mã 404                     | Security             | High       | Not Run    |
-| TC-AE-011 | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                        | Interface / Database | High       | Not Run    |
+| TC-AE-009 | Hệ thống dừng ở tối đa 3 lượt hỏi sâu liên tục                                 | Functionality        | High       | `PASS`     |
+| TC-AE-010 | User A truy cập API phiên của User B bị từ chối với mã 404                     | Security             | High       | `PASS`     |
+| TC-AE-011 | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                        | Interface / Database | High       | `FAIL`     |
