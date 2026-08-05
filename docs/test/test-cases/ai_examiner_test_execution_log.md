@@ -95,19 +95,21 @@ _(Ghi chú: Test luôn trong quá trình xảy ra CF-05)_
 
 ## 📍 CF-Bảo Mật & Idempotency
 
-- **Security (Lấy Token A gọi API của B):** Mã lỗi trả về là gì? `[404 / 403]` -> `[PASS / FAIL]`
-- **Idempotency (Gửi đúp POST /answers):** Database có tạo 2 turn không? `[Không / Có]` -> `[PASS / FAIL]`
+_(Ghi chú: Test tự động thông qua Script Node.js do AI viết chạy trực tiếp trên Server)_
+
+- **Security (Lấy Token A gọi API của B):** Mã lỗi trả về là gì? `[404 Not Found]` -> `[PASS]`
+- **Idempotency (Gửi đúp POST /answers):** Database có tạo 2 turn không? `[Không. Nhưng cả 2 request đều bị văng mã lỗi 409 Conflict và không có lượt nào được tạo ra trong DB. Lẽ ra phải có 1 request thành công 200 OK và request kia bị chặn/trả về cache. Lỗi Logic API.]` -> `[FAIL]`
 
 ---
 
 ## BẢNG TỔNG HỢP (Dán vào GitHub Issue #120)
 
-| Mã CF        | Mô tả Kịch bản                            | Kết quả thực tế (Verdict / Score / Phản hồi)                                |  Trạng thái   |    Bug Issue (Nếu có)     |
-| :----------- | :---------------------------------------- | :-------------------------------------------------------------------------- | :-----------: | :-----------------------: |
-| **CF-01**    | Happy Path (Trả lời tốt 3 lượt)           | Verdict: `deep` (Score: 1.00). State Machine dừng đúng ở Lượt 3.            |    `PASS`     |          `[N/A]`          |
-| **CF-02**    | Trả lời hời hợt (Shallow)                 | Verdict: `shallow` (Score: 0.50). State Machine bẻ lái hỏi VÌ SAO.          |    `PASS`     |          `[N/A]`          |
-| **CF-03**    | Traceback (Sai kiến thức tiên quyết)      | Verdict: `wrong` (0.00). Hệ thống KHÔNG Traceback mà vẫn hỏi Binary Search. |    `FAIL`     |   `[Sẽ tạo Issue sau]`    |
-| **CF-04**    | Spaced Repetition (Sai khái niệm độc lập) | Verdict: `wrong` (0.00). Không đổi bài, vẫn hỏi tiếp Lượt 2 của bài cũ.     |    `FAIL`     | `[Gộp chung Issue CF-03]` |
-| **CF-05**    | Fallback Flashcard (Hết Quota/Lỗi API)    | Đứt API -> Chuyển mượt mà sang UI Flashcard tự chấm.                        |    `PASS`     |          `[N/A]`          |
-| **CF-06**    | Khôi phục phiên học (Resume Session)      | F5 trang web -> Giao diện nhớ nguyên vị trí kẹt ở Flashcard.                |    `PASS`     |          `[N/A]`          |
-| **Sec/Idem** | Bảo mật & Gửi đúp                         | `[Chưa test]`                                                               | `[Chưa test]` |          `[...]`          |
+| Mã CF        | Mô tả Kịch bản                            | Kết quả thực tế (Verdict / Score / Phản hồi)                                | Trạng thái |    Bug Issue (Nếu có)     |
+| :----------- | :---------------------------------------- | :-------------------------------------------------------------------------- | :--------: | :-----------------------: |
+| **CF-01**    | Happy Path (Trả lời tốt 3 lượt)           | Verdict: `deep` (Score: 1.00). State Machine dừng đúng ở Lượt 3.            |   `PASS`   |          `[N/A]`          |
+| **CF-02**    | Trả lời hời hợt (Shallow)                 | Verdict: `shallow` (Score: 0.50). State Machine bẻ lái hỏi VÌ SAO.          |   `PASS`   |          `[N/A]`          |
+| **CF-03**    | Traceback (Sai kiến thức tiên quyết)      | Verdict: `wrong` (0.00). Hệ thống KHÔNG Traceback mà vẫn hỏi Binary Search. |   `FAIL`   |   `[Sẽ tạo Issue sau]`    |
+| **CF-04**    | Spaced Repetition (Sai khái niệm độc lập) | Verdict: `wrong` (0.00). Không đổi bài, vẫn hỏi tiếp Lượt 2 của bài cũ.     |   `FAIL`   | `[Gộp chung Issue CF-03]` |
+| **CF-05**    | Fallback Flashcard (Hết Quota/Lỗi API)    | Đứt API -> Chuyển mượt mà sang UI Flashcard tự chấm.                        |   `PASS`   |          `[N/A]`          |
+| **CF-06**    | Khôi phục phiên học (Resume Session)      | F5 trang web -> Giao diện nhớ nguyên vị trí kẹt ở Flashcard.                |   `PASS`   |          `[N/A]`          |
+| **Sec/Idem** | Bảo mật & Gửi đúp                         | Security: `404` (Pass). Idempotency: 2 requests đều tạch `409` (Fail).      |   `FAIL`   |     `[Sẽ tạo Issue]`      |
