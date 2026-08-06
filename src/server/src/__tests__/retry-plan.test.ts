@@ -265,6 +265,29 @@ describe('retryPlanAnalysis', () => {
     });
   });
 
+  // --- Test 10b (#265): draft không còn đồng nghĩa "chưa phân tích" ---
+  it('still rejects a draft plan whose analysis already finished', async () => {
+    // Từ #265, kế hoạch nằm ở `draft` cho tới khi người dùng xác nhận đồ thị — nên chỉ
+    // riêng `status === 'draft'` không còn chặn được gì. Chỗ chịu lực là job: `done`
+    // nghĩa là đã có concept, mà processAnalysisJob chỉ merge thêm chứ không xoá.
+    (mockedPrisma.studyPlan.findUnique as jest.Mock).mockResolvedValue(basePlan);
+    (mockedPrisma.analysisJob.findFirst as jest.Mock).mockResolvedValue({
+      id: 'job-uuid',
+      status: 'done',
+      fileKey: FILE_KEY,
+      createdAt: new Date(),
+    });
+
+    const error = await retryPlanAnalysis(PLAN_ID, OWNER_ID).catch((e) => e);
+    expect(error).toBeInstanceOf(AppError);
+    expect(error).toMatchObject({
+      statusCode: 409,
+      code: 'RETRY_NOT_ALLOWED',
+      message: 'Plan analysis is not in a failed state',
+    });
+    expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
+  });
+
   // --- Test 11: fileKey null bị reject ---
   it('throws 409 RETRY_NOT_ALLOWED when fileKey is null', async () => {
     (mockedPrisma.studyPlan.findUnique as jest.Mock).mockResolvedValue(basePlan);

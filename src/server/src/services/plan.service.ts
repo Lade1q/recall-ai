@@ -243,10 +243,22 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
 /**
  * Archives a plan or pulls it back into circulation (SP-04, Issue #171).
  *
- * A `draft` plan is refused: archiving is how a user retires material they have finished
- * with, and a draft has no analysed material yet — the actions that apply to it are retry
- * (#106) and delete (#107). Setting the status a plan already has is a no-op that still
- * returns 200, so a double-click on "Lưu trữ" does not surface an error.
+ * A `draft` plan is refused in both directions, and that is what keeps the SP-01 verification
+ * step mandatory (Issue #265). This function is the only writer of `archived` — the schema
+ * accepts nothing but `active`/`archived`, `draft` is written once at creation, and `active`
+ * only by `shouldActivate` — so `archived` is reachable only from `active`:
+ *
+ *   draft → active (only via PUT /plans/:id/graph {confirm:true}) | deleted
+ *   active → archived        archived → active
+ *
+ * Allowing a draft to be archived would open a second road to `active` — archive, then
+ * "Bỏ lưu trữ" — that never passes through the confirmation. A user who walks away from an
+ * unconfirmed draft is not stuck: `deletePlan` has no status guard, and an unconfirmed draft
+ * has nothing worth keeping (no mastery, no sessions, no history) — its parking spot is the
+ * "Chưa xác nhận" tab.
+ *
+ * Setting the status a plan already has is a no-op that still returns 200, so a double-click
+ * on "Lưu trữ" does not surface an error.
  */
 export async function updatePlanStatus(
   planId: string,
@@ -268,7 +280,9 @@ export async function updatePlanStatus(
 
   if (plan.status === 'draft') {
     throw new AppError(
-      'A plan that is still being analysed cannot be archived',
+      status === 'active'
+        ? 'A draft plan becomes active by confirming its concept graph'
+        : 'An unconfirmed plan cannot be archived — confirm its concept graph, or delete it',
       409,
       'STATUS_TRANSITION_NOT_ALLOWED'
     );

@@ -25,10 +25,16 @@ import { PlanStatus, PlanSummary } from '@/features/study-planner/types/concept'
  * screen would otherwise lose track of their own background job.
  */
 
-/** The three tabs are the three values of `StudyPlanStatus`, not a list invented here. */
+/**
+ * The three tabs are the three values of `StudyPlanStatus`, not a list invented here.
+ *
+ * `draft` is labelled by what the student still owes it, not by the analysis: since #265 a
+ * plan stays `draft` until its concept graph is confirmed, so this tab holds plans that are
+ * being analysed, that failed, and — most often — that are done and waiting to be checked.
+ */
 const TABS = [
   { status: 'active', label: 'Đang hoạt động' },
-  { status: 'draft', label: 'Đang phân tích' },
+  { status: 'draft', label: 'Chưa xác nhận' },
   { status: 'archived', label: 'Đã lưu trữ' },
 ] as const satisfies readonly { status: PlanStatus; label: string }[];
 
@@ -211,7 +217,7 @@ export default function PlansPage() {
           {visiblePlans.length === 0 ? (
             <p className="text-muted-foreground py-10 text-center text-sm">
               {activeTab === 'active' && 'Chưa có kế hoạch nào đang hoạt động.'}
-              {activeTab === 'draft' && 'Không có kế hoạch nào đang chờ phân tích.'}
+              {activeTab === 'draft' && 'Không có kế hoạch nào đang chờ xác nhận.'}
               {activeTab === 'archived' && 'Chưa lưu trữ kế hoạch nào.'}
             </p>
           ) : (

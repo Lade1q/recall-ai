@@ -21,7 +21,7 @@ import {
 import { createStorageService } from '../services/storage.service';
 import { triggerAnalysis } from '../services/analysis.service';
 import { invalidatePlanMaterial } from '../services/gemini.service';
-import { getPdfPageCount } from '../utils/pdf';
+import { getPdfPageCount, EncryptedPdfError } from '../utils/pdf';
 import { DocumentMeta } from '../types/plan.types';
 import { AppError } from '../middleware/errorHandler';
 
@@ -33,6 +33,51 @@ function documentKindFromExt(ext: string): DocumentKind {
   if (e === '.pdf') return 'pdf';
   if (e === '.png' || e === '.jpg' || e === '.jpeg') return 'image';
   return 'text';
+}
+
+/**
+ * Builds Document metadata for a freshly staged upload — reads local-file details (page
+ * count) before the file is moved to storage. Shared by createPlanController and
+ * changePlanDocumentController, the two entry points that stage a file and are about to
+ * create an AnalysisJob for it.
+ *
+ * @throws AppError(400, 'ENCRYPTED_PDF') for a PDF with an `/Encrypt` dictionary (Issue
+ * #223) — Gemini's File API can't read such a file, and letting the job run would burn
+ * `MAX_ATTEMPTS` wasted Gemini calls (~20s) before failing anyway. Caught here, before the
+ * file is uploaded to storage or any DB row is created.
+ */
+async function buildDocumentMeta(
+  localFilePath: string,
+  originalname: string,
+  ext: string,
+  size: number | undefined,
+  fileKey: string
+): Promise<DocumentMeta> {
+  const kind = documentKindFromExt(ext);
+
+  let pageCount: number | null = null;
+  if (kind === 'pdf') {
+    try {
+      pageCount = await getPdfPageCount(localFilePath);
+    } catch (error) {
+      if (error instanceof EncryptedPdfError) {
+        throw new AppError(
+          'This PDF is password-protected or has security restrictions and cannot be analyzed. Please remove the password/restrictions and upload again.',
+          400,
+          'ENCRYPTED_PDF'
+        );
+      }
+      throw error;
+    }
+  }
+
+  return {
+    filename: originalname,
+    fileKey,
+    kind,
+    pageCount,
+    byteSize: size ?? null,
+  };
 }
 
 /**
@@ -62,16 +107,15 @@ export async function createPlanController(req: Request, res: Response): Promise
     uploadedFileKey = `plans/${planId}/${Date.now()}${ext}`;
 
     // 3. Thu thập metadata tài liệu. page_count đọc từ file cục bộ TRƯỚC khi upload
-    //    (upload sẽ move/unlink file staging) — best-effort, chỉ cho PDF.
-    const kind = documentKindFromExt(ext);
-    const pageCount = kind === 'pdf' ? await getPdfPageCount(localFilePath) : null;
-    const documentMeta: DocumentMeta = {
-      filename: req.file.originalname,
-      fileKey: uploadedFileKey,
-      kind,
-      pageCount,
-      byteSize: req.file.size ?? null,
-    };
+    //    (upload sẽ move/unlink file staging). Ném AppError 400 nếu PDF bị mã hoá,
+    //    trước khi file được upload hay AnalysisJob được tạo (Issue #223).
+    const documentMeta = await buildDocumentMeta(
+      localFilePath,
+      req.file.originalname,
+      ext,
+      req.file.size,
+      uploadedFileKey
+    );
 
     // 4. Upload lên Storage Service ngoài DB transaction
     await storageService.upload(localFilePath, uploadedFileKey);
@@ -203,16 +247,14 @@ export async function changePlanDocumentController(req: Request, res: Response):
     uploadedFileKey = `plans/${id}/${Date.now()}${ext}`;
 
     // page_count read from the local staged file BEFORE upload (upload moves/unlinks it) —
-    // same pattern as createPlanController.
-    const kind = documentKindFromExt(ext);
-    const pageCount = kind === 'pdf' ? await getPdfPageCount(localFilePath) : null;
-    const documentMeta: DocumentMeta = {
-      filename: req.file.originalname,
-      fileKey: uploadedFileKey,
-      kind,
-      pageCount,
-      byteSize: req.file.size ?? null,
-    };
+    // same pattern as createPlanController, including the encrypted-PDF guard.
+    const documentMeta = await buildDocumentMeta(
+      localFilePath,
+      req.file.originalname,
+      ext,
+      req.file.size,
+      uploadedFileKey
+    );
 
     await storageService.upload(localFilePath, uploadedFileKey);
 

@@ -236,10 +236,14 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
         }
       }
 
+      // `status` stays `draft` on purpose (Issue #265): analysis produces a *proposal*, and
+      // SP-01 requires the user to check it against the source before the plan is usable.
+      // The plan becomes `active` in `replacePlanGraph` when the user confirms the graph
+      // (`shouldActivate`) — activating here made that step unreachable, since the client
+      // only navigates to the verification screen once analysis has finished.
       await tx.studyPlan.update({
         where: { id: planId },
         data: {
-          status: 'active',
           dagAutoFixed: autoFixed,
           languageDetected: extracted.language_detected,
         },

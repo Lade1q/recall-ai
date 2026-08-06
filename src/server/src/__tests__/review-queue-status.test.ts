@@ -47,8 +47,18 @@ const USER_ID = 'user-uuid';
 const ALREADY_DUE = new Date('2026-08-04T09:00:00.000Z');
 const FAR_FUTURE = new Date('2036-08-12T09:00:00.000Z');
 
+const DRAFT_PLAN_ID = 'plan-draft-uuid';
+
+interface FakePlan {
+  id: string;
+  userId: string;
+  deadline: Date | null;
+  status: string;
+}
+
 let queueRows: FakeQueueRow[] = [];
 let concepts: FakeConcept[] = [];
+let plans: FakePlan[] = [];
 
 function row(overrides: Partial<FakeQueueRow> & { id: string; conceptId: string }): FakeQueueRow {
   return {
@@ -161,13 +171,24 @@ beforeEach(() => {
   // Only ever called for the A3 fallback (plan with zero rows) and for source-concept names.
   mockedPrisma.concept.findMany.mockResolvedValue([]);
   mockedPrisma.interviewSession.findMany.mockResolvedValue([]);
-  mockedPrisma.studyPlan.findUnique.mockResolvedValue({
-    id: PLAN_ID,
-    userId: USER_ID,
-    deadline: null,
-    status: 'active',
-  });
-  mockedPrisma.studyPlan.findMany.mockResolvedValue([{ id: PLAN_ID, deadline: null }]);
+  // Plans honour their `where` too — a draft plan sitting next to the active one is exactly
+  // the case #265 introduces, and a canned array would hide it.
+  plans = [
+    { id: PLAN_ID, userId: USER_ID, deadline: null, status: 'active' },
+    { id: DRAFT_PLAN_ID, userId: USER_ID, deadline: null, status: 'draft' },
+  ];
+
+  mockedPrisma.studyPlan.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+    Promise.resolve(plans.find((plan) => plan.id === where.id) ?? null)
+  );
+  mockedPrisma.studyPlan.findMany.mockImplementation(
+    ({ where }: { where: { userId: string; status: string } }) =>
+      Promise.resolve(
+        plans
+          .filter((plan) => plan.userId === where.userId && plan.status === where.status)
+          .map((plan) => ({ id: plan.id, deadline: plan.deadline }))
+      )
+  );
 });
 
 function conceptIdsOf(items: { conceptId: string }[]): string[] {
@@ -392,5 +413,35 @@ describe('/review-queue/today keeps filtering by scheduledFor', () => {
       expect.arrayContaining(['concept-avl', 'concept-dfs'])
     );
     expect(wholePlan.items).toHaveLength(2);
+  });
+});
+
+describe('a plan the user has not confirmed yet stays off the schedule (#265)', () => {
+  it('leaves a draft plan out of /review-queue/today, even with due items on it', async () => {
+    queueRows = [
+      row({ id: 'item-avl', conceptId: 'concept-avl' }),
+      row({ id: 'item-dfs', conceptId: 'concept-dfs', planId: DRAFT_PLAN_ID }),
+    ];
+
+    const today = await getTodayReviewQueue(USER_ID);
+
+    // Since #265 a plan stays `draft` until its concept graph is confirmed, so drafts are now
+    // a real, common state — not just the brief window while analysis runs.
+    expect(conceptIdsOf(today.items)).toEqual(['concept-avl']);
+    expect(mockedPrisma.studyPlan.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: USER_ID, status: 'active' } })
+    );
+  });
+
+  it('answers the plan queue of a draft with a status message, not a congratulation', async () => {
+    queueRows = [row({ id: 'item-dfs', conceptId: 'concept-dfs', planId: DRAFT_PLAN_ID })];
+
+    const queue = await getReviewQueueForPlan(DRAFT_PLAN_ID, USER_ID);
+
+    expect(queue.items).toEqual([]);
+    expect(queue.totalEstimatedMinutes).toBe(0);
+    // "Đã ôn hết" would be a lie about a plan that never started.
+    expect(queue.message).not.toBe(COMPLETED_PLAN_MESSAGE);
+    expect(queue.message).not.toBe(COMPLETED_TODAY_MESSAGE);
   });
 });

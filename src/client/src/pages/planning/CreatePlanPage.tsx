@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 import { FileDropzone, MAX_FILE_SIZE } from '@/features/study-planner/components/FileDropzone';
 import { AnalysisProgressPanel } from '@/features/study-planner/components/AnalysisProgressPanel';
-import { planApi } from '@/features/study-planner/api/plan.api';
+import { planApi, getCreatePlanErrorMessage } from '@/features/study-planner/api/plan.api';
 import { PlanDetails } from '@/features/study-planner/types/concept';
 
 const formSchema = z.object({
@@ -124,7 +124,7 @@ export default function CreatePlanPage() {
       navigate(`/plan/${response.planId}?mode=edit`);
     } catch (error) {
       console.error('Failed to create plan:', error);
-      toast.error('Có lỗi xảy ra khi tạo kế hoạch. Vui lòng thử lại.');
+      toast.error(getCreatePlanErrorMessage(error));
       setSubmitPhase('idle');
     }
   };

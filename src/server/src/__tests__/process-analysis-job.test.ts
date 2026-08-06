@@ -145,7 +145,7 @@ describe('processAnalysisJob', () => {
     expect(mockedPrisma.conceptEdge.create).toHaveBeenCalled();
     expect(mockedPrisma.studyPlan.update).toHaveBeenCalledWith({
       where: { id: PLAN_ID },
-      data: expect.objectContaining({ status: 'active' }),
+      data: expect.objectContaining({ dagAutoFixed: expect.any(Boolean) }),
     });
     // Lần gọi updateMany thứ 2 là guard finalize (lần đầu là claim ban đầu).
     expect(mockedPrisma.analysisJob.updateMany).toHaveBeenNthCalledWith(2, {
@@ -155,6 +155,20 @@ describe('processAnalysisJob', () => {
     expectMarkFailedNotCalled();
     // AE-06 hook: fired fire-and-forget once the job's transaction (incl. validateDAG) succeeds.
     expect(mockedPregenerateForPlan).toHaveBeenCalledWith(PLAN_ID);
+  });
+
+  // --- #265: phân tích xong KHÔNG được tự kích hoạt kế hoạch ---
+  it('leaves the plan in draft — only the user confirming the graph activates it', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+
+    await processAnalysisJob(JOB_ID);
+
+    // Kiểm trên chính payload đã ghi: `status` phải vắng mặt, không chỉ "khác 'active'" —
+    // ghi 'draft' đè lên cũng sai, vì kế hoạch đã active (SP-05 reanalyze) sẽ bị hạ cấp.
+    const [call] = (mockedPrisma.studyPlan.update as jest.Mock).mock.calls;
+    expect(call[0].data).not.toHaveProperty('status');
+    expect(call[0].data).toMatchObject({ dagAutoFixed: expect.any(Boolean) });
   });
 
   // --- Guard cuối transaction: job bị lấy mất trạng thái 'processing' giữa chừng ---

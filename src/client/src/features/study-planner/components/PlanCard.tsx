@@ -124,16 +124,21 @@ export function PlanCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
+        {/* Lưu trữ chỉ có nghĩa với kế hoạch đã xác nhận: server từ chối lưu trữ bản nháp
+            (#265 — nếu cho, thì "Bỏ lưu trữ" thành lối kích hoạt vòng qua bước kiểm chứng).
+            Bản nháp bỏ dở thoát bằng "Xóa vĩnh viễn" ở dưới. */}
         {isArchived ? (
           <DropdownMenuItem onSelect={() => onRestore(plan)}>
             <ArchiveRestore />
             Bỏ lưu trữ
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onSelect={() => onArchive(plan)}>
-            <Archive />
-            Lưu trữ kế hoạch
-          </DropdownMenuItem>
+          !isDraft && (
+            <DropdownMenuItem onSelect={() => onArchive(plan)}>
+              <Archive />
+              Lưu trữ kế hoạch
+            </DropdownMenuItem>
+          )
         )}
 
         {/* SP-05 re-reads the document the plan was built from; a draft has no graph to
@@ -145,8 +150,9 @@ export function PlanCard({
           </DropdownMenuItem>
         )}
 
-        {/* Separated by a rule: archiving is reversible, this is not. */}
-        <DropdownMenuSeparator />
+        {/* Separated by a rule: archiving is reversible, this is not. A draft has no item
+            above it, so the rule would be a stray line at the top of the menu. */}
+        {!isDraft && <DropdownMenuSeparator />}
         <DropdownMenuItem variant="destructive" onSelect={() => onDelete(plan)}>
           <Trash2 />
           Xóa vĩnh viễn
@@ -155,13 +161,19 @@ export function PlanCard({
     </DropdownMenu>
   );
 
-  // ---------- Draft: still being analysed, or the analysis failed ----------
+  // ---------- Draft: being analysed, analysis failed, or waiting to be confirmed ----------
   if (isDraft) {
+    // Từ #265, kế hoạch ở lại `draft` cho tới khi người dùng xác nhận đồ thị — nên "draft mà
+    // không đang chạy" không còn đồng nghĩa với lỗi. Trạng thái thứ ba này mới là trạng thái
+    // phổ biến nhất của một bản nháp: AI xong việc, đang chờ bước kiểm chứng của SP-01.
+    const analysisFailed = plan.analysisStatus === 'failed';
+    const awaitingConfirmation = !isAnalysing && !analysisFailed;
     const elapsed = plan.analysisStartedAt ? formatElapsed(plan.analysisStartedAt, now) : null;
     const meta = [
       plan.document?.filename,
       plan.document?.pageCount ? `${plan.document.pageCount} trang` : null,
       isAnalysing ? elapsed : null,
+      awaitingConfirmation && plan.conceptCount ? `${plan.conceptCount} khái niệm` : null,
     ].filter(Boolean);
 
     return (
@@ -173,8 +185,10 @@ export function PlanCard({
         <div className="flex items-start justify-between gap-2.5">
           {isAnalysing ? (
             <Badge tone="ai">Đang phân tích</Badge>
-          ) : (
+          ) : analysisFailed ? (
             <Badge tone="weak">Phân tích lỗi</Badge>
+          ) : (
+            <Badge tone="neutral">Chờ xác nhận</Badge>
           )}
           {actions}
         </div>
@@ -190,8 +204,10 @@ export function PlanCard({
         <p className="text-muted-foreground mt-3.5 line-clamp-2 text-pretty text-[12.5px] leading-[1.65]">
           {isAnalysing
             ? 'AI đang trích xuất khái niệm. Đồ thị sẽ mở được ngay khi xong — bạn không cần chờ ở đây.'
-            : (plan.analysisErrorMessage ??
-              'Không trích xuất được khái niệm từ tài liệu này. Mở kế hoạch để xem chi tiết và thử lại.')}
+            : awaitingConfirmation
+              ? 'AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.'
+              : (plan.analysisErrorMessage ??
+                'Không trích xuất được khái niệm từ tài liệu này. Mở kế hoạch để xem chi tiết và thử lại.')}
         </p>
 
         <div className="border-border mt-3.5 border-t pt-3.5 text-[12.5px]">
@@ -199,7 +215,11 @@ export function PlanCard({
             to={`/plan/${plan.id}`}
             className="text-foreground border-border hover:border-foreground border-b transition-colors"
           >
-            {isAnalysing ? 'Xem tiến trình' : 'Xem chi tiết'}
+            {isAnalysing
+              ? 'Xem tiến trình'
+              : awaitingConfirmation
+                ? 'Kiểm chứng đồ thị'
+                : 'Xem chi tiết'}
           </Link>
         </div>
       </div>

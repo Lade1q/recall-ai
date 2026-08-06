@@ -34,9 +34,19 @@ export function getRetryErrorMessage(error: unknown): string {
   return 'Đã xảy ra lỗi, vui lòng thử lại.';
 }
 
+/** Upload-validation codes with a clear, ready-to-show message already set by the server —
+ *  shared by plan creation and POST /plans/:id/document (ENCRYPTED_PDF added for Issue #223:
+ *  a PDF with an `/Encrypt` dictionary, rejected at upload time before an AnalysisJob exists). */
+const UPLOAD_VALIDATION_CODES = new Set([
+  'FILE_TOO_LARGE',
+  'INVALID_FILE_TYPE',
+  'FILE_REQUIRED',
+  'ENCRYPTED_PDF',
+]);
+
 /** Same shape as getRetryErrorMessage, for POST /plans/:id/document's DOCUMENT_CHANGE_NOT_ALLOWED
- *  and the upload-validation codes it shares with plan creation (FILE_REQUIRED, FILE_TOO_LARGE,
- *  INVALID_FILE_TYPE) — those already have clear messages from the server, so pass them through. */
+ *  and the upload-validation codes it shares with plan creation — those already have clear
+ *  messages from the server, so pass them through. */
 export function getChangeDocumentErrorMessage(error: unknown): string {
   if (!isAxiosError(error)) {
     return 'Đã xảy ra lỗi, vui lòng thử lại.';
@@ -48,10 +58,27 @@ export function getChangeDocumentErrorMessage(error: unknown): string {
   if (code === 'DOCUMENT_CHANGE_NOT_ALLOWED') {
     return 'Không thể đổi tài liệu lúc này — kế hoạch có thể đã đổi trạng thái. Vui lòng tải lại trang.';
   }
-  if (code === 'FILE_TOO_LARGE' || code === 'INVALID_FILE_TYPE' || code === 'FILE_REQUIRED') {
+  if (code && UPLOAD_VALIDATION_CODES.has(code)) {
     return error.response.data?.error?.message ?? 'Tài liệu không hợp lệ.';
   }
   return 'Đã xảy ra lỗi, vui lòng thử lại.';
+}
+
+/** Same upload-validation codes as getChangeDocumentErrorMessage, for POST /plans (plan
+ *  creation) — CreatePlanPage's catch previously showed a generic toast for every failure,
+ *  which hid the server's actual reason (e.g. an encrypted PDF) from the user. */
+export function getCreatePlanErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return 'Có lỗi xảy ra khi tạo kế hoạch. Vui lòng thử lại.';
+  }
+  if (!error.response) {
+    return 'Không kết nối được tới máy chủ. Vui lòng thử lại.';
+  }
+  const code: string | undefined = error.response.data?.error?.code;
+  if (code && UPLOAD_VALIDATION_CODES.has(code)) {
+    return error.response.data?.error?.message ?? 'Tài liệu không hợp lệ.';
+  }
+  return 'Có lỗi xảy ra khi tạo kế hoạch. Vui lòng thử lại.';
 }
 
 interface BackendCreatePlanResponse {
