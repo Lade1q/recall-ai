@@ -17,6 +17,9 @@ out/
 
 # Test artifacts (jest --coverage)
 coverage/
+e2e/playwright-report/
+e2e/test-results/
+e2e/blob-report/
 
 # IDE & Editor
 .vscode/
