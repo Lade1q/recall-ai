@@ -10,6 +10,8 @@ npm ci
 npm run test:e2e:install
 ```
 
+On Arch Linux, Playwright prints a warning that it is downloading an Ubuntu fallback build. This is expected because Arch is not an officially supported operating system. Do not run `playwright install-deps`; after the browser download completes, run the tests normally.
+
 ## Run tests
 
 From the repository root:
