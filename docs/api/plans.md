@@ -113,6 +113,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
           "status": "draft",
           "conceptCount": 0,
           "masteryDistribution": { "strong": 0, "learning": 0, "weak": 0, "untested": 0 },
+          "reviewQueueConceptCount": 0,
           "analysisStatus": "processing",
           "analysisStartedAt": "2026-07-20T21:00:12.000Z",
           "document": { "filename": "Chuong-4-Kiem-thu.pdf", "pageCount": 28 },
@@ -124,6 +125,21 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
   ```
 
 - **`masteryDistribution`** đếm concept theo 4 mức, tổng luôn bằng `conceptCount`. Ngưỡng: `strong ≥ 0.8`, `0.6 ≤ learning < 0.8`, `weak < 0.6`, `untested` là `mastery_score = null`. **`untested` không gộp vào `weak`**: "chưa hỏi bao giờ" khác hẳn "hỏi rồi và sai". Concept `deprecated` (do re-analyze loại bỏ, mục 6) không được đếm.
+
+- **`reviewQueueConceptCount`** (#232) là dòng chân thẻ kế hoạch **"Hàng đợi ôn · N khái niệm"**
+  (mockup `screen-plans.html`, màn #225): số **khái niệm** của plan còn nằm trên lịch ôn. Cùng bộ
+  lọc với hàng đợi thật (`OFF_SCHEDULE_STATUSES` — loại `skipped` + `done`). Plan chưa từng có
+  hàng đợi trả `0`, **không** phải `null`: "không còn khái niệm nào chờ ôn" là một sự thật, không
+  phải một giá trị thiếu. Lấy bằng **một** truy vấn `groupBy` cho cả lưới thẻ, không phải mỗi thẻ
+  một request.
+
+  ⚠️ **Đếm khái niệm, không đếm dòng** — khác chữ "số mục trong hàng đợi" ở AC gốc của #232, và
+  đây là lý do: `GET /review-queue` gộp mỗi khái niệm về **một** mục (mỗi phiên chấm xong lại đẻ
+  một `ReviewQueueItem` cho cùng khái niệm — xem `docs/api/review-queue.md`, mục "Một mục / một
+  khái niệm"). Đếm dòng thì con số ở chân thẻ sẽ lớn hơn số dòng mà chính màn hình nó dẫn tới
+  hiển thị được: một plan trên DB dev có 8 dòng nhưng chỉ 3 khái niệm. AC yêu cầu "đếm đúng cái
+  lưới thẻ hiển thị" — sau khi gộp, thứ đó là khái niệm. Bề mặt này **không** dựng danh sách
+  fallback A3 như `/review-queue`: fallback là gợi ý tạm, không phải mục đã lên lịch.
 
 - **`analysisStatus` / `analysisStartedAt`** lấy từ `AnalysisJob` gần nhất của Plan, cùng quy tắc "mới nhất theo `createdAt`" như mục 3; `null` khi Plan chưa có job nào. `analysisStartedAt` để client hiển thị đồng hồ đếm thời gian đã chạy.
 

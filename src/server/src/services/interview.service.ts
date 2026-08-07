@@ -900,7 +900,11 @@ async function resolveConceptQueue(
   }
 
   const queue = await getReviewQueueForPlan(planId, userId, DEFAULT_CONCEPTS_PER_SESSION);
-  const conceptIds = queue.items.map((item) => item.conceptId);
+  // Same `[...new Set()]` the hand-picked branch above applies, for the same reason: a repeated
+  // concept makes the header promise "Khái niệm 1/3" for a session that ends after one (#232).
+  // The queue already folds duplicates away since #232 — this is the belt to that pair of braces,
+  // because the header's honesty must not depend on a filter two services away.
+  const conceptIds = [...new Set(queue.items.map((item) => item.conceptId))];
 
   if (conceptIds.length === 0) {
     throw new AppError(queue.message ?? NO_CONCEPTS_MESSAGE, 409, 'NO_CONCEPTS_TO_REVIEW');

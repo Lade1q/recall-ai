@@ -78,10 +78,11 @@ export async function createPlanInDb(
  * the mastery distribution bar, and — for a plan still being analysed — the status of its
  * job and the document it is chewing through.
  *
- * Two queries, not one per plan. Mastery scores are pulled inline (a plan holds tens of
+ * Three queries, not one per plan. Mastery scores are pulled inline (a plan holds tens of
  * concepts, and banding them needs the pure classifier rather than SQL), while AnalysisJob,
  * which has no FK to StudyPlan by design, is fetched for every plan id at once and reduced
- * to the latest job per plan here.
+ * to the latest job per plan here. The review-queue count is one grouped query for the whole
+ * grid, for the same reason: a card's footer must not cost a request each (#232).
  */
 export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> {
   const plans = await prisma.studyPlan.findMany({
@@ -109,19 +110,35 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
     return [];
   }
 
-  // Ordered newest-first, so the first row seen for a plan id is its latest job (same
-  // "latest by createdAt" rule as getPlanById — SP-05 re-analyze can add more).
-  const jobs = await prisma.analysisJob.findMany({
-    where: { planDraftId: { in: plans.map((p) => p.id) } },
-    orderBy: { createdAt: 'desc' },
-    select: { planDraftId: true, status: true, createdAt: true, errorMessage: true },
-  });
+  const planIds = plans.map((p) => p.id);
+
+  const [jobs, queueGroups] = await Promise.all([
+    // Ordered newest-first, so the first row seen for a plan id is its latest job (same
+    // "latest by createdAt" rule as getPlanById — SP-05 re-analyze can add more).
+    prisma.analysisJob.findMany({
+      where: { planDraftId: { in: planIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { planDraftId: true, status: true, createdAt: true, errorMessage: true },
+    }),
+    // One group per (plan, concept) still on the schedule — grouping by the pair is what makes
+    // this a count of concepts rather than of rows, since a concept collects one row per session
+    // that graded it (#232). Counting the groups per plan is then plain arithmetic.
+    prisma.reviewQueueItem.groupBy({
+      by: ['planId', 'conceptId'],
+      where: { planId: { in: planIds }, ...ON_SCHEDULE_WHERE },
+    }),
+  ]);
 
   const latestJobByPlan = new Map<string, (typeof jobs)[number]>();
   for (const job of jobs) {
     if (job.planDraftId !== null && !latestJobByPlan.has(job.planDraftId)) {
       latestJobByPlan.set(job.planDraftId, job);
     }
+  }
+
+  const queueCountByPlan = new Map<string, number>();
+  for (const group of queueGroups) {
+    queueCountByPlan.set(group.planId, (queueCountByPlan.get(group.planId) ?? 0) + 1);
   }
 
   return plans.map((p) => {
@@ -135,6 +152,7 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
       status: p.status,
       conceptCount: p.concepts.length,
       masteryDistribution: summariseMasteryDistribution(p.concepts.map((c) => c.masteryScore)),
+      reviewQueueConceptCount: queueCountByPlan.get(p.id) ?? 0,
       analysisStatus: latestJob?.status ?? null,
       analysisStartedAt: latestJob?.createdAt ?? null,
       analysisErrorMessage: latestJob?.errorMessage ?? null,

@@ -3,9 +3,9 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 import { ConceptGraph } from '@/features/study-planner/components/ConceptGraph';
 import { AnalysisProgressPanel } from '@/features/study-planner/components/AnalysisProgressPanel';
+import { PlanCreationStepper } from '@/features/study-planner/components/PlanCreationStepper';
 import {
   planApi,
   getRetryErrorMessage,
@@ -13,7 +13,6 @@ import {
 } from '@/features/study-planner/api/plan.api';
 import {
   PlanDetails,
-  PlanStatus,
   PlanSummary,
   Concept,
   ConceptEdge,
@@ -40,14 +39,36 @@ function BreadcrumbSep() {
   );
 }
 
-export default function PlanDetailPage() {
+/**
+ * Ba màn của cùng một trang. `verify` — bước kiểm chứng đồ thị AI đề xuất, bước cuối của
+ * luồng TẠO kế hoạch (SP-01) — đến từ route riêng `/plan/:id/verify`, không từ `?mode`.
+ */
+type PlanDetailMode = 'view' | 'edit' | 'verify';
+
+interface PlanDetailPageProps {
+  /** Do route `/plan/:id/verify` đặt (App.tsx). Không suy ra từ query, xem Issue #274. */
+  routeMode?: 'verify';
+}
+
+export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // Validate mode thực tế thay vì dùng `as` cast
   const rawMode = searchParams.get('mode');
-  const mode: 'view' | 'edit' = rawMode === 'edit' ? 'edit' : 'view';
+  const mode: PlanDetailMode = routeMode ?? (rawMode === 'edit' ? 'edit' : 'view');
+
+  // Chuẩn hoá URL. `mode` chỉ có nghĩa trên /plan/:id và chỉ nhận đúng giá trị `edit`;
+  // trước đây mọi giá trị khác — kể cả `?mode=verfy` gõ nhầm — im lặng rơi về view, để lại
+  // một địa chỉ không mô tả đúng màn đang hiện. `replace` vì đây là dọn dẹp, không phải một
+  // bước điều hướng người dùng có thể quay lại.
+  useEffect(() => {
+    if (rawMode === null) return;
+    if (routeMode === 'verify' || rawMode !== 'edit') {
+      setSearchParams({}, { replace: true });
+    }
+  }, [rawMode, routeMode, setSearchParams]);
 
   const [plan, setPlan] = useState<PlanDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,8 +85,6 @@ export default function PlanDetailPage() {
   // flipping to 'done' already makes analysisRunning false on the very next render).
   const [isCompletionPause, setIsCompletionPause] = useState(false);
 
-  // Dùng ref để tránh vòng lặp vô hạn khi setSearchParams
-  const hasAutoSwitchedToEdit = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const isMountedRef = useRef(true);
   // Tracks the previous poll's status without the staleness a closed-over `plan` would have
@@ -93,12 +112,6 @@ export default function PlanDetailPage() {
       prevAnalysisStatusRef.current = data.analysisStatus;
 
       setPlan(data);
-
-      // Auto-switch draft plan sang edit mode (chỉ 1 lần duy nhất)
-      if (data.status === 'draft' && rawMode !== 'edit' && !hasAutoSwitchedToEdit.current) {
-        hasAutoSwitchedToEdit.current = true;
-        setSearchParams({ mode: 'edit' }, { replace: true });
-      }
 
       if (data.analysisStatus === 'pending' || data.analysisStatus === 'processing') {
         timeoutRef.current = setTimeout(() => fetchPlan(generation), 2500);
@@ -142,6 +155,24 @@ export default function PlanDetailPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- chỉ re-fetch khi id thay đổi
   }, [id]);
+
+  // Bản nháp và màn kiểm chứng phải luôn đi cùng nhau, ở CẢ HAI chiều:
+  //  - còn `draft` ⇒ chỉ có màn kiểm chứng. URL cũ `?mode=edit` của một bản nháp cũng rơi
+  //    về đây — CreatePlanPage từng sinh đúng chuỗi đó, nên nó nằm trong lịch sử và
+  //    bookmark của mọi kế hoạch tạo trước Issue #274, không phải một ca giả định.
+  //  - đã xác nhận ⇒ không còn màn kiểm chứng nữa.
+  // `replace` ở cả hai chiều: sau khi xác nhận, plan `draft` thành `active`; nếu rời
+  // /verify mà không `replace` thì bấm Back quay lại /verify của một kế hoạch giờ đã
+  // `active`, guard lại đẩy đi — Back không bao giờ thoát được.
+  const planStatus = plan?.status;
+  useEffect(() => {
+    if (!id || !planStatus) return;
+    if (planStatus === 'draft' && mode !== 'verify') {
+      navigate(`/plan/${id}/verify`, { replace: true });
+    } else if (planStatus !== 'draft' && mode === 'verify') {
+      navigate(`/plan/${id}`, { replace: true });
+    }
+  }, [id, planStatus, mode, navigate]);
 
   // Danh sách kế hoạch cho bộ chọn trên toolbar (DB-05) — lỗi ở đây không chặn màn hình
   // chính, chỉ khiến bộ chọn không có gì để hiện.
@@ -217,18 +248,16 @@ export default function PlanDetailPage() {
   const handleConfirmGraph = async (concepts: Concept[], edges: ConceptEdge[]) => {
     if (!id) return;
     try {
-      const result = await planApi.updatePlanGraph(id, concepts, edges);
-      // After confirming, switch to view mode
-      setSearchParams({ mode: 'view' });
-      // Update local state to reflect changes
-      setPlan((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          status: (result.data?.status as PlanStatus) || prev.status,
-          graph: { concepts, edges },
-        };
-      });
+      await planApi.updatePlanGraph(id, concepts, edges);
+      // Đọc lại kế hoạch từ server thay vì vá `plan` tại chỗ. Bản vá cũ dựng lại `graph`
+      // từ chính payload vừa gửi, mà payload đó chỉ mang id/name/mastery_score
+      // (ConceptGraph.handleConfirm) — nên `difficulty` biến mất khỏi màn xem cho tới lần
+      // tải lại. DB không mất gì; sai lệch nằm ở lớp "sự thật thứ hai" trong state này,
+      // và refetch bỏ luôn cả lớp đó.
+      await fetchPlan(pollGenerationRef.current);
+      // Rời màn kiểm chứng: kế hoạch vừa được xác nhận thì màn này không còn tồn tại cho nó
+      // nữa (guard bên trên cũng đi tới cùng một chỗ — cả hai đều `replace`, cùng đích).
+      navigate(`/plan/${id}`, { replace: true });
     } catch (error) {
       console.error('Failed to update plan graph', error);
       toast.error('Không thể lưu đồ thị. Vui lòng thử lại.');
@@ -240,13 +269,29 @@ export default function PlanDetailPage() {
   const analysisFailed = analysisStatus === 'failed';
   const analysisDone = !analysisRunning && !analysisFailed;
 
-  // Edit mode có hai ngữ cảnh khác hẳn nhau, phân biệt bằng status:
-  //  - `draft`: bước cuối của luồng TẠO kế hoạch (SP-01 → kiểm chứng đồ thị AI đề xuất). Đây mới
-  //    là chỗ "Kế hoạch ôn tập › Tạo mới", có stepper 3 bước, tiêu đề "Kiểm chứng".
-  //  - đã `active`: người dùng bấm "Sửa đồ thị" từ chính đồ thị (mục nav "Đồ thị khái niệm",
-  //    xem isNavItemActive trong MainLayout) — không phải tạo mới, không có bước phân tích nào,
-  //    nên không mượn khung tạo mới.
-  const isDraft = plan?.status === 'draft';
+  // Cùng một khung soạn thảo đồ thị, hai ngữ cảnh khác hẳn nhau — và ROUTE là thứ phân biệt
+  // chúng, không phải `plan.status`:
+  //  - `/plan/:id/verify`: bước cuối của luồng TẠO kế hoạch (SP-01 → kiểm chứng đồ thị AI đề
+  //    xuất). Đây mới là chỗ "Kế hoạch ôn tập › Tạo mới", có stepper 3 bước, tiêu đề "Kiểm
+  //    chứng" — và là chỗ sidebar sáng mục "Kế hoạch ôn tập".
+  //  - `/plan/:id?mode=edit`: người dùng bấm "Sửa đồ thị" từ chính đồ thị (mục nav "Đồ thị
+  //    khái niệm", xem isNavItemActive trong MainLayout) — không phải tạo mới, không có bước
+  //    phân tích nào, nên không mượn khung tạo mới.
+  // `status` vẫn quyết định được phép ở màn nào (guard bên trên), chỉ không quyết định màn
+  // nào được vẽ — đó là việc của URL, thứ duy nhất sidebar đọc được.
+  const isVerify = mode === 'verify';
+  const isEditing = mode === 'edit' || isVerify;
+
+  // Bộ chọn trên toolbar (DB-05) là bộ đổi PHẠM VI bên trong mục "Đồ thị khái niệm", nên nó
+  // chỉ được chứa những kế hoạch thuộc mục đó. Bản nháp thì không: chọn một bản nháp sẽ bị
+  // guard đẩy sang /plan/:id/verify, và sidebar nhảy sang "Kế hoạch ôn tập" — người dùng bị
+  // văng khỏi chính mục đang đứng, đúng thứ Issue #274 sinh ra để diệt (trước #274 chuyện này
+  // không xảy ra vì bản nháp chỉ đổi query, pathname giữ nguyên).
+  // `archived` thì GIỮ: kế hoạch lưu trữ vẫn có đồ thị xem được ở đây, chỉ mất nút "Sửa đồ thị"
+  // bên dưới. Lọc nó đi là cắt mất thứ vốn thuộc về mục này.
+  // Bản nháp vẫn có lối vào riêng — trạng thái rỗng của GraphIndexPage và thẻ "Chờ xác nhận"
+  // ở màn Kế hoạch ôn tập — nên lọc ở đây không giấu mất chúng.
+  const switchablePlans = (planList ?? []).filter((p) => p.status !== 'draft');
 
   // A separate, faster tick so the elapsed clock on the progress panel counts smoothly
   // between the 2.5s polls (same pattern as PlansPage's card clock).
@@ -257,12 +302,12 @@ export default function PlanDetailPage() {
     return () => clearInterval(clockId);
   }, [analysisRunning]);
 
-  // ----------------- EDIT MODE LAYOUT -----------------
-  if (mode === 'edit') {
+  // ----------------- EDIT / VERIFY LAYOUT -----------------
+  if (isEditing) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 pb-12 pt-6">
         <nav className="text-muted-foreground mb-4 flex items-center gap-2 text-[13px]">
-          {isDraft ? (
+          {isVerify ? (
             <>
               {/* Luồng tạo kế hoạch — bắt nguồn từ "Kế hoạch ôn tập" */}
               <button
@@ -286,7 +331,7 @@ export default function PlanDetailPage() {
               </button>
               <BreadcrumbSep />
               <button
-                onClick={() => setSearchParams({ mode: 'view' })}
+                onClick={() => setSearchParams({})}
                 className="hover:text-foreground hover:border-border max-w-60 truncate border-b border-transparent pb-px transition-colors"
               >
                 {plan?.name || 'Loading...'}
@@ -298,104 +343,23 @@ export default function PlanDetailPage() {
         </nav>
 
         <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
-          {isDraft ? 'Kiểm chứng đồ thị khái niệm' : 'Chỉnh sửa đồ thị khái niệm'}
+          {isVerify ? 'Kiểm chứng đồ thị khái niệm' : 'Chỉnh sửa đồ thị khái niệm'}
         </h1>
         <p className="text-muted-foreground max-w-160 mb-7 text-pretty text-[14px] leading-[1.7]">
-          {isDraft
+          {isVerify
             ? 'AI đã đề xuất các khái niệm cùng quan hệ tiên quyết. Đối chiếu từng khái niệm với trích đoạn gốc bên phải rồi mới xác nhận — bước này bắt buộc, hệ thống không tự động tin kết quả AI.'
-            : 'Thêm hoặc bỏ khái niệm, nối lại quan hệ tiên quyết cho đồ thị của kế hoạch này. Lưu thay đổi để cập nhật; nhấn tên kế hoạch ở trên để quay lại mà không lưu.'}
+            : 'Thêm hoặc bỏ khái niệm, nối lại quan hệ tiên quyết cho đồ thị của kế hoạch này. Lưu thay đổi để cập nhật.'}
         </p>
 
-        {/* Stepper chỉ có nghĩa trong luồng tạo mới — sửa kế hoạch đã có không đi qua các bước này */}
-        {isDraft && (
-          <ol className="bg-card border-border mb-6 flex overflow-hidden rounded-[calc(var(--radius)*0.9)] border">
-            <li className="text-muted-foreground border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]">
-              <span className="border-primary/40 bg-primary/10 text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-full border">
-                <svg
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 12.5l5.2 5.2L20 7" />
-                </svg>
-              </span>
-              <span className="truncate">Nhập thông tin & tải tài liệu</span>
-            </li>
-            <li
-              className={cn(
-                'border-border flex min-w-0 flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]',
-                analysisDone ? 'text-muted-foreground' : 'text-foreground font-semibold'
-              )}
-            >
-              <span
-                className={cn(
-                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                  analysisFailed
-                    ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                    : 'border-primary/40 bg-primary/10 text-primary'
-                )}
-              >
-                {analysisFailed ? (
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                ) : analysisRunning ? (
-                  <Spinner className="size-2.5" />
-                ) : (
-                  <svg
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 12.5l5.2 5.2L20 7" />
-                  </svg>
-                )}
-              </span>
-              <span className="truncate">AI phân tích</span>
-            </li>
-            <li
-              className={cn(
-                'flex min-w-0 flex-1 items-center gap-2.5 px-4 py-3 text-[13px]',
-                analysisDone ? 'bg-accent text-foreground font-semibold' : 'text-muted-foreground'
-              )}
-            >
-              <span
-                className={cn(
-                  'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]',
-                  analysisDone
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'border-border'
-                )}
-              >
-                3
-              </span>
-              <span className="truncate">Kiểm chứng & xác nhận</span>
-            </li>
-          </ol>
+        {isVerify && (
+          <PlanCreationStepper
+            step={analysisDone ? 3 : 2}
+            analysisStatus={analysisFailed ? 'failed' : analysisRunning ? 'running' : 'done'}
+          />
         )}
 
         <div className="h-150 flex flex-col gap-4">
-          {plan?.dagAutoFixed && mode === 'edit' && (
+          {plan?.dagAutoFixed && (
             <div className="flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-600">
               <svg
                 width="16"
@@ -501,9 +465,11 @@ export default function PlanDetailPage() {
                 planId={plan.id}
                 initialConcepts={plan.graph.concepts}
                 initialEdges={plan.graph.edges}
-                mode={mode}
+                mode="edit"
                 onConfirm={handleConfirmGraph}
-                confirmLabel={isDraft ? 'Xác nhận & Bắt đầu' : 'Lưu thay đổi'}
+                confirmLabel={isVerify ? 'Xác nhận & tạo lịch ôn tập' : 'Lưu thay đổi'}
+                onCancel={() => navigate(isVerify ? '/plans' : '/graph')}
+                isDraft={isVerify}
               />
             ) : (
               <div className="border-border bg-card text-muted-foreground flex h-full w-full items-center justify-center rounded-xl border">
@@ -520,18 +486,20 @@ export default function PlanDetailPage() {
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col p-6">
       <div className="mb-5 flex-none">
-        <div className="text-muted-foreground mb-2 flex items-center gap-2 text-[13px]">
+        {/* Gốc là "Đồ thị khái niệm" để khớp mục sidebar đang sáng — /plan/:id thuộc mục
+            đó (isNavItemActive trong MainLayout). Mốc cuối là tên kế hoạch: nó nói "bạn
+            đang xem đồ thị NÀO", việc mà mốc "Đồ thị khái niệm" cũ đặt ở cuối không làm
+            được vì đã lặp lại chính h1 ngay bên dưới. */}
+        <nav className="text-muted-foreground mb-2 flex items-center gap-2 text-[13px]">
           <button
-            onClick={() => navigate('/plans')}
+            onClick={() => navigate('/graph')}
             className="hover:text-foreground hover:border-border border-b border-transparent pb-px transition-colors"
           >
-            Kế hoạch ôn tập
+            Đồ thị khái niệm
           </button>
-          <span className="opacity-50">/</span>
+          <BreadcrumbSep />
           <span className="truncate">{plan?.name || 'Chi tiết kế hoạch'}</span>
-          <span className="opacity-50">/</span>
-          <span>Đồ thị khái niệm</span>
-        </div>
+        </nav>
 
         <div className="flex items-end justify-between gap-6">
           <div>
@@ -552,7 +520,7 @@ export default function PlanDetailPage() {
                 về dashboard (DB-02 áp cho nhiều kế hoạch). Luôn hiện khi đã tải được danh sách
                 (khớp mockup) — kể cả lúc mới có 1 kế hoạch, để affordance "đổi kế hoạch ở đây"
                 nhất quán, chứ không xuất hiện đột ngột khi kế hoạch thứ hai ra đời. */}
-            {planList && planList.length > 0 && (
+            {switchablePlans.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <label
                   htmlFor="plan-switch"
@@ -569,12 +537,12 @@ export default function PlanDetailPage() {
                   {/* Kế hoạch hiện tại không (còn) nằm trong danh sách — vd. lỗi tải, hoặc id
                       từ một liên kết cũ. Không để <select> âm thầm rơi về option đầu tiên,
                       trông như đang xem đúng kế hoạch đó. */}
-                  {!planList.some((p) => p.id === id) && (
+                  {!switchablePlans.some((p) => p.id === id) && (
                     <option value={id ?? ''} disabled>
                       Kế hoạch này
                     </option>
                   )}
-                  {planList.map((p) => (
+                  {switchablePlans.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} — {p.conceptCount} khái niệm
                     </option>
@@ -637,7 +605,7 @@ export default function PlanDetailPage() {
             planId={plan.id}
             initialConcepts={plan.graph.concepts}
             initialEdges={plan.graph.edges}
-            mode={mode}
+            mode="view"
             onConfirm={undefined}
           />
         )}

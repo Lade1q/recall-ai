@@ -1,10 +1,18 @@
+import type { ReviewQueueItemResponse } from '../services/scheduling.service';
 import {
+  ALL_PLANS_ARCHIVED_MESSAGE,
   DEFAULT_DEADLINE_HORIZON_DAYS,
   DEFAULT_TODAY_LIMIT,
   MINUTES_PER_TURN,
+  NO_PLAN_MESSAGE,
+  PLAN_ARCHIVED_MESSAGE,
+  PLAN_AWAITING_CONFIRMATION_MESSAGE,
   TRACEBACK_RELEARN_MINUTES,
+  buildInactivePlanMessage,
+  buildNoActivePlanMessage,
   buildReasonText,
   calculatePriority,
+  dedupeByConcept,
   estimateReviewMinutes,
   sortReviewItems,
 } from '../services/scheduling.service';
@@ -228,5 +236,132 @@ describe('estimateReviewMinutes', () => {
     ];
 
     expect(page.reduce((total, item) => total + estimateReviewMinutes(item), 0)).toBe(50);
+  });
+});
+
+function queueItem(
+  overrides: Partial<ReviewQueueItemResponse> & { id: string; conceptId: string }
+): ReviewQueueItemResponse {
+  return {
+    name: 'Cây AVL',
+    planId: 'plan-uuid',
+    planName: 'Cấu trúc dữ liệu',
+    priority: 0.5,
+    reason: 'spaced_repetition',
+    reasonText: 'Đã đến lịch ôn tập theo mức độ ghi nhớ',
+    sourceConceptName: null,
+    depth: null,
+    masteryScore: 0.5,
+    status: 'pending',
+    estimatedMinutes: 9,
+    sourceSessionEndedAt: null,
+    ...overrides,
+  };
+}
+
+describe('dedupeByConcept', () => {
+  it('returns one item per concept when several sessions queued the same one (#232)', () => {
+    const items = [
+      queueItem({ id: 'item-1', conceptId: 'concept-avl' }),
+      queueItem({ id: 'item-2', conceptId: 'concept-avl' }),
+      queueItem({ id: 'item-3', conceptId: 'concept-avl' }),
+      queueItem({ id: 'item-4', conceptId: 'concept-dfs' }),
+    ];
+
+    expect(dedupeByConcept(items).map((item) => item.conceptId)).toEqual([
+      'concept-avl',
+      'concept-dfs',
+    ]);
+  });
+
+  // The survivor must be the row that would have been at the top anyway, or folding the
+  // duplicates away would quietly reorder the queue.
+  it('keeps the traceback row when one of the duplicates is a traceback', () => {
+    const items = [
+      queueItem({ id: 'item-plain', conceptId: 'concept-avl', priority: 0.9 }),
+      queueItem({
+        id: 'item-traceback',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        priority: 0.1,
+      }),
+    ];
+
+    expect(dedupeByConcept(items)[0]?.id).toBe('item-traceback');
+  });
+
+  it('keeps the highest-priority row within the same tier', () => {
+    const items = [
+      queueItem({ id: 'item-low', conceptId: 'concept-avl', priority: 0.1 }),
+      queueItem({ id: 'item-high', conceptId: 'concept-avl', priority: 0.8 }),
+    ];
+
+    expect(dedupeByConcept(items)[0]?.id).toBe('item-high');
+  });
+
+  it('leaves an already-distinct list alone, and does not mutate the input', () => {
+    const items = [
+      queueItem({ id: 'item-1', conceptId: 'concept-avl', priority: 0.2 }),
+      queueItem({ id: 'item-2', conceptId: 'concept-dfs', priority: 0.7 }),
+    ];
+    const original = [...items];
+
+    expect(dedupeByConcept(items)).toHaveLength(2);
+    expect(items).toEqual(original);
+  });
+
+  it('handles an empty queue', () => {
+    expect(dedupeByConcept([])).toEqual([]);
+  });
+});
+
+describe('buildInactivePlanMessage', () => {
+  it('tells a plan waiting for graph confirmation apart from an archived one (#232, after #265)', () => {
+    expect(buildInactivePlanMessage('draft')).toBe(PLAN_AWAITING_CONFIRMATION_MESSAGE);
+    expect(buildInactivePlanMessage('archived')).toBe(PLAN_ARCHIVED_MESSAGE);
+    expect(buildInactivePlanMessage('draft')).not.toBe(buildInactivePlanMessage('archived'));
+  });
+
+  it('names the thing the student still owes the plan, not the status of the row', () => {
+    expect(buildInactivePlanMessage('draft')).toMatch(/xác nhận/);
+    expect(buildInactivePlanMessage('archived')).toMatch(/lưu trữ/);
+  });
+});
+
+describe('buildNoActivePlanMessage', () => {
+  it('invites a user with no plans at all to make one', () => {
+    expect(buildNoActivePlanMessage([])).toBe(NO_PLAN_MESSAGE);
+  });
+
+  it('points a user whose only plans are drafts at the confirmation step, with a count', () => {
+    const message = buildNoActivePlanMessage(['draft', 'draft']);
+
+    expect(message).toContain('2 kế hoạch');
+    expect(message).toMatch(/xác nhận/);
+    expect(message).not.toBe(NO_PLAN_MESSAGE);
+  });
+
+  it('counts only the drafts, not every plan the user has', () => {
+    expect(buildNoActivePlanMessage(['draft', 'archived', 'archived'])).toContain('1 kế hoạch');
+  });
+
+  it('prefers the draft sentence when there are both — it is the one with something to do', () => {
+    expect(buildNoActivePlanMessage(['archived', 'draft'])).toBe(
+      buildNoActivePlanMessage(['draft'])
+    );
+  });
+
+  it('says archived when every plan is archived', () => {
+    expect(buildNoActivePlanMessage(['archived', 'archived'])).toBe(ALL_PLANS_ARCHIVED_MESSAGE);
+  });
+
+  it('gives the three cases three different sentences', () => {
+    const messages = new Set([
+      buildNoActivePlanMessage([]),
+      buildNoActivePlanMessage(['draft']),
+      buildNoActivePlanMessage(['archived']),
+    ]);
+
+    expect(messages.size).toBe(3);
   });
 });

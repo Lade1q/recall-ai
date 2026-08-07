@@ -32,6 +32,33 @@ Hệ quả cho các bộ lọc đọc: mọi truy vấn "mục còn nằm trên 
 chứ không kén `status = 'pending'` (hằng số `OFF_SCHEDULE_STATUSES` trong `scheduling.service.ts`).
 Áp dụng cho cả `isRemediating` của `GET /plans/:id` và `GET /concepts/:id`.
 
+---
+
+## Một mục / một khái niệm (chốt 06/08/2026 — #232)
+
+`@@unique([sourceSessionId, conceptId])` chỉ chống trùng **trong một phiên**. Mỗi phiên chấm
+xong lại upsert thêm một `ReviewQueueItem` cho cùng khái niệm, nên qua nhiều phiên một concept
+tích lũy nhiều hàng `pending`. Chạy thật trên một plan đã vấn đáp vài lần:
+
+```
+8 mục / 3 khái niệm  →  Array ×4 · Binary Tree ×2 · Linked List ×2
+```
+
+Từ #232, **cả hai endpoint đọc đều gộp về một mục cho mỗi khái niệm**:
+
+- Mục sống sót là mục mà thứ tự 2 cấp (`traceback` trước, rồi `priority` giảm dần) **vốn đã xếp
+  lên đầu** — gộp trùng không đổi thứ tự hiển thị, chỉ bỏ bớt số lần lặp lại.
+- Nhóm `skippedItems` gộp theo đúng cách đó.
+- `totalEstimatedMinutes` vì thế tính **một lần** cho mỗi khái niệm.
+- Gộp theo từng plan là đủ cho `/today`: một `Concept` chỉ thuộc đúng một plan.
+
+**Không sửa `@@unique`, không migration.** Giá trị per-session là chủ đích (audit A1: giữ dấu
+vết phiên nào yêu cầu ôn cái gì) — gộp lúc đọc là đủ, và một migration dọn hàng trùng sẽ xoá
+đúng phần dấu vết đó. Hệ quả duy nhất cần biết: hàng cũ bị gỡ **trước** #232 có thể để một
+khái niệm vừa có hàng `pending` vừa có hàng `skipped`, nên nó hiện ở cả hai danh sách; lần đầu
+sinh viên bấm gỡ / đưa lại khái niệm đó là nó tự khớp lại, vì `PATCH` từ #232 chuyển **cả cụm
+hàng của khái niệm** (xem mục 3).
+
 **Hợp đồng cho [#117](https://github.com/Lade1q/planning-ai/issues/117):** `GET /interviews/:id/summary`
 **vẫn** trả `traceback[].status` như cũ — không thêm field, không đổi tên field, không đổi shape.
 Chỉ cách đọc đổi: `pending` ở đó nghĩa là _"đã áp vào lịch"_, không phải _"chờ duyệt"_, nên màn
@@ -68,6 +95,8 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
           "id": "9f1c1e2a-...-uuid",
           "conceptId": "b2d3e4f5-...-uuid",
           "name": "Giới hạn hàm số",
+          "planId": "c1f8a8b1-...-uuid",
+          "planName": "Giải tích 1",
           "priority": 0.42,
           "reason": "traceback",
           "reasonText": "Nền tảng của 'Đạo hàm riêng' mà bạn còn yếu",
@@ -93,11 +122,21 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   công thức `priority`. Xem [mục cuối](#ước-lượng-thời-gian-estimatedminutes) về công thức ước
   lượng.
 
+  `planId` / `planName` là phần bổ sung của **#232** — cũng chỉ **thêm** field. Ở endpoint này
+  bên gọi vốn đã biết plan, nhưng hai endpoint phải cùng một shape (xem mục 2: `/today` gộp
+  nhiều plan nên **bắt buộc** phải có). Có ở cả item fallback A3 — item đó không có row thật
+  nhưng vẫn thuộc về một kế hoạch cụ thể.
+
 - **Hàng đợi rỗng cho plan mới (chưa từng có phiên Interview nào):** trả `items` là gợi ý trực
   tiếp từ `concepts` của plan (chưa được kiểm tra trước, khó nhất trước), với
   `reason: "spaced_repetition"`, `reasonText: "Khái niệm chưa được kiểm tra"`, `id: null` (vì
   chưa có row `ReviewQueueItem` thật — không thể `PATCH` các item này) và
   `sourceSessionEndedAt: null` (chưa có phiên nào để truy ngược).
+
+  ⚠️ **Danh sách fallback A3 này CHỈ có ở endpoint `?planId=`, KHÔNG có ở `/today`** (#273). Mục
+  fallback không mang `scheduledFor` nên không bao giờ "đến hạn"; đưa nó vào `/today` khiến gợi ý
+  của một plan mới toanh (priority từ mastery `null`) lấn át mục **thật sự đến hạn** của plan
+  đang học dở. Xem mục 2.
 
 - **Nhóm "Đã gỡ khỏi lịch" (`includeSkipped=true`):** envelope có thêm `skippedItems`, cùng
   shape với `items` (mọi phần tử có `status: "skipped"`), sắp cùng một kiểu — mục đưa lại phải
@@ -115,6 +154,8 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
           "id": "4b2f0d18-...-uuid",
           "conceptId": "a1c2e3f4-...-uuid",
           "name": "Cây AVL",
+          "planId": "c1f8a8b1-...-uuid",
+          "planName": "Giải tích 1",
           "priority": 0.02,
           "reason": "spaced_repetition",
           "reasonText": "Đã đến lịch ôn tập theo mức độ ghi nhớ",
@@ -159,18 +200,31 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   `screen-plan-review-queue.html` (§3) — vì đây không phải đã ôn xong, và vẽ chung màn "đã ôn
   hết" sẽ chôn luôn đường đưa lại. Nhóm đã gỡ mở sẵn trong trạng thái này.
 
-- **Plan chưa ở trạng thái `active` (HTTP 200 OK, không phải lỗi):**
+- **Plan chưa ở trạng thái `active` (HTTP 200 OK, không phải lỗi):** câu trả về **rẽ theo
+  `status`** (#232, sau #265). Guard là `status !== 'active'` nên nó bắt cả `draft` lẫn
+  `archived` — hai việc khác hẳn nhau, không dùng chung một câu được:
+
+  | `plan.status` | `message`                                                                                              |
+  | ------------- | ------------------------------------------------------------------------------------------------------ |
+  | `draft`       | `"Kế hoạch này đang chờ bạn xác nhận đồ thị khái niệm. Kiểm chứng xong, hàng đợi ôn sẽ bắt đầu chạy."` |
+  | `archived`    | `"Kế hoạch này đã được lưu trữ. Bỏ lưu trữ để ôn tiếp."`                                               |
 
   ```json
   {
     "success": true,
     "data": {
       "items": [],
-      "message": "Kế hoạch chưa ở trạng thái hoạt động.",
+      "message": "Kế hoạch này đang chờ bạn xác nhận đồ thị khái niệm. Kiểm chứng xong, hàng đợi ôn sẽ bắt đầu chạy.",
       "totalEstimatedMinutes": 0
     }
   }
   ```
+
+  Trước 06/08 cả hai nhận chung câu _"Kế hoạch chưa ở trạng thái hoạt động."_ — nói **trạng thái
+  hệ thống** thay vì **việc người dùng còn nợ**, và giấu mất lối đi tới đó. Vô hại khi `draft`
+  chỉ sống vài giây; sau **#265** `draft` nghĩa là _"phân tích xong, chờ xác nhận đồ thị"_ và là
+  trạng thái sống lâu. Chữ "xác nhận" bám theo nhãn **"Chờ xác nhận"** của thẻ kế hoạch SP-03
+  (#269) và nút "Kiểm chứng đồ thị" — cùng một trạng thái không mang hai tên.
 
 - **Lỗi Validation query (HTTP 400 Bad Request):** thiếu `planId`, `planId` không phải UUID, hoặc
   `limit` không hợp lệ.
@@ -201,28 +255,60 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   Gộp top-K từ **tất cả** plan `active` của user (không chỉ 1 plan), **có lọc**
   `scheduledFor <= hiện tại` — item hẹn ôn trong tương lai chưa xuất hiện ở đây.
 
-- **Response thành công (HTTP 200 OK):** shape giống hệt mục 1
-  (`{ items, message, totalEstimatedMinutes }`), nhưng `items` gộp từ nhiều plan.
+- **KHÔNG có fallback A3 (#273):** plan có `0` dòng `ReviewQueueItem` (chưa từng vấn đáp) đóng
+  góp `[]` vào `/today`, **không** phải danh sách gợi ý từ `concepts`. Chỉ mục **đã lên lịch
+  thật** và đến hạn (`scheduledFor <= now`, đã lọc `OFF_SCHEDULE_STATUSES`) mới vào. Lý do:
+  "hôm nay" chỉ nên có việc thật đến hạn — plan chưa học không có gì "đến hạn", nhất quán với
+  việc plan `draft` cũng không vào (#265). Fallback là gợi ý học mới, thuộc bề mặt `?planId=`
+  (mục 1) / Dashboard, không phải danh sách nhắc ôn. Trước 06/08 fallback lọt vào đây và **nuốt
+  mất** mục đến hạn thật của plan khác (gợi ý plan-mới `priority ≈ 0.07` > mục thật đã lên lịch).
 
-- **User chưa có plan nào đang `active` (HTTP 200 OK, không phải lỗi):**
+- **Response thành công (HTTP 200 OK):** shape giống hệt mục 1
+  (`{ items, message, totalEstimatedMinutes }`), nhưng `items` gộp từ nhiều plan. Mỗi item mang
+  `planId` + `planName` của **plan chứa nó** (#232) — không có hai field này thì Dashboard
+  (#169) không dựng nổi request cho cả hai CTA "Bắt đầu Focus Session" và "Vào thẳng phiên kiểm
+  tra", vì `POST /interviews` bắt buộc `planId` và `FocusSession.planId` cũng vậy.
+
+- **User chưa có plan nào đang `active` (HTTP 200 OK, không phải lỗi):** ba ca, **ba câu**
+  (#232, sau #265). Truy vấn hỏi **mọi** plan của user rồi lọc `active` trong JS — vẫn **một**
+  round trip — nên lúc rỗng nó còn phân biệt được rỗng kiểu gì:
+
+  | Tình trạng các plan     | `message`                                                                             |
+  | ----------------------- | ------------------------------------------------------------------------------------- |
+  | không có plan nào       | `"Bạn chưa có kế hoạch ôn tập nào. Tạo một kế hoạch để bắt đầu ôn."`                  |
+  | có ≥ 1 plan `draft`     | `"Bạn có N kế hoạch đang chờ xác nhận đồ thị. Xác nhận để hàng đợi ôn bắt đầu chạy."` |
+  | còn lại toàn `archived` | `"Mọi kế hoạch của bạn đang được lưu trữ. Bỏ lưu trữ một kế hoạch để ôn tiếp."`       |
 
   ```json
   {
     "success": true,
     "data": {
       "items": [],
-      "message": "Bạn chưa có kế hoạch ôn tập nào đang hoạt động.",
+      "message": "Bạn có 1 kế hoạch đang chờ xác nhận đồ thị. Xác nhận để hàng đợi ôn bắt đầu chạy.",
       "totalEstimatedMinutes": 0
     }
   }
   ```
 
-  Đây là trạng thái khác với "đã ôn hết hôm nay" — theo đúng fix của audit A3, không được dùng
+  🚨 **Nới `where` không có nghĩa là cho plan `draft` vào hàng đợi.** Plan chưa xác nhận vẫn
+  **không** đóng góp item nào (#265) — `where` rộng ra chỉ để **đếm và phân loại** cho việc chọn
+  câu. Ca `draft` được ưu tiên hơn `archived` khi có cả hai: đó là ca duy nhất người dùng đang
+  còn nợ một việc cụ thể.
+
+  Cả ba đều khác trạng thái "đã ôn hết hôm nay" — theo đúng fix của audit A3, không được dùng
   nhầm message 🎉 cho người chưa từng bắt đầu.
 
 - **Đã ôn đủ mọi plan hôm nay (HTTP 200 OK):** `message: "Bạn đã hoàn thành kế hoạch hôm nay 🎉"`.
   Đây là **bề mặt duy nhất** được nói chữ "hôm nay", vì cũng là bề mặt duy nhất thật sự lọc theo
-  `scheduledFor` — mục 1 có câu riêng của nó.
+  `scheduledFor` — mục 1 có câu riêng của nó. Câu 🎉 này chỉ hiện khi **có lịch sử** (`hasHistory`)
+  — tức đã từng vấn đáp và giờ không còn mục đến hạn.
+
+- **Có plan `active` nhưng chưa mục nào đến hạn, và chưa plan nào từng vấn đáp (HTTP 200 OK):**
+  trạng thái rỗng **mới** do #273 mở ra khi bỏ fallback khỏi `/today`. `hasHistory=false` nên
+  `resolveEmptyMessage` trả `null` → `{ items: [], message: null, totalEstimatedMinutes: 0 }`.
+  #273 **cố ý không** tự chế câu cho ca này — câu chữ + UI (mời tạo phiên vấn đáp / học mới)
+  thuộc **#231** (design trạng thái Dashboard) và **#232 phần 4** (chọn câu rỗng). Không được
+  dùng câu 🎉 ở đây: chưa ôn gì thì không phải "đã hoàn thành".
 
 - **Không có `includeSkipped` ở endpoint này:** nhóm "đã gỡ" là chuyện của một kế hoạch cụ thể
   (màn Kế hoạch ôn tập), không phải của danh sách gợi ý gộp nhiều plan.
@@ -271,6 +357,12 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   **Item bị gỡ không bị xoá** — chỉ đổi `status` thành `"skipped"`. Nó rời `items` của mục 1/2
   ngay lập tức, nhưng vẫn đọc lại được qua `includeSkipped=true` (mục 1) — chính chỗ đó làm cho
   chiều `"pending"` với tới được. Reload xong trạng thái vẫn đúng ở cả hai chiều.
+
+  ⚠️ **Thao tác áp cho cả cụm hàng của khái niệm đó trong plan, không riêng `itemId` được gửi**
+  (#232). Vì hàng đợi đọc ra đã gộp một mục / một khái niệm, nếu chỉ chuyển đúng một hàng thì
+  khái niệm vừa gỡ sẽ quay lại ngay ở lần đọc sau từ một hàng anh em — nút bấm trông như không
+  làm gì. Response vẫn trả **đúng item được gửi lên** (shape không đổi); thứ đổi là số hàng
+  trong DB đi theo nó.
 
 - **Lỗi Validation body (HTTP 400 Bad Request):** thiếu `status` hoặc giá trị không hợp lệ.
 

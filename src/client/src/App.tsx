@@ -48,6 +48,11 @@ function App() {
               <Route path="/plans" element={<PlansPage />} />
               <Route path="/plan/new" element={<CreatePlanPage />} />
               <Route path="/plan/:id" element={<PlanDetailPage />} />
+              {/* Bước kiểm chứng đồ thị AI đề xuất (SP-01) là route riêng chứ không phải
+                  một giá trị của `?mode`: sidebar chỉ đọc `location.pathname` để biết trang
+                  đang mở thuộc mục nav nào, nên "trang này LÀ trang nào" phải nằm trong
+                  đường dẫn (Issue #274). */}
+              <Route path="/plan/:id/verify" element={<PlanDetailPage routeMode="verify" />} />
               <Route path="/graph" element={<GraphIndexPage />} />
               <Route path="/focus" element={<FocusPage />} />
               <Route path="/interview" element={<InterviewPage />} />

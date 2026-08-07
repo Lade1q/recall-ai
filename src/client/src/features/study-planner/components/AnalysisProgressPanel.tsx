@@ -111,6 +111,10 @@ export function AnalysisProgressPanel({
   const currentIndex = complete ? PHASE_ORDER.length : phase ? PHASE_ORDER.indexOf(phase) : 0;
   const skipsSendPhase = documentKind === 'text';
 
+  // Hard-coded `done`: xem docblock đầu file — 201 chỉ trả về sau khi
+  // createPlanInDb commit (plan+document+job cùng transaction), và panel
+  // chỉ render sau 201. Đừng suy từ pageCount (chỉ PDF) hay document!=null
+  // (analysisPlan còn null tới lần poll đầu, +2500ms).
   const phases: { label: string; state: SubPhaseState }[] = [
     {
       label: `Tải tệp lên kho lưu trữ · lưu bản ghi documents${

@@ -32,6 +32,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -191,7 +192,7 @@ function ViewportControls() {
   return (
     <Panel
       position="bottom-right"
-      className="border-border bg-card shadow-soft m-4! flex items-center gap-1 rounded-[calc(var(--radius)*0.8)] border p-1"
+      className="border-border bg-card shadow-soft m-4! flex items-center gap-1 rounded-md border p-1"
     >
       <button type="button" className={buttonClass} title="Thu nhỏ" onClick={() => zoomOut()}>
         −
@@ -251,7 +252,7 @@ function EdgeLegend() {
   return (
     <Panel
       position="bottom-left"
-      className="border-border bg-card text-muted-foreground m-4! px-3.25 py-2.25 flex max-w-[min(100%-8rem,32rem)] flex-wrap gap-x-4 gap-y-1.5 rounded-[calc(var(--radius)*0.8)] border text-[11px]"
+      className="border-border bg-card text-muted-foreground m-4! px-3.25 py-2.25 flex max-w-[min(100%-8rem,32rem)] flex-wrap gap-x-4 gap-y-1.5 rounded-md border text-[11px]"
     >
       {items.map((item) => (
         <span key={item.label} className="gap-1.75 flex items-center">
@@ -318,6 +319,8 @@ interface ConceptGraphProps {
    * khi sửa kế hoạch đã có, nơi gọi truyền "Lưu thay đổi" thay vì "bắt đầu" một thứ đã chạy.
    */
   confirmLabel?: string;
+  onCancel?: () => void;
+  isDraft?: boolean;
 }
 
 export function ConceptGraph({
@@ -327,6 +330,8 @@ export function ConceptGraph({
   mode,
   onConfirm,
   confirmLabel = 'Xác nhận & Bắt đầu',
+  onCancel,
+  isDraft = false,
 }: ConceptGraphProps) {
   const navigate = useNavigate();
   const nodeTypes = useMemo(() => ({ conceptNode: GraphNode }), []);
@@ -342,6 +347,23 @@ export function ConceptGraph({
   // Add Concept dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newConceptName, setNewConceptName] = useState('');
+
+  // Cancel & Dirty state
+  const [isDirty, setIsDirty] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+
+  const handleCancelClick = useCallback(() => {
+    if (isDirty) {
+      setIsCancelDialogOpen(true);
+    } else if (onCancel) {
+      onCancel();
+    }
+  }, [isDirty, onCancel]);
+
+  const confirmCancel = useCallback(() => {
+    setIsCancelDialogOpen(false);
+    if (onCancel) onCancel();
+  }, [onCancel]);
 
   // --- DB-05: lọc & tìm kiếm (chỉ có ý nghĩa ở mode='view') ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -634,6 +656,7 @@ export function ConceptGraph({
         return;
       }
       setEdges((eds) => addEdge(newEdge, eds) as Edge[]);
+      setIsDirty(true);
     },
     [mode, edges, nodes, setEdges]
   );
@@ -677,6 +700,7 @@ export function ConceptGraph({
   const handleRemoveEdge = useCallback(
     (edgeId: string) => {
       setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+      setIsDirty(true);
       toast.info('Đã xóa quan hệ tiên quyết.');
     },
     [setEdges]
@@ -712,6 +736,7 @@ export function ConceptGraph({
     setNodes((nds) => [...nds, newNode]);
     setNewConceptName('');
     setIsAddDialogOpen(false);
+    setIsDirty(true);
     toast.success(`Đã thêm khái niệm "${name}".`);
   }, [newConceptName, nodes, setNodes]);
 
@@ -730,6 +755,7 @@ export function ConceptGraph({
       // Also remove all edges connected to this node
       setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
       setSelectedNodeId(null);
+      setIsDirty(true);
       toast.info('Đã xóa khái niệm.');
     },
     [setNodes, setEdges]
@@ -820,14 +846,6 @@ export function ConceptGraph({
               </Dialog>
               <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={onLayout}>
                 Auto Layout
-              </Button>
-              <Button
-                size="sm"
-                className="h-7 px-4 text-xs"
-                onClick={handleConfirm}
-                disabled={isUpdating}
-              >
-                {isUpdating ? 'Đang lưu...' : confirmLabel}
               </Button>
             </div>
           </div>
@@ -1191,6 +1209,49 @@ export function ConceptGraph({
           />
         )}
       </div>
+
+      {/* COMMIT SECTION */}
+      {mode === 'edit' && (
+        <div className="mt-4.5 flex flex-wrap items-center gap-3.5">
+          <Button onClick={handleConfirm} disabled={isUpdating}>
+            {isUpdating ? 'Đang lưu...' : confirmLabel}
+          </Button>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground text-[13.5px] font-medium underline underline-offset-4 transition-colors"
+            onClick={handleCancelClick}
+          >
+            Hủy
+          </button>
+          {isDraft && (
+            <p className="text-muted-foreground m-0 min-w-0 flex-1 basis-80 text-pretty text-[12.5px] leading-[1.6]">
+              Khi xác nhận, kế hoạch bắt đầu và hệ thống tự sắp lịch ôn cho bạn. Điểm thành thạo sẽ
+              được tính sau buổi kiểm tra đầu tiên.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Cancel Confirmation Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="sm:max-w-110">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Hủy bỏ thay đổi?</DialogTitle>
+            <DialogDescription className="text-[14px]">
+              Bạn có những thay đổi chưa được lưu trên đồ thị. Những thay đổi này sẽ bị mất nếu bạn
+              tiếp tục hủy.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-2">
+            <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
+              Tiếp tục chỉnh sửa
+            </Button>
+            <Button variant="destructive" onClick={confirmCancel}>
+              Đồng ý hủy
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

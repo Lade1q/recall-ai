@@ -392,6 +392,201 @@
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PHỤ LỤC (#231): 7 trạng thái còn thiếu.
+       Tên class + bố cục gallery/state__* chép nguyên từ screen-plan-review-queue.html
+       để hai phụ lục đọc như cùng một quy ước, không phải hai cách trình bày khác nhau.
+       ══════════════════════════════════════════════════════════════════ */
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 680px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 760px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 24px 26px;
+    }
+
+    /* Chuỗi client tự đặt (A2b) — nhãn phải nổi trên chính trang render, không chỉ
+       nằm trong comment, vì đây là chỗ duy nhất người implement được phép hardcode. */
+    .client-string-flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.03em;
+      color: var(--ai-accent);
+      background: oklch(from var(--ai-accent) l c h / 0.12);
+      border-radius: 4px;
+      padding: 3px 8px;
+      margin-bottom: 14px;
+    }
+
+    /* Trạng thái rỗng một cột (A1 / A1c) — cùng hình dạng .empty đã có ở
+       screen-plan-review-queue.html, khác nội dung. */
+    .empty {
+      max-width: 460px;
+      margin: 8px auto;
+      text-align: center;
+    }
+
+    .empty__art {
+      color: var(--muted-foreground);
+      opacity: 0.55;
+      margin-bottom: 16px;
+    }
+
+    .empty h3 {
+      font-family: var(--font-heading);
+      font-size: 20px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .empty p {
+      font-size: 13.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 18px;
+      text-wrap: pretty;
+    }
+
+    /* ── A4: skeleton + lỗi từng khối ── */
+    .skel-block {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      padding: 18px 20px;
+      background: var(--card);
+    }
+
+    .skel-block__label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--muted-foreground);
+      margin-bottom: 12px;
+    }
+
+    .skel {
+      display: block;
+      height: 12px;
+      border-radius: 3px;
+      background: var(--border);
+      animation: skel-pulse 1.6s var(--ease-standard) infinite;
+    }
+
+    @keyframes skel-pulse {
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .block-error {
+      display: flex;
+      gap: 11px;
+      align-items: flex-start;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--muted);
+      padding: 13px 15px;
+    }
+
+    .block-error svg {
+      flex: none;
+      margin-top: 2px;
+      color: var(--mastery-weak);
+    }
+
+    .block-error p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--foreground);
+      margin: 0 0 10px;
+      text-wrap: pretty;
+    }
+
+    .a4-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .a4-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 
@@ -437,7 +632,11 @@
         </div>
 
         <div class="today__queue">
-          <div class="queue-label">Hàng đợi hôm nay · ≈ 50 phút</div>
+          <!-- ≈ 23 phút = estimateReviewMinutes() cho 2 mục: Ngăn xếp (traceback, depth 1)
+               3×3 + 5×1 = 14 · Duyệt đồ thị DFS (review) 3×3 = 9 · MINUTES_PER_TURN=3,
+               TRACEBACK_RELEARN_MINUTES=5 (scheduling.service.ts:166,174). Đừng "sửa" con số
+               này cho khớp một ước lượng khác — nó phải khớp hàm đang chạy thật. -->
+          <div class="queue-label">Hàng đợi hôm nay · ≈ 23 phút</div>
           <div class="queue-item">
             <span class="queue-item__idx">01</span>
             <div>
@@ -620,7 +819,9 @@
           <div class="deadline-item">
             <div class="deadline-item__left">
               <div>Hệ điều hành</div>
-              <div class="deadline-item__sub">còn 2 khái niệm chưa vững</div>
+              <!-- tổng − vững = 18 − 12 = 6, khớp công thức panel này dùng (xem thẻ kế hoạch
+                   "Hệ điều hành" ở .plan-grid ngay trên) -->
+              <div class="deadline-item__sub">còn 6 khái niệm chưa vững</div>
             </div>
             <span class="deadline-item__val" style="color:var(--muted-foreground);">9 ngày</span>
           </div>
@@ -641,6 +842,369 @@
       </div>
     </main>
   </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       PHỤ LỤC: các trạng thái còn lại (#231)
+       Màn phía trên chỉ vẽ ĐÚNG MỘT trạng thái: 3 kế hoạch active, có hàng đợi hôm nay,
+       có lịch sử. Nhưng người dùng gặp dashboard LẦN ĐẦU ngay sau khi đăng ký, lúc mọi
+       nguồn dữ liệu đều rỗng theo một cách khác nhau — không vẽ trước thì mỗi người
+       implement tự chế một kiểu rỗng riêng.
+       ══════════════════════════════════════════════════════════════ -->
+  <section class="gallery" aria-label="Các trạng thái khác">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái khác</h2>
+        <p>
+          7 trạng thái, phân biệt bằng dữ liệu ba nguồn độc lập trả về: <span class="meta-mono"
+            style="font-size:12px;">GET /plans</span>, <span class="meta-mono"
+            style="font-size:12px;">GET /dashboard/stats</span>, <span class="meta-mono"
+            style="font-size:12px;">GET /review-queue/today</span>. Bốn trong bảy trạng thái có câu chữ do
+          <b>server</b> quyết định — chép nguyên văn, không viết lại; đúng một trạng thái (A2b) do
+          <b>client</b> tự đặt chữ, đánh dấu riêng.
+        </p>
+      </div>
+
+      <!-- ── A1. Chưa có kế hoạch nào ── -->
+      <section id="trang-thai-a1">
+        <div class="state__head">
+          <span class="state__name">A1 — Chưa có kế hoạch nào (DB-01 [E1])</span>
+          <span class="tag">NO_PLAN_MESSAGE</span>
+        </div>
+        <p class="state__desc">
+          Người dùng vừa đăng ký. <span class="meta-mono" style="font-size:12px;">GET /plans</span> rỗng,
+          <span class="meta-mono" style="font-size:12px;">/dashboard/stats</span> trả toàn <span class="meta-mono"
+            style="font-size:12px;">0</span>. Dải chỉ số, mini đồ thị và panel "Sắp đến hạn" bị <b>ẩn hẳn</b> thay
+          vì hiện ở dạng rỗng — ba khối rỗng cạnh nhau trông như app hỏng, chứ không như "chưa có gì để hiện".
+        </p>
+        <div class="state__demo">
+          <div class="empty">
+            <div class="empty__art" aria-hidden="true">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6.5 4.5h11a1 1 0 0 1 1 1V19a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z" />
+                <path d="M9.5 9h5" />
+                <path d="M9.5 12.5h5" />
+                <path d="M9.5 16h3" />
+              </svg>
+            </div>
+            <h3>Bắt đầu kế hoạch ôn tập đầu tiên</h3>
+            <!-- Nguyên văn NO_PLAN_MESSAGE — /review-queue/today trả câu này khi statuses.length === 0 -->
+            <p>Bạn chưa có kế hoạch ôn tập nào. Tạo một kế hoạch để bắt đầu ôn.</p>
+            <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
+              Tạo kế hoạch đầu tiên
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── A1b. Có kế hoạch nhưng chưa xác nhận đồ thị cái nào ── -->
+      <section id="trang-thai-a1b">
+        <div class="state__head">
+          <span class="state__name">A1b — Toàn bộ kế hoạch còn <span class="meta-mono"
+              style="font-size:13px;">draft</span> (#265)</span>
+          <span class="tag">buildNoActivePlanMessage() · awaitingCount &gt; 0</span>
+        </div>
+        <p class="state__desc">
+          <b>Không phải biến thể của A1 — bố cục khác hẳn.</b> <span class="meta-mono"
+            style="font-size:12px;">GET /plans</span> <b>có dữ liệu</b> nên lưới thẻ kế hoạch không được ẩn như
+          A1, nhưng <span class="meta-mono" style="font-size:12px;">/dashboard/stats</span> lọc
+          <span class="meta-mono" style="font-size:12px;">status='active'</span> nên dải chỉ số vẫn toàn
+          <span class="meta-mono" style="font-size:12px;">0</span>. "Có thẻ kế hoạch mà mọi chỉ số bằng 0" là
+          thật, và trông như app hỏng nếu không vẽ có chủ đích. CTA thật để xử lý việc còn nợ nằm trên từng thẻ
+          (<span class="meta-mono" style="font-size:12px;">/plan/:id/verify</span>, nhãn "Kiểm chứng đồ thị" —
+          cùng tên với SP-03 và <span class="meta-mono" style="font-size:12px;">PlanCard.tsx</span>); khối đầu
+          trang không đoán hộ người dùng nên bấm thẻ nào trong N thẻ, nên trỏ về danh sách kế hoạch.
+        </p>
+        <div class="state__demo">
+          <div class="card today" style="grid-template-columns:1fr; margin-bottom:20px;">
+            <div class="today__main">
+              <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chờ xác
+                nhận</span>
+              <h2 class="font-heading" style="font-size:22px; margin:14px 0 0;">2 kế hoạch đang chờ bạn</h2>
+              <!-- Nguyên văn chuỗi động của buildNoActivePlanMessage() khi awaitingCount = 2 -->
+              <p class="today__reason" style="max-width:60ch;">
+                Bạn có <strong>2</strong> kế hoạch đang chờ xác nhận đồ thị khái niệm. Xác nhận để hàng đợi ôn
+                bắt đầu chạy.
+              </p>
+              <div class="today__actions">
+                <a class="btn btn-secondary" href="screen-plans.html" style="text-decoration:none;">Xem kế hoạch
+                  ôn tập</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="stat-strip" style="margin-bottom:24px;">
+            <div class="stat-strip__item" style="border-left:none;">
+              <div class="stat-strip__value">0</div>
+              <div class="stat-strip__label">ngày ôn liên tiếp</div>
+            </div>
+            <div class="stat-strip__item">
+              <div class="stat-strip__value">0h 0m</div>
+              <div class="stat-strip__label">thời gian học tuần này</div>
+            </div>
+            <div class="stat-strip__item">
+              <div class="stat-strip__value">0<span style="font-size:15px; color:var(--muted-foreground);">/0</span>
+              </div>
+              <div class="stat-strip__label">khái niệm đạt mastery_score ≥ 0.8</div>
+            </div>
+          </div>
+
+          <div class="plan-grid" style="margin-bottom:0;">
+            <div class="card"
+              style="padding:20px; border-style:dashed;">
+              <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chờ xác
+                nhận</span>
+              <h3 style="margin:10px 0 0; font-size:15px; font-weight:600;">Xác suất thống kê</h3>
+              <div class="plan-card__meta">28 khái niệm · 34 trang tài liệu</div>
+              <p style="font-size:12.5px; color:var(--muted-foreground); margin:14px 0 0; line-height:1.65;">
+                AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.
+              </p>
+              <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:12px; font-size:12.5px;">
+                <a href="#" style="color:var(--foreground); text-decoration:none; border-bottom:1px solid var(--border);">Kiểm
+                  chứng đồ thị</a>
+              </div>
+            </div>
+            <div class="card" style="padding:20px; border-style:dashed;">
+              <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chờ xác
+                nhận</span>
+              <h3 style="margin:10px 0 0; font-size:15px; font-weight:600;">Kiến trúc máy tính</h3>
+              <div class="plan-card__meta">21 khái niệm · 41 trang tài liệu</div>
+              <p style="font-size:12.5px; color:var(--muted-foreground); margin:14px 0 0; line-height:1.65;">
+                AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.
+              </p>
+              <div style="border-top:1px solid var(--border); margin-top:14px; padding-top:12px; font-size:12.5px;">
+                <a href="#" style="color:var(--foreground); text-decoration:none; border-bottom:1px solid var(--border);">Kiểm
+                  chứng đồ thị</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── A1c. Toàn bộ kế hoạch archived ── -->
+      <section id="trang-thai-a1c">
+        <div class="state__head">
+          <span class="state__name">A1c — Toàn bộ kế hoạch đã lưu trữ</span>
+          <span class="tag">ALL_PLANS_ARCHIVED_MESSAGE</span>
+        </div>
+        <p class="state__desc">
+          Rỗng vì người dùng đã <b>chủ động cất đi</b>, không phải vì chưa làm gì — câu chữ và CTA vì thế khác
+          hẳn A1/A1b ("Bỏ lưu trữ", không phải "Tạo kế hoạch"). Ưu tiên thấp hơn A1/A1b nhưng
+          <span class="meta-mono" style="font-size:12px;">buildNoActivePlanMessage()</span> vẫn trả câu riêng
+          cho ca này nên vẫn cần hình dạng. Thao tác "Bỏ lưu trữ" thật nằm ở menu "···" của từng thẻ (xem
+          <span class="meta-mono" style="font-size:12px;">PlanCard.tsx</span>), không phải một nút gộp — khối đầu
+          trang chỉ dẫn tới nơi có menu đó.
+        </p>
+        <div class="state__demo">
+          <div class="card today" style="grid-template-columns:1fr; margin-bottom:20px;">
+            <div class="today__main">
+              <h2 class="font-heading" style="font-size:22px; margin:0;">Mọi kế hoạch đang được lưu trữ</h2>
+              <!-- Nguyên văn ALL_PLANS_ARCHIVED_MESSAGE -->
+              <p class="today__reason">Mọi kế hoạch của bạn đang được lưu trữ. Bỏ lưu trữ một kế hoạch để ôn
+                tiếp.</p>
+              <div class="today__actions">
+                <a class="btn btn-secondary" href="screen-plans.html" style="text-decoration:none;">Xem kế hoạch
+                  đã lưu trữ</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="plan-grid" style="margin-bottom:0; grid-template-columns:repeat(2, 1fr);">
+            <div class="card" style="padding:20px; opacity:0.6;">
+              <h3 style="margin:0; font-size:15px; font-weight:600;">Giải tích 2</h3>
+              <div class="plan-card__meta">19 khái niệm · đã lưu trữ</div>
+            </div>
+            <div class="card" style="padding:20px; opacity:0.6;">
+              <h3 style="margin:0; font-size:15px; font-weight:600;">Nhập môn Lập trình</h3>
+              <div class="plan-card__meta">15 khái niệm · đã lưu trữ</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── A2. Đã ôn xong hôm nay ── -->
+      <section id="trang-thai-a2">
+        <div class="state__head">
+          <span class="state__name">A2 — Đã ôn xong hôm nay (DB-04 [E1])</span>
+          <span class="tag">COMPLETED_TODAY_MESSAGE</span>
+        </div>
+        <p class="state__desc">
+          Có kế hoạch <span class="meta-mono" style="font-size:12px;">active</span>, đã ôn hết phần đến hạn hôm
+          nay. Khối "Gợi ý hôm nay" giữ vị trí đầu trang nhưng gập về một cột: không còn mục nào để liệt kê nên
+          cột "Hàng đợi hôm nay" bên phải biến mất theo, và hai hành động chính đổi thành lối đi phụ (xem đồ thị
+          / xem lịch sử) — "Hoãn đến mai" / "Bỏ qua gợi ý" cũng biến mất vì không có gợi ý nào để hoãn hay bỏ.
+        </p>
+        <div class="state__demo">
+          <div class="card today" style="grid-template-columns:1fr;">
+            <div class="today__main">
+              <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">Đã hoàn thành</span>
+              <h2 class="font-heading" style="font-size:22px; margin:14px 0 0;">Không còn gì đến hạn hôm nay</h2>
+              <!-- Nguyên văn COMPLETED_TODAY_MESSAGE, kể cả emoji -->
+              <p class="today__reason">Bạn đã hoàn thành kế hoạch hôm nay 🎉</p>
+              <div class="today__actions">
+                <a class="btn btn-secondary" href="screen-concept-graph.html" style="text-decoration:none;">Xem
+                  đồ thị khái niệm</a>
+                <a class="btn btn-outline" href="screen-history.html" style="text-decoration:none;">Xem lịch sử
+                  ôn tập</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── A2b. Có kế hoạch active nhưng chưa gì đến hạn — chữ CLIENT ── -->
+      <section id="trang-thai-a2b">
+        <div class="state__head">
+          <span class="state__name">A2b — Chưa có gì đến hạn (vừa xác nhận đồ thị) (#273)</span>
+          <span class="tag">resolveEmptyMessage() → null</span>
+        </div>
+        <p class="state__desc">
+          Sinh ra bởi #273: <span class="meta-mono" style="font-size:12px;">/review-queue/today</span> thôi trả
+          fallback A3, nên một kế hoạch vừa xác nhận mà <b>chưa vấn đáp lần nào</b> giờ trả <span
+            class="meta-mono" style="font-size:12px;">[]</span> thay vì gợi ý bừa. Server trả
+          <span class="meta-mono" style="font-size:12px;">message: null</span> cho ca này — <b>cố ý</b>, không
+          phải sót (PR #278). Đây là ca <b>duy nhất</b> trong bảy trạng thái mà client tự đặt chữ; bốn ca kia đều
+          render nguyên văn <span class="meta-mono" style="font-size:12px;">message</span> server trả.
+        </p>
+        <div class="state__demo">
+          <span class="client-string-flag">⬤ chữ client — không đọc từ response</span>
+          <div class="card today" style="grid-template-columns:1fr;">
+            <div class="today__main">
+              <span class="badge" style="background: oklch(from var(--ai-accent) l c h / 0.14); color: var(--ai-accent);">Sẵn
+                sàng</span>
+              <h2 class="font-heading" style="font-size:22px; margin:14px 0 0;">Đồ thị đã sẵn sàng — bắt đầu
+                phiên đầu tiên</h2>
+              <p class="today__reason">
+                Hệ thống chưa biết bạn đang nắm vững chỗ nào, vì kế hoạch này chưa có phiên vấn đáp nào. Làm một
+                phiên để bắt đầu — kết quả sẽ xếp lịch ôn cho những lần sau.
+              </p>
+              <div class="today__actions">
+                <a class="btn btn-primary" href="screen-interview.html" style="text-decoration:none;">Bắt đầu
+                  phiên vấn đáp</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── A3. Mọi deadline đã qua ── -->
+      <section id="trang-thai-a3">
+        <div class="state__head">
+          <span class="state__name">A3 — Mọi deadline đã qua (DB-01 [E2])</span>
+          <span class="tag">daysUntil &lt; 0</span>
+        </div>
+        <p class="state__desc">
+          Panel "Sắp đến hạn" khi mọi kế hoạch đều quá hạn. Màn chính chỉ có màu <span class="meta-mono"
+            style="font-size:12px;">--remediate</span> cho mốc gần ("3 ngày") — chưa có hình dạng cho số âm.
+          Chữ "quá hạn N ngày" khớp <span class="meta-mono" style="font-size:12px;">formatTimeLeft()</span>
+          (<span class="meta-mono" style="font-size:12px;">planDates.ts:61</span>), không phải một câu mới.
+        </p>
+        <div class="state__demo">
+          <section class="card panel" style="max-width:420px;">
+            <div class="panel__head">
+              <h2>Sắp đến hạn</h2>
+            </div>
+            <p class="panel__desc">Trên tất cả kế hoạch — cả ba đều đã quá hạn</p>
+
+            <div class="deadline-item">
+              <div class="deadline-item__left">
+                <div>Cấu trúc dữ liệu &amp; Giải thuật</div>
+                <div class="deadline-item__sub">còn 10 khái niệm chưa vững</div>
+              </div>
+              <span class="deadline-item__val" style="color:var(--remediate); font-weight:600;">quá hạn 4
+                ngày</span>
+            </div>
+            <div class="deadline-item">
+              <div class="deadline-item__left">
+                <div>Hệ điều hành</div>
+                <div class="deadline-item__sub">còn 6 khái niệm chưa vững</div>
+              </div>
+              <span class="deadline-item__val" style="color:var(--remediate); font-weight:600;">quá hạn 12
+                ngày</span>
+            </div>
+            <div class="deadline-item">
+              <div class="deadline-item__left">
+                <div>Mạng máy tính</div>
+                <div class="deadline-item__sub">còn 11 khái niệm chưa vững</div>
+              </div>
+              <span class="deadline-item__val" style="color:var(--remediate); font-weight:600;">quá hạn 1
+                ngày</span>
+            </div>
+
+            <div class="panel__foot">
+              <span class="meta-mono" style="color:var(--muted-foreground); font-size:12px;">3 kế hoạch</span>
+              <a class="link-action" href="#">Xem lịch →</a>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- ── A4. Đang tải + lỗi từng khối ── -->
+      <section id="trang-thai-a4">
+        <div class="state__head">
+          <span class="state__name">A4 — Đang tải + lỗi từng khối</span>
+          <span class="tag">3 nguồn độc lập</span>
+        </div>
+        <p class="state__desc">
+          Dashboard gọi ba nguồn dữ liệu độc lập (<span class="meta-mono" style="font-size:12px;">/plans</span>,
+          <span class="meta-mono" style="font-size:12px;">/review-queue/today</span>, <span class="meta-mono"
+            style="font-size:12px;">/dashboard/stats</span>). Một cái hỏng thì hai cái kia vẫn phải hiện —
+          không phải một trang lỗi toàn màn. Ô bên phải minh hoạ đúng nguyên tắc đó: dải chỉ số tải xong bình
+          thường ngay cạnh một khối báo lỗi có nút thử lại.
+        </p>
+        <div class="state__demo">
+          <div class="a4-grid">
+            <div class="skel-block">
+              <div class="skel-block__label">Đang tải · Gợi ý hôm nay</div>
+              <span class="skel" style="width:70px; height:18px; margin-bottom:14px;"></span>
+              <span class="skel" style="width:85%; height:20px; margin-bottom:10px;"></span>
+              <span class="skel" style="width:60%; margin-bottom:4px;"></span>
+              <span class="skel" style="width:95%;"></span>
+            </div>
+
+            <div>
+              <div class="stat-strip" style="margin-bottom:12px; border:1px solid var(--border); border-radius:calc(var(--radius) * 0.9);">
+                <div class="stat-strip__item" style="border-left:none;">
+                  <div class="stat-strip__value">12</div>
+                  <div class="stat-strip__label">ngày ôn liên tiếp</div>
+                </div>
+                <div class="stat-strip__item">
+                  <div class="stat-strip__value">6h 20m</div>
+                  <div class="stat-strip__label">thời gian học tuần này</div>
+                </div>
+              </div>
+              <div class="block-error">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.4h.01" />
+                </svg>
+                <div style="flex:1;">
+                  <p><b>Không tải được danh sách kế hoạch.</b> Dải chỉ số ở trên vẫn tải bình thường — đây là
+                    nguồn dữ liệu riêng.</p>
+                  <button class="btn btn-outline" type="button" style="padding:6px 12px; font-size:12.5px;">Thử
+                    lại</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="skel-block">
+              <div class="skel-block__label">Đang tải · Đồ thị khái niệm</div>
+              <span class="skel" style="width:100%; height:140px; border-radius:calc(var(--radius) * 0.8);"></span>
+            </div>
+
+            <div class="skel-block">
+              <div class="skel-block__label">Đang tải · Sắp đến hạn</div>
+              <span class="skel" style="width:100%; height:22px; margin-bottom:12px;"></span>
+              <span class="skel" style="width:100%; height:22px; margin-bottom:12px;"></span>
+              <span class="skel" style="width:100%; height:22px;"></span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
 </body>
 
 </html>

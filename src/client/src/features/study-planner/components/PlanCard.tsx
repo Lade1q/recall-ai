@@ -211,8 +211,12 @@ export function PlanCard({
         </p>
 
         <div className="border-border mt-3.5 border-t pt-3.5 text-[12.5px]">
+          {/* Một link mang ba nhãn, và chỉ ca "chờ xác nhận" mới thuộc màn kiểm chứng: bản
+              nháp đang phân tích thì chưa có đồ thị để kiểm, bản lỗi phân tích thì việc cần
+              làm là thử lại. Hai ca đó mở kế hoạch như bình thường (PlanDetailPage tự đưa
+              tiếp về đúng chỗ nếu cần). */}
           <Link
-            to={`/plan/${plan.id}`}
+            to={awaitingConfirmation ? `/plan/${plan.id}/verify` : `/plan/${plan.id}`}
             className="text-foreground border-border hover:border-foreground border-b transition-colors"
           >
             {isAnalysing

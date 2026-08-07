@@ -1,4 +1,4 @@
-import type { ReviewItemStatus, ReviewReason } from '@prisma/client';
+import type { ReviewItemStatus, ReviewReason, StudyPlanStatus } from '@prisma/client';
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
@@ -40,9 +40,76 @@ export const COMPLETED_TODAY_MESSAGE = 'Bạn đã hoàn thành kế hoạch hô
 export const COMPLETED_PLAN_MESSAGE =
   'Bạn đã ôn hết kế hoạch này. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức bạn nắm.';
 
-const NO_ACTIVE_PLAN_MESSAGE = 'Bạn chưa có kế hoạch ôn tập nào đang hoạt động.';
-const PLAN_NOT_ACTIVE_MESSAGE = 'Kế hoạch chưa ở trạng thái hoạt động.';
+/**
+ * Câu rỗng của `GET /review-queue?planId=` khi kế hoạch còn là `draft` (#232 phần 4, 06/08).
+ * Trước #265 `draft` chỉ sống vài giây trong lúc AI phân tích, nên một câu chung "chưa ở trạng
+ * thái hoạt động" cho mọi status không-`active` là vô hại. Giờ `draft` nghĩa là *đã phân tích
+ * xong, đang chờ người dùng xác nhận đồ thị* và là trạng thái sống lâu — câu chữ phải nói ra
+ * việc người dùng còn nợ và lối đi tới đó, thay vì mô tả trạng thái hệ thống.
+ *
+ * Chữ "xác nhận" bám theo nhãn "Chờ xác nhận" của thẻ kế hoạch SP-03 (#269) và nút "Kiểm chứng
+ * đồ thị" trong `PlanCard.tsx` — cùng một trạng thái không được mang hai tên trong sản phẩm.
+ */
+export const PLAN_AWAITING_CONFIRMATION_MESSAGE =
+  'Kế hoạch này đang chờ bạn xác nhận đồ thị khái niệm. Kiểm chứng xong, hàng đợi ôn sẽ bắt đầu chạy.';
+
+/**
+ * Câu rỗng của cùng endpoint khi kế hoạch đã `archived`. Tách khỏi câu `draft` ngay trên vì
+ * guard `status !== 'active'` bắt cả hai: dùng chung một câu thì hoặc là nói "chờ xác nhận" với
+ * một kế hoạch đã lưu trữ (nói dối), hoặc là quay về câu mô tả trạng thái hệ thống cho cả hai.
+ */
+export const PLAN_ARCHIVED_MESSAGE = 'Kế hoạch này đã được lưu trữ. Bỏ lưu trữ để ôn tiếp.';
+
+/** Câu rỗng của `/review-queue/today` cho người dùng mới — chưa có kế hoạch nào để mà ôn. */
+export const NO_PLAN_MESSAGE = 'Bạn chưa có kế hoạch ôn tập nào. Tạo một kế hoạch để bắt đầu ôn.';
+
+/** Câu rỗng của `/review-queue/today` khi mọi kế hoạch đều đã lưu trữ — khác hẳn ca trên. */
+export const ALL_PLANS_ARCHIVED_MESSAGE =
+  'Mọi kế hoạch của bạn đang được lưu trữ. Bỏ lưu trữ một kế hoạch để ôn tiếp.';
+
 const NOT_TESTED_REASON_TEXT = 'Khái niệm chưa được kiểm tra';
+
+/**
+ * Câu rỗng của `GET /review-queue?planId=` cho kế hoạch chưa `active` (#232 phần 4).
+ *
+ * Tham số hẹp lại thành `'draft' | 'archived'` chứ không phải cả enum: chỗ gọi đã loại `active`
+ * bằng guard, và để `active` lọt vào đây thì không có câu nào đúng để trả.
+ */
+export function buildInactivePlanMessage(status: Exclude<StudyPlanStatus, 'active'>): string {
+  switch (status) {
+    case 'draft':
+      return PLAN_AWAITING_CONFIRMATION_MESSAGE;
+    case 'archived':
+      return PLAN_ARCHIVED_MESSAGE;
+    default: {
+      const exhaustiveCheck: never = status;
+      throw new Error(`Unhandled plan status: ${String(exhaustiveCheck)}`);
+    }
+  }
+}
+
+/**
+ * Câu rỗng của `/review-queue/today` khi người dùng không có kế hoạch `active` nào (#232 phần 4).
+ *
+ * Ba ca, ba lối đi khác nhau — và trước 06/08 cả ba nhận chung một câu *"bạn chưa có kế hoạch ôn
+ * tập nào đang hoạt động"*, đúng về kỹ thuật nhưng vô dụng về hành động, nhất là với sinh viên
+ * vừa tạo kế hoạch đầu tiên mà chưa xác nhận đồ thị (ca #265).
+ *
+ * Hàm thuần, tách khỏi truy vấn để chạy được khi tước `DATABASE_URL` + `GEMINI_API_KEY` (R05).
+ * `draft` được ưu tiên hơn `archived` khi có cả hai: nó là ca duy nhất người dùng đang còn nợ
+ * một việc cụ thể, còn lưu trữ là một lựa chọn đã hoàn tất.
+ */
+export function buildNoActivePlanMessage(statuses: readonly StudyPlanStatus[]): string {
+  const awaitingCount = statuses.filter((status) => status === 'draft').length;
+
+  if (statuses.length === 0) {
+    return NO_PLAN_MESSAGE;
+  }
+  if (awaitingCount > 0) {
+    return `Bạn có ${awaitingCount} kế hoạch đang chờ xác nhận đồ thị. Xác nhận để hàng đợi ôn bắt đầu chạy.`;
+  }
+  return ALL_PLANS_ARCHIVED_MESSAGE;
+}
 
 /**
  * "Không còn nằm trên lịch" (#224). Mọi bộ lọc đọc hàng đợi loại trừ đúng bộ này thay vì kén
@@ -139,6 +206,16 @@ export interface ReviewQueueItemResponse {
   id: string | null;
   conceptId: string;
   name: string;
+  /**
+   * #232: which plan the concept belongs to. `/review-queue/today` merges the queues of every
+   * `active` plan, so without this the dashboard cannot build either of its two CTAs —
+   * `POST /interviews` and `FocusSession` both require a `planId`. Present on `GET /review-queue`
+   * too (where the caller already knows it) so the two endpoints keep one shape, and on
+   * A3-fallback items, which belong to a plan just as much as a real row does.
+   */
+  planId: string;
+  /** #232: the plan's name, so a merged list can say which plan a suggestion came from. */
+  planName: string;
   priority: number;
   reason: ReviewReason;
   reasonText: string;
@@ -209,10 +286,51 @@ export function sortReviewItems<T extends { reason: ReviewReason; priority: numb
   return [...items].sort((a, b) => tier(a) - tier(b) || b.priority - a.priority);
 }
 
+/**
+ * The plan fields every read path here needs: `deadline` feeds `calculatePriority()`, `id` and
+ * `name` ride along on every item (#232). Both GET endpoints already load the plan row, so
+ * carrying it through costs no extra query — see the ràng buộc in #232.
+ */
+interface QueuePlan {
+  id: string;
+  name: string;
+  deadline: Date | null;
+}
+
+/**
+ * One item per concept (#232 phần 3). `@@unique([sourceSessionId, conceptId])` only stops a
+ * concept being queued twice *by the same session*, so every session that grades the same
+ * concept adds another `pending` row — a real plan came back `8 mục / 3 khái niệm`
+ * (Array ×4 · Binary Tree ×2 · Linked List ×2). That per-session value is deliberate (audit A1
+ * keeps the trail of which session asked for what), so the fix is here on the read side, not on
+ * the constraint.
+ *
+ * The survivor is the row that `sortReviewItems()` would have shown first anyway — traceback
+ * ahead of everything, then highest `priority` — so folding the duplicates away never changes
+ * which item a student sees at the top, only how many times they see it.
+ *
+ * Pure, so it runs without `DATABASE_URL`/`GEMINI_API_KEY` (R05). Returns items in the sorted
+ * order it used to pick winners; callers sort again after merging plans, which is idempotent.
+ */
+export function dedupeByConcept(
+  items: readonly ReviewQueueItemResponse[]
+): ReviewQueueItemResponse[] {
+  const bestPerConcept = new Map<string, ReviewQueueItemResponse>();
+
+  for (const item of sortReviewItems(items)) {
+    if (!bestPerConcept.has(item.conceptId)) {
+      bestPerConcept.set(item.conceptId, item);
+    }
+  }
+
+  return [...bestPerConcept.values()];
+}
+
 interface ToResponseItemInput {
   id: string | null;
   conceptId: string;
   name: string;
+  plan: QueuePlan;
   masteryScore: number | null;
   reason: ReviewReason;
   depth: number | null;
@@ -227,6 +345,8 @@ function toResponseItem(input: ToResponseItemInput): ReviewQueueItemResponse {
     id: input.id,
     conceptId: input.conceptId,
     name: input.name,
+    planId: input.plan.id,
+    planName: input.plan.name,
     priority: calculatePriority({
       masteryScore: input.masteryScore,
       daysUntilDeadline: input.daysUntilDeadline,
@@ -309,10 +429,7 @@ async function resolveSourceSessions(
  * Suggests directly from the plan's concepts instead — untested first, then hardest first —
  * so a brand-new plan still has something reasonable to show without needing traceback.
  */
-async function buildFallbackItems(
-  plan: { id: string; deadline: Date | null },
-  now: Date
-): Promise<ReviewQueueItemResponse[]> {
+async function buildFallbackItems(plan: QueuePlan, now: Date): Promise<ReviewQueueItemResponse[]> {
   const concepts = await prisma.concept.findMany({
     where: { planId: plan.id, status: 'active' },
     orderBy: [{ masteryScore: { sort: 'asc', nulls: 'first' } }, { difficulty: 'desc' }],
@@ -326,6 +443,7 @@ async function buildFallbackItems(
       id: null,
       conceptId: concept.id,
       name: concept.name,
+      plan,
       masteryScore: concept.masteryScore,
       reason: 'spaced_repetition',
       depth: null,
@@ -359,18 +477,21 @@ const QUEUE_ROW_INCLUDE = {
  */
 async function toResponseItems(
   rows: readonly QueueRow[],
-  daysUntilDeadline: number | null
+  plan: QueuePlan,
+  now: Date
 ): Promise<ReviewQueueItemResponse[]> {
   const [sourceConceptNames, sourceSessions] = await Promise.all([
     resolveSourceConceptNames(rows),
     resolveSourceSessions(rows),
   ]);
+  const daysUntilDeadline = daysUntil(plan.deadline, now);
 
   return rows.map((row) =>
     toResponseItem({
       id: row.id,
       conceptId: row.conceptId,
       name: row.concept.name,
+      plan,
       masteryScore: row.concept.masteryScore,
       reason: row.reason,
       depth: row.depth,
@@ -400,16 +521,32 @@ interface PlanQueueResolution {
  * #224: the filter excludes `OFF_SCHEDULE_STATUSES` instead of demanding `status = 'pending'`.
  * The old filter was a live bug, not just stale wording — PATCH `'accepted'` used to make an
  * item vanish from the very queue the student had just accepted it into.
+ *
+ * #232: rows are folded to one per concept before they leave here — see `dedupeByConcept()`.
+ * Doing it per plan is enough for `/today` too: a `Concept` belongs to exactly one plan, so
+ * merging two plans' queues can never put the same concept in twice.
+ *
+ * #273: the A3 fallback is offered on `/review-queue?planId=` (`dueOnly: false`) but **not** on
+ * `/review-queue/today` (`dueOnly: true`). A fallback suggestion has no `scheduledFor`, so it is
+ * never "due"; letting it into `/today` meant a brand-new plan's suggestions (priority from
+ * null mastery ≈ 0.07 each) outranked the real, actually-due items of a plan the student is
+ * mid-way through, and crowded them out of "Gợi ý hôm nay". Only genuinely scheduled, due work
+ * belongs on `/today` — the same reason a `draft` plan contributes nothing there (#265). The
+ * empty state this opens ("has plans, nothing due yet") is left to `resolveEmptyMessage` to
+ * answer with `null`; its wording is #231/#232-phần-4's call, not this function's.
  */
 async function resolvePlanQueue(
-  plan: { id: string; deadline: Date | null },
+  plan: QueuePlan,
   now: Date,
   options: { dueOnly: boolean }
 ): Promise<PlanQueueResolution> {
   const totalCount = await prisma.reviewQueueItem.count({ where: { planId: plan.id } });
 
   if (totalCount === 0) {
-    return { items: await buildFallbackItems(plan, now), hasHistory: false };
+    return {
+      items: options.dueOnly ? [] : await buildFallbackItems(plan, now),
+      hasHistory: false,
+    };
   }
 
   const rows = await prisma.reviewQueueItem.findMany({
@@ -421,9 +558,9 @@ async function resolvePlanQueue(
     include: QUEUE_ROW_INCLUDE,
   });
 
-  const items = await toResponseItems(rows, daysUntil(plan.deadline, now));
+  const items = await toResponseItems(rows, plan, now);
 
-  return { items, hasHistory: true };
+  return { items: dedupeByConcept(items), hasHistory: true };
 }
 
 /**
@@ -434,9 +571,13 @@ async function resolvePlanQueue(
  *
  * Same sort as the live queue — an item put back should land where the scheduler would have put
  * it, not at the bottom of the list because it was once removed.
+ *
+ * Folded to one row per concept for the same reason the live queue is (#232): the student
+ * removed a *concept* from the schedule, and `updateReviewQueueItemStatus()` moves all of its
+ * rows together, so listing the concept once is what actually happened.
  */
 async function resolveSkippedItems(
-  plan: { id: string; deadline: Date | null },
+  plan: QueuePlan,
   now: Date,
   limit: number
 ): Promise<ReviewQueueItemResponse[]> {
@@ -445,9 +586,9 @@ async function resolveSkippedItems(
     include: QUEUE_ROW_INCLUDE,
   });
 
-  const items = await toResponseItems(rows, daysUntil(plan.deadline, now));
+  const items = await toResponseItems(rows, plan, now);
 
-  return sortReviewItems(items).slice(0, limit);
+  return dedupeByConcept(items).slice(0, limit);
 }
 
 /**
@@ -485,7 +626,7 @@ export async function getReviewQueueForPlan(
 ): Promise<ReviewQueueListResponse> {
   const plan = await prisma.studyPlan.findUnique({
     where: { id: planId },
-    select: { id: true, userId: true, deadline: true, status: true },
+    select: { id: true, userId: true, name: true, deadline: true, status: true },
   });
 
   if (!plan || plan.userId !== userId) {
@@ -493,7 +634,13 @@ export async function getReviewQueueForPlan(
   }
 
   if (plan.status !== 'active') {
-    return { items: [], message: PLAN_NOT_ACTIVE_MESSAGE, totalEstimatedMinutes: 0 };
+    // `status` was already in the select, so telling the two inactive states apart costs
+    // nothing — and one shared sentence would have to lie about one of them (#232 phần 4).
+    return {
+      items: [],
+      message: buildInactivePlanMessage(plan.status),
+      totalEstimatedMinutes: 0,
+    };
   }
 
   const now = new Date();
@@ -513,18 +660,28 @@ export async function getReviewQueueForPlan(
 /**
  * GET /review-queue/today?limit= — top-K across every `active` plan of the user, due now.
  * Backs I8.2's "Gợi ý hôm nay" tab and the dashboard nudge (UC-19).
+ *
+ * #232 phần 4: the query asks for **every** plan and filters to `active` here, so an empty
+ * result can still say *which* empty it is. Only the filtered list is ever queued — a plan the
+ * student has not confirmed stays off the schedule (#265); the wider `where` exists to choose
+ * the sentence, not to let drafts in. Still one round trip: `status` rides along in the select.
  */
 export async function getTodayReviewQueue(
   userId: string,
   limit: number = DEFAULT_TODAY_LIMIT
 ): Promise<ReviewQueueListResponse> {
-  const activePlans = await prisma.studyPlan.findMany({
-    where: { userId, status: 'active' },
-    select: { id: true, deadline: true },
+  const plans = await prisma.studyPlan.findMany({
+    where: { userId },
+    select: { id: true, name: true, deadline: true, status: true },
   });
+  const activePlans = plans.filter((plan) => plan.status === 'active');
 
   if (activePlans.length === 0) {
-    return { items: [], message: NO_ACTIVE_PLAN_MESSAGE, totalEstimatedMinutes: 0 };
+    return {
+      items: [],
+      message: buildNoActivePlanMessage(plans.map((plan) => plan.status)),
+      totalEstimatedMinutes: 0,
+    };
   }
 
   const now = new Date();
@@ -562,6 +719,12 @@ export interface ReviewQueueItemUpdate {
  *
  * Ownership is checked through `plan.userId`; an item that is missing and an item belonging to
  * someone else are reported identically (404), same as the GET endpoints.
+ *
+ * #232: the status is applied to **every** row of that concept in that plan, not just the row
+ * whose id was sent. Each graded session adds another row for the same concept, and since #232
+ * the queue folds them into the one item the student actually sees — so moving a single row
+ * would let the concept the student just removed come straight back on the next read, with the
+ * button looking like it did nothing. One concept on the screen, one concept moved.
  */
 export async function updateReviewQueueItemStatus(
   itemId: string,
@@ -570,16 +733,17 @@ export async function updateReviewQueueItemStatus(
 ): Promise<ReviewQueueItemUpdate> {
   const item = await prisma.reviewQueueItem.findUnique({
     where: { id: itemId },
-    select: { id: true, plan: { select: { userId: true } } },
+    select: { id: true, conceptId: true, planId: true, plan: { select: { userId: true } } },
   });
 
   if (!item || item.plan.userId !== userId) {
     throw new AppError('Review queue item not found', 404, 'NOT_FOUND');
   }
 
-  return prisma.reviewQueueItem.update({
-    where: { id: itemId },
+  await prisma.reviewQueueItem.updateMany({
+    where: { planId: item.planId, conceptId: item.conceptId },
     data: { status },
-    select: { id: true, conceptId: true, planId: true, status: true },
   });
+
+  return { id: item.id, conceptId: item.conceptId, planId: item.planId, status };
 }

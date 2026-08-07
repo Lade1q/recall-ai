@@ -38,6 +38,16 @@ export interface PlanItemResponse {
   conceptCount: number;
   /** Concepts per mastery band, for the distribution bar. Sums to `conceptCount`. */
   masteryDistribution: MasteryDistribution;
+  /**
+   * "Hàng đợi ôn · N khái niệm" at the foot of a plan card (#232 → #225): how many concepts of
+   * this plan are still on the review schedule. `0` for a plan that has never been interviewed,
+   * never `null` — "no concepts waiting" is a fact, not a missing value.
+   *
+   * Concepts, not rows. The queue itself returns one item per concept (#232), so counting rows
+   * would print a bigger number than the screen the link leads to can show: one plan on the dev
+   * database holds 8 rows over 3 concepts. Same filter as the queue — see `OFF_SCHEDULE_STATUSES`.
+   */
+  reviewQueueConceptCount: number;
   /** Latest AnalysisJob's status, or `null` when the plan has never had one. */
   analysisStatus: AnalysisJobStatus | null;
   /** When that job was queued — the client turns it into an elapsed timer. */

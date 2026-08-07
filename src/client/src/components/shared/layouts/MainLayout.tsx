@@ -55,18 +55,29 @@ export function MainLayout() {
 
   const location = useLocation();
 
-  // "Đồ thị khái niệm" trỏ /graph nhưng luôn redirect sang /plan/:id thật
-  // (PlanDetailPage = ConceptGraph, xem GraphIndexPage) — coi /plan/:id (trừ
-  // /plan/new, thuộc luồng tạo kế hoạch) là thuộc mục nav này để không mất
-  // trạng thái active sau khi redirect.
+  // Nhánh /plan/* bị hai mục nav tranh nhau nên phải chốt tường minh, và chỉ được đọc
+  // `location.pathname` — không đọc `location.search`. Query string mô tả trạng thái TRONG
+  // một trang, còn đây là câu hỏi trang đó LÀ trang nào; buộc hai thứ vào nhau chính là
+  // khớp nối mà Issue #274 sinh ra để gỡ.
   const isNavItemActive = (href: string): boolean => {
-    if (href === '/graph') {
-      return (
-        location.pathname.startsWith('/graph') ||
-        (location.pathname.startsWith('/plan/') && location.pathname !== '/plan/new')
-      );
+    const path = location.pathname;
+
+    // Hai bước của luồng tạo kế hoạch (SP-01): chọn tài liệu, rồi kiểm chứng đồ thị AI đề
+    // xuất. Cả hai thuộc "Kế hoạch ôn tập" — /plan/new trước đây không sáng mục nào cả.
+    const isPlanCreationStep = path === '/plan/new' || /^\/plan\/[^/]+\/verify$/.test(path);
+
+    if (href === '/plans') {
+      return isPlanCreationStep || path === href || path.startsWith(`${href}/`);
     }
-    return location.pathname === href || location.pathname.startsWith(`${href}/`);
+
+    // "Đồ thị khái niệm" trỏ /graph nhưng luôn redirect sang /plan/:id thật
+    // (PlanDetailPage = ConceptGraph, xem GraphIndexPage) — nên đồ thị của một kế hoạch,
+    // xem lẫn sửa, thuộc mục nav này; không giữ vậy thì mục vừa bấm tắt ngay sau redirect.
+    if (href === '/graph') {
+      return path.startsWith('/graph') || (path.startsWith('/plan/') && !isPlanCreationStep);
+    }
+
+    return path === href || path.startsWith(`${href}/`);
   };
 
   const navLinkClass = (isActive: boolean) =>

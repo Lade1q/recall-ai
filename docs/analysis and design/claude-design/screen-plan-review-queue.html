@@ -803,11 +803,10 @@
           rỗng với trường hợp trên thì người vừa ôn xong và người chưa bắt đầu nhìn thấy y hệt nhau.
         </p>
         <!--
-          ⚠ Backend hiện trả COMPLETED_TODAY_MESSAGE = "Bạn đã hoàn thành kế hoạch hôm nay"
-          cho CẢ /review-queue lẫn /review-queue/today (resolveEmptyMessage). Chữ "hôm nay"
-          chỉ đúng cho hàng đợi đến hạn hôm nay; ở đây là toàn bộ hàng đợi của kế hoạch, nên
-          câu đó sai nghĩa. Mockup dùng câu đúng cho bề mặt này; sửa message ở backend là
-          việc ngoài phạm vi issue thiết kế.
+          Backend đã tách câu cho bề mặt này: COMPLETED_PLAN_MESSAGE (#224) — không có chữ
+          "hôm nay", vì /review-queue không lọc theo ngày. Chữ "hôm nay" chỉ còn ở
+          /review-queue/today. Cảnh báo cũ ở đây (hai endpoint dùng chung một câu) đã hết
+          hiệu lực, gỡ ngày 06/08 theo #232.
         -->
         <div class="state__demo">
           <div class="empty">

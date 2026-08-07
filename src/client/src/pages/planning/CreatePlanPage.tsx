@@ -18,6 +18,7 @@ import { FileDropzone, MAX_FILE_SIZE } from '@/features/study-planner/components
 import { AnalysisProgressPanel } from '@/features/study-planner/components/AnalysisProgressPanel';
 import { planApi, getCreatePlanErrorMessage } from '@/features/study-planner/api/plan.api';
 import { PlanDetails } from '@/features/study-planner/types/concept';
+import { PlanCreationStepper } from '@/features/study-planner/components/PlanCreationStepper';
 
 const formSchema = z.object({
   planName: z.string().min(1, 'Vui lòng nhập tên kế hoạch').max(100, 'Tên kế hoạch quá dài'),
@@ -120,8 +121,10 @@ export default function CreatePlanPage() {
       // in the same instant, so the user never saw it complete.
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      // Redirect to Concept Graph page in edit mode
-      navigate(`/plan/${response.planId}?mode=edit`);
+      // Bước 3 của luồng tạo: kiểm chứng đồ thị AI đề xuất. Route riêng chứ không phải
+      // `?mode=edit` — đây vẫn là luồng "Kế hoạch ôn tập", không phải sửa đồ thị của một
+      // kế hoạch đang chạy (Issue #274).
+      navigate(`/plan/${response.planId}/verify`);
     } catch (error) {
       console.error('Failed to create plan:', error);
       toast.error(getCreatePlanErrorMessage(error));
@@ -133,41 +136,79 @@ export default function CreatePlanPage() {
     const documentLabel = activeTab === 'text' ? 'Văn bản (Dán)' : selectedFile?.name || 'Tài liệu';
 
     return (
-      <div className="max-w-155 mx-auto flex w-full flex-col gap-3.5 pt-6">
-        {/* Keyed by submitPhase so "uploading" → "analyzing" re-triggers the entrance
-            animation instead of snapping straight to the new content. */}
-        <div
-          key={submitPhase}
-          className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-3.5 duration-300"
-        >
-          {submitPhase === 'uploading' ? (
-            <>
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[15px] font-semibold">
-                  Đang tải lên &ldquo;{documentLabel}&rdquo;
-                </span>
-                <span className="text-muted-foreground font-mono text-xs">0:00</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="text-foreground flex items-center gap-2.5 text-[13px] font-medium">
-                  <Loader2 className="text-primary h-3.75 w-3.75 animate-spin" />
-                  Đang gửi dữ liệu lên máy chủ...
+      <div className="mx-auto w-full max-w-3xl pb-12 pt-6">
+        <div className="text-muted-foreground mb-4 flex items-center gap-2 text-[13px]">
+          <button
+            onClick={() => navigate('/plans')}
+            className="hover:text-foreground hover:border-border border-b border-transparent pb-px transition-colors"
+          >
+            Kế hoạch ôn tập
+          </button>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="opacity-50"
+          >
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+          <span>Tạo mới</span>
+        </div>
+
+        <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
+          Tạo kế hoạch mới
+        </h1>
+        <p className="text-muted-foreground mb-7 text-pretty text-[14px]">
+          Tải lên tài liệu học tập của bạn, AI sẽ tự động phân tích và trích xuất các khái niệm cốt
+          lõi cùng quan hệ tiên quyết giữa chúng.
+        </p>
+
+        <PlanCreationStepper
+          step={2}
+          analysisStatus={submitPhase === 'uploading' ? 'idle' : 'running'}
+        />
+
+        <div className="max-w-155 mx-auto flex w-full flex-col gap-3.5 pt-6">
+          {/* Keyed by submitPhase so "uploading" → "analyzing" re-triggers the entrance
+              animation instead of snapping straight to the new content. */}
+          <div
+            key={submitPhase}
+            className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-3.5 duration-300"
+          >
+            {submitPhase === 'uploading' ? (
+              <>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[15px] font-semibold">
+                    Đang tải lên &ldquo;{documentLabel}&rdquo;
+                  </span>
+                  <span className="text-muted-foreground font-mono text-xs">0:00</span>
                 </div>
-              </div>
-            </>
-          ) : (
-            // Real 4-phase progress (Issue #186) — replaces #163's static placeholder track
-            // with the AnalysisJob's actual phase, polled by the loop in onSubmit above.
-            <AnalysisProgressPanel
-              filename={analysisPlan?.document?.filename ?? documentLabel}
-              pageCount={analysisPlan?.document?.pageCount}
-              documentKind={analysisPlan?.document?.kind}
-              startedAt={analysisPlan?.analysisStartedAt}
-              now={now}
-              phase={analysisPlan?.analysisPhase ?? null}
-              complete={analysisPlan?.analysisStatus === 'done'}
-            />
-          )}
+                <div className="flex flex-col gap-2">
+                  <div className="text-foreground flex items-center gap-2.5 text-[13px] font-medium">
+                    <Loader2 className="text-primary h-3.75 w-3.75 animate-spin" />
+                    Đang gửi dữ liệu lên máy chủ...
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Real 4-phase progress (Issue #186) — replaces #163's static placeholder track
+              // with the AnalysisJob's actual phase, polled by the loop in onSubmit above.
+              <AnalysisProgressPanel
+                filename={analysisPlan?.document?.filename ?? documentLabel}
+                pageCount={analysisPlan?.document?.pageCount}
+                documentKind={analysisPlan?.document?.kind}
+                startedAt={analysisPlan?.analysisStartedAt}
+                now={now}
+                phase={analysisPlan?.analysisPhase ?? null}
+                complete={analysisPlan?.analysisStatus === 'done'}
+              />
+            )}
+          </div>
         </div>
       </div>
     );
@@ -207,29 +248,7 @@ export default function CreatePlanPage() {
       </p>
 
       {/* Thanh 3 bước mô phỏng UI */}
-      <ol className="bg-card border-border mb-6 flex overflow-hidden rounded-lg border">
-        <li
-          className="bg-accent text-foreground border-border flex flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px] font-semibold"
-          aria-current="step"
-        >
-          <span className="bg-primary text-primary-foreground border-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]">
-            1
-          </span>
-          <span>Nhập thông tin & tải tài liệu</span>
-        </li>
-        <li className="text-muted-foreground border-border flex flex-1 items-center gap-2.5 border-r px-4 py-3 text-[13px]">
-          <span className="border-border flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]">
-            2
-          </span>
-          <span>AI phân tích</span>
-        </li>
-        <li className="text-muted-foreground flex flex-1 items-center gap-2.5 px-4 py-3 text-[13px]">
-          <span className="border-border flex h-5 w-5 shrink-0 items-center justify-center rounded-full border font-mono text-[11px]">
-            3
-          </span>
-          <span>Kiểm chứng & xác nhận</span>
-        </li>
-      </ol>
+      <PlanCreationStepper step={1} />
 
       <form id="create-plan-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
         <Field>
@@ -284,7 +303,7 @@ export default function CreatePlanPage() {
           </div>
           {errors.deadline?.message && <FieldError>{errors.deadline.message}</FieldError>}
           <FieldDescription className="mt-1.5 text-xs">
-            SRE dùng mốc này để rải khái niệm theo độ khó và quan hệ tiên quyết.
+            Hệ thống dùng mốc này để rải khái niệm theo độ khó và quan hệ tiên quyết.
           </FieldDescription>
         </Field>
 
