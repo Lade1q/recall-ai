@@ -1,8 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const includeWebKit =
-  !!process.env.CI || process.env.PLAYWRIGHT_INCLUDE_WEBKIT === 'true';
-
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -26,14 +23,6 @@ export default defineConfig({
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
     },
-    ...(includeWebKit
-      ? [
-          {
-            name: 'webkit',
-            use: { ...devices['Desktop Safari'] },
-          },
-        ]
-      : []),
   ],
 
   webServer: {
