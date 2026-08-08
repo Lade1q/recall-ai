@@ -1,95 +1,125 @@
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import prisma from './src/config/prisma';
 import * as jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_minimum_32_characters';
+const JWT_SECRET = 'your_jwt_secret_minimum_32_characters';
+const BASE_URL = 'http://localhost:3001';
 
-async function runTest() {
-  console.log('=== STARTING API TESTS ===\n');
+async function main() {
+  console.log('--- CHUẨN BỊ MOCK DATA ---');
 
-  const session = await prisma.interviewSession.findFirst({
-    where: { status: 'active' },
-    include: { plan: { include: { user: true } } },
-    orderBy: { createdAt: 'desc' },
+  // Tạo 2 user riêng biệt
+  const ts = Date.now();
+  const userA = await prisma.user.create({
+    data: { email: `usera-${ts}@test.com`, passwordHash: 'fake', name: 'User A' },
+  });
+  const userB = await prisma.user.create({
+    data: { email: `userb-${ts}@test.com`, passwordHash: 'fake', name: 'User B' },
   });
 
-  if (!session) {
-    console.log('No session found in DB. Cannot test.');
-    return;
-  }
-
-  const userA = session.plan.user;
-  const tokenA = jwt.sign({ userId: userA.id, email: userA.email }, JWT_SECRET, {
-    expiresIn: '1h',
+  // Plan + Concept + Session cho User A
+  const planA = await prisma.studyPlan.create({ data: { userId: userA.id, name: 'Plan A' } });
+  const conceptA = await prisma.concept.create({
+    data: { planId: planA.id, name: 'Concept A', source: 'manual', masteryScore: 0 },
   });
-  const tokenB = jwt.sign(
-    { userId: '00000000-0000-0000-0000-000000000000', email: 'hacker@example.com' },
-    JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-
-  console.log('1. TESTING SECURITY (CF-07)');
-  console.log(
-    `Action: User B (Hacker) trying to submit answer to User A's session (${session.id})`
-  );
-
-  const secRes = await fetch(`http://localhost:3001/api/v1/interviews/${session.id}/answers`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenB}` },
-    body: JSON.stringify({ answerText: 'Hacked!' }),
-  });
-
-  console.log(`Result: HTTP Status ${secRes.status}`);
-  if (secRes.status === 404) {
-    console.log('-> PASS: System returned 404 Not Found (Information Hiding working correctly).');
-  } else {
-    console.log(`-> FAIL: Expected 404, got ${secRes.status}.`);
-  }
-
-  console.log('\n2. TESTING IDEMPOTENCY (CF-08)');
-  const idempotencyKey = 'test-idem-key-' + Date.now();
-  console.log(
-    `Action: User A sending 2 identical POST requests simultaneously with Idempotency-Key: ${idempotencyKey}`
-  );
-
-  const reqOptions = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${tokenA}`,
-      'Idempotency-Key': idempotencyKey,
+  const sessionA = await prisma.interviewSession.create({
+    data: {
+      userId: userA.id,
+      planId: planA.id,
+      status: 'active',
+      conceptQueue: [conceptA.id],
     },
-    body: JSON.stringify({ answerText: 'This is an idempotency test' }),
-  };
+  });
 
-  // Fire both requests at the exact same time
-  const [res1, res2] = await Promise.all([
-    fetch(`http://localhost:3001/api/v1/interviews/${session.id}/answers`, reqOptions),
-    fetch(`http://localhost:3001/api/v1/interviews/${session.id}/answers`, reqOptions),
+  // Plan + Concept + Session cho User B
+  const planB = await prisma.studyPlan.create({ data: { userId: userB.id, name: 'Plan B' } });
+  const conceptB = await prisma.concept.create({
+    data: { planId: planB.id, name: 'Concept B', source: 'manual', masteryScore: 0 },
+  });
+  const sessionB = await prisma.interviewSession.create({
+    data: {
+      userId: userB.id,
+      planId: planB.id,
+      status: 'active',
+      conceptQueue: [conceptB.id],
+    },
+  });
+
+  const tokenA = jwt.sign({ userId: userA.id }, JWT_SECRET);
+
+  // ============================================================
+  console.log('\n\n=== 📍 TC-AE-010: BẢO MẬT (PHÂN QUYỀN) ===');
+  console.log(`Dùng Token User A gọi API nộp bài vào Session của User B (${sessionB.id})...`);
+
+  const res010 = await fetch(`${BASE_URL}/api/v1/interviews/${sessionB.id}/answers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+    body: JSON.stringify({ answerText: 'User A tọc mạch bài của B' }),
+  });
+
+  const data010 = (await res010.json().catch(() => ({}))) as unknown;
+  console.log(`HTTP Status: ${res010.status}`);
+  console.log(`Response:`, JSON.stringify(data010, null, 2));
+
+  if (res010.status === 404) {
+    console.log('=> KẾT LUẬN TC-010: ✅ PASS (404 Not Found — đúng thiết kế bảo mật)');
+  } else {
+    console.log('=> KẾT LUẬN TC-010: ❌ FAIL (Hệ thống không chặn truy cập chéo người dùng)');
+  }
+
+  // ============================================================
+  console.log('\n\n=== 📍 TC-AE-011: IDEMPOTENCY (GỬI ĐÚP) ===');
+  console.log(`Bắn 2 request ĐỒNG THỜI vào Session của User A (${sessionA.id})...`);
+
+  const [res011a, res011b] = await Promise.all([
+    fetch(`${BASE_URL}/api/v1/interviews/${sessionA.id}/answers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ answerText: 'Câu trả lời gửi đúp' }),
+    }),
+    fetch(`${BASE_URL}/api/v1/interviews/${sessionA.id}/answers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenA}` },
+      body: JSON.stringify({ answerText: 'Câu trả lời gửi đúp' }),
+    }),
   ]);
 
-  console.log(`Result: HTTP Statuses are [${res1.status}, ${res2.status}]`);
+  const [data011a, data011b] = (await Promise.all([
+    res011a.json().catch(() => ({})),
+    res011b.json().catch(() => ({})),
+  ])) as [unknown, unknown];
 
-  // Wait a moment for DB to settle
-  await new Promise((r) => setTimeout(r, 500));
+  console.log(`Request 1 — HTTP ${res011a.status}:`, JSON.stringify(data011a).substring(0, 120));
+  console.log(`Request 2 — HTTP ${res011b.status}:`, JSON.stringify(data011b).substring(0, 120));
 
-  const turns = await prisma.interviewTurn.findMany({
-    where: {
-      sessionId: session.id,
-      answerText: 'This is an idempotency test',
-    },
-  });
+  const turns = await prisma.interviewTurn.count({ where: { sessionId: sessionA.id } });
+  console.log(`Số lượt (turns) trong DB: ${turns}`);
 
-  console.log(`Result: Database created ${turns.length} turn(s).`);
-  if (turns.length === 1) {
-    console.log('-> PASS: System successfully prevented duplicate turns.');
+  const statuses = [res011a.status, res011b.status].sort();
+  if (turns === 1 && JSON.stringify(statuses) === JSON.stringify([200, 409])) {
+    console.log(
+      '=> KẾT LUẬN TC-011: ✅ PASS (1 request thành công 200, 1 request bị chặn 409, DB chỉ có 1 turn)'
+    );
+  } else if (res011a.status === 409 && res011b.status === 409) {
+    console.log(
+      '=> KẾT LUẬN TC-011: ❌ FAIL (Cả 2 request đều bị 409, không có lượt nào được tạo trong DB — lỗi logic Race Condition)'
+    );
   } else {
-    console.log('-> FAIL: System created duplicate turns or none!');
+    console.log(
+      `=> KẾT LUẬN TC-011: ❌ FAIL (Hành vi không mong đợi: statuses=${statuses}, turns=${turns})`
+    );
   }
 
-  console.log('\n=== TESTS COMPLETED ===');
+  // Cleanup
+  await prisma.interviewSession.deleteMany({ where: { id: { in: [sessionA.id, sessionB.id] } } });
+  await prisma.concept.deleteMany({ where: { id: { in: [conceptA.id, conceptB.id] } } });
+  await prisma.studyPlan.deleteMany({ where: { id: { in: [planA.id, planB.id] } } });
+  await prisma.user.deleteMany({ where: { id: { in: [userA.id, userB.id] } } });
+  console.log('\n--- Đã dọn sạch mock data ---');
 }
 
-runTest()
-  .catch(console.error)
+main()
+  .catch((e) => console.error('LỖI:', e))
   .finally(() => prisma.$disconnect());

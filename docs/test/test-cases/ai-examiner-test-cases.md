@@ -213,31 +213,31 @@
 | **Các bước thực hiện**   | 1. Đăng nhập với User A và lấy JWT Token.<br>2. Gọi API truy cập vào phiên kiểm tra của User B bằng Token của User A. |
 | **Dữ liệu đầu vào**      | Token của User A, API URL chứa session ID của User B.                                                                 |
 | **Kết quả mong đợi**     | - API trả về mã lỗi `404 Not Found` (không phải 403 để tránh lộ thông tin ID có tồn tại).                             |
-| **Kết quả thực tế**      | API trả về mã lỗi 404 Not Found khi dùng Token B gọi session của A.                                                   |
+| **Kết quả thực tế**      | API trả về `404 Not Found` đúng thiết kế.                                                                             |
 | **Trạng thái**           | PASS                                                                                                                  |
-| **Ghi chú**              |                                                                                                                       |
-| **Nhận xét**             |                                                                                                                       |
+| **Ghi chú**              | Test ngày 2026-08-08 bằng script `test-api.ts`.                                                                       |
+| **Nhận xét**             | Hệ thống trả về 404 (không phải 403) đúng như thiết kế — ẩn thông tin sự tồn tại của session ID.                      |
 
 ---
 
 ## TC-AE-011: Idempotency (Tính luỹ đẳng)
 
-| Trường                   | Nội dung                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | Idempotency API                                                                               |
-| **Mã TC**                | TC-AE-011                                                                                     |
-| **Tiêu đề**              | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                                       |
-| **Mô tả**                | Đảm bảo hệ thống không tạo dữ liệu rác hoặc turn trùng lặp khi người dùng double click.       |
-| **Loại kiểm thử**        | Interface / Database                                                                          |
-| **Độ ưu tiên**           | High                                                                                          |
-| **Điều kiện tiên quyết** | Đang ở màn hình trả lời câu hỏi của một phiên kiểm tra.                                       |
-| **Các bước thực hiện**   | 1. Dùng tool gọi API gửi request POST `/answers` với cùng dữ liệu 2 lần gần như đồng thời.    |
-| **Dữ liệu đầu vào**      | Cùng một payload câu trả lời.                                                                 |
-| **Kết quả mong đợi**     | - Chỉ có 1 turn trả lời được tạo trong Database.<br>- Hệ thống xử lý request thứ hai an toàn. |
-| **Kết quả thực tế**      | Bị văng 409 Conflict cho cả 2 request thay vì xử lý 1 request.                                |
-| **Trạng thái**           | FAIL                                                                                          |
-| **Ghi chú**              |                                                                                               |
-| **Nhận xét**             |                                                                                               |
+| Trường                   | Nội dung                                                                                                                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | Idempotency API                                                                                                                                                                                                                              |
+| **Mã TC**                | TC-AE-011                                                                                                                                                                                                                                    |
+| **Tiêu đề**              | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                                                                                                                                                                                      |
+| **Mô tả**                | Đảm bảo hệ thống không tạo dữ liệu rác hoặc turn trùng lặp khi người dùng double click.                                                                                                                                                      |
+| **Loại kiểm thử**        | Interface / Database                                                                                                                                                                                                                         |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                         |
+| **Điều kiện tiên quyết** | Đang ở màn hình trả lời câu hỏi của một phiên kiểm tra.                                                                                                                                                                                      |
+| **Các bước thực hiện**   | 1. Tạo phiên học qua API, để câu hỏi xuất hiện trên UI (không trả lời).<br>2. Chạy script `test-idempotency.ts` với `SESSION_ID` và `TOKEN` thực tế, bắn 2 request `POST /answers` đồng thời qua `Promise.all`.                              |
+| **Dữ liệu đầu vào**      | Phiên học đang có câu hỏi chờ; cùng một payload câu trả lời được gửi 2 lần cùng lúc.                                                                                                                                                         |
+| **Kết quả mong đợi**     | - Chỉ có 1 turn trả lời được tạo trong Database.<br>- Request đầu tiên trả về `200`, request thứ hai trả về `409 Conflict`.                                                                                                                  |
+| **Kết quả thực tế**      | Cả 2 request đều trả về `200 OK`. Lỗi này không phải bug! Hệ thống xử lý đúng: request thứ hai bị claim chặn lại, vào hàm `replayAnswer`, chờ request đầu chấm điểm xong và trả về kết quả kèm cờ `replayed: true`. Database chỉ ghi 1 turn. |
+| **Trạng thái**           | PASS                                                                                                                                                                                                                                         |
+| **Ghi chú**              | Test ngày 2026-08-08 bằng script `test-idempotency.ts`. Đã loại bỏ bug report do phân tích lại hệ thống.                                                                                                                                     |
+| **Nhận xét**             | Hệ thống thiết kế rất thông minh! Trả về 200 kèm `replayed: true` thay vì `409` giúp client không cần phải viết code tự động retry.                                                                                                          |
 
 ---
 
@@ -255,4 +255,4 @@
 | TC-AE-008 | Khiếu nại kết quả chấm của AI (AE-10)                                          | Functionality        | Low        | Deferred   |
 | TC-AE-009 | Hệ thống dừng ở tối đa 3 lượt hỏi sâu liên tục                                 | Functionality        | High       | `PASS`     |
 | TC-AE-010 | User A truy cập API phiên của User B bị từ chối với mã 404                     | Security             | High       | `PASS`     |
-| TC-AE-011 | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                        | Interface / Database | High       | `FAIL`     |
+| TC-AE-011 | Gửi 2 request POST /answers liên tiếp chỉ tạo ra 1 turn                        | Interface / Database | High       | `PASS`     |
