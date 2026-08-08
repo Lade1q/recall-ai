@@ -2,10 +2,11 @@
 
 > **Module:** AI Study Planner — Ingest & Map
 > **Use Case tham chiếu:** SP-01 (Tạo Kế hoạch Học tập) — `SPEC_SP-01_TaoKeHoach.md`
+> **Người viết:** Nguyễn Minh Phát
 > **Ngày tạo:** 2026-07-31
 > **Ngày cập nhật:** 2026-08-01
 > **Phiên bản:** 2.0 (Tái cấu trúc — bám sát implementation thực tế)
-> **Loại kiểm thử:** Integration (API) + Database
+> **Loại kiểm thử chung:** Integration (API) + Database
 
 ---
 
