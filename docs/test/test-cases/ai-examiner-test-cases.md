@@ -4,7 +4,7 @@
 > **Use Case tham chiếu:** Epic #108, Use-case_Specification mục 2.3
 > **Người viết:** Nguyễn Minh Phát
 > **Ngày tạo:** 2026-08-04
-> **Ngày cập nhật:** 2026-08-04
+> **Ngày cập nhật:** 2026-08-08
 > **Phiên bản:** 1.0
 > **Loại kiểm thử chung:** Functionality / Security / Integration
 
