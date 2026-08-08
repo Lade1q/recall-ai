@@ -514,4 +514,58 @@ describe('interview.service — AE-05 flashcard fallback', () => {
 
     expect(result.currentQuestion).toMatchObject({ sourceCitation: null });
   });
+
+  /**
+   * Idempotency (#115): a double-click sends two identical `POST /answers`. Only one request
+   * claims the turn (`updateMany` count 1); the other must not see a bare 409 while grading is
+   * still in flight — it polls (`replayAnswer`) and either replays the winner's result or, if
+   * the winner never finishes inside the poll window, reports `ANSWER_IN_PROGRESS`.
+   */
+  describe('submitAnswer — replaying a concurrent double-submit', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("replays the winner's grade once it lands inside the poll window", async () => {
+      const turn = seedPendingTurn();
+      // The winner already claimed this turn (answeredAt set) but Gemini has not graded it yet.
+      turn.answeredAt = new Date();
+
+      const resultPromise = submitAnswer(SESSION_ID, USER_ID, 'câu trả lời trùng lặp');
+
+      // Let one poll cycle pass, then have the winner's grade land.
+      await jest.advanceTimersByTimeAsync(2_000);
+      Object.assign(turn, { score: 1, feedback: 'Tốt', verdict: 'deep' });
+      await jest.advanceTimersByTimeAsync(2_000);
+
+      const result = await resultPromise;
+
+      expect(result.replayed).toBe(true);
+      expect(result.grading).toEqual({ score: 1, feedback: 'Tốt', verdict: 'deep' });
+      // The loser never calls Gemini itself — it only ever reads the winner's row.
+      expect(mockedGradeAnswer).not.toHaveBeenCalled();
+    });
+
+    it('gives up with ANSWER_IN_PROGRESS if the winner never finishes inside the poll window', async () => {
+      const turn = seedPendingTurn();
+      turn.answeredAt = new Date();
+
+      const resultPromise = submitAnswer(SESSION_ID, USER_ID, 'câu trả lời trùng lặp').catch(
+        (e) => e
+      );
+
+      // Comfortably longer than REPLAY_POLL_ATTEMPTS × REPLAY_POLL_INTERVAL_MS — the winner
+      // never grades, so the loser must give up rather than poll forever.
+      await jest.advanceTimersByTimeAsync(30_000);
+
+      const error = await resultPromise;
+
+      expect(error).toBeInstanceOf(AppError);
+      expect(error).toMatchObject({ statusCode: 409, code: 'ANSWER_IN_PROGRESS' });
+    });
+  });
 });

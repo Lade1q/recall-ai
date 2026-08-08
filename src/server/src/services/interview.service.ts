@@ -694,9 +694,10 @@ async function advanceToNextQuestion(
 
 /**
  * `advanceToNextQuestion`'s fallback-mode counterpart (AE-05 / I6.4): serves the concept's
- * pre-generated cache instead of calling Gemini, and never falls back to `decideNextStep`'s
- * deep/shallow/wrong branching — a flashcard concept always asks every cached question it has,
- * in order, then finishes, whatever the student self-graded (confirmed product decision).
+ * pre-generated cache instead of calling Gemini. Unlike AI mode, `deep`/`shallow` verdicts do
+ * not steer question selection — a flashcard concept asks every cached question it has, in
+ * order, then finishes. But a `wrong` verdict still ends the concept immediately (CF-03/CF-04),
+ * same rule as `decideNextStep`: the student does not have this material.
  */
 async function advanceFallback(
   view: SessionView,
@@ -709,6 +710,10 @@ async function advanceFallback(
     take: MAX_CACHED_QUESTIONS_PER_CONCEPT,
   });
 
+  // CF-03/CF-04: the last graded turn's verdict drives the `wrong` early-exit in the state
+  // machine. Read it from conceptTurns the same way advanceToNextQuestion does for AI mode.
+  const lastGraded = [...view.conceptTurns].reverse().find((turn) => turn.verdict !== null);
+
   const step = resolveFallbackStep({
     cachedQuestionCount: cached.length,
     // Audit finding (real-Gemini manual test): grading failure — the common trigger for
@@ -718,6 +723,7 @@ async function advanceFallback(
     cachedTurnsServed: view.conceptTurns.filter((turn) => turn.source === 'cache_fallback').length,
     totalTurnsServed: view.conceptTurns.length,
     maxTurns: view.session.maxTurnsPerConcept,
+    lastVerdict: lastGraded?.verdict ?? null,
   });
 
   if (step.type === 'finish_concept') {
@@ -1060,15 +1066,37 @@ export async function submitAnswer(
 
 /**
  * The answer was already claimed by an identical request. If that request finished, its result
- * is replayed so a double-click looks like one call; if it is still waiting on Gemini, the
- * client is told to wait rather than being given a half-finished state.
+ * is replayed so a double-click looks like one call; if it is still waiting on Gemini, we poll
+ * until the winner's grade lands — Gemini grading typically takes 10–20s (#115), so the window
+ * has to cover that whole range, not just the first couple of seconds.
+ *
+ * Idempotency fix: the original code threw 409 immediately when `verdict === null`, which made
+ * concurrent double-submits both return 409 (the loser saw the winner's not-yet-graded turn).
+ * Now we wait up to `REPLAY_POLL_ATTEMPTS × REPLAY_POLL_INTERVAL_MS` before giving up.
  */
+
+/** How many times to re-read the turn waiting for the winner's grading to land. */
+const REPLAY_POLL_ATTEMPTS = 10;
+/** Milliseconds between re-reads — 10 × 2s = 20s, covering Gemini's worst-case grading time. */
+const REPLAY_POLL_INTERVAL_MS = 2_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function replayAnswer(
   sessionId: string,
   userId: string,
   turnId: string
 ): Promise<SubmitAnswerResponse> {
-  const turn = await prisma.interviewTurn.findUnique({ where: { id: turnId }, select: turnSelect });
+  let turn = await prisma.interviewTurn.findUnique({ where: { id: turnId }, select: turnSelect });
+
+  // Poll briefly for the winner's grading to finish, so the client gets a result instead of an
+  // opaque 409 that it would have to retry blindly.
+  for (let attempt = 0; attempt < REPLAY_POLL_ATTEMPTS && turn?.verdict === null; attempt++) {
+    await sleep(REPLAY_POLL_INTERVAL_MS);
+    turn = await prisma.interviewTurn.findUnique({ where: { id: turnId }, select: turnSelect });
+  }
 
   if (!turn || turn.verdict === null) {
     throw new AppError(

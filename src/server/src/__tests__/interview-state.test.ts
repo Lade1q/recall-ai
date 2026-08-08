@@ -37,6 +37,17 @@ describe('decideNextStep — continuing the same concept', () => {
     expect(step('deep', 2)).toBe('ask_deeper');
   });
 
+  it('BR-AIEX-001: continues to turn 3 (ask_deeper) after turn 2 has verdict deep when maxTurns = 3', () => {
+    expect(
+      decideNextStep({
+        verdict: 'deep',
+        turnIndex: 2,
+        maxTurns: 3,
+        remainingConcepts: 0,
+      })
+    ).toBe('ask_deeper');
+  });
+
   it('probes after a shallow answer while turns remain', () => {
     expect(step('shallow', 1)).toBe('ask_probe');
     expect(step('shallow', 2)).toBe('ask_probe');
@@ -140,8 +151,9 @@ describe('turn limits', () => {
 
 /**
  * AE-05's flashcard-fallback stepping (UC-12) — pure, same C4/R05 charter as `decideNextStep`
- * above. Deliberately never consults a verdict: fallback mode always asks every cached question
- * it has, in order, then finishes (confirmed product decision), unlike the AI-mode state table.
+ * above. Mostly ignores `deep`/`shallow` verdicts: fallback mode asks every cached question it
+ * has, in order, then finishes — but a `wrong` verdict still ends the concept early (CF-03/CF-04,
+ * covered in the describe block below).
  */
 describe('resolveFallbackStep', () => {
   it('is UC-12 E1 when the concept has never had a question served and none is cached', () => {
@@ -151,6 +163,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 0,
         totalTurnsServed: 0,
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'no_cache_available' });
   });
@@ -162,6 +175,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 0,
         totalTurnsServed: 0,
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'ask_cached', cacheIndex: 0 });
   });
@@ -173,6 +187,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 1,
         totalTurnsServed: 1,
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'ask_cached', cacheIndex: 1 });
   });
@@ -184,6 +199,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 2,
         totalTurnsServed: 2,
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'finish_concept' });
   });
@@ -195,6 +211,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 1,
         totalTurnsServed: 1,
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'finish_concept' });
   });
@@ -206,6 +223,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 1,
         totalTurnsServed: 1,
         maxTurns: 1,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'finish_concept' });
   });
@@ -217,6 +235,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: MAX_CACHED_QUESTIONS_PER_CONCEPT,
         totalTurnsServed: MAX_CACHED_QUESTIONS_PER_CONCEPT,
         maxTurns: 10,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'finish_concept' });
   });
@@ -233,6 +252,7 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 0, // no cache used yet — the 2 prior turns were both AI-sourced
         totalTurnsServed: 2, // ...but 2 turns of *some* kind already happened for this concept
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'ask_cached', cacheIndex: 0 });
   });
@@ -244,8 +264,65 @@ describe('resolveFallbackStep', () => {
         cachedTurnsServed: 0,
         totalTurnsServed: 3, // maxTurns already reached by prior AI turns alone
         maxTurns: 3,
+        lastVerdict: null,
       })
     ).toEqual({ type: 'finish_concept' });
+  });
+});
+
+/**
+ * CF-03/CF-04 regression: fallback mode must end a concept immediately on `wrong`, the same
+ * rule AI mode enforces in `decideNextStep`. Before this fix, a `wrong` self-grade in fallback
+ * mode was ignored and the next cached question was served — the student kept answering a
+ * concept they had already shown they do not understand.
+ */
+describe('resolveFallbackStep — wrong verdict ends concept (CF-03/CF-04)', () => {
+  it('ends the concept immediately when the last verdict is wrong, even with cache left', () => {
+    expect(
+      resolveFallbackStep({
+        cachedQuestionCount: 2,
+        cachedTurnsServed: 0,
+        totalTurnsServed: 1,
+        maxTurns: 3,
+        lastVerdict: 'wrong',
+      })
+    ).toEqual({ type: 'finish_concept' });
+  });
+
+  it('ends the concept on wrong after AI turns + one cached turn', () => {
+    expect(
+      resolveFallbackStep({
+        cachedQuestionCount: 2,
+        cachedTurnsServed: 1,
+        totalTurnsServed: 2, // 1 AI + 1 cache_fallback, last was wrong
+        maxTurns: 3,
+        lastVerdict: 'wrong',
+      })
+    ).toEqual({ type: 'finish_concept' });
+  });
+
+  it('still serves the next cached question when the last verdict is deep', () => {
+    expect(
+      resolveFallbackStep({
+        cachedQuestionCount: 2,
+        cachedTurnsServed: 1,
+        totalTurnsServed: 1,
+        maxTurns: 3,
+        lastVerdict: 'deep',
+      })
+    ).toEqual({ type: 'ask_cached', cacheIndex: 1 });
+  });
+
+  it('still serves the next cached question when the last verdict is shallow', () => {
+    expect(
+      resolveFallbackStep({
+        cachedQuestionCount: 2,
+        cachedTurnsServed: 0,
+        totalTurnsServed: 1,
+        maxTurns: 3,
+        lastVerdict: 'shallow',
+      })
+    ).toEqual({ type: 'ask_cached', cacheIndex: 0 });
   });
 });
 

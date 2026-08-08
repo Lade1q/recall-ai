@@ -140,12 +140,25 @@ export interface FallbackStateInput {
   totalTurnsServed: number;
   /** The session's own C6 limit — the fallback path may not exceed it either. */
   maxTurns: number;
+  /**
+   * Verdict of the last graded turn for this concept, if any. When `'wrong'`, the concept ends
+   * immediately — same rule as `decideNextStep`'s AI-mode path (AE-02 step 9). A `wrong` answer
+   * means the student does not have this material, so spending more questions on it is waste;
+   * `finalizeConceptResult` (I7.2) will run traceback if the concept has prerequisites.
+   *
+   * Added to fix CF-03/CF-04: fallback mode previously ignored the verdict and kept serving
+   * cached questions after a `wrong` self-grade, contradicting UC-11's state machine
+   * ("verdict == wrong → kết thúc khái niệm", UC-04_AIExaminer.md) and AE-02 basic flow step 9.
+   */
+  lastVerdict: Verdict | null;
 }
 
 /**
- * AE-05's flashcard-fallback stepping (UC-12): linear and deterministic. Unlike `decideNextStep`,
- * this never looks at a `deep`/`shallow`/`wrong` verdict — a concept in fallback mode always asks
- * every cached question it has left, in order, then finishes, whatever the student self-graded.
+ * AE-05's flashcard-fallback stepping (UC-12): linear and deterministic. Mostly ignores
+ * `deep`/`shallow` verdicts — a concept in fallback mode asks every cached question it has
+ * left, in order, then finishes — but honours the same `wrong`-means-stop rule as
+ * `decideNextStep` (AE-02 step 9, CF-03/CF-04): a student who self-graded `wrong` has shown
+ * they do not have this material, and spending more questions on it is waste.
  *
  * `cachedTurnsServed` doubles as the 0-based index into the concept's cached rows (ordered by
  * `generatedAt`) — same "re-derive from what's stored" philosophy as `decideNextStep`, so a
@@ -156,7 +169,15 @@ export function resolveFallbackStep({
   cachedTurnsServed,
   totalTurnsServed,
   maxTurns,
+  lastVerdict,
 }: FallbackStateInput): FallbackStep {
+  // CF-03/CF-04: a `wrong` verdict ends the concept immediately, same as AI mode. The concept
+  // must have had at least one turn served (the one that scored `wrong`), so `finish_concept`
+  // is safe — `finalizeConceptResult` will have scores to average.
+  if (lastVerdict === 'wrong' && totalTurnsServed > 0) {
+    return { type: 'finish_concept' };
+  }
+
   // UC-12 E1: this concept has never had a question served (AI or cache) and there is nothing
   // cached to fall back to either. Distinct from "cache ran out after one question" below.
   if (totalTurnsServed === 0 && cachedQuestionCount === 0) {
