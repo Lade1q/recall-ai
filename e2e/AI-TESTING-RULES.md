@@ -74,8 +74,10 @@ Hệ thống CI hoặc máy dev (Arch Linux) có thể không được hỗ tr�
 Sau khi kịch bản test được viết xong và chạy thử, AI (hoặc kỹ sư) có trách nhiệm cập nhật trực tiếp kết quả (PASS / FAIL) vào file Markdown chứa Test Case (ví dụ: `docs/test/test-cases/TC-FS-FocusSession.md`).
 
 - **Ghi kết quả chi tiết cho Sub-test**: Nếu TC có chia trường hợp (ví dụ: a, b, c), phải ghi rõ kết quả `Kết quả thực tế` và `Trạng thái` cho từng sub-test vào cùng một ô, dùng tiền tố `a)`, `b)` và ngăn cách bằng thẻ `<br>` (VD: `a) PASS <br> b) FAIL`).
-- **PASS**: Khi test chạy xanh hoàn toàn.
-- **FAIL**: Chỉ đánh dấu FAIL khi xác định chắc chắn đó là **lỗi của tính năng (bug)**, ứng dụng hoạt động không đúng yêu cầu của TC. Tuyệt đối không đánh dấu FAIL nếu nguyên nhân là do script test viết sai, thiếu setup dữ liệu, hay lỗi môi trường (timeout, strict mode). Trong trường hợp script lỗi, AI cần ưu tiên sửa script test cho đúng thay vì vội vàng kết luận tính năng bị lỗi.
+- **PASS**: Khi test chạy xanh hoàn toàn và thực sự phản ánh đúng yêu cầu của Test Case.
+- **FAIL**: Chỉ đánh dấu FAIL khi xác định chắc chắn đó là **lỗi của tính năng (bug)**, ứng dụng hoạt động không đúng yêu cầu của TC.
+- **TUYỆT ĐỐI KHÔNG ép test pass theo code lỗi:** Không được tự ý thay đổi kịch bản test hoặc assertion để cố tình cho khớp với hành vi sai của ứng dụng hiện tại, việc này sẽ làm mất đi hoàn toàn ý nghĩa của testing.
+- **Kiểm tra kỹ trước khi kết luận:** Khi gặp lỗi, cần double-check cẩn thận để xác định lỗi xuất phát từ script test (sai selector, thiếu setup dữ liệu, lỗi môi trường) hay do lỗi của chính mã nguồn (bug). Nếu là lỗi do script test, hãy sửa test; nếu do tính năng lỗi, hãy đánh dấu FAIL và báo cáo.
 
 ## 7. Chú thích (Comments) tiếng Việt trong Test Script
 
