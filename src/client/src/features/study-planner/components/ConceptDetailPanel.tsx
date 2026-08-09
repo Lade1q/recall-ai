@@ -171,7 +171,7 @@ export function ConceptDetailPanel({
         </div>
         <p className="text-muted-foreground mt-2 font-mono text-[12px]">
           {detail?.lastTestedAt
-            ? `last_tested_at · ${formatAbsoluteDate(detail.lastTestedAt)} — ${formatRelativeDays(detail.lastTestedAt)}`
+            ? `Kiểm tra lần cuối · ${formatAbsoluteDate(detail.lastTestedAt)} — ${formatRelativeDays(detail.lastTestedAt)}`
             : isLoading
               ? '…'
               : 'Chưa kiểm tra lần nào'}
@@ -193,7 +193,7 @@ export function ConceptDetailPanel({
         <>
           <div>
             <div className="mb-1.5 flex items-baseline justify-between font-mono text-[12px]">
-              <span className="text-muted-foreground">mastery_score</span>
+              <span className="text-muted-foreground">Mastery score</span>
               {scorePercent !== null ? (
                 <b className={`text-[20px] font-semibold ${BAND_TEXT_CLASS[band]}`}>
                   {detail?.masteryScore?.toFixed(2)}
@@ -231,6 +231,7 @@ export function ConceptDetailPanel({
               Trích từ tài liệu
             </h4>
             <ConceptSourceList
+              planId={planId}
               sources={detail?.sources ?? []}
               conceptName={conceptName}
               prerequisiteNames={prerequisites.map((p) => p.name)}

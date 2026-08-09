@@ -1,5 +1,7 @@
 # Use-case Specification: Truy ngược Lỗ hổng (AE-07)
 
+> ⚠️ **Đã sửa §3, §5, §6 (bước 8–9) và §7 (chốt 2026-08-04):** truy ngược lỗ hổng **tự động áp** khái niệm nền vào lịch ôn **ngay khi chấm xong** khái niệm `C` — không còn cổng "xác nhận / bỏ qua" trước khi áp. Sinh viên chỉ **gỡ bớt** (và đưa lại được) sau khi lịch đã áp, ở trạng thái tổng hợp cuối phiên hoặc trong Kế hoạch ôn tập. **Vì sao:** đây là mô hình đang chạy trong code (SRE ghi lịch ngay lúc chấm), và một cổng phê duyệt bắt buộc sẽ mâu thuẫn với hành vi thật. C4 giữ nguyên (SRE quyết lịch bằng logic tất định, AI chỉ sinh chữ). Nơi markdown lệch `Use-case_Specification.pdf` mục 2.5 bước 8 thì **markdown đúng** — PDF là ảnh chụp lúc nộp môn, không sửa được.
+
 ## 1. Use case Name
 
 Truy ngược Lỗ hổng (Concept Traceback) - AE-07
@@ -11,7 +13,7 @@ Use case này mô tả quá trình hệ thống tự động dò tìm các lỗ 
 ## 3. Actors
 
 - **Scheduling & Remediation Engine (SRE)**: Hệ thống điều phối và khắc phục, đóng vai trò thực thi thuật toán truy ngược và lập lịch.
-- **Student (Sinh viên)**: Xem xét danh sách lỗ hổng được phát hiện và có quyền xác nhận hoặc bỏ qua.
+- **Student (Sinh viên)**: Xem danh sách lỗ hổng **đã được hệ thống áp** vào lịch ôn, và có quyền **gỡ bớt** (gỡ rồi đưa lại được).
 
 ## 4. Pre-conditions
 
@@ -22,7 +24,7 @@ Use case này mô tả quá trình hệ thống tự động dò tìm các lỗ 
 ## 5. Post-conditions
 
 - Các khái niệm tiên quyết yếu được hệ thống xác định thành công.
-- Lịch ôn tập của sinh viên được cập nhật: Các khái niệm nền tảng cần củng cố được chèn vào đầu hàng đợi ưu tiên của phiên học tiếp theo (học trước khái niệm `C`).
+- Lịch ôn tập của sinh viên được cập nhật: Các khái niệm nền tảng cần củng cố được chèn vào đầu hàng đợi ưu tiên của phiên học tiếp theo (học trước khái niệm `C`). Việc cập nhật này xảy ra **ngay khi chấm xong khái niệm `C`**, do SRE thực hiện tự động — **không** phụ thuộc thao tác xác nhận của sinh viên.
 - Thông tin về các khái niệm tiên quyết yếu được lưu trữ để có thể hiển thị chi tiết trong Xem Tổng hợp Cuối phiên (AE-09).
 
 ## 6. Basic Flow
@@ -34,8 +36,8 @@ Use case này mô tả quá trình hệ thống tự động dò tìm các lỗ 
 5. **Kiểm tra điểm số tiên quyết:** Lần lượt với mỗi khái niệm tiên quyết `P` được lấy ra từ `Q`, SRE kiểm tra lịch sử điểm số của `P`. Hệ thống xác định xem `P` chưa từng được kiểm tra bao giờ HOẶC `mastery_score(P)` < ngưỡng.
 6. **Đề xuất ôn tập nền tảng:** Nếu điều kiện ở bước 5 thỏa mãn, SRE chèn khái niệm `P` vào đầu danh sách hàng đợi của phiên học/ôn tập tiếp theo, ưu tiên học `P` trước khi quay lại ôn `C`. Đồng thời, các khái niệm tiên quyết của `P` (nếu chưa vượt qua giới hạn độ sâu 2 tầng) tiếp tục được thêm vào cuối hàng đợi `Q`.
 7. **Hiển thị thông tin:** Sau khi vòng lặp duyệt hoàn tất, hệ thống hiển thị danh sách các khái niệm tiên quyết yếu (các prereqs) vừa tìm được lên giao diện.
-8. **Quyết định của người dùng:** Sinh viên xem danh sách các khái niệm nền tảng bị hổng, sau đó có thể chọn xác nhận đồng ý đưa vào lịch học hoặc bỏ qua (Skip) một hay nhiều khái niệm.
-9. **Kết thúc Use Case:** SRE lưu lại cấu hình lịch học mới dựa trên phản hồi của sinh viên và kết thúc luồng.
+8. **Sinh viên xem lại (KHÔNG phải cổng xác nhận):** Hệ thống **đã** chèn các khái niệm nền tảng vào lịch ôn ở bước 6. Sinh viên xem danh sách này và **có thể gỡ bớt** một hay nhiều khái niệm — tại trạng thái tổng hợp cuối phiên hoặc sau đó trong Kế hoạch ôn tập. Không có bước "Đồng ý / Đồng ý tất cả" bắt buộc trước khi áp.
+9. **Kết thúc Use Case:** Lịch ôn đã được lưu từ bước 6. Bước này chỉ **áp phần gỡ bớt** nếu sinh viên có gỡ, rồi kết thúc luồng.
 
 ## 7. Alternative Flows
 
@@ -51,8 +53,14 @@ Use case này mô tả quá trình hệ thống tự động dò tìm các lỗ 
 2. SRE xử lý khái niệm `C` như cơ chế ôn tập ngắt quãng (spaced repetition) thông thường: hẹn lịch ôn lại `C` sau X ngày thay vì ôn ngay lập tức.
 3. Continue step #9.
 
-**Alternative flow 3: Sinh viên bỏ qua (Skip) khái niệm nền**
+**Alternative flow 3: Sinh viên gỡ bớt khái niệm nền (override sau khi lịch đã áp)**
 
-1. Từ bước #8 của basic flow, nếu Sinh viên quyết định bỏ qua (Skip) tất cả hoặc một vài khái niệm nền tảng do hệ thống đề xuất.
-2. SRE loại bỏ các khái niệm đã bị Skip khỏi hàng đợi ưu tiên của phiên học tiếp theo. Các khái niệm còn lại (nếu có) vẫn được ưu tiên; đối với khái niệm `C`, hệ thống hẹn ngày ôn lại như bình thường nếu tất cả tiên quyết bị bỏ qua.
+1. Từ bước #8 của basic flow — sau khi lịch ôn **đã được áp** ở bước 6 — Sinh viên quyết định **gỡ bớt** tất cả hoặc một vài khái niệm nền tảng khỏi lịch. Đây là **override một lịch đã áp**, không phải từ chối một đề xuất đang treo.
+2. SRE loại các khái niệm đã gỡ khỏi hàng đợi ưu tiên của phiên học tiếp theo. Các khái niệm còn lại (nếu có) vẫn được ưu tiên; đối với khái niệm `C`, hệ thống hẹn ngày ôn lại như bình thường nếu tất cả tiên quyết bị gỡ.
+3. Continue step #9.
+
+**Alternative flow 4: Sinh viên đưa lại khái niệm nền đã gỡ**
+
+1. Sau khi đã gỡ một khái niệm nền tảng khỏi lịch (Alternative flow 3), Sinh viên đổi ý và **đưa lại** khái niệm đó vào lịch ôn — tại trạng thái tổng hợp cuối phiên hoặc trong Kế hoạch ôn tập.
+2. SRE chèn lại khái niệm vào hàng đợi ưu tiên của phiên học tiếp theo.
 3. Continue step #9.

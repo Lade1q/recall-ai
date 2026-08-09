@@ -145,7 +145,10 @@ FUNCTION traceback(C):
 4. Chèn P vào đầu hàng đợi phiên học kế tiếp (trước C)
 5. **Thông báo cho Student** sau khi phiên kết thúc:
    - "Phát hiện bạn còn yếu ở khái niệm **[C]**. Hệ thống đã thêm **[P1, P2]** vào lịch ôn tập tiếp theo vì chúng là nền tảng của [C]."
-6. Student xem và có thể điều chỉnh thủ công nếu không đồng ý
+   - _(Câu "**đã thêm**" là đúng mô hình mới — lịch được áp tự động ở bước 4, không chờ phê duyệt. **Giữ nguyên, đừng "sửa cho khớp spec cũ"** thành "đề xuất chờ xác nhận".)_
+6. Student xem và có thể **điều chỉnh** — **gỡ bớt hoặc đưa lại** khái niệm nền — ở **hai** nơi: trạng thái cuối của phiên vấn đáp (AE-02), và trong Kế hoạch ôn tập. Đây không phải cổng phê duyệt: lịch đã được áp ở bước 4.
+
+> ⚠️ **Đã làm rõ UC-13 bước 5–6 (chốt 2026-08-04):** truy ngược **tự áp** lịch ôn ngay khi chấm xong, không có cổng "Đồng ý" trước khi áp; "điều chỉnh" ở bước 6 = **gỡ / đưa lại**, làm được ở trạng thái cuối phiên **và** Kế hoạch ôn tập. Bước 5 vốn đã nói đúng ("đã thêm") nên giữ nguyên. Khớp mô hình đang chạy trong code; C4 không đổi.
 
 ### Luồng ngoại lệ
 
@@ -177,11 +180,13 @@ FUNCTION traceback(C):
    - Phần đang học (0.6 <= score < 0.8)
    - Phần còn yếu (score < 0.6)
    - Gợi ý ôn lại cụ thể
-3. Hiển thị trang kết quả với:
+3. Hiển thị **trạng thái kết quả cuối phiên** — là **trạng thái cuối của màn phỏng vấn (AE-02)**, không phải một trang/route riêng — với:
    - Biểu đồ điểm số từng khái niệm
    - Nhận xét tự nhiên do AI viết
    - Danh sách khái niệm được thêm vào lịch ôn tiếp theo (do UC-13)
    - Nút "Bắt đầu phiên học tiếp theo"
+
+> ⚠️ **Đã sửa bước 3 (chốt 2026-08-04):** "trang kết quả" → **trạng thái cuối của màn AE-02**, không đổi route. AE-09 là một trạng thái của phiên vấn đáp, không phải màn riêng. Nội dung 4 khối giữ nguyên. (Mốc "đã vững" ở bước 2 là một sửa đổi khác — xem blockquote ngay dưới.)
 
 > ⚠️ **Đã sửa mốc "đã vững" ở bước 2 (chốt 2026-08-04):** bản cũ ghi `>= 0.7` và chỉ liệt kê hai nhóm, để trống khoảng `0.6 <= score < 0.7` — khái niệm 0.65 không thuộc nhóm nào. Mốc đang chạy trong code là `MASTERY_STRONG_THRESHOLD = 0.8` (`src/server/src/utils/mastery.ts`), chia ba dải liền mạch và là thứ quyết định màu hiển thị. Giữ hai con số khác nhau thì cùng một khái niệm sẽ vừa nằm ở danh sách "đã vững" AI viết vừa mang màu "đang học" trên biểu đồ ngay cạnh đó (màn AE-09).
 >

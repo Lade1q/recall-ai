@@ -1092,10 +1092,12 @@
 
     /* Panel ghi chú nhanh (FS-05) — trượt vào từ phải, không phải modal:
        ghi chú phải viết được TRONG LÚC vẫn nhìn thấy khái niệm và đồng hồ. */
+    /* FS-05: ghi chú KHÔNG chia đôi sân khấu. Màn đang chạy (vòng Pomodoro + khái niệm + tally)
+       giữ NGUYÊN, canh giữa; rail ghi chú NỔI đè lên lề phải (overlay tuyệt đối), không đẩy đồng
+       hồ lệch đi (quyết định UX 2026-08-09 — panel nhỏ không đáng để xê dịch bộ đếm giờ). */
     .notes {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      min-height: 300px;
+      position: relative;
+      min-height: 340px;
     }
 
     .notes__stage {
@@ -1103,18 +1105,24 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 10px;
-      padding: 28px;
-      border-right: 1px solid var(--border);
+      gap: 12px;
+      padding: 32px;
       text-align: center;
     }
 
+    /* Rail nổi bên phải: đè lên nội dung, không chiếm một cột trong luồng nên stage không bị co. */
     .notes__side {
+      position: absolute;
+      inset: 0 0 0 auto;
+      width: 320px;
       display: flex;
       flex-direction: column;
       gap: 12px;
       padding: 18px 20px;
       background: var(--card);
+      border-left: 1px solid var(--border);
+      box-shadow: -6px 0 20px -14px oklch(0 0 0 / 0.1);
+      overflow-y: auto;
     }
 
     .notes__head {
@@ -1389,15 +1397,23 @@
     }
 
     @media (max-width: 900px) {
-      .split,
-      .notes {
+      .split {
         grid-template-columns: minmax(0, 1fr);
       }
 
-      .split__doc,
-      .notes__stage {
+      .split__doc {
         border-right: 0;
         border-bottom: 1px solid var(--border);
+      }
+
+      /* Màn hẹp: rail 320px sẽ che gần hết, nên hạ xuống thành khối tĩnh xếp dưới stage. */
+      .notes__side {
+        position: static;
+        inset: auto;
+        width: auto;
+        border-left: 0;
+        border-top: 1px solid var(--border);
+        box-shadow: none;
       }
 
       .fs-top__plan {
@@ -2173,9 +2189,11 @@
         <p class="state__desc">
           Bản trước đánh dấu FS-05 là không làm được và để một ô gạch chân trên màn hình chính.
           Nhưng thứ còn thiếu chỉ là một bảng — không phải một pipeline, không phải một call AI.
-          Nên ở đây vẽ đúng thứ sẽ dựng: panel trượt vào từ phải, khái niệm và đồng hồ vẫn nhìn
-          thấy, ghi chú tự lưu và neo sẵn vào concept đang học (basic flow bước 7–8). Panel mở
-          bằng phím <kbd>N</kbd> hoặc nút ghi chú trên thanh trên.
+          Nên ở đây vẽ đúng thứ sẽ dựng: rail ghi chú <strong>nổi đè lên lề phải</strong> (overlay),
+          còn màn đang chạy — vòng Pomodoro + khái niệm + đồng hồ — <strong>giữ NGUYÊN vị trí, không
+          bị đẩy lệch</strong> (panel nhỏ không đáng để xê dịch bộ đếm giờ). Ghi chú tự lưu và neo
+          sẵn vào concept đang học (basic flow bước 7–8). Panel mở bằng phím <kbd>N</kbd> hoặc nút
+          ghi chú trên thanh trên; hiện/ẩn <strong>tức thì</strong> (§0, không trượt).
         </p>
 
         <div class="note">
@@ -2201,12 +2219,25 @@
 
         <div class="state__demo">
           <div class="notes">
+            <!-- Sân khấu = màn ĐANG CHẠY nguyên vẹn (vòng Pomodoro + khái niệm), canh giữa. Rail
+                 bên phải nổi đè lên, KHÔNG chiếm cột nên vòng không bị co/lệch. -->
             <div class="notes__stage">
               <span class="chip">Truy ngược · tầng 1</span>
-              <div class="panel__t" style="font-size:22px;">Ngăn xếp (Stack)</div>
-              <div class="panel__k panel__k--muted" style="font-size:34px;">18:24</div>
+              <div class="panel__t" style="font-size:30px;">Ngăn xếp (Stack)</div>
+              <div class="ring" role="timer" aria-live="off" style="width:150px;height:150px;">
+                <svg width="150" height="150" viewBox="0 0 196 196" aria-hidden="true">
+                  <circle cx="98" cy="98" r="90" fill="none" stroke="var(--border)" stroke-width="6" />
+                  <circle cx="98" cy="98" r="90" fill="none" stroke="var(--focus-session)" stroke-width="6"
+                    stroke-linecap="round" stroke-dasharray="149 416" />
+                </svg>
+                <div class="ring__inner">
+                  <div class="ring__time" style="font-size:32px;">18:24</div>
+                  <div class="ring__label">Còn lại</div>
+                </div>
+              </div>
               <p class="panel__d" style="font-size:12px;">
-                Đồng hồ không dừng khi mở ghi chú — viết ghi chú là một phần của việc học.
+                Đồng hồ giữ nguyên vị trí khi mở ghi chú — rail chỉ nổi bên phải, không đẩy bộ đếm.
+                Viết ghi chú là một phần của việc học.
               </p>
             </div>
             <div class="notes__side">
@@ -2322,9 +2353,11 @@
           <span class="tag">FS-04</span>
         </div>
         <p class="state__desc">
-          Mức cao nhất của FS-04: mở nguyên tệp PDF, Sinh viên tự tìm. Cần có thanh điều hướng
-          trang và ô tìm kiếm — bản cũ không có cái nào, chỉ là một khối chữ tĩnh. Đây là chế độ
-          Sinh viên phải chủ động bật, không phải mặc định.
+          Mức cao nhất của FS-04: nhúng nguyên tệp PDF ngay trong phiên, mở sẵn ĐÚNG trang chứa
+          khái niệm đang học (<code>#page=N</code>). Cuộn và chuyển trang để chính trình xem PDF của
+          trình duyệt lo — không dựng thanh phân trang riêng chồng lên (nó lặp lại việc đó và không
+          biết người dùng đang cuộn tới trang nào). Đây là chế độ Sinh viên phải chủ động bật, không
+          phải mặc định.
         </p>
         <div class="state__demo">
           <div class="split">
@@ -2338,13 +2371,9 @@
                   </svg>
                   ctdl-giaithuat-hk2.pdf
                 </span>
-                <span class="pager">
-                  <button class="icon-btn" type="button" aria-label="Trang trước"
-                    style="width:26px;height:26px;">‹</button>
-                  41 / 186
-                  <button class="icon-btn" type="button" aria-label="Trang sau"
-                    style="width:26px;height:26px;">›</button>
-                </span>
+                <!-- KHÔNG có thanh phân trang: trình xem PDF native đã lo cuộn + chuyển trang, và
+                     một pager chồng lên không phản ánh được trang người dùng đang cuộn tới. Việc duy
+                     nhất màn này cần = mở đúng trang khái niệm bằng #page=N lúc nhúng (#227). -->
               </div>
               <div class="page fade">
                 <h4>4.2 — Ngăn xếp (Stack)</h4>

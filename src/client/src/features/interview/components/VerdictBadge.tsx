@@ -1,5 +1,6 @@
 import { Check, Minus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { VERDICT_LABEL } from '../utils/verdict';
 import type { TurnVerdict } from '../types/interview.types';
 
 interface VerdictBadgeProps {
@@ -13,21 +14,21 @@ interface VerdictBadgeProps {
  *   shallow → mastery-learning (hổ phách) — "Còn nông"
  *   wrong   → mastery-weak (đỏ)     — "Chưa đúng"
  */
-const VERDICT_MAP: Record<
+const VERDICT_STYLE: Record<
   TurnVerdict,
-  { tone: 'strong' | 'learning' | 'weak'; label: string; Icon: typeof Check }
+  { tone: 'strong' | 'learning' | 'weak'; Icon: typeof Check }
 > = {
-  deep: { tone: 'strong', label: 'Hiểu sâu', Icon: Check },
-  shallow: { tone: 'learning', label: 'Còn nông', Icon: Minus },
-  wrong: { tone: 'weak', label: 'Chưa đúng', Icon: X },
+  deep: { tone: 'strong', Icon: Check },
+  shallow: { tone: 'learning', Icon: Minus },
+  wrong: { tone: 'weak', Icon: X },
 };
 
 export function VerdictBadge({ verdict }: VerdictBadgeProps) {
-  const { tone, label, Icon } = VERDICT_MAP[verdict];
+  const { tone, Icon } = VERDICT_STYLE[verdict];
   return (
     <Badge tone={tone}>
       <Icon />
-      {label}
+      {VERDICT_LABEL[verdict]}
     </Badge>
   );
 }

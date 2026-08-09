@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import {
   CircleCheckIcon,
@@ -7,14 +8,34 @@ import {
   Loader2Icon,
 } from 'lucide-react';
 
+/**
+ * Theo dõi class `.dark` trên `<html>` — nguồn chân lý duy nhất của theme trong app này
+ * (đặt lúc khởi động ở `index.html`, bật/tắt bởi công tắc trong `MainLayout`). Không có
+ * ThemeProvider để subscribe nên dùng `MutationObserver`: rẻ, đúng API nền tảng, và tự
+ * đúng dù ai đổi class.
+ */
+function useIsDarkTheme(): boolean {
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => setIsDark(root.classList.contains('dark')));
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
+  // Bám theo theme của app, KHÔNG dùng "system" của Sonner (theo OS, không liên quan tới
+  // app). Toast là kênh phản hồi chính của màn vấn đáp toàn màn hình, để nó sáng trên nền
+  // tối là hỏng đúng chỗ dễ thấy nhất.
+  const theme: ToasterProps['theme'] = useIsDarkTheme() ? 'dark' : 'light';
+
   return (
     <Sonner
-      // App is light-only right now (no next-themes ThemeProvider, no `.dark`
-      // class toggling anywhere). Hardcode light so toasts never fall back to
-      // Sonner's own OS-driven "system" palette, which is dark and unrelated
-      // to the app's theme.
-      theme="light"
+      theme={theme}
       className="toaster group"
       richColors
       closeButton

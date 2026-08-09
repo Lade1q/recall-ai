@@ -19,8 +19,12 @@ function toConceptIds(value: Prisma.JsonValue): string[] {
 /**
  * Ownership check dùng chung — trả 404 (không phải 403) khi session không tồn tại hoặc
  * không thuộc user, để không lộ sự tồn tại của session cho người không sở hữu.
+ *
+ * Export để `session-note.service.ts` (FS-05) dùng lại đúng MỘT chỗ kiểm quyền phiên: 4 endpoint
+ * ghi chú lồng dưới `/focus-sessions/:id` đều phải qua cùng cánh cửa này trước khi chạm bảng
+ * `session_notes`, nếu không mỗi endpoint tự viết lại điều kiện sở hữu là chỗ để lọt 404↔403.
  */
-async function getOwnedFocusSessionOrThrow(userId: string, id: string) {
+export async function getOwnedFocusSessionOrThrow(userId: string, id: string) {
   const session = await prisma.focusSession.findUnique({ where: { id } });
   if (!session || session.userId !== userId) {
     throw new AppError('Focus session not found', 404, 'NOT_FOUND');

@@ -87,9 +87,11 @@ export async function validateDAG(planId: string): Promise<DagValidationResult> 
  * editor (SP-01 basic flow steps 8-9). Any change that would make the graph cyclic
  * is rejected outright and nothing is written.
  *
- * Concepts are matched by name: names still present keep their id, mastery score and
- * history; names that disappeared are deleted (cascading to their edges); new names
- * are created as `source: 'manual'`.
+ * Concepts are matched by name **among currently-`active` concepts only**: names still
+ * present keep their id, mastery score and history; active names that disappeared are
+ * deleted (cascading to their edges); new names are created as `source: 'manual'`.
+ * `deprecated` concepts (SP-05 re-analyze tombstones) are never part of this diff — see the
+ * comment on `existing` below.
  */
 export async function replacePlanGraph(
   planId: string,
@@ -133,8 +135,12 @@ export async function replacePlanGraph(
   }
 
   return prisma.$transaction(async (tx) => {
+    // `active` only: a `deprecated` row (SP-05 re-analyze tombstone, #170) is never shown to
+    // the editor, so its name is never in `nameSet` — treating it as "existing" here would
+    // read that silence as the user dropping it and hard-delete it, destroying the mastery
+    // history `planConceptMerge` kept it around to preserve.
     const existing = await tx.concept.findMany({
-      where: { planId },
+      where: { planId, status: 'active' },
       select: { id: true, name: true },
     });
 

@@ -42,6 +42,7 @@ jest.mock('../services/gemini.service', () => ({
 jest.mock('../services/graph.service', () => ({
   validateDAG: jest.fn().mockResolvedValue(undefined),
 }));
+
 // AE-06: pregenerateForPlan is fired-and-forgotten from processAnalysisJob (see the dedicated
 // hook test below) — mocked here so this file stays focused on the analysis pipeline itself.
 jest.mock('../services/question-cache.service', () => ({
@@ -71,6 +72,7 @@ describe('processAnalysisJob', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.USE_MOCK_AI = 'true'; // callAi trả thẳng MOCK_EXTRACT_RESULT, không gọi Gemini thật
+
     (mockedPrisma.$transaction as jest.Mock).mockImplementation(
       (fn: (tx: typeof mockedPrisma) => Promise<unknown>) => fn(mockedPrisma)
     );

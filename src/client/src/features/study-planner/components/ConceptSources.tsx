@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { planApi } from '../api/plan.api';
+import { fetchDocumentObjectUrl } from '../utils/documentFile';
 import { ConceptSourceExcerpt } from '../types/concept';
 
 // Tên khái niệm là dữ liệu người dùng/AI sinh ra ("Mảng & Con trỏ", "Cây AVL (tự cân bằng)"),
@@ -73,6 +74,95 @@ export function HighlightedExcerpt({
   );
 }
 
+type OpenFailure = 'popup-blocked' | 'fetch-failed';
+
+const FAILURE_MESSAGE: Record<OpenFailure, string> = {
+  'popup-blocked': 'Trình duyệt đã chặn cửa sổ mới. Hãy cho phép pop-up cho trang này rồi thử lại.',
+  // "Chưa mở được" chứ không phải "không có tài liệu": tệp có thể đã bị thay (SP-04) hoặc mạng
+  // rớt, và hai thứ đó khác hẳn nhau với người đang đối chiếu.
+  'fetch-failed': 'Chưa mở được tài liệu. Vui lòng thử lại.',
+};
+
+/**
+ * Nút "Mở tài liệu" của MỘT trích đoạn (Issue #203) — tầng thứ hai của ràng buộc C5: #202 cho
+ * đọc *trích đoạn* AI rút ra, chỗ này cho mở chính tài liệu để đối chiếu xem câu đó có thật
+ * nằm ở trang đó không.
+ *
+ * Là `<button>` chứ không phải `<a href>`, và đó là điều bắt buộc chứ không phải lựa chọn thẩm
+ * mỹ: app xác thực bằng Bearer token trong header (`apiClient`), không phải cookie — một link
+ * trần mở tab mới sẽ không mang theo token và chỉ nhận về 401. Phần lấy bytes → object URL nằm
+ * ở `fetchDocumentObjectUrl`; component này chỉ quyết định *cách bày* (mở tab + `#page=N`).
+ *
+ * Số trang chỉ hiện cho PDF. Tài liệu `text`/`image` VẪN có thể mang `pageFrom` trong DB (văn
+ * bản dán vào được đánh trang lúc phân tích), nhưng không có trình xem nào nhảy tới trang đó
+ * được — hứa "tại trang N" rồi mở ra đầu tệp còn tệ hơn là không hứa.
+ */
+function OpenDocumentButton({ planId, source }: { planId: string; source: ConceptSourceExcerpt }) {
+  const [isOpening, setIsOpening] = useState(false);
+  const [failure, setFailure] = useState<OpenFailure | null>(null);
+
+  const page = source.kind === 'pdf' ? source.pageFrom : null;
+  const label = page !== null ? `Mở tài liệu tại trang ${page}` : 'Mở tài liệu';
+
+  const handleClick = async () => {
+    if (isOpening) return;
+    setFailure(null);
+
+    // Mở tab TRƯỚC khi await: `window.open` chỉ được cho phép trong lúc còn "user activation".
+    // Tải xong file rồi mới mở thì với tệp lớn/mạng chậm trình duyệt chặn popup âm thầm —
+    // bấm vào không có gì xảy ra, kiểu hỏng khó chẩn đoán nhất.
+    const tab = window.open('', '_blank');
+
+    // Bị chặn thì DỪNG, và tuyệt đối không lấy tab hiện tại làm phương án hai: khối nguồn này
+    // cũng sống trong panel edit mode, nơi người dùng có thể đang có sửa đổi đồ thị chưa lưu
+    // (thêm/xoá khái niệm, nối cạnh). Điều hướng tab hiện tại sang PDF là xoá sạch chỗ đó —
+    // mất việc của người dùng để đổi lấy một tệp họ chỉ định liếc qua. Thà nói thẳng là bị chặn.
+    if (!tab) {
+      setFailure('popup-blocked');
+      return;
+    }
+    // Blob cùng origin nên opener không phải lỗ hổng, nhưng tab tài liệu không việc gì phải
+    // giữ tay lái vào app.
+    tab.opener = null;
+    setIsOpening(true);
+
+    try {
+      const { url, revoke } = await fetchDocumentObjectUrl(planId, source.documentId);
+      // `#page=N` là best-effort đúng như ràng buộc #203: trình xem PDF của Chrome/Edge hiểu,
+      // trình khác bỏ qua và mở từ đầu tệp.
+      tab.location.href = page !== null ? `${url}#page=${page}` : url;
+
+      // Tab kia giờ nằm ngoài tầm với, nên chỉ còn cách hẹn giờ: thu hồi sớm thì nó chưa kịp
+      // tải, không thu hồi thì giữ nguyên tệp trong bộ nhớ tới lúc rời trang. Hoãn lại là đủ
+      // cho lượt tải đầu — đánh đổi là bấm F5 trong tab tài liệu sau một phút sẽ hỏng.
+      setTimeout(revoke, 60000);
+    } catch {
+      tab.close();
+      setFailure('fetch-failed');
+    } finally {
+      setIsOpening(false);
+    }
+  };
+
+  return (
+    <div className="mt-2.5">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isOpening}
+        className="border-border hover:border-foreground border-b text-[12px] transition-colors disabled:opacity-60"
+      >
+        {isOpening ? 'Đang mở…' : label}
+      </button>
+      {failure && (
+        <p className="text-muted-foreground mt-1 text-[11.5px] italic">
+          {FAILURE_MESSAGE[failure]}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /**
  * Danh sách trích đoạn gốc của một khái niệm — dùng chung cho panel chi tiết (view mode, DB-06)
  * và panel kiểm chứng (edit mode, Issue #202) để hai bên trông như một: cùng khung nguồn
@@ -82,10 +172,12 @@ export function HighlightedExcerpt({
  * `ConceptSourceRef` nào, và đó là trạng thái hợp lệ.
  */
 export function ConceptSourceList({
+  planId,
   sources,
   conceptName,
   prerequisiteNames,
 }: {
+  planId: string;
   sources: ConceptSourceExcerpt[];
   conceptName: string;
   prerequisiteNames: string[];
@@ -122,6 +214,10 @@ export function ConceptSourceList({
           ) : (
             <p className="text-muted-foreground text-[12px] italic">Không có trích đoạn.</p>
           )}
+          {/* Mỗi trích đoạn một nút, không phải một nút cho cả khái niệm: một khái niệm có thể
+              neo vào nhiều trang khác nhau, "trang 41" phải thuộc về đúng đoạn nằm ở trang 41
+              (mockup screen-concept-graph đặt link ngay trong khối nguồn vì lẽ đó). */}
+          <OpenDocumentButton planId={planId} source={source} />
         </div>
       ))}
     </div>
@@ -205,6 +301,7 @@ export function ConceptSourcesSection({
 
   return (
     <ConceptSourceList
+      planId={planId}
       sources={sources ?? []}
       conceptName={conceptName}
       prerequisiteNames={prerequisiteNames}

@@ -37,7 +37,9 @@ Use case này cho phép Sinh viên thực hiện một phiên kiểm tra kiến 
    - Nếu trả lời **sai/hổng kiến thức**, nhận xét chấm điểm (`feedback` từ `grade_answer`) giải thích lỗi sai và khái niệm kết thúc sớm. Việc **có kích hoạt AE-07 (Truy ngược Lỗ hổng) hay không được quyết định sau khi tính `mastery_score` cuối cùng của khái niệm** (per-concept), không phải ngay từng lượt.
 10. **Hệ thống** lưu lại kết quả đánh giá của khái niệm hiện tại sau khi hết số lượt tối đa hoặc kết thúc chu trình xử lý ở bước 9. `mastery_score` được tính bằng trung bình có trọng số (weighted average) điểm các lượt.
 11. **Hệ thống** lặp lại quy trình từ Bước 2 cho khái niệm tiếp theo trong hàng đợi, cho đến khi hoàn tất danh sách.
-12. **Hệ thống** thông báo kết thúc phiên kiểm tra và tự động chuyển Sinh viên tới màn hình Xem Tổng hợp Cuối phiên. (Khi bật tầng giọng nói, thông báo này được phát kèm giọng đọc, cùng cơ chế Text-to-Speech phía client như bước 4 — không qua AI Service.)
+12. **Hệ thống** thông báo kết thúc phiên kiểm tra và chuyển sang **trạng thái tổng hợp của chính màn đó** — không rời màn, không đổi route. (Khi bật tầng giọng nói, thông báo này được phát kèm giọng đọc, cùng cơ chế Text-to-Speech phía client như bước 4 — không qua AI Service.)
+
+> ⚠️ **Đã sửa bước 12 (chốt 2026-08-04):** "tự động chuyển tới **màn hình** Xem Tổng hợp Cuối phiên" → chuyển sang **trạng thái tổng hợp của chính màn phỏng vấn**, không rời màn/không đổi route. Trạng thái tổng hợp cuối phiên (AE-09) là một trạng thái của màn AE-02, không phải màn/route riêng — khớp mockup `screen-interview.html`.
 
 ## 6. Alternative Flows
 

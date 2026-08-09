@@ -11,5 +11,7 @@ module.exports = {
     'src/utils/interview-state.ts',
     'src/utils/dashboard-stats.ts',
     'src/services/traceback.service.ts',
+    'src/services/scheduling.service.ts',
   ],
+  testPathIgnorePatterns: ['<rootDir>/src/__tests__/helpers/'],
 };

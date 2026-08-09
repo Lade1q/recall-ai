@@ -549,9 +549,12 @@ export async function changePlanDocument(
  * Queues a fresh analysis of an already-analysed plan (SP-05, Issue #170).
  *
  * Distinct from `retryPlanAnalysis` (#106), which rescues a `draft` whose only job failed.
- * Here the plan is `active` and stays that way: the current graph keeps working while the
- * new job runs, and `processAnalysisJob` merges the result over it rather than replacing it,
- * so mastery scores survive (see `planConceptMerge`).
+ * Here the plan starts `active`, but this call drops it back to `draft` — same as SP-01's
+ * first analysis — so the merged result goes through the same confirmation gate #265 built
+ * for a first-time graph (`UC-Overview.md`: SP-05 `<<include>>` SP-02 "Review đồ thị sau
+ * re-analyze"). `processAnalysisJob` merges the result over the existing graph rather than
+ * replacing it, so mastery scores survive (see `planConceptMerge`); the plan only leaves
+ * `draft` again once the user confirms via `PUT /plans/:id/graph {confirm:true}`.
  *
  * The file is taken from the plan's newest Document — the durable home for the upload —
  * rather than from the previous job, so nothing needs re-uploading.
@@ -625,11 +628,15 @@ export async function reanalyzePlan(
       data: { planDraftId: planId, fileKey: document.fileKey, status: 'pending' },
     });
 
+    // Drop back to `draft` now, not when the job finishes — mirrors plan creation, where the
+    // plan is `draft` for the whole "job running + awaiting confirmation" span (#265).
+    await tx.studyPlan.update({ where: { id: planId }, data: { status: 'draft' } });
+
     return {
       id: plan.id,
       name: plan.name,
       deadline: plan.deadline,
-      status: plan.status,
+      status: 'draft' as const,
       analysisStatus: 'pending' as const,
     };
   });

@@ -12,6 +12,7 @@ import {
   Handle,
   Position,
   NodeProps,
+  NodeToolbar,
   Node,
   ReactFlowInstance,
   MarkerType,
@@ -155,23 +156,28 @@ function GraphNode({ data, selected }: NodeProps) {
 
       {/* DB-02 bước 3: hover tóm tắt nhanh — click mới mở panel đầy đủ (DB-06). Node đã mang
           sẵn điểm số, nên thứ tooltip thêm vào là THỜI ĐIỂM: 0.42 đo hôm qua khác hẳn 0.42
-          đo ba tuần trước. */}
-      {isHovered && (
-        <div className="bg-card border-border shadow-soft px-2.75 pointer-events-none absolute -top-1.5 left-1/2 z-30 w-max max-w-60 -translate-x-1/2 -translate-y-full rounded-[calc(var(--radius)*0.7)] border py-2 text-[12px]">
+          đo ba tuần trước.
+          Dùng NodeToolbar (không phải absolute + z-index) vì tooltip là con của
+          `.react-flow__node`, mà react-flow gắn inline `transform` lên chính node đó — transform
+          tạo stacking context mới nên z-index của tooltip chỉ so được với anh em bên trong node,
+          không "thoát" ra để nổi trên các node khác. NodeToolbar portal nội dung ra ngoài cây
+          node nên luôn vẽ trên cùng, bất kể node nào khác đang chọn/đè lên. */}
+      <NodeToolbar isVisible={isHovered} position={Position.Top} offset={6}>
+        <div className="bg-card border-border shadow-soft px-2.75 pointer-events-none w-max max-w-60 rounded-[calc(var(--radius)*0.7)] border py-2 text-[12px]">
           <span className="font-medium">{data.label as string}</span>
           <span
             className={`ml-2 font-mono text-[11px] font-semibold tabular-nums ${BAND_TEXT_CLASS[band]}`}
           >
             {score !== null ? score.toFixed(2) : '—'}
           </span>
-          <div className="text-muted-foreground mt-0.75 whitespace-nowrap font-mono text-[10.5px]">
+          <div className="text-muted-foreground mt-0.75 break-words font-mono text-[10.5px]">
             {lastTestedAt
               ? `kiểm tra lần cuối ${formatRelativeDays(lastTestedAt)}`
               : 'chưa kiểm tra'}
             {` · ${dependentCount} khái niệm phụ thuộc`}
           </div>
         </div>
-      )}
+      </NodeToolbar>
     </div>
   );
 }

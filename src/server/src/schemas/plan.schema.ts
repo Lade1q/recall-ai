@@ -54,3 +54,12 @@ export const planIdParamSchema = z.object({
 export const conceptDetailParamsSchema = planIdParamSchema.extend({
   conceptId: z.string().uuid('Concept ID must be a valid UUID'),
 });
+
+/**
+ * Params cho route lồng GET /plans/:id/documents/:documentId (Issue #203). Cùng lý do như
+ * `conceptDetailParamsSchema`: `documentId` là @db.Uuid, id rác không chặn ở đây sẽ thành
+ * P2023 → 500 thay vì 400.
+ */
+export const planDocumentParamsSchema = planIdParamSchema.extend({
+  documentId: z.string().uuid('Document ID must be a valid UUID'),
+});

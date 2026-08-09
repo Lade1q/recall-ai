@@ -13,6 +13,7 @@ import {
 } from '../controllers/plan.controller';
 import { graphRouter } from './graph.routes';
 import { conceptRouter } from './concept.routes';
+import { documentRouter } from './document.routes';
 
 const planRouter = Router();
 
@@ -27,5 +28,8 @@ planRouter.patch('/:id', asyncHandler(updatePlanStatusController));
 planRouter.delete('/:id', asyncHandler(deletePlanController));
 planRouter.use('/:id/graph', graphRouter);
 planRouter.use('/:id/concepts', conceptRouter);
+// Plural, and distinct from the singular POST '/:id/document' above: that one *replaces* the
+// plan's file (SP-04), this one *reads* one back by id (#203).
+planRouter.use('/:id/documents', documentRouter);
 
 export { planRouter };

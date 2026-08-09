@@ -160,9 +160,11 @@
   --ai-accent: oklch(0.5 0.1 235);
   --ai-accent-fg: oklch(0.99 0.002 262);
 
-  /* FOCUS SESSION: muted amber — Pomodoro đang chạy */
-  --focus-session: oklch(0.55 0.11 85);
-  --focus-session-foreground: oklch(0.99 0.002 262);
+  /* FOCUS SESSION: dùng xanh primary của app (yêu cầu 07/08) — Focus không còn accent riêng.
+     Tham chiếu `var(--primary)` thay vì chép giá trị: một cần gạt duy nhất, tự bám light/dark và
+     mọi thay đổi primary sau này. (Trước đây là amber ấm hue 85 — token cố ý của mockup v3.) */
+  --focus-session: var(--primary);
+  --focus-session-foreground: var(--primary-foreground);
 
   /* MASTERY: muted green — Khái niệm đã vững (mastery_score ≥ 0.8) */
   --mastery-strong: oklch(0.5 0.08 155);
@@ -243,8 +245,9 @@
   --ai-accent: oklch(0.72 0.1 235);
   --ai-accent-fg: oklch(0.17 0.006 262);
 
-  --focus-session: oklch(0.75 0.12 85);
-  --focus-session-foreground: oklch(0.17 0.006 262);
+  /* Dark: vẫn theo primary của dark scope (xem chú thích ở :root). */
+  --focus-session: var(--primary);
+  --focus-session-foreground: var(--primary-foreground);
 
   --mastery-strong: oklch(0.72 0.1 155);
   --mastery-strong-fg: oklch(0.17 0.006 262);
@@ -325,6 +328,13 @@
 .focus-session-active * {
   animation: none !important;
   transition: none !important;
+}
+
+/* Ngoại lệ: spinner chờ là phản hồi CHỨC NĂNG (đang PATCH kết thúc/hủy phiên), không phải chuyển
+   động trang trí mà ràng buộc "animation = 0" nhắm tới — cho nó quay lại kẻo nút loading đứng hình.
+   `prefers-reduced-motion` vẫn dừng nó ở block trên (đúng ý người dùng đã chọn giảm chuyển động). */
+.focus-session-active [data-slot='spinner'] {
+  animation: spin 0.9s linear infinite !important;
 }
 
 /*
@@ -516,6 +526,21 @@ kbd,
   .reveal-on-scroll {
     opacity: 1;
     transform: none;
+  }
+
+  /* Màn Focus (#127, AC §8): panel cấu hình Pomodoro mở được cả TRƯỚC khi đồng hồ chạy (nút "Đổi
+     độ dài lượt"), lúc đó `.focus-session-active` chưa gắn nên Popover/Dialog vẫn phải tự tôn
+     trọng prefers-reduced-motion.
+     M8: KHÔNG dùng tổ tiên `.focus-page` — Popover/Dialog của Radix portal ra thẳng con của
+     `<body>`, KHÔNG nằm trong cây `.focus-page`, nên selector hậu duệ cũ không match gì (rule
+     chết, đã kiểm DOM thật). Nhắm 3 `data-slot` ở phạm vi toàn cục: chúng chỉ do các primitive
+     dùng chung sinh ra, tắt animation của chúng khi user yêu cầu là đúng mong muốn ở mọi màn. */
+  [data-slot='popover-content'],
+  [data-slot='dialog-content'],
+  [data-slot='dialog-overlay'] {
+    animation: none !important;
+    transition: none !important;
+    transition-delay: 0s !important;
   }
 }
 

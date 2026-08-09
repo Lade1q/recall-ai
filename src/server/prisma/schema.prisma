@@ -185,6 +185,7 @@ model Concept {
   interviewTurns   InterviewTurn[]
   reviewQueueItems ReviewQueueItem[]
   conceptSources   ConceptSourceRef[]
+  sessionNotes     SessionNote[]
 
   @@index([planId])
   @@map("concepts")
@@ -322,8 +323,9 @@ model FocusSession {
   startedAt          DateTime           @default(now()) @map("started_at")
   endedAt            DateTime?          @map("ended_at")
 
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan StudyPlan? @relation(fields: [planId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan  StudyPlan?    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  notes SessionNote[]
 
   @@index([userId])
   @@map("focus_sessions")
@@ -406,8 +408,31 @@ model ConceptSourceRef {
   @@map("concept_sources")
 }
 
+/// Ghi chú nhanh trong phiên học (FS-05, basic flow bước 7-8).
+/// Neo vào KHÁI NIỆM chứ không chỉ vào phiên: `conceptId` bắt buộc (không nullable), để một phiên
+/// nhiều khái niệm thì mỗi ghi chú vẫn biết mình thuộc khái niệm nào — đúng post-condition
+/// "ghi chú được lưu trữ và liên kết đúng với concept". `body` (không phải `content` như bản phác
+/// trong UC-Overview): đồng bộ với API `{ body }` và tránh trùng nghĩa với `excerpt`/`content` khác.
+/// `updatedAt` cần cho đường auto-save: PATCH cùng một ghi chú nhiều lần khi người học gõ tiếp.
+model SessionNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  conceptId String   @map("concept_id") @db.Uuid
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Cascade cả hai chiều: xóa phiên (FS-01 hủy/dọn phiên treo) hay xóa khái niệm (SP-01 phân tích
+  // lại đồ thị) đều không được để lại ghi chú mồ côi trỏ vào hàng đã biến mất.
+  session FocusSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  concept Concept      @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  // Truy vấn chính là "mọi ghi chú của phiên này, mới nhất trước" → index theo phiên.
+  @@index([sessionId])
+  @@map("session_notes")
+}
+
 // ============================================
 // Deferred Models (sẽ implement ở Sprint 5)
 // ============================================
-// - SessionNote: FS-05 ghi chú nhanh (Sprint 5)
 // - GradingFeedback: AE-10 phản hồi điểm (Sprint 5)

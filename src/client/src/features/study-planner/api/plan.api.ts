@@ -195,6 +195,36 @@ export const planApi = {
     return response.data.data;
   },
 
+  /**
+   * GET /plans/:id/documents/:documentId — the original file, for deep C5 verification (#203).
+   *
+   * Fetched as a blob rather than linked to directly: auth is a Bearer token in a header
+   * (`apiClient`), not a cookie, so a bare `<a href target="_blank">` would open a tab that
+   * sends no token and gets a 401. Going through `apiClient` also means a request landing on
+   * an expired token still hits the refresh-and-retry interceptor.
+   */
+  getDocumentFile: async (planId: string, documentId: string): Promise<Blob> => {
+    const response = await apiClient.get<Blob>(ENDPOINTS.PLANS.DOCUMENT_FILE(planId, documentId), {
+      responseType: 'blob',
+      // A scanned PDF can be several MB; the 10s default is tuned for JSON, and the upload
+      // cap (10MB) is the real bound on how long this can legitimately take.
+      timeout: 60000,
+    });
+
+    // XHR builds the Blob with only the *essence* of Content-Type — `text/plain; charset=utf-8`
+    // arrives as `text/plain`, charset dropped. That loss is invisible until the blob URL is
+    // opened as a top-level tab: with no charset and no parent document to inherit one from,
+    // the browser falls back to its platform default and renders Vietnamese material as
+    // mojibake (measured in Chrome). Rebuilding the Blob from the header restores what the
+    // server actually said — verified by reading back what Chrome then serves for the object
+    // URL. An `<iframe>` hides this bug, because it inherits the host page's UTF-8.
+    const contentType = response.headers['content-type'];
+    if (typeof contentType === 'string' && contentType !== response.data.type) {
+      return new Blob([response.data], { type: contentType });
+    }
+    return response.data;
+  },
+
   retryPlan: async (id: string): Promise<void> => {
     await apiClient.post(ENDPOINTS.PLANS.RETRY(id));
   },

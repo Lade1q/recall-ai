@@ -38,6 +38,22 @@ async function fetchAuthoritativeState(sessionId: string): Promise<Authoritative
   };
 }
 
+/**
+ * Ghi (hoặc hoàn tác) câu trả lời cục bộ lên đúng một lượt trong transcript. Tách ra vì cả
+ * lúc echo lạc quan lẫn lúc rollback đều dùng, chỉ khác giá trị truyền vào.
+ */
+function patchAnswerText(
+  turns: InterviewTurnResponse[],
+  turnId: string,
+  answerText: string | null
+): InterviewTurnResponse[] {
+  const index = turns.findIndex((turn) => turn.id === turnId);
+  if (index === -1) return turns;
+  const next = [...turns];
+  next[index] = { ...next[index], answerText };
+  return next;
+}
+
 interface UseInterviewSessionOptions {
   /**
    * Được gọi đúng một lần khi phiên kết thúc (sessionCompleted). Nhận nguyên
@@ -170,7 +186,12 @@ export function useInterviewSession(
         const fresh = await interviewApi.getInterview(sessionId);
         applyServerState(fresh);
         if (result.sessionCompleted || fresh.session.status === 'completed') {
-          onCompletedRef.current?.(result);
+          // Phiên có thể kết thúc ở chính lần GET này chứ không phải ở lần submit: submit trả
+          // `sessionCompleted: false` + fallback `question_unavailable`, rồi GET chạy tiếp
+          // `advanceFallback` và rơi vào nhánh E1. Lúc đó lý do fallback MỚI NHẤT nằm ở
+          // `fresh`, không phải ở `result` — chuyển tiếp cái mới, nếu không trang sẽ chúc
+          // mừng "đã hoàn thành" cho một phiên vừa chết vì AI hỏng.
+          onCompletedRef.current?.({ ...result, fallback: fresh.fallback ?? result.fallback });
         }
       } catch (err) {
         console.error('Lỗi khi tải dữ liệu mới:', err);
@@ -190,11 +211,32 @@ export function useInterviewSession(
       if (!sessionId || isSubmittingRef.current) return false;
       isSubmittingRef.current = true;
       setIsSubmitting(true);
+
+      // Echo câu trả lời vào transcript NGAY, trước khi chờ AI 10–20 giây: suốt lúc chờ,
+      // thứ sinh viên vừa gửi phải có mặt trong hội thoại. Đây là bản nháp lạc quan của
+      // đúng một trường do người dùng gõ ra — mọi trường đã chấm (score/feedback/verdict)
+      // vẫn chỉ đến từ response của server.
+      //
+      // Rollback phải trả về ĐÚNG giá trị cũ chứ không phải `null`: server định nghĩa "lượt
+      // đang chờ" theo `verdict === null`, không phải `answerText === null`, nên một lượt
+      // chờ hoàn toàn có thể đã mang câu trả lời đã lưu (chấm hỏng giữa chừng). Ghi đè
+      // `null` lên đó là bịa ra một lần mất dữ liệu chưa từng xảy ra.
+      const echoedTurnId = currentQuestion?.turnId ?? null;
+      const previousAnswerText = echoedTurnId
+        ? (turns.find((turn) => turn.id === echoedTurnId)?.answerText ?? null)
+        : null;
+      if (echoedTurnId) {
+        setTurns((prev) => patchAnswerText(prev, echoedTurnId, answerText));
+      }
+
       try {
         const result = await interviewApi.submitAnswer(sessionId, answerText);
         await finishSubmit(result, answerText);
         return true;
       } catch (err) {
+        if (echoedTurnId) {
+          setTurns((prev) => patchAnswerText(prev, echoedTurnId, previousAnswerText));
+        }
         toast.error(getInterviewErrorMessage(err));
         return false;
       } finally {
@@ -202,7 +244,7 @@ export function useInterviewSession(
         setIsSubmitting(false);
       }
     },
-    [sessionId, finishSubmit]
+    [sessionId, finishSubmit, currentQuestion, turns]
   );
 
   const submitSelfGrade = useCallback(

@@ -211,4 +211,23 @@ describe('traceback', () => {
     expect(concepts).toHaveLength(2);
     expect(edges).toEqual([{ fromConceptId: 'P1', toConceptId: ROOT }]);
   });
+
+  it('limits traceback to MAX_TRACEBACK_DEPTH for a 5-level deep graph of weak concepts', () => {
+    // Graph: E -> D -> C -> B -> A (root)
+    // Depths: B=1, C=2, D=3, E=4
+    const concepts = [
+      concept('A', 0.2),
+      concept('B', 0.2),
+      concept('C', 0.2),
+      concept('D', 0.2),
+      concept('E', 0.2),
+    ];
+    const edges = [edge('B', 'A'), edge('C', 'B'), edge('D', 'C'), edge('E', 'D')];
+
+    const result = traceback({ rootConceptId: 'A', concepts, edges });
+
+    // Should only return B (depth 1) and C (depth 2)
+    expect(result.map((r) => r.conceptId)).toEqual(['B', 'C']);
+    expect(Math.max(...result.map((r) => r.depth))).toBe(2); // MAX_TRACEBACK_DEPTH
+  });
 });

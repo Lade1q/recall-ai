@@ -89,6 +89,15 @@ describe('calculateMasteryScore', () => {
     expect(() => calculateMasteryScore([1, 1, 1, 1])).toThrow(RangeError);
     expect(TURN_WEIGHTS).toHaveLength(3);
   });
+
+  it('clamps dirty scores outside [0, 1] to the boundaries', () => {
+    // Test case required by Phase 4 for handling invalid scores out of bounds
+    expect(calculateMasteryScore([1.5])).toBe(1);
+    expect(calculateMasteryScore([-0.5])).toBe(0);
+    // A heavily negative start followed by positive scores will still be clamped appropriately
+    expect(calculateMasteryScore([-1.0, 0.0, -0.5])).toBe(0);
+    expect(calculateMasteryScore([2.0, 1.5, 3.0])).toBe(1);
+  });
 });
 
 describe('gradedTurnScores', () => {

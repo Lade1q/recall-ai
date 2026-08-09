@@ -132,6 +132,19 @@ describe('sortReviewItems', () => {
     ]);
   });
 
+  it('prioritizes traceback over spaced_repetition when they have the exact same priority (same mastery score)', () => {
+    // Required by Phase 5: testing identical priority values
+    const items = [
+      { reason: 'spaced_repetition' as const, priority: 0.5 },
+      { reason: 'traceback' as const, priority: 0.5 },
+    ];
+    // Traceback should be hoisted to the top
+    expect(sortReviewItems(items).map((item) => item.reason)).toEqual([
+      'traceback',
+      'spaced_repetition',
+    ]);
+  });
+
   it('sorts by priority descending within the same tier', () => {
     const items = [
       { reason: 'spaced_repetition' as const, priority: 0.2 },

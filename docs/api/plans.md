@@ -471,7 +471,12 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
 - **Content-Type:** Không cần body (empty POST)
 - **Dùng để:** Tài liệu được cập nhật, hoặc user muốn dựng lại đồ thị. Server đọc lại `fileKey` của `Document` **mới nhất** (không upload lại) và tạo `AnalysisJob` mới.
 
-**Khác với Retry (mục 5):** retry cứu một Plan `draft` có job `failed`; re-analyze chạy trên Plan **đang `active`** và Plan **giữ nguyên `active`** trong lúc job chạy — đồ thị cũ vẫn dùng được, không có khoảng trống.
+**Khác với Retry (mục 5):** retry cứu một Plan `draft` có job `failed`; re-analyze chạy trên Plan **đang `active`**.
+
+**Plan chuyển ngay về `draft`** trong cùng request (không đợi job chạy xong) — cùng một trạng thái mà SP-01 dùng cho "đang phân tích + chờ xác nhận", theo đúng `UC-Overview.md` (SP-05 `<<include>>` SP-02 "Review đồ thị sau re-analyze"). Hệ quả:
+
+- Trong lúc `draft`, plan tạm biến mất khỏi hàng đợi ôn (`GET /review-queue*`) và `/dashboard/stats` — dùng chung hạ tầng "draft chờ xác nhận" đã có từ #265 (mục 4), không phải case mới; review queue trả về thông báo có sẵn thay vì rỗng im lặng.
+- Job chạy xong (merge xong theo chính sách bên dưới) **không** tự đưa plan về `active`. User phải xác nhận lại qua `PUT /plans/:id/graph {confirm:true}` (mục 4) thì plan mới hoạt động trở lại — đồ thị đã merge, mastery cũ vẫn còn nguyên trong lúc chờ xác nhận, chỉ là tạm ẩn khỏi lịch ôn.
 
 **Chính sách hợp nhất đồ thị (bắt buộc đọc):** kết quả mới được **merge** vào đồ thị cũ, không ghi đè. Đối chiếu theo tên concept đã chuẩn hoá (bỏ khoảng trắng thừa + không phân biệt hoa/thường):
 
@@ -494,7 +499,7 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
         "id": "c1f8a8b1-3e4d-4b5a-9a8b-1c2d3e4f5a6b",
         "name": "Kế hoạch ôn thi Giải tích",
         "deadline": "2026-08-30T00:00:00.000Z",
-        "status": "active",
+        "status": "draft",
         "analysisStatus": "pending"
       },
       "message": "Re-analysis initiated"
@@ -502,7 +507,7 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
   }
   ```
 
-  Client tiếp tục polling `GET /api/v1/plans/:id` như mục 1.1.
+  Client tiếp tục polling `GET /api/v1/plans/:id` như mục 1.1, rồi điều hướng sang màn xác nhận đồ thị (mục 4) khi `analysisStatus` chuyển `done`.
 
 - **Lỗi Plan không ở trạng thái `active` (HTTP 409 Conflict):**
 

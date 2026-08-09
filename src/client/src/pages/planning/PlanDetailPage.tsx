@@ -282,6 +282,13 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
   const isVerify = mode === 'verify';
   const isEditing = mode === 'edit' || isVerify;
 
+  // SP-05 re-analyze (#170) also drops a plan to `draft` and routes here (UC-Overview: SP-05
+  // <<include>> SP-02 "Review đồ thị sau re-analyze") — same screen as a first-time SP-01
+  // verify, but this plan already ran: some concept has a real mastery score. A brand-new
+  // draft's concepts are always `untested`, so this can only be true for a re-analyze.
+  const isReanalyzeVerify =
+    isVerify && (plan?.graph.concepts.some((c) => c.mastery_score !== null) ?? false);
+
   // Bộ chọn trên toolbar (DB-05) là bộ đổi PHẠM VI bên trong mục "Đồ thị khái niệm", nên nó
   // chỉ được chứa những kế hoạch thuộc mục đó. Bản nháp thì không: chọn một bản nháp sẽ bị
   // guard đẩy sang /plan/:id/verify, và sidebar nhảy sang "Kế hoạch ôn tập" — người dùng bị
@@ -317,7 +324,9 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
                 Kế hoạch ôn tập
               </button>
               <BreadcrumbSep />
-              <span className="truncate">Tạo mới · {plan?.name || 'Loading...'}</span>
+              <span className="truncate">
+                {isReanalyzeVerify ? 'Phân tích lại' : 'Tạo mới'} · {plan?.name || 'Loading...'}
+              </span>
             </>
           ) : (
             <>
@@ -346,12 +355,16 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
           {isVerify ? 'Kiểm chứng đồ thị khái niệm' : 'Chỉnh sửa đồ thị khái niệm'}
         </h1>
         <p className="text-muted-foreground max-w-160 mb-7 text-pretty text-[14px] leading-[1.7]">
-          {isVerify
-            ? 'AI đã đề xuất các khái niệm cùng quan hệ tiên quyết. Đối chiếu từng khái niệm với trích đoạn gốc bên phải rồi mới xác nhận — bước này bắt buộc, hệ thống không tự động tin kết quả AI.'
-            : 'Thêm hoặc bỏ khái niệm, nối lại quan hệ tiên quyết cho đồ thị của kế hoạch này. Lưu thay đổi để cập nhật.'}
+          {isReanalyzeVerify
+            ? 'AI đã phân tích lại tài liệu và hợp nhất kết quả với đồ thị cũ — khái niệm đã kiểm tra vẫn giữ nguyên điểm. Đối chiếu rồi xác nhận để lịch ôn hoạt động trở lại.'
+            : isVerify
+              ? 'AI đã đề xuất các khái niệm cùng quan hệ tiên quyết. Đối chiếu từng khái niệm với trích đoạn gốc bên phải rồi mới xác nhận — bước này bắt buộc, hệ thống không tự động tin kết quả AI.'
+              : 'Thêm hoặc bỏ khái niệm, nối lại quan hệ tiên quyết cho đồ thị của kế hoạch này. Lưu thay đổi để cập nhật.'}
         </p>
 
-        {isVerify && (
+        {/* Stepper của luồng TẠO kế hoạch (upload → phân tích → xác nhận) — không đúng ngữ
+            cảnh cho re-analyze, nơi kế hoạch đã tồn tại và đang chỉ được xác nhận lại. */}
+        {isVerify && !isReanalyzeVerify && (
           <PlanCreationStepper
             step={analysisDone ? 3 : 2}
             analysisStatus={analysisFailed ? 'failed' : analysisRunning ? 'running' : 'done'}
@@ -467,7 +480,13 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
                 initialEdges={plan.graph.edges}
                 mode="edit"
                 onConfirm={handleConfirmGraph}
-                confirmLabel={isVerify ? 'Xác nhận & tạo lịch ôn tập' : 'Lưu thay đổi'}
+                confirmLabel={
+                  isReanalyzeVerify
+                    ? 'Xác nhận & tiếp tục ôn tập'
+                    : isVerify
+                      ? 'Xác nhận & tạo lịch ôn tập'
+                      : 'Lưu thay đổi'
+                }
                 onCancel={() => navigate(isVerify ? '/plans' : '/graph')}
                 isDraft={isVerify}
               />

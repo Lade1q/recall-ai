@@ -87,6 +87,9 @@ export interface PlanSummary {
   analysisErrorMessage: string | null;
   document: PlanDocumentSummary | null;
   createdAt: string;
+  /** Số KHÁI NIỆM distinct đang chờ ôn của plan (#232 phần 2, đếm theo `conceptId` — KHÔNG phải
+   *  số dòng `ReviewQueueItem`) — chân thẻ SP-03 dùng, khác `conceptCount`. */
+  reviewQueueConceptCount: number;
 }
 
 // Backend Response Types

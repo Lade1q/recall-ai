@@ -26,7 +26,9 @@ export function QuestionCard({ question }: QuestionCardProps) {
           {QUESTION_TYPE_LABEL[question.questionType]}
         </Badge>
       )}
-      <p className="text-sm leading-[1.62]">{question.questionText}</p>
+      {/* `whitespace-pre-line`: giữ xuống dòng thật trong câu hỏi AI sinh ra (Gemini đôi khi
+          trả về dạng liệt kê nhiều dòng) — mặc định `<p>` gộp hết newline thành khoảng trắng. */}
+      <p className="whitespace-pre-line text-sm leading-[1.62]">{question.questionText}</p>
       <SourceCitation citation={question.sourceCitation} />
     </ChatBubble>
   );

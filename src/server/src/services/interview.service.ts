@@ -1040,13 +1040,25 @@ export async function submitAnswer(
     });
   } catch (error) {
     if (!isAiFailure(error)) throw error;
-    return gradingUnavailable(view, pending);
+    return gradingUnavailable(view, pending, now);
   }
 
-  await prisma.interviewTurn.update({
-    where: { id: pending.id },
+  // #288: bind the grade write to the exact claim this request took. A slow Gemini call can
+  // outlast ANSWER_CLAIM_STALE_MS, letting a newer identical request reclaim the turn — its
+  // claim moves `answeredAt` to a fresh timestamp. Writing on `id` alone would then overwrite
+  // the winner's verdict AND run the state machine a second time, silently dropping a concept
+  // from a multi-concept session. Anchoring on `answeredAt: now` (the mark set by this
+  // request's own claim above) makes the write a no-op once the claim has been lost.
+  const written = await prisma.interviewTurn.updateMany({
+    where: { id: pending.id, answeredAt: now },
     data: { score: graded.score, feedback: graded.feedback, verdict: graded.verdict },
   });
+
+  if (written.count === 0) {
+    // Lost the claim mid-grade: do not advance the state machine again. Replay whatever the
+    // winning request recorded so this one still resolves coherently instead of double-stepping.
+    return replayAnswer(sessionId, userId, pending.id);
+  }
 
   // The decision itself is re-derived from the turn just stored, so this request and a later
   // GET can never disagree about what comes next.
@@ -1131,19 +1143,37 @@ async function replayAnswer(
  * grade_answer was unavailable. The session survives in fallback mode (#115) and the claim is
  * released so the same turn can be answered again — the typed answer is kept so the student
  * does not have to retype it. I6.4 replaces this branch with flashcard self-grading (AE-05).
+ *
+ * #288: only a request that STILL holds the claim may do this. One whose slow Gemini call let a
+ * newer identical request reclaim the turn (a stale-reclaim) must not flip `fallbackMode` — the
+ * turn now belongs to that other request, which may be grading it successfully; flipping here
+ * would strip AI grading from a healthy session for the rest of it, and clearing `answeredAt`
+ * would wipe the winner's claim mark. So the release is bound to this request's own claim, and
+ * the fallback flip runs only when that release actually wrote a row.
  */
 async function gradingUnavailable(
   view: SessionView,
-  pending: TurnRow
+  pending: TurnRow,
+  claimMark: Date
 ): Promise<SubmitAnswerResponse> {
-  const [session] = await prisma.$transaction([
-    prisma.interviewSession.update({
+  const session = await prisma.$transaction(async (tx) => {
+    const released = await tx.interviewTurn.updateMany({
+      where: { id: pending.id, answeredAt: claimMark },
+      data: { answeredAt: null },
+    });
+    if (released.count === 0) return null;
+    return tx.interviewSession.update({
       where: { id: view.session.id },
       data: { fallbackMode: true },
       select: sessionSelect,
-    }),
-    prisma.interviewTurn.update({ where: { id: pending.id }, data: { answeredAt: null } }),
-  ]);
+    });
+  });
+
+  if (session === null) {
+    // Lost the claim mid-grade: touch nothing, and above all do not flip the session. Replay
+    // whatever the winning request recorded so this one still resolves coherently.
+    return replayAnswer(view.session.id, view.session.userId, pending.id);
+  }
 
   return {
     session: toSessionState({ ...view, session }),
@@ -1197,10 +1227,17 @@ export async function submitSelfGrade(
   const score = SELF_GRADE_SCORE[selfGrade];
   const verdict = SELF_GRADE_VERDICT[selfGrade];
 
-  await prisma.interviewTurn.update({
-    where: { id: pending.id },
+  // #288: same claim-bound write as the AI path. The window is far smaller here (no Gemini
+  // await between claim and write), but the invariant is identical — a request that lost its
+  // claim must neither overwrite the verdict nor advance the state machine a second time.
+  const written = await prisma.interviewTurn.updateMany({
+    where: { id: pending.id, answeredAt: now },
     data: { score, verdict },
   });
+
+  if (written.count === 0) {
+    return replayAnswer(sessionId, userId, pending.id);
+  }
 
   const advance = await advanceToNextQuestion(await reloadView(sessionId, userId));
 

@@ -5,6 +5,15 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>frontend</title>
+    <script>
+      // Áp chế độ tối đã lưu TRƯỚC khi React mount. Trước đây chỉ MainLayout làm việc này,
+      // nên những trang không nằm trong MainLayout (đăng nhập, và phiên vấn đáp toàn màn
+      // hình) bị nháy trắng khi tải lại. MainLayout vẫn đọc lại class này lúc khởi tạo state
+      // nên hai nơi không lệch nhau.
+      if (localStorage.getItem('theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -6,7 +6,7 @@ import { AppError } from '../middleware/errorHandler';
 // The factory runs at hoist-time so we cannot reference outer `const` variables.
 jest.mock('../config/prisma', () => {
   const client = {
-    studyPlan: { findUnique: jest.fn() },
+    studyPlan: { findUnique: jest.fn(), update: jest.fn() },
     analysisJob: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
     document: { findFirst: jest.fn() },
     $queryRaw: jest.fn().mockResolvedValue([]),
@@ -156,8 +156,8 @@ describe('reanalyzePlan', () => {
     expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
   });
 
-  // --- Test 8: happy path — job mới dùng lại fileKey, plan vẫn active ---
-  it('queues a pending job on the stored fileKey and leaves the plan active', async () => {
+  // --- Test 8: happy path — job mới dùng lại fileKey, plan hạ về draft chờ xác nhận (#265) ---
+  it('queues a pending job on the stored fileKey and drops the plan back to draft', async () => {
     arrangeReanalyzable();
 
     const result = await reanalyzePlan(PLAN_ID, OWNER_ID);
@@ -166,12 +166,17 @@ describe('reanalyzePlan', () => {
     expect(mockedPrisma.analysisJob.create).toHaveBeenCalledWith({
       data: { planDraftId: PLAN_ID, fileKey: FILE_KEY, status: 'pending' },
     });
-    // The existing graph stays usable while the new job runs — this is not a retry.
+    // Same confirmation gate as a first analysis (#265) — the merged graph is not trusted
+    // live until the user confirms it via PUT /plans/:id/graph {confirm:true}.
+    expect(mockedPrisma.studyPlan.update).toHaveBeenCalledWith({
+      where: { id: PLAN_ID },
+      data: { status: 'draft' },
+    });
     expect(result).toEqual({
       id: PLAN_ID,
       name: activePlan.name,
       deadline: activePlan.deadline,
-      status: 'active',
+      status: 'draft',
       analysisStatus: 'pending',
     });
   });
