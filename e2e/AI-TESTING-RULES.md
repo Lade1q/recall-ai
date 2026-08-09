@@ -62,10 +62,12 @@ Các API backend thường sử dụng `now()` của máy chủ hoặc CSDL làm
 
 ## 5. Môi trường Trình duyệt (Browser OS Compatibility)
 
-Hệ thống CI hoặc máy dev (Arch Linux) có thể không được hỗ trợ để cài đặt trình duyệt **Edge** (`msedge`) bằng lệnh mặc định của Playwright.
+Hệ thống CI hoặc máy dev (Arch Linux) có thể không được hỗ trợ để cài đặt trình duyệt **Edge** (`msedge`) bằng lệnh mặc định của Playwright. Do đó, các kịch bản test **bắt buộc phải pass trên Firefox và Chrome (Chromium)**.
 
+- **Chromium (Chrome)** là trình duyệt được ưu tiên nhất. Khi chạy test cục bộ để chẩn đoán nhanh, luôn ưu tiên sử dụng cờ `--project=chromium`.
+- Đảm bảo kịch bản test cũng chạy thành công (pass) trên Firefox trước khi xem như hoàn tất.
 - Tránh config bắt buộc chạy `msedge` trong `playwright.config.ts`.
-- Nếu test bị kẹt hoặc treo (timeout), hãy kiểm tra xem có phải do thiếu engine trình duyệt hay không. Chạy test cục bộ ưu tiên `--project=chromium` để chẩn đoán nhanh.
+- Nếu test bị kẹt hoặc treo (timeout), hãy kiểm tra xem có phải do thiếu engine trình duyệt hay không.
 
 ## 6. Cập nhật kết quả về file Test Case (TC)
 
@@ -82,3 +84,20 @@ Khi viết hoặc cập nhật kịch bản E2E, AI (và lập trình viên) b�
 - Việc comment bằng tiếng Việt giúp đội ngũ kiểm thử, QA và developer khác trong dự án dễ dàng đọc hiểu luồng test và đối chiếu với Test Case.
 - Viết comment theo dạng đánh số hoặc gạch đầu dòng rõ ràng trước các khối logic chính.
 - Ví dụ: `// 1. Thực hiện đăng nhập`, `// 2. Kiểm tra điều hướng tới Dashboard`, `// 3. Xác minh nút Bắt đầu hiển thị`.
+
+## 8. Tuân thủ Coding Conventions
+
+Toàn bộ code test (TypeScript) phải tuân thủ chặt chẽ các quy tắc viết code của dự án được quy định tại `docs/guidelines/coding-conventions.md`.
+
+- **Naming Conventions**: Tên biến, hàm dùng `camelCase`.
+- **TypeScript Strict Mode**: Khai báo kiểu (type annotation) rõ ràng khi cần thiết, không sử dụng `any` tùy tiện.
+- **Import/Export**: Áp dụng đúng thứ tự import và ưu tiên dùng alias `@/` nếu có.
+- Tránh trùng lặp code (DRY), sử dụng lại các hàm tiện ích chung nếu phù hợp.
+
+## 9. Kiểm tra Local trước khi Push (Tránh lỗi CI)
+
+Để không làm hỏng pipeline CI/CD, bắt buộc thực hiện kiểm tra code ở local trước:
+
+- Luôn chạy thử file test cục bộ thông qua Playwright UI hoặc Terminal (`npm run test:e2e` hoặc `playwright test --project=chromium`) để đảm bảo logic chạy đúng và ổn định (không flaky).
+- Xác minh không có lỗi cú pháp, vi phạm linter (ví dụ ESLint, Prettier) hay lỗi biên dịch TypeScript (tsc) từ đoạn code test vừa được thêm vào.
+- **TUYỆT ĐỐI KHÔNG được tự ý commit và push code lên repository.** AI chỉ hỗ trợ viết và xác minh code test thành công ở local. Mọi thao tác commit hoặc push phải do người dùng tự thực hiện, hoặc AI phải xin phép và được người dùng đồng ý mới được làm.
