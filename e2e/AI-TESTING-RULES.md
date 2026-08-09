@@ -74,3 +74,11 @@ Sau khi kịch bản test được viết xong và chạy thử, AI (hoặc kỹ
 - **Ghi kết quả chi tiết cho Sub-test**: Nếu TC có chia trường hợp (ví dụ: a, b, c), phải ghi rõ kết quả `Kết quả thực tế` và `Trạng thái` cho từng sub-test vào cùng một ô, dùng tiền tố `a)`, `b)` và ngăn cách bằng thẻ `<br>` (VD: `a) PASS <br> b) FAIL`).
 - **PASS**: Khi test chạy xanh hoàn toàn.
 - **FAIL**: Chỉ đánh dấu FAIL khi xác định chắc chắn đó là **lỗi của tính năng (bug)**, ứng dụng hoạt động không đúng yêu cầu của TC. Tuyệt đối không đánh dấu FAIL nếu nguyên nhân là do script test viết sai, thiếu setup dữ liệu, hay lỗi môi trường (timeout, strict mode). Trong trường hợp script lỗi, AI cần ưu tiên sửa script test cho đúng thay vì vội vàng kết luận tính năng bị lỗi.
+
+## 7. Chú thích (Comments) tiếng Việt trong Test Script
+
+Khi viết hoặc cập nhật kịch bản E2E, AI (và lập trình viên) bắt buộc phải thêm các comment (chú thích) bằng **tiếng Việt** cho từng bước cụ thể (step-by-step).
+
+- Việc comment bằng tiếng Việt giúp đội ngũ kiểm thử, QA và developer khác trong dự án dễ dàng đọc hiểu luồng test và đối chiếu với Test Case.
+- Viết comment theo dạng đánh số hoặc gạch đầu dòng rõ ràng trước các khối logic chính.
+- Ví dụ: `// 1. Thực hiện đăng nhập`, `// 2. Kiểm tra điều hướng tới Dashboard`, `// 3. Xác minh nút Bắt đầu hiển thị`.
