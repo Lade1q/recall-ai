@@ -19,6 +19,7 @@
 | **Tiêu đề**              | [Tên ngắn gọn, rõ ràng của test case]                                                         |
 | **Mô tả**                | [Mô tả chi tiết kịch bản test này làm gì]                                                     |
 | **Loại kiểm thử**        | [Functionality / Security / Usability / Interface / Database / Compatibility / Performance]   |
+| **Phương thức thực thi** | [Automation (Playwright) / Manual]                                                            |
 | **Độ ưu tiên**           | [High / Medium / Low]                                                                         |
 | **Điều kiện tiên quyết** | [Cần chuẩn bị gì trước khi test? VD: Đã có tài khoản test, app đang chạy]                     |
 | **Các bước thực hiện**   | 1. [Bước 1]<br>2. [Bước 2]<br>3. [Bước 3]                                                     |
@@ -40,6 +41,7 @@
 | **Tiêu đề**              |                       |
 | **Mô tả**                |                       |
 | **Loại kiểm thử**        |                       |
+| **Phương thức thực thi** |                       |
 | **Độ ưu tiên**           |                       |
 | **Điều kiện tiên quyết** |                       |
 | **Các bước thực hiện**   | 1. <br>2. <br>3.      |

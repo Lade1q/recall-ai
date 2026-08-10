@@ -183,13 +183,14 @@ Nhiệm vụ của AI (và quy trình viết test này) là đảm bảo hệ th
 - Nếu chưa đủ nguồn để phân biệt bug, tính năng chưa implement hay yêu cầu tự suy diễn, phải dừng kết luận `FAIL` và đối chiếu Mục 6, Mục 10 và Mục 11 trước.
 - Trách nhiệm sửa code dự án để fix bug hoặc thêm tính năng thuộc về luồng phát triển (Development), trừ khi user có yêu cầu rõ ràng "hãy fix lỗi này trong product code". Ngay cả trong trường hợp đó, hãy xác nhận lại trước khi can thiệp vào mã nguồn sản phẩm.
 
-## 19. Quy tắc Kiểm thử Tích hợp (Integration / API Testing)
+## 19. Chiến lược Kiểm thử E2E, Integration và Hybrid
 
-Dù Playwright chủ yếu dùng cho E2E, chúng ta hoàn toàn dùng nó để thực hiện kiểm thử Tích hợp (Integration) hoặc API (thay thế vai trò của Postman). Khi viết các Test Case thiên về API/Tích hợp, cần tuân thủ:
+Playwright được sử dụng làm công cụ duy nhất cho cả kiểm thử giao diện (UI) và API. Cần phân định rõ các chiến lược sau tùy thuộc vào mục đích của Test Case:
 
-- **Bypass UI bằng APIRequestContext:** Sử dụng đối tượng `request` của Playwright (ví dụ: `request.post('/api/...')`, `request.get(...)`) để gọi thẳng xuống Backend thay vì phải click qua giao diện. Điều này giúp test chạy cực nhanh và mô phỏng được các hacker/user gọi API trực tiếp.
-- **Tập trung vào luồng Dữ liệu (Data Flow):** Test tích hợp bắt buộc phải xác minh ba điểm chạm: (1) Payload gửi đi -> (2) Response trả về (HTTP Status, Body) -> (3) Trạng thái cuối cùng trong Database (truy vấn bằng Prisma).
-- **Bẻ gãy giới hạn của UI (Negative API Testing):** Giao diện UI có thể chặn người dùng nhập sai, nhưng test Tích hợp/API phải cố tình gửi payload rác, payload sai quyền (IDOR, test bằng token của user khác) để chứng minh Backend có cơ chế tự phòng vệ độc lập. Quy định ở Mục 17 chính là một phần lõi của kiểm thử Tích hợp bảo mật.
+- **E2E UI (Trực quan & Bắt đầu từ Đăng nhập):** Đối với các luồng E2E kiểm tra hành vi, kịch bản test **nên bắt đầu từ màn hình Đăng nhập (Login UI)**. Dù cho bạn dùng API/Prisma để tạo sẵn dữ liệu User, thao tác chạy test chính vẫn phải đi qua luồng Login để đảm bảo tính trực quan và mô phỏng chính xác nhất vòng đời (session/cookies) của người dùng thực.
+- **Hybrid (Tối ưu hóa bằng API Setup):** Khuyến khích sử dụng API (`request`) hoặc kết nối DB trực tiếp (`prisma`) để thiết lập dữ liệu nền cực nhanh (VD: tạo 100 flashcards) thay vì click UI. Tuy nhiên, hành động test (Action) và kiểm tra (Assertion) chính vẫn thực hiện trên giao diện.
+- **Integration / API Testing (Bypass UI):** Đối với các test case chuyên biệt về luồng dữ liệu hoặc bảo mật, hãy bypass giao diện hoàn toàn bằng `request.post()`, `request.get()`. Test tích hợp phải bẻ gãy giới hạn của UI (cố tình gửi payload rác, sai quyền IDOR) và luôn xác minh đủ 3 điểm chạm: (1) Payload gửi đi -> (2) HTTP Response -> (3) Trạng thái cuối cùng trong Database.
+- **Phân tách cấu trúc:** Nếu một file test bao gồm cả hai khía cạnh, hãy tách biệt rõ ràng bằng các block `test.describe('E2E UI', ...)` và `test.describe('Integration API', ...)`.
 
 ## 20. Đo Burst Click / Double-submit Không Lẫn Auto-wait
 

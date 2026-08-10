@@ -43,3 +43,11 @@ Tài liệu này là bộ quy tắc (System Prompt / Guidelines) dành cho AI Ag
 
 - Nếu trong quá trình lập kế hoạch kiểm thử, AI (hoặc QA) phát hiện ra các quy luật mới, các tư duy phân tích mới giúp tìm ra nhiều bug hơn, hoặc các lỗi lặp đi lặp lại trong cách hành văn, hãy **mạnh dạn đề xuất và cập nhật thêm quy tắc vào tài liệu này**.
 - Việc này giúp bộ não Test Planning của dự án ngày càng thông minh và bám sát thực tế hơn.
+
+## 8. Định dạng Bảng Markdown (Table Formatting)
+
+- Khi thiết kế các bảng (Table) trong file Markdown, tuyệt đối **không được dùng quá nhiều khoảng trắng (spaces)** để dóng cột (align) sao cho các hàng dài bằng nhau.
+- Việc tự động đệm (pad) bằng hàng tá khoảng trắng sẽ khiến mã nguồn (raw) của file Markdown bị phình to, lộn xộn và rất khó đọc/chỉnh sửa trên các text editor.
+- **Quy tắc bắt buộc:** Chỉ sử dụng đúng **1 khoảng trắng** ở mỗi bên của thanh phân cách cột (ký tự `|`). Bỏ qua việc dóng thẳng hàng các cột ở chế độ raw text.
+- ✅ _Đúng:_ `| Nội dung | Kết quả | Trạng thái |`
+- ❌ _Sai:_ `| Nội dung                                      | Kết quả                           | Trạng thái |`
