@@ -196,9 +196,9 @@ Playwright được sử dụng làm công cụ duy nhất cho cả kiểm thử
 
 Các TC spam click/idempotency cần phân biệt thời gian phát input của người dùng với thời gian Playwright làm actionability check và hậu kiểm. `Locator.click()` có thể mất thêm hàng trăm mili-giây dù chuỗi mouse event trong browser đã phát tức thì; dùng wall-clock bao quanh locator rồi áp ngưỡng `<300ms` dễ tạo false negative.
 
-- Khi đặc tả yêu cầu nhiều click trong một cửa sổ thời gian rất ngắn, lấy `boundingBox()` của control rồi dùng `page.mouse.click(x, y, { clickCount: N })`, hoặc ghi timestamp của event ngay trong page. Không dùng tổng thời gian Promise của `Locator.click()` làm thời gian input.
+- Khi đặc tả yêu cầu nhiều lần kích hoạt trong một cửa sổ rất ngắn, lấy `boundingBox()` của control rồi gọi nhiều lần `page.mouse.click(x, y)` độc lập, hoặc ghi timestamp của từng event ngay trong page. **Không dùng** `{ clickCount: N }` làm bằng chứng cho N lần activation: browser có thể phát một click gesture với `event.detail = N`, nên handler nghiệp vụ chỉ chạy một lần.
 - Gắn listener request và `page.waitForResponse(...)` **trước** burst; sau đó đợi network lắng rồi khẳng định tổng số mutation. Response đầu tiên không chứng minh các click còn lại không tạo request trễ.
-- Với trạng thái `loading/disabled` quá ngắn trên backend local, gắn `MutationObserver` trước click và lưu cờ quan sát vào DOM/page state; không thêm delay giả vào response thành công chỉ để test nhìn thấy spinner.
+- Với trạng thái `loading/disabled` quá ngắn trên backend local, ưu tiên gắn `MutationObserver` trước click và lưu cờ quan sát vào DOM/page state. Nếu expected result **bắt buộc** các activation sau xảy ra trong lúc request đầu còn pending, được gate đúng request đầu bằng một route handler có tên, sau burst phải `route.continue()` nguyên vẹn để backend/database thật xử lý. Không được `fulfill`/sửa response thành công, không giữ các request thứ hai trở đi cùng gate, và trong `finally` phải nhả gate, chờ request lắng rồi `unroute` trước khi cleanup DB.
 - Burst vẫn phải gọi backend/database thật. Không dùng interception `2xx`, không làm chậm happy path bằng mock, và truy vấn DB bằng ID từ response duy nhất theo Mục 14.
 
 ## 21. Audit Xung đột khi Thêm hoặc Sửa Rule
