@@ -26,13 +26,20 @@ Tài liệu này là bộ quy tắc (System Prompt / Guidelines) dành cho AI Ag
 - Không được tự ý thay đổi cấu trúc bảng, xóa cột, hoặc tự chế thêm format mới làm mất đi tính đồng nhất của hệ thống tài liệu.
 - Phải cập nhật kết quả vào Bảng tóm tắt (Summary Table) ở cuối mỗi file Test Case.
 
-## 5. Triển khai Tuần tự (Chất lượng hơn Số lượng)
+## 5. Gộp nhóm kịch bản bằng Sub-tests (a, b, c)
 
-- Để đảm bảo chất lượng, độ uy tín và sự chặt chẽ, việc triển khai (lên plan chi tiết và thực thi) phải được làm **từng Test Case một**.
+- Một Test Case không nhất thiết chỉ có một kịch bản duy nhất. Nếu cùng một tính năng (cùng bối cảnh) nhưng có nhiều trường hợp dữ liệu đầu vào khác nhau (Data-Driven Testing) hoặc các nhánh nhỏ, **hãy gộp chúng thành một Test Case duy nhất**.
+- Tránh việc tạo ra hàng chục Test Case vụn vặt (ví dụ: tạo 3 TC riêng biệt chỉ để test nhập mảng rỗng, mảng 1 phần tử, mảng 3 phần tử).
+- **Cách trình bày:** Sử dụng ký hiệu danh sách `a)`, `b)`, `c)` bên trong các cột `Dữ liệu đầu vào`, `Kết quả mong đợi`, `Kết quả thực tế` và `Trạng thái`. Dùng thẻ `<br>` để xuống dòng trong Markdown Table nhằm giữ bố cục gọn gàng.
+  - _Ví dụ ở phần Dữ liệu đầu vào:_ `a) Mảng rỗng <br> b) Mảng 1 phần tử <br> c) Mảng 3 phần tử`
+  - _Ví dụ ở phần Trạng thái:_ `a) PASS <br> b) FAIL <br> Tổng: FAIL`
+
+## 6. Triển khai Tuần tự (Chất lượng hơn Số lượng)
+
 - Không được nhồi nhét, sinh ra hàng loạt Test Case hời hợt, thiếu điều kiện đầu vào hoặc kết quả mong đợi chung chung trong một lần xử lý.
 - Mỗi Case sinh ra phải được suy nghĩ thấu đáo: Đầu vào là gì? Hành vi là gì? Khác biệt cốt lõi so với các Case trước là gì?
 
-## 6. Chủ động Cập nhật Rule Kế hoạch
+## 7. Chủ động Cập nhật Rule Kế hoạch
 
 - Nếu trong quá trình lập kế hoạch kiểm thử, AI (hoặc QA) phát hiện ra các quy luật mới, các tư duy phân tích mới giúp tìm ra nhiều bug hơn, hoặc các lỗi lặp đi lặp lại trong cách hành văn, hãy **mạnh dạn đề xuất và cập nhật thêm quy tắc vào tài liệu này**.
 - Việc này giúp bộ não Test Planning của dự án ngày càng thông minh và bám sát thực tế hơn.
