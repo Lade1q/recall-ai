@@ -9,6 +9,7 @@ jest.mock('../config/prisma', () => {
     studyPlan: { findUnique: jest.fn(), update: jest.fn() },
     analysisJob: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
     document: { findFirst: jest.fn() },
+    questionCache: { deleteMany: jest.fn() },
     $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn(),
   };
@@ -154,6 +155,7 @@ describe('reanalyzePlan', () => {
     const error = await reanalyzePlan(PLAN_ID, OWNER_ID).catch((e) => e);
     expect(error).toMatchObject({ statusCode: 409, code: 'REANALYZE_NOT_ALLOWED' });
     expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
+    expect(mockedPrisma.questionCache.deleteMany).not.toHaveBeenCalled();
   });
 
   // --- Test 8: happy path — job mới dùng lại fileKey, plan hạ về draft chờ xác nhận (#265) ---
@@ -166,6 +168,15 @@ describe('reanalyzePlan', () => {
     expect(mockedPrisma.analysisJob.create).toHaveBeenCalledWith({
       data: { planDraftId: PLAN_ID, fileKey: FILE_KEY, status: 'pending' },
     });
+    // Issue #216: câu hỏi cache cũ từ trước lần reanalyze này phải được xoá, và phải xoá
+    // trước khi job mới tồn tại (xem hợp đồng của clearQuestionCacheForPlan).
+    expect(mockedPrisma.questionCache.deleteMany).toHaveBeenCalledWith({
+      where: { concept: { planId: PLAN_ID } },
+    });
+    const deleteOrder = (mockedPrisma.questionCache.deleteMany as jest.Mock).mock
+      .invocationCallOrder[0]!;
+    const createOrder = (mockedPrisma.analysisJob.create as jest.Mock).mock.invocationCallOrder[0]!;
+    expect(deleteOrder).toBeLessThan(createOrder);
     // Same confirmation gate as a first analysis (#265) — the merged graph is not trusted
     // live until the user confirms it via PUT /plans/:id/graph {confirm:true}.
     expect(mockedPrisma.studyPlan.update).toHaveBeenCalledWith({

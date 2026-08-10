@@ -2,18 +2,20 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { loadSession, parseConceptQueue } from './interview.service';
 import { summarizeSession, type SessionConceptSummaryInput } from './gemini.service';
+import { sessionMasteryScore } from '../utils/mastery';
 import type { Verdict } from '../schemas/ai-interview.schema';
 import type {
   SessionSummaryConceptResponse,
   SessionSummaryReport,
   SessionSummaryResponse,
-  SessionSummaryTracebackItemResponse,
+  SessionSummaryReviewItemResponse,
 } from '../types/interview.types';
 
 /**
  * `GET /interviews/:id/summary` (I6.5 / AE-09) — the fourth and last AI call the system ever
  * makes. Collects the scores I6.3/I7.2 already computed, asks Gemini to turn them into prose
- * exactly once per session, and folds in the traceback (AE-08) queued by I7.2.
+ * exactly once per session, and folds in the review schedule I7.2 queued: both the traceback
+ * prerequisites (AE-08) and the per-concept spaced repetition.
  */
 
 const SUMMARY_UNAVAILABLE_MESSAGE = 'Không thể tổng hợp nhận xét lúc này.';
@@ -95,7 +97,7 @@ async function loadConceptSummaries(
   const [concepts, turns] = await Promise.all([
     prisma.concept.findMany({
       where: { id: { in: queue } },
-      select: { id: true, name: true, masteryScore: true },
+      select: { id: true, name: true },
     }),
     prisma.interviewTurn.findMany({
       where: { sessionId },
@@ -123,11 +125,14 @@ async function loadConceptSummaries(
     // Concept row gone since (re-analysis, SP-05) — nothing left to report for it.
     if (!concept) continue;
 
+    const conceptTurns = turnsByConcept.get(conceptId) ?? [];
     summaries.push({
       conceptId,
       name: concept.name,
-      masteryScore: concept.masteryScore,
-      turns: (turnsByConcept.get(conceptId) ?? []).map((turn) => ({
+      // Suy điểm từ turns của chính phiên này — không đọc Concept.masteryScore (có thể đã bị
+      // một phiên sau đè lên). Xem sessionMasteryScore() / mastery.ts.
+      masteryScore: sessionMasteryScore(conceptTurns),
+      turns: conceptTurns.map((turn) => ({
         turnIndex: turn.turnIndex,
         score: turn.score,
         verdict: turn.verdict,
@@ -138,18 +143,31 @@ async function loadConceptSummaries(
 }
 
 /**
- * AE-08's contribution to the summary screen: read straight from `ReviewQueueItem`, never
- * recomputed here — I7.2 already made this decision once, when the concept finished.
+ * The review schedule this session produced, read straight from `ReviewQueueItem` and never
+ * recomputed here — I7.2 already made every one of these decisions once, when each concept
+ * finished. Both reasons it writes are returned: the `spaced_repetition` row it creates for
+ * every finished concept, and the `traceback` prerequisites AE-08 queues ahead of a weak one.
+ *
+ * Filtering to `reason: 'traceback'` (as this did until #119) hid the schedule of any session
+ * that never triggered a traceback — a student who did well got an empty block where their next
+ * review dates belong. The summary screen tells the two apart by `reason`.
+ *
+ * Each row carries its own `id` and its `sourceConceptId` out (#310) so the client addresses rows
+ * by identity: `id` is what `PATCH /review-queue/:itemId` takes, and grouping the traceback block
+ * by `sourceConceptId` survives two concepts sharing a name.
  */
-async function loadTracebackForSession(
+async function loadReviewScheduleForSession(
   sessionId: string
-): Promise<SessionSummaryTracebackItemResponse[]> {
+): Promise<SessionSummaryReviewItemResponse[]> {
   const items = await prisma.reviewQueueItem.findMany({
-    where: { sourceSessionId: sessionId, reason: 'traceback' },
+    where: { sourceSessionId: sessionId },
     select: {
+      id: true,
       conceptId: true,
+      reason: true,
       depth: true,
       status: true,
+      scheduledFor: true,
       sourceConceptId: true,
       concept: { select: { name: true } },
     },
@@ -170,16 +188,48 @@ async function loadTracebackForSession(
       : [];
   const sourceNameById = new Map(sourceConcepts.map((concept) => [concept.id, concept.name]));
 
-  return items.map((item) => ({
-    conceptId: item.conceptId,
-    name: item.concept.name,
-    reason: 'traceback' as const,
-    depth: item.depth,
-    sourceConceptName: item.sourceConceptId
-      ? (sourceNameById.get(item.sourceConceptId) ?? null)
-      : null,
-    status: item.status,
-  }));
+  return items
+    .map((item) => ({
+      id: item.id,
+      conceptId: item.conceptId,
+      name: item.concept.name,
+      reason: item.reason,
+      depth: item.depth,
+      sourceConceptId: item.sourceConceptId,
+      sourceConceptName: item.sourceConceptId
+        ? (sourceNameById.get(item.sourceConceptId) ?? null)
+        : null,
+      status: item.status,
+      scheduledFor: item.scheduledFor ?? null,
+    }))
+    .sort(compareReviewItems);
+}
+
+/**
+ * Queue order for the summary screen: the foundations the traceback found go first, shallowest
+ * (depth 1, the direct prerequisite) before deeper — they are due immediately and are what the
+ * next session should rebuild first — then the ordinary schedule by due date. Ties break on name
+ * so the list is stable across requests: every traceback row of one session shares the same
+ * `scheduledFor`, and Postgres gives no inherent order without an `ORDER BY`.
+ */
+function compareReviewItems(
+  a: SessionSummaryReviewItemResponse,
+  b: SessionSummaryReviewItemResponse
+): number {
+  const groupA = a.reason === 'traceback' ? 0 : 1;
+  const groupB = b.reason === 'traceback' ? 0 : 1;
+  if (groupA !== groupB) return groupA - groupB;
+
+  const keyA = groupA === 0 ? a.depth : (a.scheduledFor?.getTime() ?? null);
+  const keyB = groupB === 0 ? b.depth : (b.scheduledFor?.getTime() ?? null);
+  // A row missing its sort key sinks to the end of its group rather than jumping to the front.
+  if (keyA === null || keyB === null) {
+    if (keyA !== keyB) return keyA === null ? 1 : -1;
+  } else if (keyA !== keyB) {
+    return keyA - keyB;
+  }
+
+  return a.name.localeCompare(b.name);
 }
 
 /**
@@ -198,9 +248,9 @@ export async function getSessionSummary(
   }
 
   const queue = parseConceptQueue(session.conceptQueue);
-  const [concepts, traceback] = await Promise.all([
+  const [concepts, reviewSchedule] = await Promise.all([
     loadConceptSummaries(sessionId, queue),
-    loadTracebackForSession(sessionId),
+    loadReviewScheduleForSession(sessionId),
   ]);
 
   const summaryInput: SessionConceptSummaryInput[] = concepts.map((concept) => ({
@@ -263,6 +313,6 @@ export async function getSessionSummary(
     durationMinutes,
     concepts,
     summary,
-    traceback,
+    reviewSchedule,
   };
 }

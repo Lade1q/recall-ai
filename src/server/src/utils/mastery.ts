@@ -83,6 +83,36 @@ export function gradedTurnScores(turns: readonly { score: number | null }[]): nu
   return turns.map((turn) => turn.score).filter((score): score is number => score !== null);
 }
 
+/**
+ * The mastery score ONE interview session produced for ONE concept: the weighted average of
+ * its own graded turns, in turn order — the same calculation `finalizeConceptResult` used when
+ * it wrote `Concept.masteryScore`.
+ *
+ * Reads only the turns given, never `Concept.masteryScore` — that column can already belong to
+ * a *later* session by the time an old session is read back. `null` means this session could not
+ * grade the concept at all (never reached, or every turn failed grading) — not the same as `0`
+ * (graded, answered completely wrong).
+ *
+ * C6 caps a concept at three turns per session, so more than three graded scores should not
+ * happen — but this is a read path over whatever the database holds, and `calculateMasteryScore`
+ * throws on that input by design. A plain mean is the honest fallback here: slightly wrong
+ * ordering beats a summary that 500s.
+ */
+export function sessionMasteryScore(
+  turns: readonly { turnIndex: number; score: number | null }[]
+): number | null {
+  const graded = turns
+    .slice()
+    .sort((a, b) => a.turnIndex - b.turnIndex)
+    .flatMap((turn) => (turn.score === null ? [] : [turn.score]));
+
+  if (graded.length === 0) return null;
+  if (graded.length > TURN_WEIGHTS.length) {
+    return round2(graded.reduce((sum, score) => sum + score, 0) / graded.length);
+  }
+  return calculateMasteryScore(graded);
+}
+
 /** At or above this, a concept reads as fully mastered rather than still being learned. */
 export const MASTERY_STRONG_THRESHOLD = 0.8;
 

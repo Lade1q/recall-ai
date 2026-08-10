@@ -34,6 +34,9 @@ export const ENDPOINTS = {
     ITEM: (itemId: string) => `/api/v1/review-queue/${itemId}`,
     TODAY: '/api/v1/review-queue/today',
   },
+  DASHBOARD: {
+    STATS: '/api/v1/dashboard/stats',
+  },
   FOCUS_SESSIONS: {
     BASE: '/api/v1/focus-sessions',
     DETAIL: (id: string) => `/api/v1/focus-sessions/${id}`,

@@ -1,4 +1,4 @@
-import { TURN_WEIGHTS, calculateMasteryScore } from './mastery';
+import { sessionMasteryScore } from './mastery';
 
 /**
  * The learning history of ONE concept, as the DB-06 detail panel lists it (Issue #168):
@@ -45,32 +45,6 @@ export interface ConceptHistoryEntry {
 }
 
 /**
- * The weighted mastery one interview session produced for this concept.
- *
- * Uses the same `calculateMasteryScore` the session itself used, over the graded turns in
- * turn order, so the newest history row and the concept's current `mastery_score` agree
- * instead of showing the reader two different numbers for the same event.
- *
- * C6 caps a concept at three turns, so more graded scores than there are weights cannot
- * happen through the interview flow — but this is a read path rendering whatever the
- * database holds, and `calculateMasteryScore` throws on that input by design. A plain mean
- * is the honest fallback: slightly wrong ordering beats a detail panel that 500s.
- */
-function sessionScore(turns: InterviewTurnRow[]): number | null {
-  const graded = turns
-    .slice()
-    .sort((a, b) => a.turnIndex - b.turnIndex)
-    .flatMap((turn) => (turn.score === null ? [] : [turn.score]));
-
-  if (graded.length === 0) return null;
-  if (graded.length > TURN_WEIGHTS.length) {
-    const mean = graded.reduce((sum, score) => sum + score, 0) / graded.length;
-    return Math.round(mean * 100) / 100;
-  }
-  return calculateMasteryScore(graded);
-}
-
-/**
  * Folds interview turns and focus sessions into one list, newest first.
  *
  * Turns collapse per session rather than per question: the panel's row is "phiên kiểm tra,
@@ -99,7 +73,7 @@ export function buildConceptHistory(
       kind: 'interview',
       id: sessionId,
       at: new Date(Math.max(...sessionTurns.map((turn) => turn.askedAt.getTime()))),
-      score: sessionScore(sessionTurns),
+      score: sessionMasteryScore(sessionTurns),
       turnCount: sessionTurns.length,
       durationMinutes: null,
     })

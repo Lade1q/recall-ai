@@ -273,6 +273,30 @@ async function reloadView(sessionId: string, userId: string): Promise<SessionVie
 const MOCK_MATERIAL: AiMaterial = { kind: 'text', text: '[mock material]' };
 
 /**
+ * Raised by both the material load below and `startInterview`'s pre-check (#272). Shared so the
+ * two cannot drift: the client keys its "kế hoạch chưa có tài liệu" copy off this exact `code`,
+ * and a session refused before it is created must be indistinguishable from one refused during
+ * the first question.
+ */
+function noMaterialError(): AppError {
+  return new AppError(
+    'This study plan has no source document to ask questions from',
+    409,
+    'NO_MATERIAL'
+  );
+}
+
+/**
+ * Whether a missing document should stop an interview. Mock mode answers "no": `loadMaterial`
+ * short-circuits to `MOCK_MATERIAL` before it ever reads `prisma.document`, so a plan with no
+ * document still runs end-to-end under `USE_MOCK_AI=true` — which is what the dev seed and much
+ * of the test suite rely on. The pre-check has to mirror that exactly or it breaks them.
+ */
+function materialIsRequired(): boolean {
+  return process.env.USE_MOCK_AI !== 'true';
+}
+
+/**
  * The plan's source document, as the two interview AI calls take it. Cached per plan by
  * `getPlanMaterial` (#114) — Sprint 4 re-sends the whole document every turn, and re-uploading
  * it each time would be both slow and wasteful.
@@ -282,7 +306,7 @@ const MOCK_MATERIAL: AiMaterial = { kind: 'text', text: '[mock material]' };
  * rather than uploading the document a second time.
  */
 export async function loadMaterial(planId: string): Promise<AiMaterial> {
-  if (process.env.USE_MOCK_AI === 'true') {
+  if (!materialIsRequired()) {
     return MOCK_MATERIAL;
   }
 
@@ -293,11 +317,7 @@ export async function loadMaterial(planId: string): Promise<AiMaterial> {
       select: { fileKey: true },
     });
     if (!document) {
-      throw new AppError(
-        'This study plan has no source document to ask questions from',
-        409,
-        'NO_MATERIAL'
-      );
+      throw noMaterialError();
     }
 
     const source = resolveMaterialSource(document.fileKey);
@@ -836,6 +856,28 @@ export async function startInterview(
     throw new AppError('Study plan not found', 404, 'NOT_FOUND');
   }
 
+  // #272, and it has to come before the resume branch below, not just before the `create`.
+  //
+  // The same check runs inside `loadMaterial` once the first question is asked, but by then the
+  // session row exists, and a throw there leaves an `active` session with no turns that nobody
+  // can finish. Every later attempt then matched the resume branch and answered with AE-03's
+  // "phiên đang dở" dialog, so "kế hoạch chưa có tài liệu" (#118/#279) reached the student once
+  // per plan and never again.
+  //
+  // Checking here rather than after that branch also covers the zombies already in the
+  // database: a plan with nothing to ask from is refused whatever sessions it carries. Those
+  // rows are left alone on purpose — they hold no turns, and once the plan gets a document they
+  // resume into a perfectly ordinary first question.
+  if (materialIsRequired()) {
+    const document = await prisma.document.findFirst({
+      where: { planId: plan.id },
+      select: { id: true },
+    });
+    if (!document) {
+      throw noMaterialError();
+    }
+  }
+
   const existing = await prisma.interviewSession.findFirst({
     where: { userId, planId: plan.id, status: { in: ['active', 'paused'] } },
     orderBy: { startedAt: 'desc' },
@@ -865,7 +907,18 @@ export async function startInterview(
     select: sessionSelect,
   });
 
-  const advance = await advanceToNextQuestion(await buildView(session));
+  // The pre-check closes the NO_MATERIAL case specifically; this closes the general one. Any
+  // other failure of the *first* question (a document row whose file is gone, a DB blip) would
+  // strand the same zombie session, so the row is rolled back and the original error rethrown.
+  // Only AI failures survive this path without throwing — `advanceToNextQuestion` converts them
+  // into fallback mode on purpose (#115), and that session is a real one worth keeping.
+  let advance;
+  try {
+    advance = await advanceToNextQuestion(await buildView(session));
+  } catch (error) {
+    await rollbackUnstartedSession(session.id);
+    throw error;
+  }
 
   return {
     created: true,
@@ -874,6 +927,26 @@ export async function startInterview(
     message: advance.fallback?.message ?? null,
     fallback: advance.fallback,
   };
+}
+
+/**
+ * Deletes a session whose very first question never made it, so the next attempt starts clean
+ * instead of resuming a session with nothing in it (#272).
+ *
+ * Guarded on the turn count rather than assumed: `askQuestion` writes its turn only after the
+ * AI call returns, so a first-question failure leaves none — but a future caller could reach
+ * here with a turn already persisted, and deleting that would destroy graded work. Best-effort
+ * on purpose: the caller is already throwing the real error, and a failed cleanup must not
+ * replace it with a confusing one.
+ */
+async function rollbackUnstartedSession(sessionId: string): Promise<void> {
+  try {
+    const turnCount = await prisma.interviewTurn.count({ where: { sessionId } });
+    if (turnCount > 0) return;
+    await prisma.interviewSession.delete({ where: { id: sessionId } });
+  } catch (cleanupError) {
+    console.error('[interview] failed to roll back an unstarted session:', cleanupError);
+  }
 }
 
 /**

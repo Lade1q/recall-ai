@@ -4,6 +4,11 @@
  *
  * MVP chốt timezone Asia/Ho_Chi_Minh cho "hôm nay"/"tuần này" — so sánh streak bằng Date UTC
  * thô sẽ đổi ngày sai cho phiên học lúc 0h-7h sáng giờ VN (vẫn là tối hôm trước theo UTC).
+ *
+ * Đây cũng là **nhà duy nhất** của mốc ngày VN trong repo: DB-09 (#233, "Hoãn đến mai") dời
+ * `scheduledFor` sang đầu ngày mai và phải là *cùng* biên ngày mà streak dùng, nếu không hai
+ * màn hình sẽ bất đồng về việc "mai" bắt đầu lúc nào. Tách file riêng cho nó chỉ tạo hai nhà
+ * cho một khái niệm, nên helper của #233 nằm ngay đây thay vì ở `utils/vn-date.ts` mới.
  */
 
 const VN_TIMEZONE = 'Asia/Ho_Chi_Minh';
@@ -61,6 +66,20 @@ export function getVnWeekStartUtc(now: Date): Date {
   const dayOfWeek = new Date(utcMidnightOfDay).getUTCDay(); // 0 = Chủ nhật .. 6 = thứ 7
   const daysSinceMonday = (dayOfWeek + 6) % 7;
   return new Date(utcMidnightOfDay - daysSinceMonday * MS_PER_DAY - VN_OFFSET_MS);
+}
+
+/**
+ * Thời điểm UTC ứng với 00:00 ngày MAI (giờ VN) tính từ `now`. Mốc "đến mai" của DB-09 (#233):
+ * một mục được hoãn phải rời `GET /review-queue/today` (lọc `scheduledFor <= now`) cho hết hôm
+ * nay, rồi quay lại ngay khi ngày VN mới bắt đầu.
+ *
+ * Không dùng `now + 24h`: hoãn lúc 23:30 giờ VN mà cộng 24 giờ thì mục quay lại vào 23:30 ngày
+ * mai — mất gần trọn ngày đáng lẽ được nhắc. Biên là ngày lịch VN, nên tính qua date-key rồi
+ * dịch một ngày, đúng phép mà `getVnWeekStartUtc` dùng để về 00:00 thứ 2.
+ */
+export function getVnTomorrowStartUtc(now: Date): Date {
+  const { year, month, day } = parseVnDateKey(shiftVnDateKey(toVnDateKey(now), 1));
+  return new Date(Date.UTC(year, month - 1, day) - VN_OFFSET_MS);
 }
 
 /**

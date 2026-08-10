@@ -57,14 +57,28 @@ Header `Authorization: Bearer <TOKEN>`.
         "generatedByAi": true,
         "message": null
       },
-      "traceback": [
+      "reviewSchedule": [
         {
+          "id": "9f1c2b3d-...-uuid",
           "conceptId": "c4e5f6a7-...-uuid",
           "name": "Giới hạn hàm số",
           "reason": "traceback",
           "depth": 1,
+          "sourceConceptId": "b2d3e4f5-...-uuid",
           "sourceConceptName": "Đạo hàm riêng",
-          "status": "pending"
+          "status": "pending",
+          "scheduledFor": "2026-08-09T09:35:31.435Z"
+        },
+        {
+          "id": "3a7d8e9f-...-uuid",
+          "conceptId": "b2d3e4f5-...-uuid",
+          "name": "Đạo hàm riêng",
+          "reason": "spaced_repetition",
+          "depth": null,
+          "sourceConceptId": null,
+          "sourceConceptName": null,
+          "status": "pending",
+          "scheduledFor": "2026-08-21T09:35:31.435Z"
         }
       ]
     }
@@ -76,8 +90,38 @@ Header `Authorization: Bearer <TOKEN>`.
   `summary.message` chứa nguyên văn: _"Không thể tổng hợp nhận xét lúc này."_ Bảng điểm
   (`concepts`) vẫn luôn đầy đủ và chính xác trong mọi trường hợp.
 
-  `traceback` đọc thẳng từ `ReviewQueueItem` (đã ghi bởi I7.2 khi từng khái niệm kết thúc trong
-  phiên này) — không tính lại. Rỗng nếu phiên không có khái niệm nào cần truy ngược.
+  `concepts[].masteryScore` là điểm **phiên này** tạo ra cho khái niệm — trung bình có trọng số
+  `[0.2, 0.3, 0.5]` trên các turn đã chấm của chính phiên `:id`, không phải điểm live hiện tại của
+  khái niệm (`Concept.mastery_score` có thể đã bị một phiên sau đè lên). `null` nghĩa là phiên này
+  không chấm được khái niệm nào — không phải `0`.
+
+  `reviewSchedule` đọc thẳng từ `ReviewQueueItem` (đã ghi bởi I7.2 khi từng khái niệm kết thúc
+  trong phiên này) — không tính lại. Đây là **một hàng đợi duy nhất** chứa cả hai loại, phân biệt
+  bằng `reason`:
+
+  - `traceback` — khái niệm nền mà AE-08 chèn lên trước khi khái niệm vừa học bị chấm yếu.
+    `depth` là `1`/`2`, `sourceConceptId`/`sourceConceptName` là khái niệm đã kích hoạt truy ngược,
+    và `scheduledFor` là **ngay lập tức** (AE-07 bước 6).
+  - `spaced_repetition` — dòng lịch ôn mà **mọi** khái niệm chấm xong đều có. `depth`,
+    `sourceConceptId` và `sourceConceptName` luôn `null`; `scheduledFor` là ngày quay lại theo mức
+    độ ghi nhớ.
+
+  Hai định danh bền của mỗi dòng (#310):
+
+  - `id` là id của chính `ReviewQueueItem` — đây là `:itemId` của
+    [`PATCH /review-queue/:itemId`](./review-queue.md), tức nút "Bỏ khỏi lịch" trên màn kết quả gọi
+    thẳng bằng giá trị này, **không** phải fetch lại `/review-queue` rồi dò theo `conceptId`.
+  - `sourceConceptId` là id của khái niệm đã kích hoạt truy ngược. Gom nhóm khối Traceback theo id
+    này chứ đừng theo `sourceConceptName` — hai khái niệm trùng tên sẽ dính vào một nhóm. Vì
+    `source_concept_id` là tham chiếu mềm (không FK), khái niệm nguồn bị xoá sẽ cho `sourceConceptId`
+    **vẫn có giá trị** trong khi `sourceConceptName` là `null`.
+
+  Thứ tự trả về: nhóm `traceback` trước (theo `depth` tăng dần), rồi nhóm `spaced_repetition`
+  (theo `scheduledFor` tăng dần). Client lọc theo `reason` chứ **không** theo vị trí. Khối
+  Traceback trên màn kết quả chính là mảng này lọc `reason === 'traceback'`.
+
+  Chỉ rỗng khi phiên không xếp lịch được cho khái niệm nào (ví dụ không khái niệm nào chấm được
+  điểm). Phiên không kích hoạt truy ngược **vẫn** trả về đầy đủ các dòng `spaced_repetition`.
 
 - **Response lỗi:**
 

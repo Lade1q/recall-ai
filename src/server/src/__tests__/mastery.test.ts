@@ -10,6 +10,7 @@ import {
   gradedTurnScores,
   reviewIntervalDays,
   reviewPriority,
+  sessionMasteryScore,
   summariseMasteryDistribution,
 } from '../utils/mastery';
 import { MASTERY_THRESHOLD } from '../services/traceback.service';
@@ -122,6 +123,59 @@ describe('gradedTurnScores', () => {
 
   it('keeps a genuine 0 — answered and completely wrong is not the same as ungraded', () => {
     expect(gradedTurnScores([{ score: 0 }])).toEqual([0]);
+  });
+});
+
+describe('sessionMasteryScore', () => {
+  it("derives the score from this session's own 3 graded turns, weighted [0.2, 0.3, 0.5]", () => {
+    const turns = [
+      { turnIndex: 1, score: 1.0 },
+      { turnIndex: 2, score: 0.5 },
+      { turnIndex: 3, score: 0.0 },
+    ];
+    expect(sessionMasteryScore(turns)).toBe(0.35);
+  });
+
+  it('renormalises to [0.4, 0.6] for a 2-turn concept', () => {
+    const turns = [
+      { turnIndex: 1, score: 1.0 },
+      { turnIndex: 2, score: 0.0 },
+    ];
+    expect(sessionMasteryScore(turns)).toBe(0.4);
+  });
+
+  it('returns null — not 0 — when no turn of this concept could be graded', () => {
+    const turns = [
+      { turnIndex: 1, score: null },
+      { turnIndex: 2, score: null },
+    ];
+    expect(sessionMasteryScore(turns)).toBeNull();
+  });
+
+  it('sorts by turnIndex before weighting, regardless of input order', () => {
+    const inOrder = sessionMasteryScore([
+      { turnIndex: 1, score: 1.0 },
+      { turnIndex: 2, score: 0.5 },
+      { turnIndex: 3, score: 0.0 },
+    ]);
+    const shuffled = sessionMasteryScore([
+      { turnIndex: 3, score: 0.0 },
+      { turnIndex: 1, score: 1.0 },
+      { turnIndex: 2, score: 0.5 },
+    ]);
+    expect(shuffled).toBe(inOrder);
+  });
+
+  it('falls back to a plain mean instead of throwing when given more turns than C6 allows', () => {
+    // A read path over whatever the database holds: a summary must not 500 just because the
+    // data violates an invariant that should have been enforced elsewhere.
+    const turns = [
+      { turnIndex: 1, score: 1.0 },
+      { turnIndex: 2, score: 1.0 },
+      { turnIndex: 3, score: 1.0 },
+      { turnIndex: 4, score: 0.0 },
+    ];
+    expect(sessionMasteryScore(turns)).toBe(0.75);
   });
 });
 

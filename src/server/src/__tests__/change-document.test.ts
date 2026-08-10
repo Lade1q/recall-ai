@@ -10,6 +10,7 @@ jest.mock('../config/prisma', () => {
     studyPlan: { findUnique: jest.fn() },
     analysisJob: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
     document: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
+    questionCache: { deleteMany: jest.fn() },
     $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn(),
   };
@@ -91,6 +92,7 @@ describe('changePlanDocument', () => {
       code: 'DOCUMENT_CHANGE_NOT_ALLOWED',
       message: 'Changing the document is only allowed for draft plans',
     });
+    expect(mockedPrisma.questionCache.deleteMany).not.toHaveBeenCalled();
   });
 
   it('throws 409 DOCUMENT_CHANGE_NOT_ALLOWED when no AnalysisJob exists', async () => {
@@ -191,9 +193,20 @@ describe('changePlanDocument', () => {
     });
     expect(mockedPrisma.document.create).not.toHaveBeenCalled();
 
+    expect(mockedPrisma.questionCache.deleteMany).toHaveBeenCalledWith({
+      where: { concept: { planId: PLAN_ID } },
+    });
+
     expect(mockedPrisma.analysisJob.create).toHaveBeenCalledWith({
       data: { planDraftId: PLAN_ID, fileKey: newDocumentMeta.fileKey, status: 'pending' },
     });
+
+    // Cache phải được xoá trước khi job mới tồn tại — nếu không, một request khác có thể thấy
+    // job mới đã được tạo trong khi pregenerateForPlan vẫn còn thấy cache cũ.
+    const deleteOrder = (mockedPrisma.questionCache.deleteMany as jest.Mock).mock
+      .invocationCallOrder[0]!;
+    const createOrder = (mockedPrisma.analysisJob.create as jest.Mock).mock.invocationCallOrder[0]!;
+    expect(deleteOrder).toBeLessThan(createOrder);
 
     expect(result).toEqual({
       id: PLAN_ID,

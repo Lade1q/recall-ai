@@ -414,7 +414,7 @@ describe('getSessionSummaryController', () => {
         generatedByAi: true,
         message: null,
       },
-      traceback: [],
+      reviewSchedule: [],
     };
     mockedGetSessionSummary.mockResolvedValue(data);
     const req = { userId: USER_ID, params: { id: SESSION_ID } } as unknown as Request;

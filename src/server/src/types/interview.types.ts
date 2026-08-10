@@ -219,23 +219,51 @@ export interface SessionSummaryTurnResponse {
 export interface SessionSummaryConceptResponse {
   conceptId: string;
   name: string;
-  /** `null` if the queue reached `completed` (e.g. via UC-12 E1) before this concept was ever asked. */
+  /**
+   * The mastery score THIS session produced for the concept — the weighted average of its own
+   * graded turns (see `sessionMasteryScore` in `utils/mastery.ts`), never the concept's live
+   * `mastery_score`, which a later session may since have overwritten.
+   *
+   * `null` means this session could not grade the concept at all: the queue reached `completed`
+   * before it was ever asked (UC-12 E1), or every turn asked about it failed grading. This is
+   * NOT the same as `0` (graded, answered completely wrong).
+   */
   masteryScore: number | null;
   turns: SessionSummaryTurnResponse[];
 }
 
 /**
- * One `ReviewQueueItem` this session's traceback (I7.2) queued — AE-08's contribution to the
- * summary screen, read as-is rather than recomputed (I7.2 already decided this, once).
+ * One `ReviewQueueItem` this session queued — the whole review schedule it produced, read as-is
+ * rather than recomputed (I7.2 already decided this, once). Two kinds arrive here, told apart by
+ * `reason`: the `spaced_repetition` row written for every concept the session finished, and the
+ * `traceback` prerequisites AE-08 queued ahead of a weak one. The summary screen (I6.7) needs
+ * both — a session that triggered no traceback still has a review schedule to show.
  */
-export interface SessionSummaryTracebackItemResponse {
+export interface SessionSummaryReviewItemResponse {
+  /**
+   * The `ReviewQueueItem`'s own id — the `itemId` of `PATCH /review-queue/:itemId`, which is how
+   * the summary screen's "Bỏ khỏi lịch" reaches this exact row. Returned so the client never has
+   * to re-fetch the whole queue and match rows back by `conceptId` (#310).
+   */
+  id: string;
   conceptId: string;
   name: string;
   reason: ReviewReason;
+  /** `1`/`2` for a traceback prerequisite; `null` for a `spaced_repetition` row. */
   depth: number | null;
-  /** The concept this prerequisite was traced back *from*; `null` if that concept was deleted since. */
+  /**
+   * The id of the concept this prerequisite was traced back *from* — group the Traceback block by
+   * this rather than by `sourceConceptName`, which collides when two concepts share a name.
+   * Same nullability as the name beside it: `null` for `spaced_repetition`, and `null` once the
+   * source concept is deleted (soft reference, no FK). Non-null here with a `null`
+   * `sourceConceptName` therefore means exactly that: the source is gone.
+   */
+  sourceConceptId: string | null;
+  /** The concept this prerequisite was traced back *from*; `null` if that concept was deleted since, and always `null` for `spaced_repetition`. */
   sourceConceptName: string | null;
   status: ReviewItemStatus;
+  /** When the concept comes back. Traceback rows are due immediately (AE-07 step 6). */
+  scheduledFor: Date | null;
 }
 
 /**
@@ -260,5 +288,15 @@ export interface SessionSummaryResponse {
   durationMinutes: number;
   concepts: SessionSummaryConceptResponse[];
   summary: SessionSummaryReport;
-  traceback: SessionSummaryTracebackItemResponse[];
+  /**
+   * Every review row this session queued, as one queue: traceback prerequisites first (by
+   * `depth`), then the per-concept spaced-repetition schedule (by `scheduledFor`). That is the
+   * order the summary screen reads it in — "hai khái niệm nền lên đầu hàng đợi" — and the
+   * traceback block is this same list filtered to `reason === 'traceback'`, not a second array.
+   *
+   * Split it by `reason`, never by position: a session that triggered no traceback returns only
+   * `spaced_repetition` rows, and those are the whole content of the schedule section rather
+   * than an empty state.
+   */
+  reviewSchedule: SessionSummaryReviewItemResponse[];
 }

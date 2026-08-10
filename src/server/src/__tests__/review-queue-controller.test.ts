@@ -7,6 +7,7 @@ import {
 import {
   getReviewQueueForPlan,
   getTodayReviewQueue,
+  snoozeReviewQueueItem,
   updateReviewQueueItemStatus,
 } from '../services/scheduling.service';
 import { AppError } from '../middleware/errorHandler';
@@ -19,11 +20,13 @@ jest.mock('../services/scheduling.service', () => ({
   getReviewQueueForPlan: jest.fn(),
   getTodayReviewQueue: jest.fn(),
   updateReviewQueueItemStatus: jest.fn(),
+  snoozeReviewQueueItem: jest.fn(),
 }));
 
 const mockedGetQueue = getReviewQueueForPlan as jest.Mock;
 const mockedGetToday = getTodayReviewQueue as jest.Mock;
 const mockedUpdateItem = updateReviewQueueItemStatus as jest.Mock;
+const mockedSnoozeItem = snoozeReviewQueueItem as jest.Mock;
 
 const USER_ID = 'user-owner-uuid';
 const PLAN_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
@@ -260,6 +263,117 @@ describe('updateReviewQueueItemController', () => {
       userId: USER_ID,
       params: { itemId: ITEM_ID },
       body: { status: 'skipped' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBe(notFound);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+// DB-09 / #233 — nhánh thứ hai của cùng endpoint. Điều phải giữ được: `{ status }` (nhánh cũ,
+// #224/#225 đang gửi live) và `{ snooze }` không được lẫn vào nhau ở bất kỳ chiều nào.
+describe('updateReviewQueueItemController — snooze branch (#233)', () => {
+  const SNOOZED = {
+    id: ITEM_ID,
+    conceptId: 'c1',
+    planId: PLAN_ID,
+    status: 'pending' as const,
+    scheduledFor: new Date('2026-08-05T17:00:00.000Z'),
+  };
+
+  it('routes { snooze: true } to the snooze service and returns 200', async () => {
+    mockedSnoozeItem.mockResolvedValue(SNOOZED);
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { snooze: true },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await updateReviewQueueItemController(req, res);
+
+    expect(mockedSnoozeItem).toHaveBeenCalledWith(ITEM_ID, USER_ID, expect.any(Date));
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { item: SNOOZED } });
+  });
+
+  it('leaves the status branch untouched — { status } never reaches the snooze service', async () => {
+    mockedUpdateItem.mockResolvedValue({
+      id: ITEM_ID,
+      conceptId: 'c1',
+      planId: PLAN_ID,
+      status: 'skipped',
+    });
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { status: 'skipped' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await updateReviewQueueItemController(req, res);
+
+    expect(mockedSnoozeItem).not.toHaveBeenCalled();
+    expect(mockedUpdateItem).toHaveBeenCalledWith(ITEM_ID, USER_ID, 'skipped');
+  });
+
+  // `{ snooze: false }` là một lệnh không có nghĩa. Nhận nó = một no-op 200 mà người gọi tưởng
+  // đã hoãn xong — nên schema dùng `z.literal(true)`.
+  it('rejects { snooze: false } instead of treating it as a silent no-op', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { snooze: false },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSnoozeItem).not.toHaveBeenCalled();
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+  });
+
+  // `.strict()` ở cả hai nhánh: một body mang cả hai key là hai lệnh mâu thuẫn (giữ trên lịch /
+  // gỡ khỏi lịch). Chọn đại một cái nghĩa là một nửa yêu cầu bị nuốt mất mà không ai biết.
+  it('rejects a body carrying both status and snooze rather than picking one', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { status: 'skipped', snooze: true },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSnoozeItem).not.toHaveBeenCalled();
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+  });
+
+  // Client KHÔNG sở hữu mốc ngày (C4): biên "đầu ngày mai giờ VN" do server tính. Nhận một ngày
+  // từ client là mở lại đúng cửa `now + 24h` mà AC cấm.
+  it('rejects a client-supplied snoozedUntil — the day boundary belongs to the server', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { snooze: true, snoozedUntil: '2026-08-06T00:00:00.000Z' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSnoozeItem).not.toHaveBeenCalled();
+  });
+
+  it('propagates a 404 from the snooze service (item missing or not owned)', async () => {
+    const notFound = new AppError('Review queue item not found', 404, 'NOT_FOUND');
+    mockedSnoozeItem.mockRejectedValue(notFound);
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { snooze: true },
     } as unknown as Request;
     const res = mockRes();
 

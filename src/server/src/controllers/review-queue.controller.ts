@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import {
   getReviewQueueForPlan,
   getTodayReviewQueue,
+  snoozeReviewQueueItem,
   updateReviewQueueItemStatus,
 } from '../services/scheduling.service';
 import {
@@ -52,9 +53,15 @@ export async function getTodayReviewQueueController(req: Request, res: Response)
 }
 
 /**
- * PATCH /api/v1/review-queue/:itemId
- * Removes an item from the schedule (`skipped`) or puts it back (`pending`) — #224. Removed rows
- * are kept, not deleted, and are read back via `GET /review-queue?includeSkipped=true`.
+ * PATCH /api/v1/review-queue/:itemId — hai thao tác trên cùng một tài nguyên, phân biệt bằng
+ * hình dạng body (xem `updateReviewQueueItemSchema`):
+ *
+ * - `{ status }` → gỡ khỏi lịch (`skipped`) / đưa lại (`pending`) — #224. Hàng bị gỡ được giữ
+ *   lại chứ không xoá, và đọc lại được qua `GET /review-queue?includeSkipped=true`.
+ * - `{ snooze: true }` → hoãn đến 00:00 ngày mai giờ VN, `status` không đổi — DB-09 / #233.
+ *
+ * `new Date()` được đọc ở đây và truyền xuống service: tầng dưới giữ nguyên hợp đồng "không đọc
+ * đồng hồ" để mốc ngày vẫn unit-test được (SDP R05).
  */
 export async function updateReviewQueueItemController(req: Request, res: Response): Promise<void> {
   if (!req.userId) {
@@ -63,9 +70,12 @@ export async function updateReviewQueueItemController(req: Request, res: Respons
 
   const { itemId } = reviewQueueItemIdParamSchema.parse(req.params);
 
-  const { status } = updateReviewQueueItemSchema.parse(req.body);
+  const body = updateReviewQueueItemSchema.parse(req.body);
 
-  const item = await updateReviewQueueItemStatus(itemId, req.userId, status);
+  const item =
+    'snooze' in body
+      ? await snoozeReviewQueueItem(itemId, req.userId, new Date())
+      : await updateReviewQueueItemStatus(itemId, req.userId, body.status);
 
   res.status(200).json({
     success: true,

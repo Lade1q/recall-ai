@@ -3,6 +3,7 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 import { daysUntil } from '../utils/mastery';
+import { getVnTomorrowStartUtc } from '../utils/dashboard-stats';
 
 /**
  * Review Queue API (Scheduling & Remediation Engine output, I7.3 / #124).
@@ -707,6 +708,82 @@ export interface ReviewQueueItemUpdate {
   status: ReviewItemStatus;
 }
 
+/** Kết quả của "hoãn đến mai" (#233): thêm mốc mới để người gọi thấy ngày do server tự chốt. */
+export interface ReviewQueueItemSnooze extends ReviewQueueItemUpdate {
+  scheduledFor: Date | null;
+}
+
+/**
+ * Tra một hàng hàng-đợi và kiểm quyền sở hữu — dùng chung cho cả hai thao tác PATCH.
+ *
+ * Chung một hàm chứ không chép lại: item không tồn tại và item của user khác phải **không phân
+ * biệt được** từ bên ngoài (cùng 404, không rò rỉ sự tồn tại của dữ liệu người khác), và hai
+ * nhánh cùng endpoint mà lệch nhau ở đúng chỗ này là cách một lỗ hổng lọt qua review.
+ */
+async function findOwnedQueueItem(
+  itemId: string,
+  userId: string
+): Promise<{ id: string; conceptId: string; planId: string }> {
+  const item = await prisma.reviewQueueItem.findUnique({
+    where: { id: itemId },
+    select: { id: true, conceptId: true, planId: true, plan: { select: { userId: true } } },
+  });
+
+  if (!item || item.plan.userId !== userId) {
+    throw new AppError('Review queue item not found', 404, 'NOT_FOUND');
+  }
+
+  return { id: item.id, conceptId: item.conceptId, planId: item.planId };
+}
+
+/**
+ * PATCH /review-queue/:itemId với `{ snooze: true }` — "Hoãn đến mai" (DB-09 / #233).
+ *
+ * Khác hẳn `'skipped'`: mục **vẫn nằm trên lịch**, `status` không đổi. Thứ duy nhất đổi là
+ * `scheduledFor`, đẩy sang 00:00 ngày mai giờ VN — đủ để mục rời `GET /review-queue/today`
+ * (lọc `scheduledFor <= now`) cho hết hôm nay và tự quay lại vào ngày mai, mà không biến mất
+ * khỏi hàng đợi của kế hoạch ở màn #225. "Hôm nay bận" không phải là "không cần ôn nữa".
+ *
+ * Cùng phạm vi cụm-khái-niệm như `updateReviewQueueItemStatus()` và vì cùng một lý do (#232):
+ * màn hình gộp mọi hàng của một khái niệm thành MỘT mục, nên hoãn đúng một hàng sẽ để khái niệm
+ * đó quay lại ngay lần đọc sau từ một hàng anh em — nút bấm trông như không làm gì.
+ *
+ * Hai bộ lọc thu hẹp phạm vi, cả hai đều cố ý:
+ * - `scheduledFor <= now` — chỉ dời phần **đang đến hạn**. Hàng đã được xếp cho một ngày trong
+ *   tương lai mà bị "hoãn đến mai" thì hoá ra là **kéo sớm lên**, ngược nghĩa nút bấm.
+ * - `ON_SCHEDULE_WHERE` — không đụng hàng đã bị gỡ (`skipped`). Ngày đến hạn của chúng là thứ
+ *   nút "Đưa lại vào lịch" (#225) dựa vào; viết đè lên đây là lặng lẽ đổi lịch của một khái
+ *   niệm mà sinh viên còn chưa đưa trở lại.
+ *
+ * `scheduledFor` trả về được **đọc lại từ DB** sau khi ghi, không phải mốc vừa tính: gọi thẳng
+ * API cho một hàng không đến hạn là hợp lệ và sẽ không dời gì cả, response phải nói đúng sự
+ * thật đó thay vì báo một ngày mai không có ai ghi.
+ */
+export async function snoozeReviewQueueItem(
+  itemId: string,
+  userId: string,
+  now: Date
+): Promise<ReviewQueueItemSnooze> {
+  const item = await findOwnedQueueItem(itemId, userId);
+
+  await prisma.reviewQueueItem.updateMany({
+    where: {
+      planId: item.planId,
+      conceptId: item.conceptId,
+      scheduledFor: { lte: now },
+      ...ON_SCHEDULE_WHERE,
+    },
+    data: { scheduledFor: getVnTomorrowStartUtc(now) },
+  });
+
+  const updated = await prisma.reviewQueueItem.findUniqueOrThrow({
+    where: { id: item.id },
+    select: { status: true, scheduledFor: true },
+  });
+
+  return { ...item, status: updated.status, scheduledFor: updated.scheduledFor };
+}
+
 /**
  * PATCH /review-queue/:itemId — remove an item from the schedule (`'skipped'`) or put it back
  * (`'pending'`). Since #224 this is not an approval gate: traceback already applied the concept
@@ -731,19 +808,12 @@ export async function updateReviewQueueItemStatus(
   userId: string,
   status: 'skipped' | 'pending'
 ): Promise<ReviewQueueItemUpdate> {
-  const item = await prisma.reviewQueueItem.findUnique({
-    where: { id: itemId },
-    select: { id: true, conceptId: true, planId: true, plan: { select: { userId: true } } },
-  });
-
-  if (!item || item.plan.userId !== userId) {
-    throw new AppError('Review queue item not found', 404, 'NOT_FOUND');
-  }
+  const item = await findOwnedQueueItem(itemId, userId);
 
   await prisma.reviewQueueItem.updateMany({
     where: { planId: item.planId, conceptId: item.conceptId },
     data: { status },
   });
 
-  return { id: item.id, conceptId: item.conceptId, planId: item.planId, status };
+  return { ...item, status };
 }

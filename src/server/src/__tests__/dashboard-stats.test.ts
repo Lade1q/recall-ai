@@ -1,6 +1,7 @@
 import {
   computeStreakDays,
   getStreakLookbackStartUtc,
+  getVnTomorrowStartUtc,
   getVnWeekStartUtc,
   shiftVnDateKey,
   STREAK_LOOKBACK_DAYS,
@@ -50,6 +51,36 @@ describe('getVnWeekStartUtc', () => {
     const mondayVn = new Date('2026-08-02T17:00:01.000Z');
     const weekStart = getVnWeekStartUtc(mondayVn);
     expect(weekStart.toISOString()).toBe('2026-08-02T17:00:00.000Z');
+  });
+});
+
+describe('getVnTomorrowStartUtc', () => {
+  // Mốc "hoãn đến mai" của DB-09 (#233). Cả hai ca dưới đây đều sai nếu tính bằng `now + 24h`.
+  it('returns 00:00 of the next VN day when now is early morning VN (00:30)', () => {
+    // 00:30 VN ngày 2026-08-05 = 17:30 UTC ngày 2026-08-04 — lớp lỗi 0h-7h mà #200 đã chạm.
+    const earlyMorningVn = new Date('2026-08-04T17:30:00.000Z');
+    const tomorrow = getVnTomorrowStartUtc(earlyMorningVn);
+    expect(toVnDateKey(tomorrow)).toBe('2026-08-06');
+    expect(tomorrow.toISOString()).toBe('2026-08-05T17:00:00.000Z'); // 00:00 VN ngày 06
+  });
+
+  it('returns 00:00 of the next VN day when now is late evening VN (23:30)', () => {
+    // 23:30 VN ngày 2026-08-05 = 16:30 UTC cùng ngày. `now + 24h` sẽ ra 23:30 hôm sau — trễ gần
+    // trọn một ngày đáng lẽ được nhắc.
+    const lateEveningVn = new Date('2026-08-05T16:30:00.000Z');
+    const tomorrow = getVnTomorrowStartUtc(lateEveningVn);
+    expect(toVnDateKey(tomorrow)).toBe('2026-08-06');
+    expect(tomorrow.toISOString()).toBe('2026-08-05T17:00:00.000Z'); // 00:00 VN ngày 06
+  });
+
+  it('is strictly in the future — the snoozed item leaves /today for the rest of the day', () => {
+    const lateEveningVn = new Date('2026-08-05T16:59:59.000Z'); // 23:59:59 VN
+    expect(getVnTomorrowStartUtc(lateEveningVn).getTime()).toBeGreaterThan(lateEveningVn.getTime());
+  });
+
+  it('crosses a month boundary', () => {
+    const lastDayOfMonthVn = new Date('2026-08-31T05:00:00.000Z'); // 12:00 VN ngày 31/08
+    expect(toVnDateKey(getVnTomorrowStartUtc(lastDayOfMonthVn))).toBe('2026-09-01');
   });
 });
 

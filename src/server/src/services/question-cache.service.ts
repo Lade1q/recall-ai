@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { generateQuestion, type AiMaterial, type PreviousTurn } from './gemini.service';
 import { loadMaterial } from './interview.service';
@@ -135,4 +136,23 @@ export async function pregenerateForPlan(planId: string): Promise<void> {
       );
     }
   }
+}
+
+/**
+ * Xoá toàn bộ câu hỏi đã cache của các concept thuộc plan (Issue #216). `planConceptMerge` giữ
+ * nguyên id của concept qua mỗi lần merge, nên nếu không xoá, bước kiểm tra idempotent của
+ * `pregenerateForPlan` ở trên sẽ thấy concept đã đủ 2 câu và bỏ qua việc sinh lại — để sót câu
+ * hỏi cũ từ tài liệu/lần phân tích đã bị thay thế. Xoá không điều kiện cho cả plan thay vì tính
+ * chính xác "concept nào bị ảnh hưởng": concept nào còn tồn tại sau lần merge tiếp theo,
+ * `pregenerateForPlan` sẽ tự sinh lại cache từ đầu cho concept đó.
+ *
+ * Bắt buộc chạy trong cùng transaction với lệnh tạo `AnalysisJob` kế tiếp, và phải chạy trước
+ * lệnh `create` đó — để không ai có thể thấy trạng thái plan đã có job mới nhưng cache vẫn còn
+ * câu hỏi cũ.
+ */
+export async function clearQuestionCacheForPlan(
+  tx: Prisma.TransactionClient,
+  planId: string
+): Promise<void> {
+  await tx.questionCache.deleteMany({ where: { concept: { planId } } });
 }

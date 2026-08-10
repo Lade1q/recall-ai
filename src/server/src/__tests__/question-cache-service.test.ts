@@ -1,4 +1,5 @@
-import { pregenerateForPlan } from '../services/question-cache.service';
+import type { Prisma } from '@prisma/client';
+import { pregenerateForPlan, clearQuestionCacheForPlan } from '../services/question-cache.service';
 import prisma from '../config/prisma';
 import { generateQuestion } from '../services/gemini.service';
 import { loadMaterial } from '../services/interview.service';
@@ -247,5 +248,17 @@ describe('pregenerateForPlan', () => {
 
     delete process.env.QUESTION_CACHE_DELAY_MS;
     jest.useRealTimers();
+  });
+});
+
+describe('clearQuestionCacheForPlan', () => {
+  it("deletes every cached question belonging to the plan's concepts", async () => {
+    const tx = { questionCache: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) } };
+
+    await clearQuestionCacheForPlan(tx as unknown as Prisma.TransactionClient, PLAN_ID);
+
+    expect(tx.questionCache.deleteMany).toHaveBeenCalledWith({
+      where: { concept: { planId: PLAN_ID } },
+    });
   });
 });

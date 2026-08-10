@@ -327,6 +327,15 @@ interface ConceptGraphProps {
   confirmLabel?: string;
   onCancel?: () => void;
   isDraft?: boolean;
+  /**
+   * Chế độ CHỈ ĐỌC cho bản xem trước mini trên Dashboard (DB-01 «include» DB-02): chỉ vẽ đồ thị
+   * tô theo mastery + vòng `isRemediating`, KHÔNG toolbar lọc (DB-05), KHÔNG zoom/pan (DB-02
+   * bước 3), KHÔNG panel chi tiết (DB-06) — những thứ đó thuộc màn đồ thị đầy đủ. Lối duy nhất ra
+   * khỏi bản xem trước là link "Mở đồ thị đầy đủ →" do nơi nhúng đặt bên ngoài. Chỉ có nghĩa với
+   * `mode='view'`; mọi thay đổi đều cộng thêm (`&& !preview`), nên hai màn view/edit hiện có
+   * giữ nguyên hành vi.
+   */
+  preview?: boolean;
 }
 
 export function ConceptGraph({
@@ -338,6 +347,7 @@ export function ConceptGraph({
   confirmLabel = 'Xác nhận & Bắt đầu',
   onCancel,
   isDraft = false,
+  preview = false,
 }: ConceptGraphProps) {
   const navigate = useNavigate();
   const nodeTypes = useMemo(() => ({ conceptNode: GraphNode }), []);
@@ -778,152 +788,160 @@ export function ConceptGraph({
       : `${initialConcepts.length} khái niệm · ${weakCount} yếu · ${untestedCount} chưa kiểm tra`;
 
   return (
-    <div className="min-h-150 flex h-full w-full flex-col">
+    <div className={cn('flex h-full w-full flex-col', !preview && 'min-h-150')}>
       {/*
         Thanh công cụ là một khối riêng phía trên vùng làm việc: bo góc trên, bỏ viền dưới
-        để nó và canvas đọc như một khối liền (mockup .toolbar + .workspace).
+        để nó và canvas đọc như một khối liền (mockup .toolbar + .workspace). Bản xem trước
+        (preview) bỏ hẳn thanh này — không lọc, không zoom, không banner đồ thị lớn.
       */}
-      <div className="border-border bg-card overflow-hidden rounded-t-[calc(var(--radius)*1.35)] border border-b-0">
-        {/* UC-17 [E1]: cảnh báo + lối giải quyết cho đồ thị lớn. Đứng TRÊN thanh công cụ vì
+      {!preview && (
+        <div className="border-border bg-card overflow-hidden rounded-t-[calc(var(--radius)*1.35)] border border-b-0">
+          {/* UC-17 [E1]: cảnh báo + lối giải quyết cho đồ thị lớn. Đứng TRÊN thanh công cụ vì
             nó nói về phạm vi đang vẽ, không phải về một bộ lọc trong đó. */}
-        {showLargeGraphSubset && (
-          <div className="bg-mastery-learning/7 border-border px-4.5 flex flex-wrap items-center gap-3 border-b py-3 text-[12.5px]">
-            <span>
-              <strong className="font-semibold">{initialConcepts.length} khái niệm</strong> — đang
-              hiển thị {largeGraphSubset?.size ?? 0} khái niệm chưa vững và tiên quyết trực tiếp của
-              chúng.
-            </span>
-            <Button
-              variant="secondary"
-              size="sm"
-              className="ml-auto h-7 shrink-0 text-xs"
-              onClick={() => setShowAllNodes(true)}
-            >
-              Hiện toàn bộ {initialConcepts.length} node
-            </Button>
-          </div>
-        )}
-
-        {mode === 'edit' && (
-          <div className="px-4.5 text-muted-foreground flex items-center justify-between gap-3 py-3 text-[12px]">
-            <div className="flex items-center gap-1.5">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+          {showLargeGraphSubset && (
+            <div className="bg-mastery-learning/7 border-border px-4.5 flex flex-wrap items-center gap-3 border-b py-3 text-[12.5px]">
+              <span>
+                <strong className="font-semibold">{initialConcepts.length} khái niệm</strong> — đang
+                hiển thị {largeGraphSubset?.size ?? 0} khái niệm chưa vững và tiên quyết trực tiếp
+                của chúng.
+              </span>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="ml-auto h-7 shrink-0 text-xs"
+                onClick={() => setShowAllNodes(true)}
               >
-                <path d="M13 2l-2 12h4l-2 8" />
-              </svg>
-              <span>Kéo thả để nối quan hệ. Chọn khái niệm để xem nguồn.</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="secondary" size="sm" className="h-7 text-xs">
-                    + Thêm khái niệm
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-106.25">
-                  <DialogHeader>
-                    <DialogTitle>Thêm khái niệm mới</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <Input
-                      autoFocus
-                      placeholder="Nhập tên khái niệm..."
-                      value={newConceptName}
-                      onChange={(e) => setNewConceptName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddConcept()}
-                    />
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                      Hủy
-                    </Button>
-                    <Button onClick={handleAddConcept}>Thêm khái niệm</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={onLayout}>
-                Auto Layout
+                Hiện toàn bộ {initialConcepts.length} node
               </Button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* DB-05: thanh công cụ lọc & tìm kiếm */}
-        {mode === 'view' && (
-          <div className="px-4.5 flex flex-wrap items-center gap-2.5 py-3.5">
-            <div className="relative w-60 shrink-0">
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                className="text-muted-foreground left-2.75 pointer-events-none absolute top-1/2 -translate-y-1/2"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="M20 20l-3.6-3.6" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm khái niệm theo tên..."
-                aria-label="Tìm khái niệm"
-                className="border-border bg-background text-foreground focus-visible:ring-ring py-2.25 pl-8.5 w-full rounded-[calc(var(--radius)*0.7)] border pr-3 text-[13px] outline-none focus-visible:ring-2"
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <FilterChip
-                active={filterBand === 'all'}
-                disabled={allUntested}
-                onClick={() => setFilterBand('all')}
-              >
-                Tất cả
-              </FilterChip>
-              {BAND_ORDER.map((band) => (
-                <FilterChip
-                  key={band}
-                  active={filterBand === band}
-                  disabled={allUntested}
-                  color={BAND_COLOR_VAR[band]}
-                  onClick={() => setFilterBand(band)}
+          {mode === 'edit' && (
+            <div className="px-4.5 text-muted-foreground flex items-center justify-between gap-3 py-3 text-[12px]">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  {masteryLabel(band)}
-                </FilterChip>
-              ))}
-              {/* "Đang ôn lại" đứng sau vạch ngăn — không cùng trục với 4 mức mastery ở trên:
-                  bốn cái đó loại trừ nhau, cái này chồng lên bất kỳ cái nào. */}
-              <span className="bg-border mx-0.5 h-5 w-px shrink-0" />
-              <FilterChip
-                active={filterRemediating}
-                color="var(--remediate)"
-                onClick={() => setFilterRemediating((v) => !v)}
-              >
-                Đang ôn lại
-              </FilterChip>
+                  <path d="M13 2l-2 12h4l-2 8" />
+                </svg>
+                <span>Kéo thả để nối quan hệ. Chọn khái niệm để xem nguồn.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="secondary" size="sm" className="h-7 text-xs">
+                      + Thêm khái niệm
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-106.25">
+                    <DialogHeader>
+                      <DialogTitle>Thêm khái niệm mới</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <Input
+                        autoFocus
+                        placeholder="Nhập tên khái niệm..."
+                        value={newConceptName}
+                        onChange={(e) => setNewConceptName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddConcept()}
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                        Hủy
+                      </Button>
+                      <Button onClick={handleAddConcept}>Thêm khái niệm</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Button variant="secondary" size="sm" className="h-7 text-xs" onClick={onLayout}>
+                  Auto Layout
+                </Button>
+              </div>
             </div>
-            <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[12px] tabular-nums">
-              {countLabel}
-            </span>
-          </div>
-        )}
-      </div>
+          )}
+
+          {/* DB-05: thanh công cụ lọc & tìm kiếm */}
+          {mode === 'view' && (
+            <div className="px-4.5 flex flex-wrap items-center gap-2.5 py-3.5">
+              <div className="relative w-60 shrink-0">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  className="text-muted-foreground left-2.75 pointer-events-none absolute top-1/2 -translate-y-1/2"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.6-3.6" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Tìm khái niệm theo tên..."
+                  aria-label="Tìm khái niệm"
+                  className="border-border bg-background text-foreground focus-visible:ring-ring py-2.25 pl-8.5 w-full rounded-[calc(var(--radius)*0.7)] border pr-3 text-[13px] outline-none focus-visible:ring-2"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <FilterChip
+                  active={filterBand === 'all'}
+                  disabled={allUntested}
+                  onClick={() => setFilterBand('all')}
+                >
+                  Tất cả
+                </FilterChip>
+                {BAND_ORDER.map((band) => (
+                  <FilterChip
+                    key={band}
+                    active={filterBand === band}
+                    disabled={allUntested}
+                    color={BAND_COLOR_VAR[band]}
+                    onClick={() => setFilterBand(band)}
+                  >
+                    {masteryLabel(band)}
+                  </FilterChip>
+                ))}
+                {/* "Đang ôn lại" đứng sau vạch ngăn — không cùng trục với 4 mức mastery ở trên:
+                  bốn cái đó loại trừ nhau, cái này chồng lên bất kỳ cái nào. */}
+                <span className="bg-border mx-0.5 h-5 w-px shrink-0" />
+                <FilterChip
+                  active={filterRemediating}
+                  color="var(--remediate)"
+                  onClick={() => setFilterRemediating((v) => !v)}
+                >
+                  Đang ôn lại
+                </FilterChip>
+              </div>
+              <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[12px] tabular-nums">
+                {countLabel}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         className={cn(
-          'border-border bg-card relative grid min-h-0 flex-1 overflow-hidden rounded-b-[calc(var(--radius)*1.35)] border',
+          'relative grid min-h-0 flex-1 overflow-hidden',
+          // Preview: hộp đồ thị nền `muted`, KHÔNG viền/nền card riêng — nó nằm trong thẻ panel
+          // của nơi nhúng (mockup `.mini-graph`), viền lồng viền sẽ đọc như hộp-trong-hộp.
+          preview
+            ? 'bg-muted rounded-[calc(var(--radius)*0.8)]'
+            : 'border-border bg-card rounded-b-[calc(var(--radius)*1.35)] border',
           hasSidePanel && 'lg:grid-cols-[minmax(0,1fr)_320px]'
         )}
       >
@@ -971,15 +989,24 @@ export function ConceptGraph({
               onInit={setRfInstance}
               nodesDraggable={mode === 'edit'}
               nodesConnectable={mode === 'edit'}
-              elementsSelectable
+              elementsSelectable={!preview}
+              nodesFocusable={!preview}
+              edgesFocusable={!preview}
+              // Bản xem trước là hình tĩnh: khoá pan/zoom/cuộn để nó không "bắt" thao tác cuộn
+              // trang của người dùng, và click node không mở gì (không panel chi tiết).
+              panOnDrag={!preview}
+              zoomOnScroll={!preview}
+              zoomOnPinch={!preview}
+              zoomOnDoubleClick={!preview}
+              preventScrolling={!preview}
               deleteKeyCode={mode === 'edit' ? ['Backspace', 'Delete'] : null}
               proOptions={{ hideAttribution: true }}
               fitView
             >
               {/* Chú giải cạnh luôn hiện ở view mode: đồ thị có ba kiểu cạnh và không kiểu nào
                   tự giải thích được, kể cả khi chưa chọn node nào. */}
-              {mode === 'view' && <EdgeLegend />}
-              <ViewportControls />
+              {mode === 'view' && !preview && <EdgeLegend />}
+              {!preview && <ViewportControls />}
             </ReactFlow>
 
             {/* Edge delete floating bar */}
@@ -1057,7 +1084,7 @@ export function ConceptGraph({
             )}
 
             {/* UC-17 [E2]: chưa có phiên kiểm tra nào — gợi ý điểm bắt đầu tự nhiên */}
-            {mode === 'view' && allUntested && rootConceptIds.length > 0 && (
+            {mode === 'view' && !preview && allUntested && rootConceptIds.length > 0 && (
               <div className="border-border bg-card/95 shadow-soft absolute right-6 top-6 z-10 w-60 rounded-[calc(var(--radius)*0.9)] border p-4 backdrop-blur-sm">
                 <p className="mb-1.5 text-[13px] font-semibold">Chưa đo được gì</p>
                 <p className="text-muted-foreground mb-3 text-pretty text-[12px] leading-[1.65]">
@@ -1200,8 +1227,8 @@ export function ConceptGraph({
           </aside>
         )}
 
-        {/* DB-06: panel chi tiết — chỉ ở view mode, thay cho aside rút gọn của edit mode */}
-        {mode === 'view' && selectedNode && (
+        {/* DB-06: panel chi tiết — chỉ ở view mode (không phải preview), thay cho aside rút gọn của edit mode */}
+        {mode === 'view' && !preview && selectedNode && (
           <ConceptDetailPanel
             // Remount per concept — its internal fetch state (`isLoading`/`hasError`/`detail`)
             // then starts fresh by construction, no reset-on-prop-change effect needed.

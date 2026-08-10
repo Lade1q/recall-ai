@@ -25,6 +25,13 @@ interface UpdateReviewQueueItemResponseData {
   };
 }
 
+interface SnoozeReviewQueueItemResponseData {
+  item: UpdateReviewQueueItemResponseData['item'] & {
+    /** Mốc mới do SERVER chốt (00:00 ngày mai giờ VN) — client không gửi ngày lên, chỉ đọc về. */
+    scheduledFor: string | null;
+  };
+}
+
 export const reviewQueueApi = {
   /** GET /review-queue/today — nguồn duy nhất cho lối vào /focus khi chưa chọn khái niệm. */
   getToday: async (limit?: number): Promise<ReviewQueueListResponse> => {
@@ -65,6 +72,20 @@ export const reviewQueueApi = {
     const response = await apiClient.patch<ApiEnvelope<UpdateReviewQueueItemResponseData>>(
       ENDPOINTS.REVIEW_QUEUE.ITEM(itemId),
       { status }
+    );
+    return response.data.data.item;
+  },
+
+  /** PATCH /review-queue/:itemId — "Hoãn đến mai" (DB-09 / #233). CÙNG endpoint với hàm trên, chỉ
+   *  khác hình dạng body; server phân biệt bằng key. Không gửi ngày lên: biên "đầu ngày mai theo
+   *  giờ VN" là của server, client chỉ giơ cờ. Mục vẫn ở trên lịch, `status` không đổi — khác hẳn
+   *  `'skipped'`. Cũng áp cho cả cụm hàng của khái niệm (#232). */
+  snoozeReviewQueueItem: async (
+    itemId: string
+  ): Promise<SnoozeReviewQueueItemResponseData['item']> => {
+    const response = await apiClient.patch<ApiEnvelope<SnoozeReviewQueueItemResponseData>>(
+      ENDPOINTS.REVIEW_QUEUE.ITEM(itemId),
+      { snooze: true }
     );
     return response.data.data.item;
   },

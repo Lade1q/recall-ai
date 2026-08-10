@@ -317,12 +317,26 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
 
 ---
 
-### 3. Gỡ khỏi lịch / Đưa lại (Remove from Schedule / Put Back)
+### 3. Sửa một mục: Gỡ khỏi lịch / Đưa lại / Hoãn đến mai
 
 - **Endpoint:** `PATCH /api/v1/review-queue/:itemId`
 - **Xác thực:** ✅ Yêu cầu Bearer Token
-- **Dùng để:** màn **Kế hoạch ôn tập** (#225) — nút "Bỏ khỏi lịch" và "Đưa lại vào lịch" trên
-  từng khái niệm.
+- **Dùng để:**
+  - màn **Kế hoạch ôn tập** (#225) — nút "Bỏ khỏi lịch" và "Đưa lại vào lịch" trên từng khái niệm;
+  - khối **Gợi ý hôm nay** của Dashboard (DB-09 / #233) — hai lối thoát "Hoãn đến mai" và
+    "Bỏ qua gợi ý".
+
+**Hai hành động, hai hình dạng body.** Chúng đổi hai **trục khác nhau** và không được gộp:
+
+| Body                 | Hành động    | Đổi cái gì                           | Còn trên lịch?                          |
+| -------------------- | ------------ | ------------------------------------ | --------------------------------------- |
+| `{ "status": ... }`  | Gỡ / đưa lại | `status`                             | `skipped` → không · `pending` → có      |
+| `{ "snooze": true }` | Hoãn đến mai | `scheduledFor` (`status` giữ nguyên) | **Có** — chỉ rời phần "đến hạn hôm nay" |
+
+Body mang **cả hai** key → **400 VALIDATION_ERROR** (cả hai nhánh đều `.strict()`): "giữ trên
+lịch" và "gỡ khỏi lịch" là hai lệnh mâu thuẫn, chọn đại một cái nghĩa là nuốt mất một nửa yêu cầu.
+
+#### 3a. `{ "status": ... }` — Gỡ khỏi lịch / Đưa lại
 
 - **Request body:**
 
@@ -364,14 +378,97 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   làm gì. Response vẫn trả **đúng item được gửi lên** (shape không đổi); thứ đổi là số hàng
   trong DB đi theo nó.
 
-- **Lỗi Validation body (HTTP 400 Bad Request):** thiếu `status` hoặc giá trị không hợp lệ.
+#### 3b. `{ "snooze": true }` — Hoãn đến mai (DB-09 / #233)
+
+- **Request body:**
+
+  ```json
+  { "snooze": true }
+  ```
+
+  Cờ trần, **không kèm ngày**. `scheduledFor` mới được đặt bằng **00:00 ngày mai theo giờ
+  `Asia/Ho_Chi_Minh`** (`getVnTomorrowStartUtc()` trong `utils/dashboard-stats.ts`) — cùng mốc
+  ngày mà streak của #200 dùng, không phải `now + 24h`: hoãn lúc 23:30 mà cộng 24 giờ thì mục
+  quay lại lúc 23:30 hôm sau, mất gần trọn ngày đáng lẽ được nhắc.
+
+  `{ "snooze": false }` → **400**. Đó là một lệnh không có nghĩa; nhận nó sẽ thành một no-op 200
+  mà người gọi tưởng đã hoãn xong. Gửi kèm `snoozedUntil` cũng **400** — biên ngày thuộc về
+  server (C4), không phải đồng hồ của client.
+
+- **Hệ quả:** `status` **không đổi**. Mục rời `GET /review-queue/today` (endpoint duy nhất lọc
+  `scheduledFor <= now`) cho hết hôm nay rồi tự quay lại vào ngày mai, và **vẫn nằm nguyên** trong
+  hàng đợi của kế hoạch ở mục 1. Đây là chỗ khác hẳn `"skipped"`: "hôm nay bận" không phải là
+  "không cần ôn nữa".
+
+- **Phạm vi ghi:** cũng áp cho cả cụm hàng của khái niệm (#232), nhưng thu hẹp hai lần — chỉ các
+  hàng **đang đến hạn** (`scheduledFor <= now`) và **còn trên lịch** (không `skipped`/`done`).
+  Hàng đã xếp cho một ngày trong tương lai mà bị dời về mai hoá ra là **kéo sớm lên**, ngược nghĩa
+  nút bấm; còn hàng đã bị gỡ thì ngày đến hạn của nó là thứ nút "Đưa lại vào lịch" dựa vào.
+
+- **Response thành công (HTTP 200 OK):** cùng shape mục 3a, **thêm `scheduledFor`** — mốc do
+  server chốt, đọc lại từ DB sau khi ghi (gọi API cho một hàng không đến hạn là hợp lệ và sẽ
+  không dời gì cả; response phải nói đúng sự thật đó).
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "item": {
+        "id": "9f1c1e2a-...-uuid",
+        "conceptId": "b2d3e4f5-...-uuid",
+        "planId": "c1f8a8b1-...-uuid",
+        "status": "pending",
+        "scheduledFor": "2026-08-05T17:00:00.000Z"
+      }
+    }
+  }
+  ```
+
+#### Vì sao là một endpoint hai hình dạng body (chốt 09/08/2026 — #233)
+
+Năm phương án đã cân, bốn bị loại vì lý do cứng:
+
+| Phương án                       | Vì sao loại                                                                                                                        |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `{ "snoozedUntil": "..." }`     | Client sở hữu mốc ngày → mở đường cho `now + 24h` và cho mọi múi giờ khác. AC cấm thẳng (C4).                                      |
+| `{ "status": "snoozed" }`       | Trộn hai trục: hoãn **giữ** `status = 'pending'`. Thêm một giá trị enum vào đúng chỗ #224 vừa dọn.                                 |
+| Endpoint thứ hai (`/snooze`)    | AC cấm "đẻ endpoint thứ hai cho một thao tác cùng tài nguyên".                                                                     |
+| `{ "action": "snooze" \| ... }` | Discriminant đẹp hơn, nhưng phá contract `{ status }` mà #225 **đang gửi live** — viết lại + test lại phần đã ship, không thêm gì. |
+
+Còn lại là union hai shape ở trên: **cộng thuần**, nhánh `{ status }` cũ đi qua y hệt như trước.
+Hai shape khác nhau là trung thực chứ không phải bừa bãi — chúng đổi hai trục khác nhau
+(`status` với `scheduledFor`), đúng như bảng đầu mục 3.
+
+---
+
+#### Lỗi — chung cho cả hai hình dạng body
+
+- **Lỗi Validation body (HTTP 400 Bad Request):** body không khớp nhánh nào — thiếu cả `status`
+  lẫn `snooze`, `status` sai giá trị, `snooze` không phải `true`, hoặc có key lạ / mang cả hai.
 
   ```json
   {
     "success": false,
-    "error": { "code": "VALIDATION_ERROR", "message": "Invalid input data", "details": [] }
+    "error": {
+      "code": "VALIDATION_ERROR",
+      "message": "Invalid input data",
+      "details": [
+        {
+          "code": "invalid_union",
+          "path": [],
+          "message": "body must be { status: 'skipped' | 'pending' } or { snooze: true }",
+          "errors": ["…issue của từng nhánh…"]
+        }
+      ]
+    }
   }
   ```
+
+  Union hỏng thì **mọi** nhánh đều hỏng, nên câu mặc định của zod (`"Invalid input"`) không nói
+  được gì; `details[0].message` vì thế nêu thẳng cả hai hình dạng hợp lệ. Hai chỗ **không** dọn:
+  `error.message` vẫn là câu chung `"Invalid input data"` và `details[0].errors` vẫn kèm issue
+  của từng nhánh — cả hai do `middleware/errorHandler.ts` trả nguyên `err.issues`, sửa nó là
+  chạm mọi endpoint dùng Zod.
 
 - **Lỗi `itemId` thiếu hoặc không phải UUID (HTTP 400 Bad Request):** `itemId` là `@db.Uuid`
   trong Prisma nên được validate là UUID hợp lệ trước khi chạm DB (tránh P2023 → 500).
@@ -384,7 +481,9 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   ```
 
 - **Lỗi không tìm thấy / không thuộc về user (HTTP 404 Not Found):** item không tồn tại **hoặc**
-  thuộc plan của user khác đều trả cùng lỗi này.
+  thuộc plan của user khác đều trả cùng lỗi này. Cũng là câu trả lời cho gợi ý ảo **A3-fallback**
+  (`id: null` ở mục 1): nó không có hàng trong DB nên không hoãn / không gỡ được — FE ẩn hẳn hai
+  nút, BE vẫn phải trả lỗi tử tế nếu bị gọi thẳng.
 
   ```json
   { "success": false, "error": { "code": "NOT_FOUND", "message": "Review queue item not found" } }
