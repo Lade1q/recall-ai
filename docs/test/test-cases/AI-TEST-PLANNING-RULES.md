@@ -51,3 +51,11 @@ Tài liệu này là bộ quy tắc (System Prompt / Guidelines) dành cho AI Ag
 - **Quy tắc bắt buộc:** Chỉ sử dụng đúng **1 khoảng trắng** ở mỗi bên của thanh phân cách cột (ký tự `|`). Bỏ qua việc dóng thẳng hàng các cột ở chế độ raw text.
 - ✅ _Đúng:_ `| Nội dung | Kết quả | Trạng thái |`
 - ❌ _Sai:_ `| Nội dung                                      | Kết quả                           | Trạng thái |`
+
+## 9. Ưu tiên Nguồn Chốt & Quản lý Phạm vi (Source of Truth & Scope Verdict)
+
+- **Xác định nguồn chốt trước khi viết TC:** Khi Requirement/UC cũ, API contract và mockup/thiết kế MVP có khác biệt, phải ghi rõ thứ tự ưu tiên ngay đầu plan. Mockup hoặc quyết định phạm vi đã được Product/Owner chốt là nguồn ưu tiên cho hành vi UI; API contract là nguồn ưu tiên cho hành vi request/response và quyền truy cập.
+- **Không biến quyết định sản phẩm thành bug:** Tính năng được thiết kế cố ý không có phải được ghi là `N/A — by design`; tính năng đã đưa sang sprint/module khác phải ghi `N/A — de-scoped/chuyển module`. Không gán `FAIL` hay `CHƯA IMPLEMENT` cho các trường hợp này.
+- **Giữ traceability khi loại TC:** Không xóa dấu vết quyết định. Lập bảng nêu mã TC cũ, lý do loại, nguồn chứng minh và nơi tiếp nhận (module, issue hoặc sprint) để không mất coverage liên module.
+- **Edge case cần expected result có căn cứ:** Được chủ động kiểm các hành vi như spam click, reload hoặc nhiều tab, nhưng không được tự suy diễn policy mới (ví dụ mutual exclusion toàn bộ tab) khi MVP chưa quy định. Nếu chưa có expected result đáng tin cậy, ghi thành điểm cần quyết định thay vì một TC FAIL.
+- **Bug thật phải phản ánh đúng phạm vi:** Với bug đã xác nhận, TC regression phải nêu cả hành vi by-design cần giữ nguyên, lỗi còn lại cần sửa, issue theo dõi và severity/priority đã thống nhất.
