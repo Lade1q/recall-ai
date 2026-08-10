@@ -29,6 +29,34 @@ interface StartedInterview {
   };
 }
 
+interface ConceptAssessment {
+  masteryScore: number | null;
+  lastTestedAt: string | null;
+}
+
+async function readConceptAssessment(conceptId: string): Promise<ConceptAssessment> {
+  const concept = await prisma.concept.findUniqueOrThrow({
+    where: { id: conceptId },
+    select: { masteryScore: true, lastTestedAt: true },
+  });
+
+  return {
+    masteryScore: concept.masteryScore,
+    lastTestedAt: concept.lastTestedAt?.toISOString() ?? null,
+  };
+}
+
+async function seedConceptAssessment(conceptId: string): Promise<ConceptAssessment> {
+  await prisma.concept.update({
+    where: { id: conceptId },
+    data: {
+      masteryScore: 0.37,
+      lastTestedAt: new Date('2026-07-01T03:00:00.000Z'),
+    },
+  });
+  return readConceptAssessment(conceptId);
+}
+
 /** Gắn tài liệu text thật và cache dự phòng để backend luôn nạp được câu hỏi cho C1. */
 async function attachInterviewMaterial(seed: FocusPlanSeed): Promise<string> {
   const conceptC1 = seed.concepts[0];
@@ -150,13 +178,17 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
     let fileKey: string | null = null;
 
     try {
-      // 1. Chuẩn bị material/cache thật, đăng nhập và hoàn tất Focus Session C1.
+      // 1. Neo dữ liệu đánh giá trước Focus; chuẩn bị material/cache thật cho handoff Interview.
+      const assessmentBeforeFocus = await seedConceptAssessment(conceptC1.id);
       fileKey = await attachInterviewMaterial(seed);
       await page.clock.install();
       await loginViaUi(page, seed.user.email);
       const focusSessionId = await completeFocusSession(page, seed);
 
-      // 2. Bấm CTA trên tổng kết; chờ đúng POST Interview thật và kiểm tra payload handoff.
+      // 2. Ngay sau completion và trước CTA, Focus tuyệt đối không chấm hoặc đổi mốc kiểm tra C1.
+      expect(await readConceptAssessment(conceptC1.id)).toEqual(assessmentBeforeFocus);
+
+      // 3. Bấm CTA trên tổng kết; lấy Interview ID từ response thật và kiểm tra payload handoff.
       const interviewResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' &&
@@ -174,7 +206,7 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
       expect(interviewBody.data.created).toBe(true);
       const interviewSessionId = interviewBody.data.session.id;
 
-      // 3. Route phiên phải mở thẳng và UI phải nạp C1, không render bộ chọn thủ công.
+      // 4. Route phiên mở thẳng C1 và chưa có bước chọn lại concept.
       await page.waitForURL((url) => url.pathname === `/interview/${interviewSessionId}`);
       await expect(page.getByRole('heading', { name: conceptC1.name, exact: true })).toBeVisible({
         timeout: 30_000,
@@ -184,7 +216,7 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
         page.getByRole('button', { name: 'Dùng gợi ý hôm nay', exact: true })
       ).toHaveCount(0);
 
-      // 4. DB xác nhận phiên Interview mới chỉ chứa C1 và Focus không tự tạo thêm record.
+      // 5. DB giữ đúng context C1; tạo Interview/chọn câu hỏi chưa phải chấm điểm.
       expect(
         await prisma.interviewSession.findUniqueOrThrow({
           where: { id: interviewSessionId },
@@ -192,23 +224,14 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
             userId: true,
             planId: true,
             conceptQueue: true,
-            currentConceptIdx: true,
-            status: true,
           },
         })
       ).toEqual({
         userId: seed.user.id,
         planId: seed.plan.id,
         conceptQueue: [conceptC1.id],
-        currentConceptIdx: 0,
-        status: 'active',
       });
-      const turns = await prisma.interviewTurn.findMany({
-        where: { sessionId: interviewSessionId },
-        orderBy: { turnIndex: 'asc' },
-        select: { conceptId: true, turnIndex: true },
-      });
-      expect(turns[0]).toEqual({ conceptId: conceptC1.id, turnIndex: 1 });
+      expect(await readConceptAssessment(conceptC1.id)).toEqual(assessmentBeforeFocus);
       expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(1);
       expect(
         await prisma.focusSession.findUniqueOrThrow({
@@ -217,7 +240,7 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
         })
       ).toEqual({ status: 'completed' });
     } finally {
-      // 5. Dọn file vật lý lẫn toàn bộ dữ liệu DB của Student A.
+      // 6. Dọn file vật lý lẫn toàn bộ dữ liệu DB của Student A.
       if (fileKey) await removeSeededUpload(fileKey);
       await prisma.user.delete({ where: { id: seed.user.id } });
     }
@@ -239,10 +262,13 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
     };
 
     try {
-      // 1. Đăng nhập và hoàn tất độc lập một Focus Session C1 để nhận màn tổng kết.
+      // 1. Neo dữ liệu đánh giá, đăng nhập và hoàn tất độc lập một Focus Session C1.
+      const assessmentBeforeFocus = await seedConceptAssessment(conceptC1.id);
       await page.clock.install();
       await loginViaUi(page, seed.user.email);
       const focusSessionId = await completeFocusSession(page, seed);
+      expect(await readConceptAssessment(conceptC1.id)).toEqual(assessmentBeforeFocus);
+      expect(await prisma.interviewSession.count({ where: { userId: seed.user.id } })).toBe(0);
 
       // 2. Chỉ bắt mutation sau khi summary đã ổn định rồi chọn lối hoãn kiểm tra.
       page.on('request', captureUnexpectedMutation);
@@ -259,6 +285,7 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
           select: { id: true, conceptIds: true, status: true },
         })
       ).toEqual([{ id: focusSessionId, conceptIds: [conceptC1.id], status: 'completed' }]);
+      expect(await readConceptAssessment(conceptC1.id)).toEqual(assessmentBeforeFocus);
     } finally {
       // 4. Luôn tháo listener và cascade cleanup dữ liệu của nhánh Dashboard.
       page.off('request', captureUnexpectedMutation);

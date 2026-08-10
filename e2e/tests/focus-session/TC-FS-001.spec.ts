@@ -1,130 +1,133 @@
-import { test, expect } from '@playwright/test';
-import * as path from 'path';
+import { expect, test } from '@playwright/test';
 
-// Cần load env của server để Prisma đọc được DATABASE_URL.
-require('../../../src/server/node_modules/dotenv').config({ path: path.join(__dirname, '../../../src/server/.env') });
+import {
+  API_BASE_URL,
+  createTestPrismaClient,
+  loginViaUi,
+  seedFocusPlan,
+  seedStudentWithoutPlan,
+} from './focus-session-test-utils';
 
-// Root package không cài Prisma, nên dùng dependency của server. Prisma 7 bắt buộc có adapter.
-const { PrismaClient } = require('../../../src/server/node_modules/@prisma/client');
-const { PrismaPg } = require('../../../src/server/node_modules/@prisma/adapter-pg');
-const bcrypt = require('../../../src/server/node_modules/bcryptjs');
-
-let prisma: any;
-const apiBaseUrl = (process.env.E2E_API_BASE_URL ?? 'http://localhost:3001').replace(/\/$/, '');
-
-function createUniqueEmail(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}@test.com`;
-}
+const prisma = createTestPrismaClient();
 
 test.beforeAll(async () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required to run focus-session E2E tests.');
-  }
-
-  prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl }),
-  });
   await prisma.$connect();
 });
 
 test.afterAll(async () => {
-  await prisma?.$disconnect();
+  await prisma.$disconnect();
 });
 
-test.describe('TC-FS-001: Điều kiện tiên quyết Focus Session', () => {
-  test('a) Chưa đăng nhập: Redirect về /login và API trả lỗi 401', async ({ page, request }) => {
-    // UI Check
-    await page.goto('/focus');
-    await expect(page).toHaveURL(/.*\/login/);
+test.describe('TC-FS-001: Điều kiện truy cập và state vào Focus Session', () => {
+  test('a) Chưa đăng nhập: redirect về Login, API trả 401 và không tạo session', async ({
+    page,
+    request,
+  }) => {
+    let uiCreateRequests = 0;
+    const countUiCreateRequest = (uiRequest: { method(): string; url(): string }) => {
+      if (
+        uiRequest.method() === 'POST' &&
+        new URL(uiRequest.url()).pathname === '/api/v1/focus-sessions'
+      ) {
+        uiCreateRequests += 1;
+      }
+    };
+    page.on('request', countUiCreateRequest);
 
-    // API Check
-    // `request` dùng baseURL của Playwright (frontend :5173), còn API chạy ở :3001.
-    const response = await request.post(`${apiBaseUrl}/api/v1/focus-sessions`, {
-      data: { planId: 'dummy', conceptIds: ['dummy'] },
+    // 1. Mở trực tiếp route Focus khi chưa có phiên đăng nhập.
+    await page.goto('/focus');
+    await expect(page).toHaveURL(/\/login$/);
+    expect(uiCreateRequests).toBe(0);
+
+    // 2. Gọi API tạo phiên không có Bearer token để xác minh backend cũng chặn.
+    const response = await request.post(`${API_BASE_URL}/api/v1/focus-sessions`, {
+      data: {
+        planId: '00000000-0000-4000-8000-000000000001',
+        conceptIds: ['00000000-0000-4000-8000-000000000002'],
+      },
     });
     expect(response.status()).toBe(401);
+    page.off('request', countUiCreateRequest);
   });
 
-  test('b) Đã đăng nhập, chưa có kế hoạch: Không cho bắt đầu, hiển thị CTA', async ({ page }) => {
-    const email = createUniqueEmail('studentC');
-    const password = 'SecurePassword123';
-
-    // Seed user Student C (no plan) directly via Prisma
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userC = await prisma.user.create({
-      data: { email, passwordHash, name: 'Student C' },
-    });
+  test('b) Đã đăng nhập nhưng không có active plan: dùng đúng state mockup và không tạo session', async ({
+    page,
+  }) => {
+    const student = await seedStudentWithoutPlan(prisma, 'tc_fs_001_no_plan');
+    let createRequests = 0;
+    const countCreateRequest = (request: { method(): string; url(): string }) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/focus-sessions'
+      ) {
+        createRequests += 1;
+      }
+    };
+    page.on('request', countCreateRequest);
 
     try {
-      // Thực hiện đăng nhập qua UI
-      await page.goto('/login');
-      await page.getByLabel('Email').fill(email);
-      await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-      await page.getByRole('button', { name: 'Đăng nhập' }).click();
-
-      // Đợi chuyển trang về dashboard
-      await expect(page).toHaveURL(/.*\/dashboard/);
-
-      // Vào màn hình Focus. Đây là nhánh no-plan, không phải nhánh active plan chưa có queue.
+      // 1. Đăng nhập qua UI thật rồi mở Focus.
+      await loginViaUi(page, student.email);
       await page.goto('/focus');
+
+      // 2. Nhánh không có plan dùng đúng heading/CTA của mockup, không tự dựng concept picker.
       await expect(
-        page.getByRole('heading', { name: 'Bạn chưa có kế hoạch ôn tập nào đang hoạt động.' })
+        page.getByRole('heading', {
+          name: 'Bạn chưa có kế hoạch ôn tập nào đang hoạt động.',
+          exact: true,
+        })
       ).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Tạo kế hoạch đầu tiên' })).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Tạo kế hoạch đầu tiên', exact: true })
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Bắt đầu', exact: true })).toHaveCount(0);
+      expect(createRequests).toBe(0);
+      expect(await prisma.focusSession.count({ where: { userId: student.id } })).toBe(0);
     } finally {
-      // Quan hệ trong schema cascade từ User xuống plan/concept/queue item.
-      await prisma.user.delete({ where: { id: userC.id } });
+      // 3. Dọn đúng Student của sub-test kể cả khi assertion thất bại.
+      page.off('request', countCreateRequest);
+      await prisma.user.delete({ where: { id: student.id } });
     }
   });
 
-  test('c) Đã đăng nhập, có kế hoạch P1: Hiển thị concept đến hạn', async ({ page }) => {
-    const email = createUniqueEmail('studentA');
-    const password = 'SecurePassword123';
-
-    // `/focus` chỉ lấy các ReviewQueueItem đến hạn từ `/review-queue/today`.
-    // Vì vậy, một plan có concepts đơn thuần chưa đủ để hiện Concept C1.
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userA = await prisma.user.create({
-      data: { email, passwordHash, name: 'Student A' },
-    });
+  test('c) Queue có item: hiển thị C1/reason, chưa tạo session trước Bắt đầu', async ({ page }) => {
+    const seed = await seedFocusPlan(prisma, 'tc_fs_001_queue');
+    const conceptC1 = seed.concepts[0];
+    if (!conceptC1) throw new Error('Seed data is missing Concept C1.');
+    let createRequests = 0;
+    const countCreateRequest = (request: { method(): string; url(): string }) => {
+      if (
+        request.method() === 'POST' &&
+        new URL(request.url()).pathname === '/api/v1/focus-sessions'
+      ) {
+        createRequests += 1;
+      }
+    };
+    page.on('request', countCreateRequest);
 
     try {
-      const plan = await prisma.studyPlan.create({
-        data: { userId: userA.id, name: 'Plan P1', status: 'active' },
-      });
-      const concept1 = await prisma.concept.create({
-        data: { planId: plan.id, name: 'Concept C1', difficulty: 1, masteryScore: 0 },
-      });
-      await prisma.concept.create({
-        data: { planId: plan.id, name: 'Concept C2', difficulty: 2, masteryScore: 0 },
-      });
-      await prisma.reviewQueueItem.create({
-        data: {
-          planId: plan.id,
-          conceptId: concept1.id,
-          priority: 1,
-          reason: 'manual',
-          scheduledFor: new Date(),
-        },
-      });
-
-      // Thực hiện đăng nhập qua UI
-      await page.goto('/login');
-      await page.getByLabel('Email').fill(email);
-      await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-      await page.getByRole('button', { name: 'Đăng nhập' }).click();
-
-      await expect(page).toHaveURL(/.*\/dashboard/);
-
-      // Vào màn hình Focus
+      // 1. Đăng nhập và mở Focus từ sidebar/route chung để client đọc items[0].
+      await loginViaUi(page, seed.user.email);
       await page.goto('/focus');
 
-      // Chờ màn hình hiển thị concept C1 và nút bắt đầu.
-      await expect(page.getByRole('heading', { name: 'Concept C1' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Bắt đầu' })).toBeVisible();
+      // 2. State chưa bắt đầu phải dùng đúng concept và lý do do review queue trả về.
+      await expect(page.getByRole('heading', { name: conceptC1.name, exact: true })).toBeVisible();
+      await expect(
+        page.getByText('Được thêm vào hàng đợi thủ công', { exact: true })
+      ).toBeVisible();
+      await expect(page.getByText('25:00', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Chọn khái niệm khác →', exact: true })
+      ).toBeVisible();
+
+      // 3. Trước khi bấm Bắt đầu không được có timer, nút Hủy, request tạo hay record DB.
+      await expect(page.getByRole('timer')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Hủy phiên', exact: true })).toHaveCount(0);
+      expect(createRequests).toBe(0);
+      expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(0);
     } finally {
-      await prisma.user.delete({ where: { id: userA.id } });
+      page.off('request', countCreateRequest);
+      await prisma.user.delete({ where: { id: seed.user.id } });
     }
   });
 });

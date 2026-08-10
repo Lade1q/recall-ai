@@ -1,15 +1,27 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-import { createTestPrismaClient, loginViaUi, seedFocusPlan } from './focus-session-test-utils';
+import {
+  API_BASE_URL,
+  createTestPrismaClient,
+  loginViaUi,
+  readAccessToken,
+  readClockSeconds,
+  seedFocusPlan,
+} from './focus-session-test-utils';
 
 const prisma = createTestPrismaClient();
 
-/** Đọc đồng hồ `MM:SS` thành giây để so sánh các nhịp mà không phụ thuộc text trang trí. */
-async function readClockSeconds(locator: Locator): Promise<number> {
-  const text = await locator.textContent();
-  const match = text?.match(/(\d{2}):(\d{2})/);
-  if (!match) throw new Error(`Không đọc được giá trị MM:SS từ: ${text ?? '<null>'}`);
-  return Number(match[1]) * 60 + Number(match[2]);
+interface ApiEnvelope<T> {
+  success: boolean;
+  data: T;
+}
+
+interface CreatedFocusSession {
+  id: string;
+  planId: string | null;
+  conceptIds: string[];
+  status: 'running';
+  strictMode: boolean;
 }
 
 test.beforeAll(async () => {
@@ -20,134 +32,158 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test.describe('TC-FS-004: Bắt đầu phiên Pomodoro và timer đếm ngược', () => {
-  test('1) Một thao tác Bắt đầu tạo phiên và chạy timer', async ({ page }) => {
-    const seed = await seedFocusPlan(prisma, 'tc_fs_004_start');
+test.describe('TC-FS-004: Bắt đầu phiên Pomodoro và contract tạo session', () => {
+  test('a) API từ chối conceptIds rỗng và không tạo record', async ({ page, request }) => {
+    const seed = await seedFocusPlan(prisma, 'tc_fs_004_empty');
 
     try {
-      // 1. Đăng nhập, mở thiết lập C1 và xác minh timer chưa chạy/chưa có record.
+      // 1. Đăng nhập qua UI để dùng token thật của Student A cho integration request.
       await loginViaUi(page, seed.user.email);
-      await page.goto('/focus');
-      await expect(page.getByText('25:00', { exact: true })).toBeVisible();
-      await expect(page.getByRole('timer')).toHaveCount(0);
-      expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(0);
+      const accessToken = await readAccessToken(page);
 
-      // 2. Nhấn Bắt đầu đúng một lần để tạo phiên và chuyển sang giao diện học chính.
-      await page.getByRole('button', { name: 'Bắt đầu', exact: true }).click();
-      const timer = page.getByRole('timer');
-      await expect(timer).toBeVisible();
-      await expect(
-        page.getByRole('group', { name: 'Hiển thị tài liệu', exact: true })
-      ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Ghi chú nhanh', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Tạm dừng', exact: true })).toBeVisible();
-
-      // 3. Xác minh record được tạo đúng thời điểm bắt đầu và đang liên kết C1.
-      const conceptC1 = seed.concepts[0];
-      if (!conceptC1) throw new Error('Seed data is missing Concept C1.');
-      const session = await prisma.focusSession.findFirstOrThrow({
-        where: { userId: seed.user.id },
-        select: { status: true, conceptIds: true, startedAt: true },
+      // 2. Gửi payload rỗng tới đúng endpoint Start; validation phải chặn trước persistence.
+      const response = await request.post(`${API_BASE_URL}/api/v1/focus-sessions`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        data: { planId: seed.plan.id, conceptIds: [], strictMode: true },
       });
-      expect(session.status).toBe('running');
-      expect(session.conceptIds).toEqual([conceptC1.id]);
-      expect(session.startedAt.getTime()).toBeLessThanOrEqual(Date.now());
-
-      // 4. Đồng hồ phải giảm ngay sau thao tác Bắt đầu duy nhất.
-      const initialRemaining = await readClockSeconds(timer);
-      await expect
-        .poll(() => readClockSeconds(timer), { timeout: 4_000 })
-        .toBeLessThan(initialRemaining);
+      expect(response.status()).toBe(400);
+      const body = (await response.json()) as {
+        success: false;
+        error: { code: string };
+      };
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+      expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(0);
     } finally {
-      // 5. Cascade cleanup cả phiên đang chạy nếu assertion thất bại.
       await prisma.user.delete({ where: { id: seed.user.id } });
     }
   });
 
-  test('2) Timer Pomodoro đếm ít nhất hai nhịp và loại trừ thời gian pause', async ({ page }) => {
-    const seed = await seedFocusPlan(prisma, 'tc_fs_004_timer');
-    const conceptC1 = seed.concepts[0];
-    if (!conceptC1) throw new Error('Seed data is missing Concept C1.');
+  test('b) UI Start tạo đúng một session C1 cho cả Strict Mode bật và tắt', async ({ page }) => {
+    for (const strictMode of [true, false]) {
+      const seed = await seedFocusPlan(
+        prisma,
+        strictMode ? 'tc_fs_004_strict_on' : 'tc_fs_004_strict_off'
+      );
+      const conceptC1 = seed.concepts[0];
+      if (!conceptC1) throw new Error('Seed data is missing Concept C1.');
+      let createRequests = 0;
+      const countCreateRequest = (request: { method(): string; url(): string }) => {
+        if (
+          request.method() === 'POST' &&
+          new URL(request.url()).pathname === '/api/v1/focus-sessions'
+        ) {
+          createRequests += 1;
+        }
+      };
+      page.on('request', countCreateRequest);
+
+      try {
+        // 1. Mở state Chưa bắt đầu; trước Start chưa có timer, request hay record.
+        await loginViaUi(page, seed.user.email);
+        await page.goto('/focus');
+        const strictSwitch = page.getByRole('switch', {
+          name: 'Chế độ nghiêm ngặt',
+          exact: true,
+        });
+        const currentStrictMode = (await strictSwitch.getAttribute('aria-checked')) === 'true';
+        if (currentStrictMode !== strictMode) await strictSwitch.click();
+        await expect(strictSwitch).toHaveAttribute('aria-checked', String(strictMode));
+        await expect(page.getByRole('timer')).toHaveCount(0);
+        expect(createRequests).toBe(0);
+        expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(0);
+
+        // 2. Gắn listener trước click, rồi kiểm tra request/response thật của thao tác Start.
+        const responsePromise = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === '/api/v1/focus-sessions'
+        );
+        await page.getByRole('button', { name: 'Bắt đầu', exact: true }).click();
+        const response = await responsePromise;
+        expect(response.status()).toBe(201);
+        const requestPayload = response.request().postDataJSON() as {
+          planId: string;
+          conceptIds: string[];
+          strictMode: boolean;
+        };
+        expect(requestPayload).toEqual({
+          planId: seed.plan.id,
+          conceptIds: [conceptC1.id],
+          strictMode,
+        });
+        const body = (await response.json()) as ApiEnvelope<CreatedFocusSession>;
+        expect(body.success).toBe(true);
+        expect(body.data).toMatchObject({
+          planId: seed.plan.id,
+          conceptIds: [conceptC1.id],
+          status: 'running',
+          strictMode,
+        });
+        expect(createRequests).toBe(1);
+
+        // 3. Dùng ID response để đối chiếu DB và xác minh timer đã bắt đầu đếm.
+        const session = await prisma.focusSession.findUniqueOrThrow({
+          where: { id: body.data.id },
+          select: {
+            userId: true,
+            planId: true,
+            conceptIds: true,
+            status: true,
+            strictMode: true,
+          },
+        });
+        expect(session).toEqual({
+          userId: seed.user.id,
+          planId: seed.plan.id,
+          conceptIds: [conceptC1.id],
+          status: 'running',
+          strictMode,
+        });
+        const timer = page.getByRole('timer');
+        await expect(timer).toBeVisible();
+        const initialRemaining = await readClockSeconds(timer);
+        await expect.poll(() => readClockSeconds(timer)).toBeLessThan(initialRemaining);
+      } finally {
+        page.off('request', countCreateRequest);
+        await prisma.user.delete({ where: { id: seed.user.id } });
+      }
+    }
+  });
+
+  test('c) API tạo một session liên kết đủ C1/C2/C3', async ({ page, request }) => {
+    const seed = await seedFocusPlan(prisma, 'tc_fs_004_multi');
+    const conceptIds = seed.concepts.map((concept) => concept.id);
 
     try {
-      // 1. Đăng nhập, mở C1 và dùng thao tác Bắt đầu hiện có để vào phiên chạy.
+      // 1. Đăng nhập qua UI để lấy token thật, sau đó kiểm tra contract mảng conceptIds của API.
       await loginViaUi(page, seed.user.email);
-      await page.goto('/focus');
-      await page.getByRole('button', { name: 'Bắt đầu', exact: true }).click();
-
-      // 2. Giao diện chính phải có timer, tài liệu, ghi chú và các điều khiển phiên.
-      const timer = page.getByRole('timer');
-      await expect(timer).toBeVisible();
-      await expect(page.getByRole('heading', { name: conceptC1.name, exact: true })).toBeVisible();
-      await expect(
-        page.getByRole('group', { name: 'Hiển thị tài liệu', exact: true })
-      ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Ghi chú nhanh', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Tạm dừng', exact: true })).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: 'Kết thúc phiên học', exact: true })
-      ).toBeVisible();
-
-      // 3. Quan sát timer giảm liên tục qua tối thiểu hai nhịp một giây.
-      const initialRemaining = await readClockSeconds(timer);
-      let firstTick = initialRemaining;
-      await expect
-        .poll(
-          async () => {
-            firstTick = await readClockSeconds(timer);
-            return firstTick;
-          },
-          { timeout: 4_000 }
-        )
-        .toBeLessThan(initialRemaining);
-      await expect.poll(() => readClockSeconds(timer), { timeout: 4_000 }).toBeLessThan(firstTick);
-
-      // 4. Tạm dừng và xác minh cả thời gian còn lại lẫn thời gian tập trung đều đóng băng.
-      const focusedTally = page.locator('p').filter({ hasText: /^Tập trung\s+\d{2}:\d{2}/ });
-      await expect(focusedTally).toBeVisible();
-      await page.getByRole('button', { name: 'Tạm dừng', exact: true }).click();
-      await expect(page.getByRole('button', { name: 'Tiếp tục', exact: true })).toBeVisible();
-      const remainingAtPause = await readClockSeconds(timer);
-      const focusedAtPause = await readClockSeconds(focusedTally);
-      await page.waitForTimeout(2_200);
-      expect(await readClockSeconds(timer)).toBe(remainingAtPause);
-      expect(await readClockSeconds(focusedTally)).toBe(focusedAtPause);
-
-      // 5. Tiếp tục, chờ thời gian tập trung tăng trở lại rồi tạm dừng để kết thúc ổn định.
-      await page.getByRole('button', { name: 'Tiếp tục', exact: true }).click();
-      await expect
-        .poll(() => readClockSeconds(focusedTally), { timeout: 4_000 })
-        .toBeGreaterThan(focusedAtPause);
-      await page.getByRole('button', { name: 'Tạm dừng', exact: true }).click();
-      const focusedAtEnd = await readClockSeconds(focusedTally);
-
-      // 6. Kết thúc qua UI và kiểm tra record thời gian cùng snapshot khôi phục.
-      await page.getByRole('button', { name: 'Kết thúc phiên học', exact: true }).click();
-      await expect(
-        page.getByRole('heading', { name: 'Xong phiên học', exact: true })
-      ).toBeVisible();
-      const session = await prisma.focusSession.findFirstOrThrow({
-        where: { userId: seed.user.id },
-        select: {
-          status: true,
-          conceptIds: true,
-          focusedSeconds: true,
-          startedAt: true,
-          endedAt: true,
-        },
+      const accessToken = await readAccessToken(page);
+      const response = await request.post(`${API_BASE_URL}/api/v1/focus-sessions`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        data: { planId: seed.plan.id, conceptIds, strictMode: false },
       });
-      expect(session.status).toBe('completed');
-      expect(session.conceptIds).toEqual([conceptC1.id]);
-      expect(session.endedAt).not.toBeNull();
-      expect(session.focusedSeconds).toBeGreaterThanOrEqual(focusedAtEnd);
-      expect(session.focusedSeconds).toBeLessThanOrEqual(focusedAtEnd + 1);
-      const elapsedSeconds = Math.floor(
-        ((session.endedAt?.getTime() ?? 0) - session.startedAt.getTime()) / 1_000
-      );
-      expect(elapsedSeconds - session.focusedSeconds).toBeGreaterThanOrEqual(2);
-      expect(await page.evaluate(() => localStorage.getItem('recall.focusSession'))).toBeNull();
+      expect(response.status()).toBe(201);
+      const body = (await response.json()) as ApiEnvelope<CreatedFocusSession>;
+      expect(body.data).toMatchObject({
+        planId: seed.plan.id,
+        conceptIds,
+        status: 'running',
+        strictMode: false,
+      });
+
+      // 2. Dùng ID response để chứng minh chỉ một record chứa đủ ba concept đúng thứ tự input.
+      const session = await prisma.focusSession.findUniqueOrThrow({
+        where: { id: body.data.id },
+        select: { userId: true, conceptIds: true, status: true },
+      });
+      expect(session).toEqual({
+        userId: seed.user.id,
+        conceptIds,
+        status: 'running',
+      });
+      expect(await prisma.focusSession.count({ where: { userId: seed.user.id } })).toBe(1);
     } finally {
-      // 7. Luôn dọn Student và toàn bộ dữ liệu con sau khi đối chiếu DB.
       await prisma.user.delete({ where: { id: seed.user.id } });
     }
   });

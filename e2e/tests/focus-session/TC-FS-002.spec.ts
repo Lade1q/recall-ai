@@ -1,141 +1,164 @@
-import { test, expect } from '@playwright/test';
-import * as path from 'path';
+import { expect, test } from '@playwright/test';
 
-// Cần load env của server để Prisma đọc được DATABASE_URL.
-require('../../../src/server/node_modules/dotenv').config({ path: path.join(__dirname, '../../../src/server/.env') });
+import {
+  createTestPrismaClient,
+  loginViaUi,
+  readClockSeconds,
+  seedFocusPlan,
+} from './focus-session-test-utils';
 
-// Root package không cài Prisma, nên dùng dependency của server. Prisma 7 bắt buộc có adapter.
-const { PrismaClient } = require('../../../src/server/node_modules/@prisma/client');
-const { PrismaPg } = require('../../../src/server/node_modules/@prisma/adapter-pg');
-const bcrypt = require('../../../src/server/node_modules/bcryptjs');
-
-let prisma: any;
-const apiBaseUrl = (process.env.E2E_API_BASE_URL ?? 'http://localhost:3001').replace(/\/$/, '');
-
-function createUniqueEmail(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}@test.com`;
-}
+const prisma = createTestPrismaClient();
 
 test.beforeAll(async () => {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required to run focus-session E2E tests.');
-  }
-
-  prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: databaseUrl }),
-  });
   await prisma.$connect();
 });
 
 test.afterAll(async () => {
-  await prisma?.$disconnect();
+  await prisma.$disconnect();
 });
 
-test.describe('TC-FS-002: Hiển thị thiết lập phiên và cấu hình Pomodoro mặc định', () => {
-  test('Hiển thị đúng màn hình thiết lập, danh sách concept và mặc định Pomodoro 25 phút', async ({ page }) => {
-    const email = createUniqueEmail('studentA');
-    const password = 'SecurePassword123';
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const userA = await prisma.user.create({
-      data: { email, passwordHash, name: 'Student A' },
-    });
+test.describe('TC-FS-002: Cấu hình Pomodoro theo phiên trước và trong khi chạy', () => {
+  test('a/b/c) Mặc định, cấu hình trước Start và cấu hình từ lượt kế tiếp', async ({ page }) => {
+    const seed = await seedFocusPlan(prisma, 'tc_fs_002');
+    let userConfigPatches = 0;
+    const countUserConfigPatch = (request: { method(): string; url(): string }) => {
+      if (
+        request.method() === 'PATCH' &&
+        new URL(request.url()).pathname === '/api/v1/users/me/pomodoro-config'
+      ) {
+        userConfigPatches += 1;
+      }
+    };
+    page.on('request', countUserConfigPatch);
 
     try {
-      // Thiết lập dữ liệu: P1 với C1, C2, C3
-      const plan = await prisma.studyPlan.create({
-        data: { userId: userA.id, name: 'Plan P1', status: 'active' },
-      });
-      const concept1 = await prisma.concept.create({
-        data: { planId: plan.id, name: 'Concept C1', difficulty: 1, masteryScore: 0 },
-      });
-      const concept2 = await prisma.concept.create({
-        data: { planId: plan.id, name: 'Concept C2', difficulty: 2, masteryScore: 0 },
-      });
-      const concept3 = await prisma.concept.create({
-        data: { planId: plan.id, name: 'Concept C3', difficulty: 3, masteryScore: 0 },
-      });
-
-      // Để các concept hiển thị trong Focus Session (nếu vào từ /focus chung), 
-      // chúng cần nằm trong ReviewQueueItem (hàng đợi ôn tập).
-      await prisma.reviewQueueItem.create({
-        data: {
-          planId: plan.id,
-          conceptId: concept1.id,
-          priority: 1,
-          reason: 'manual',
-          scheduledFor: new Date(Date.now() - 5 * 60 * 1000), // Lùi lại 5 phút
-        },
-      });
-      await prisma.reviewQueueItem.create({
-        data: {
-          planId: plan.id,
-          conceptId: concept2.id,
-          priority: 2,
-          reason: 'manual',
-          scheduledFor: new Date(Date.now() - 5 * 60 * 1000),
-        },
-      });
-      await prisma.reviewQueueItem.create({
-        data: {
-          planId: plan.id,
-          conceptId: concept3.id,
-          priority: 3,
-          reason: 'manual',
-          scheduledFor: new Date(Date.now() - 5 * 60 * 1000),
-        },
-      });
-
-      // 1. Đăng nhập
-      await page.goto('/login');
-      await page.getByLabel('Email').fill(email);
-      await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
-      await page.getByRole('button', { name: 'Đăng nhập' }).click();
-      await expect(page).toHaveURL(/.*\/dashboard/);
-
-      // 2. Điểm vào 1: Vào Focus Session từ Dashboard
+      // 1. Đăng nhập, mở C1 và kiểm tra cấu hình Pomodoro mặc định trước khi bắt đầu.
+      await loginViaUi(page, seed.user.email);
       await page.goto('/focus');
-      
-      // Quan sát màn hình thiết lập (Từ Dashboard) - Mặc định sẽ lấy ReviewQueueItem ưu tiên cao nhất (C1)
-      await expect(page.getByRole('heading', { name: 'Concept C1' })).toBeVisible();
-      
-      // Kiểm tra thời lượng 25 phút mặc định
-      await expect(page.getByText('25:00')).toBeVisible();
-      await expect(page.getByText(/25 phút, nghỉ 5 phút/)).toBeVisible();
-
-      // Nút bắt đầu hiển thị
-      await expect(page.getByRole('button', { name: 'Bắt đầu' })).toBeVisible();
-      
-      // Nút đổi độ dài lượt
-      await expect(page.getByRole('button', { name: 'Đổi độ dài lượt' })).toBeVisible();
-      
-      // Kiểm tra chưa có record nào được tạo trong DB
-      let sessionCount = await prisma.focusSession.count({
-        where: { userId: userA.id }
+      await expect(page.getByText('25:00', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Bốn lượt 25 phút, nghỉ 5 phút/)).toBeVisible();
+      const strictSwitch = page.getByRole('switch', {
+        name: 'Chế độ nghiêm ngặt',
+        exact: true,
       });
-      expect(sessionCount).toBe(0);
+      await expect(strictSwitch).toHaveAttribute('aria-checked', 'true');
 
-      // 3. Điểm vào 2: Từ màn hình chi tiết môn học (qua deep-link /focus?planId=...&conceptId=...)
-      await page.goto(`/focus?planId=${plan.id}&conceptId=${concept2.id}`);
-      
-      // Quan sát màn hình thiết lập (Từ Deep Link)
-      // Màn hình cũng phải hiển thị thời lượng 25 phút
-      await expect(page.getByText('25:00')).toBeVisible();
-      await expect(page.getByText(/25 phút, nghỉ 5 phút/)).toBeVisible();
-
-      // Concept 2 được pre-select (hiển thị) qua deep link
-      await expect(page.getByRole('heading', { name: 'Concept C2' })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Bắt đầu' })).toBeVisible();
-
-      // Vẫn chưa có session chạy
-      sessionCount = await prisma.focusSession.count({
-        where: { userId: userA.id }
+      // 2. Mở panel trước Start: phải có đủ bốn ô số, âm báo và phạm vi chỉ cho phiên này.
+      await page.getByRole('button', { name: 'Đổi độ dài lượt', exact: true }).click();
+      const setupDialog = page.getByRole('dialog', { name: 'Cấu hình Pomodoro', exact: true });
+      await expect(setupDialog).toBeVisible();
+      await expect(
+        setupDialog.getByText('Chỉ đổi cho phiên này · áp dụng ngay khi bắt đầu', { exact: true })
+      ).toBeVisible();
+      const setupFields = setupDialog.getByRole('spinbutton');
+      await expect(setupFields).toHaveCount(4);
+      await expect(setupFields.nth(0)).toHaveValue('25');
+      await expect(setupFields.nth(1)).toHaveValue('5');
+      await expect(setupFields.nth(2)).toHaveValue('15');
+      await expect(setupFields.nth(3)).toHaveValue('4');
+      const setupSound = setupDialog.getByRole('switch', {
+        name: 'Âm báo khi hết giờ',
+        exact: true,
       });
-      expect(sessionCount).toBe(0);
+      await expect(setupSound).toHaveAttribute('aria-checked', 'true');
 
+      // 3. Đổi cấu hình hợp lệ cho riêng phiên: work=1 giúp test ranh giới lượt không phải chờ 25m.
+      await setupFields.nth(0).fill('1');
+      await setupFields.nth(1).fill('2');
+      await setupFields.nth(2).fill('3');
+      await setupFields.nth(3).fill('2');
+      await setupDialog.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+      await strictSwitch.click();
+      await expect(strictSwitch).toHaveAttribute('aria-checked', 'false');
+      await expect(page.getByText('01:00', { exact: true })).toBeVisible();
+      await expect(page.getByText(/Hai lượt 1 phút, nghỉ 2 phút/)).toBeVisible();
+      expect(userConfigPatches).toBe(0);
+
+      // 4. Cài clock trước Start để đi qua ranh giới lượt một cách tất định, không chờ wall-clock.
+      await page.clock.install();
+      await page.clock.pauseAt(new Date(Date.now() + 60_000));
+      const createResponse = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/api/v1/focus-sessions'
+      );
+      await page.getByRole('button', { name: 'Bắt đầu', exact: true }).click();
+      expect((await createResponse).status()).toBe(201);
+      const timer = page.getByRole('timer');
+      await expect(timer).toBeVisible();
+      await page.clock.runFor(10_000);
+      const currentTarget = await readClockSeconds(timer);
+      expect(currentTarget).toBeLessThanOrEqual(50);
+
+      // Gắn bộ đếm thay AudioContext: nếu sound=false không được gọi playChime ở mọi transition.
+      await page.evaluate(() => {
+        (window as unknown as { __tcFs002Chimes: number }).__tcFs002Chimes = 0;
+        Object.defineProperty(window, 'AudioContext', {
+          configurable: true,
+          value: function ControlledAudioContext() {
+            (window as unknown as { __tcFs002Chimes: number }).__tcFs002Chimes += 1;
+            throw new Error('TC-FS-002 intercepted an unexpected chime.');
+          },
+        });
+      });
+
+      // 5. Giữa lượt, panel phải báo áp dụng từ lượt kế tiếp và khóa trạng thái Strict Mode.
+      await page.getByRole('button', { name: 'Cấu hình Pomodoro', exact: true }).click();
+      const runningDialog = page.getByRole('dialog', { name: 'Cấu hình Pomodoro', exact: true });
+      await expect(
+        runningDialog.getByText('Chỉ đổi cho phiên này · áp dụng từ lượt kế tiếp', { exact: true })
+      ).toBeVisible();
+      await expect(
+        runningDialog.getByText('Chế độ nghiêm ngặt đang tắt, giữ nguyên cho tới hết phiên.', {
+          exact: true,
+        })
+      ).toBeVisible();
+      const runningFields = runningDialog.getByRole('spinbutton');
+      await runningFields.nth(0).fill('2');
+      await runningFields.nth(1).fill('4');
+      await runningFields.nth(2).fill('6');
+      await runningFields.nth(3).fill('3');
+      const runningSound = runningDialog.getByRole('switch', {
+        name: 'Âm báo khi hết giờ',
+        exact: true,
+      });
+      await runningSound.click();
+      await expect(runningSound).toHaveAttribute('aria-checked', 'false');
+      await runningDialog.getByRole('button', { name: 'Áp dụng', exact: true }).click();
+
+      // 6. Lượt đang chạy không nhảy lên 2 phút; tiến độ kế hoạch có thể đổi ngay thành 3 chu kỳ.
+      expect(await readClockSeconds(timer)).toBeLessThanOrEqual(currentTarget);
+      await expect(page.getByText(/Pomodoro 1 \/ 3/)).toBeVisible();
+      expect(userConfigPatches).toBe(0);
+
+      // 7. Hết đúng phần còn lại của lượt cũ: short break mới phải là 4 phút.
+      await page.clock.runFor(currentTarget * 1_000);
+      await expect(page.getByRole('heading', { name: 'Nghỉ ngắn', exact: true })).toBeVisible();
+      await expect(page.getByText('04:00', { exact: true })).toBeVisible();
+
+      // 8. Bỏ nghỉ: lượt work kế nhận 2 phút; hết lượt 2 lại dùng short break 4 phút.
+      await page.getByRole('button', { name: 'Bỏ qua giờ nghỉ', exact: true }).click();
+      await expect.poll(() => readClockSeconds(timer)).toBe(120);
+      await page.clock.runFor(120_000);
+      await expect(page.getByRole('heading', { name: 'Nghỉ ngắn', exact: true })).toBeVisible();
+      await expect(page.getByText('04:00', { exact: true })).toBeVisible();
+
+      // 9. Lượt thứ ba dùng work=2; hoàn tất đủ cycles=3 thì long break mới phải là 6 phút.
+      await page.getByRole('button', { name: 'Bỏ qua giờ nghỉ', exact: true }).click();
+      await expect.poll(() => readClockSeconds(timer)).toBe(120);
+      await expect(page.getByText(/Pomodoro 3 \/ 3/)).toBeVisible();
+      await page.clock.runFor(120_000);
+      await expect(page.getByRole('heading', { name: 'Nghỉ dài', exact: true })).toBeVisible();
+      await expect(page.getByText('06:00', { exact: true })).toBeVisible();
+      expect(
+        await page.evaluate(
+          () => (window as unknown as { __tcFs002Chimes: number }).__tcFs002Chimes
+        )
+      ).toBe(0);
+      expect(userConfigPatches).toBe(0);
     } finally {
-      await prisma.user.delete({ where: { id: userA.id } });
+      page.off('request', countUserConfigPatch);
+      await prisma.user.delete({ where: { id: seed.user.id } });
     }
   });
 });

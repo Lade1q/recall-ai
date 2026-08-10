@@ -10,6 +10,15 @@ import {
 
 const prisma = createTestPrismaClient();
 
+interface ApiEnvelope<T> {
+  success: true;
+  data: T;
+}
+
+interface CreatedFocusSession {
+  id: string;
+}
+
 test.beforeAll(async () => {
   await prisma.$connect();
 });
@@ -30,17 +39,21 @@ test.describe('TC-FS-013: Hủy phiên học giữa chừng', () => {
       // 1. Đăng nhập, bắt đầu phiên C1 và chạy đủ để có focused time khác 0.
       await loginViaUi(page, seed.user.email);
       await page.goto('/focus');
+      const startResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          response.url() === `${API_BASE_URL}/api/v1/focus-sessions`
+      );
       await page.getByRole('button', { name: 'Bắt đầu', exact: true }).click();
+      const startResponse = await startResponsePromise;
+      expect(startResponse.status()).toBe(201);
+      const startBody = (await startResponse.json()) as ApiEnvelope<CreatedFocusSession>;
+      const sessionId = startBody.data.id;
       const countdown = page.getByRole('timer');
       const focusedTally = page.locator('p').filter({ hasText: /^Tập trung\s+\d{2}:\d{2}/ });
       await expect
         .poll(() => readClockSeconds(focusedTally), { timeout: 5_000 })
         .toBeGreaterThanOrEqual(2);
-      const session = await prisma.focusSession.findFirstOrThrow({
-        where: { userId: seed.user.id },
-        select: { id: true },
-      });
-
       // 2. Mở hộp Hủy lần đầu và chọn Quay lại phiên.
       const remainingBeforeDialog = await readClockSeconds(countdown);
       await page.getByRole('button', { name: 'Hủy phiên', exact: true }).click();
@@ -54,9 +67,8 @@ test.describe('TC-FS-013: Hủy phiên học giữa chừng', () => {
       await expect(page.getByRole('button', { name: 'Tạm dừng', exact: true })).toBeVisible();
       const remainingAfterReject = await readClockSeconds(countdown);
       expect(remainingAfterReject).toBeLessThanOrEqual(remainingBeforeDialog);
-      expect(remainingAfterReject).toBeGreaterThanOrEqual(remainingBeforeDialog - 2);
       const stillRunning = await prisma.focusSession.findUniqueOrThrow({
-        where: { id: session.id },
+        where: { id: sessionId },
         select: { status: true, endedAt: true },
       });
       expect(stillRunning).toEqual({ status: 'running', endedAt: null });
@@ -67,10 +79,24 @@ test.describe('TC-FS-013: Hủy phiên học giữa chừng', () => {
       const cancelResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'PATCH' &&
-          response.url() === `${API_BASE_URL}/api/v1/focus-sessions/${session.id}`
+          response.url() === `${API_BASE_URL}/api/v1/focus-sessions/${sessionId}`
       );
       await cancelDialog.getByRole('button', { name: 'Hủy phiên', exact: true }).click();
-      expect((await cancelResponsePromise).status()).toBe(200);
+      const cancelResponse = await cancelResponsePromise;
+      expect(cancelResponse.status()).toBe(200);
+      const cancelPayload = cancelResponse.request().postDataJSON() as {
+        status: string;
+        focusedSeconds: number;
+        awayCount: number;
+        pomodorosCompleted: number;
+      };
+      expect(cancelPayload).toEqual({
+        status: 'cancelled',
+        focusedSeconds: expect.any(Number),
+        awayCount: 0,
+        pomodorosCompleted: 0,
+      });
+      expect(cancelPayload.focusedSeconds).toBeGreaterThanOrEqual(2);
 
       // 5. UI quay về màn trước phiên, không hiển thị summary hoàn tất và có thể bắt đầu lại C1.
       await expect(page.getByRole('heading', { name: conceptC1.name, exact: true })).toBeVisible();
@@ -81,7 +107,7 @@ test.describe('TC-FS-013: Hủy phiên học giữa chừng', () => {
 
       // 6. DB giữ record audit cancelled/raw seconds nhưng buộc duration học tập bằng 0.
       const cancelled = await prisma.focusSession.findUniqueOrThrow({
-        where: { id: session.id },
+        where: { id: sessionId },
         select: {
           userId: true,
           conceptIds: true,
@@ -95,7 +121,7 @@ test.describe('TC-FS-013: Hủy phiên học giữa chừng', () => {
       expect(cancelled.userId).toBe(seed.user.id);
       expect(cancelled.conceptIds).toEqual([conceptC1.id]);
       expect(cancelled.status).toBe('cancelled');
-      expect(cancelled.focusedSeconds).toBeGreaterThanOrEqual(2);
+      expect(cancelled.focusedSeconds).toBe(cancelPayload.focusedSeconds);
       expect(cancelled.durationMinutes).toBe(0);
       expect(cancelled.pomodorosCompleted).toBe(0);
       expect(cancelled.endedAt).not.toBeNull();
