@@ -69,10 +69,10 @@
 | **Các bước thực hiện**   | 1. Mở Dashboard khi chưa đăng nhập và gọi `GET /api/v1/dashboard/stats` không có access token.<br>2. Đăng nhập Student A, mở Dashboard và gọi endpoint với token hợp lệ.<br>3. Đăng xuất hoặc dùng token hết hạn, lặp lại thao tác.                             |
 | **Dữ liệu đầu vào**      | a) Không token.<br>b) Token hợp lệ của Student A.<br>c) Token hết hạn/không hợp lệ.                                                                                                                                                                             |
 | **Kết quả mong đợi**     | a) Điều hướng tới đăng nhập hoặc trả `401 UNAUTHORIZED`; không lộ số liệu/plan.<br>b) Dashboard và API trả đúng dữ liệu Student A; API trả `200` với envelope `{ success: true, data: ... }`.<br>c) Bị từ chối như a); không trả dữ liệu cache của phiên trước. |
-| **Kết quả thực tế**      |                                                                                                                                                                                                                                                                 |
-| **Trạng thái**           | Not Run                                                                                                                                                                                                                                                         |
+| **Kết quả thực tế**      | a) PASS <br> b) PASS <br> c) PASS                                                                                                                                                                                                                               |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                            |
 | **Ghi chú**              | Endpoint hiện tại không nhận query/body; token không được phép chọn `userId` thay người dùng khác.                                                                                                                                                              |
-| **Nhận xét**             |                                                                                                                                                                                                                                                                 |
+| **Nhận xét**             | Đã implement script Playwright tại e2e/tests/dashboard/TC-DB-001.spec.ts và chạy thành công ở local.                                                                                                                                                            |
 
 ### TC-DB-002: Hiển thị đủ các khối của Dashboard mặc định
 
@@ -775,7 +775,7 @@
 
 | Mã TC     | Tiêu đề                                           | Loại                           | Độ ưu tiên | Trạng thái |
 | --------- | ------------------------------------------------- | ------------------------------ | ---------- | ---------- |
-| TC-DB-001 | Kiểm tra điều kiện truy cập và xác thực Dashboard | Security / UI-E2E / API        | Critical   | Not Run    |
+| TC-DB-001 | Kiểm tra điều kiện truy cập và xác thực Dashboard | Security / UI-E2E / API        | Critical   | Pass       |
 | TC-DB-002 | Hiển thị đủ các khối của Dashboard mặc định       | Functionality / UI-E2E         | High       | Not Run    |
 | TC-DB-003 | Plan active, tiến độ và deadline                  | Functionality / Database       | High       | Not Run    |
 | TC-DB-004 | Onboarding khi thiếu plan / hết hạn               | Functionality / Usability      | High       | Not Run    |
