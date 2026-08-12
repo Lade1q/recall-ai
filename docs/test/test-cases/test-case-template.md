@@ -12,23 +12,23 @@
 
 ## TC-[MODULE]-001: [Tên ngắn gọn của test case]
 
-| Trường                   | Nội dung                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | [Tính năng cụ thể hoặc Bước trong luồng, VD: SP-01 Basic Flow — Bước 3–4]                     |
-| **Mã TC**                | TC-[MODULE]-001                                                                               |
-| **Tiêu đề**              | [Tên ngắn gọn, rõ ràng của test case]                                                         |
-| **Mô tả**                | [Mô tả chi tiết kịch bản test này làm gì]                                                     |
-| **Loại kiểm thử**        | [Functionality / Security / Usability / Interface / Database / Compatibility / Performance]   |
-| **Phương thức thực thi** | [Automation (Playwright) / Manual]                                                            |
-| **Độ ưu tiên**           | [High / Medium / Low]                                                                         |
-| **Điều kiện tiên quyết** | [Cần chuẩn bị gì trước khi test? VD: Đã có tài khoản test, app đang chạy]                     |
-| **Các bước thực hiện**   | 1. [Bước 1]<br>2. [Bước 2]<br>3. [Bước 3]                                                     |
-| **Dữ liệu đầu vào**      | [Nhập gì vào form/field? VD: Email: test@example.com · Mật khẩu: Test@1234]                   |
-| **Kết quả mong đợi**     | - [Điều gì phải xảy ra — đây là chuẩn để đánh giá Pass/Fail]<br>- [Có thể liệt kê nhiều dòng] |
-| **Kết quả thực tế**      | _(điền sau khi test)_                                                                         |
-| **Trạng thái**           | Not Run                                                                                       |
-| **Ghi chú**              | [Thông tin bổ sung nếu có]                                                                    |
-| **Nhận xét**             | [Đánh giá, nhận xét thêm về behavior sau khi test xong]                                       |
+| Trường                   | Nội dung                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | [Tính năng cụ thể hoặc Bước trong luồng, VD: SP-01 Basic Flow — Bước 3–4]                                |
+| **Mã TC**                | TC-[MODULE]-001                                                                                          |
+| **Tiêu đề**              | [Tên ngắn gọn, rõ ràng của test case]                                                                    |
+| **Mô tả**                | [Mô tả chi tiết kịch bản test này làm gì]                                                                |
+| **Loại kiểm thử**        | [Functionality / Security / Usability / Interface / Database / Compatibility / Performance / Resilience] |
+| **Phương thức thực thi** | [Automation (Playwright) / Manual]                                                                       |
+| **Độ ưu tiên**           | [High / Medium / Low]                                                                                    |
+| **Điều kiện tiên quyết** | [Cần chuẩn bị gì trước khi test? VD: Đã có tài khoản test, app đang chạy]                                |
+| **Các bước thực hiện**   | 1. [Bước 1]<br>2. [Bước 2]<br>3. [Bước 3]                                                                |
+| **Dữ liệu đầu vào**      | [Nhập gì vào form/field? VD: Email: test@example.com · Mật khẩu: Test@1234]                              |
+| **Kết quả mong đợi**     | - [Điều gì phải xảy ra — đây là chuẩn để đánh giá Pass/Fail]<br>- [Có thể liệt kê nhiều dòng]            |
+| **Kết quả thực tế**      | _(điền sau khi test)_                                                                                    |
+| **Trạng thái**           | Not Run                                                                                                  |
+| **Ghi chú**              | [Thông tin bổ sung nếu có]                                                                               |
+| **Nhận xét**             | [Đánh giá, nhận xét thêm về behavior sau khi test xong]                                                  |
 
 ---
 
@@ -65,12 +65,13 @@
 
 ## Chú thích trạng thái
 
-| Trạng thái | Ý nghĩa                                                  |
-| ---------- | -------------------------------------------------------- |
-| Not Run    | Chưa thực hiện test                                      |
-| Pass       | Test qua — kết quả thực tế khớp với kết quả mong đợi     |
-| Fail       | Test không qua — có bug → tạo bug report                 |
-| Blocked    | Không thể test — phụ thuộc vào phần khác chưa hoàn thành |
+| Trạng thái | Ý nghĩa                                                            |
+| ---------- | ------------------------------------------------------------------ |
+| Not Run    | Chưa thực hiện test                                                |
+| Pass       | Test qua — kết quả thực tế khớp với kết quả mong đợi               |
+| Fail       | Test không qua — có bug → tạo bug report                           |
+| Partial    | Test qua một phần — phần còn lại Fail hoặc cần làm rõ thêm yêu cầu |
+| Blocked    | Không thể test — phụ thuộc vào phần khác chưa hoàn thành           |
 
 ---
 
@@ -85,3 +86,5 @@
 | **Database**      | Dữ liệu có được lưu/đọc/xóa đúng không?                | Sau khi tạo plan, database có record đúng không?                 |
 | **Compatibility** | App có chạy đúng trên các trình duyệt khác nhau không? | Tính năng upload ảnh có hoạt động trên Firefox không?            |
 | **Performance**   | App có chạy nhanh, không bị lag không?                 | Trang Dashboard load dưới 3 giây?                                |
+| **Resilience**    | Hệ thống có chịu lỗi/phục hồi tốt khi bất thường?      | Spam click liên tục, bị ngắt mạng, hủy thao tác dở dang          |
+| **UI-E2E**        | Luồng giao diện từ đầu đến cuối có mượt mà không?      | Navigation qua lại giữa các trang bằng nút Back/Forward          |
