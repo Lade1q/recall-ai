@@ -274,7 +274,9 @@ test.describe('TC-FS-026: Điều hướng sau khi hoàn tất phiên học', ()
       page.on('request', captureUnexpectedMutation);
       await page.getByRole('link', { name: 'Để sau — về Dashboard', exact: true }).click();
       await page.waitForURL((url) => url.pathname === '/dashboard' && url.search === '');
-      await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Mở kế hoạch Plan P1', exact: true })
+      ).toBeVisible();
 
       // 3. Không có POST trễ và DB vẫn chỉ chứa đúng phiên Focus vừa hoàn tất.
       expect(unexpectedMutations).toHaveLength(0);

@@ -67,6 +67,13 @@ test.describe('TC-FS-024: Reload phiên dưới 60 giây — regression #311', (
       expect(startResponse.status()).toBe(201);
       const startBody = (await startResponse.json()) as ApiEnvelope<CreatedSession>;
       const sessionId = startBody.data.id;
+
+      // 1a. Đồng bộ mốc server đủ cũ trước khi browser clock tăng 11 giây.
+      // `page.clock` không làm thời gian của API/DB trôi theo, nên cleanup thật phải thấy elapsed >= focusedSeconds.
+      await prisma.focusSession.update({
+        where: { id: sessionId },
+        data: { startedAt: new Date(Date.now() - 2 * 60 * 1_000) },
+      });
       const focusedTally = page.locator('p').filter({ hasText: /^Tập trung\s+\d{2}:\d{2}/ });
       await page.clock.runFor(11_000);
       const observedSeconds = await readClockSeconds(focusedTally);
@@ -80,7 +87,22 @@ test.describe('TC-FS-024: Reload phiên dưới 60 giây — regression #311', (
       expect((snapshotBeforeReload?.focusedMs ?? 60_000) / 1_000).toBeLessThan(60);
 
       // 2. Reload là hành động abandon S1 ngắn; UX by-design phải quay về setup, không mời recovery.
+      const cleanupResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PATCH' &&
+          response.url() === `${API_BASE_URL}/api/v1/focus-sessions/${sessionId}`
+      );
       await page.reload();
+      const cleanupResponse = await cleanupResponsePromise;
+      expect(cleanupResponse.status()).toBe(200);
+      await expect(cleanupResponse.json()).resolves.toMatchObject({
+        success: true,
+        data: {
+          id: sessionId,
+          status: 'cancelled',
+          durationMinutes: 0,
+        },
+      });
       await expect(page.getByRole('button', { name: 'Bắt đầu', exact: true })).toBeVisible();
       await expect(
         page.getByRole('dialog', { name: 'Phiên học chưa được ghi nhận', exact: true })

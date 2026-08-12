@@ -98,7 +98,9 @@ test.describe('TC-FS-011: Focus dùng trực tiếp gợi ý từ review queue',
       await expect(chooseAnother).toHaveAttribute('href', '/dashboard');
       await chooseAnother.click();
       await expect(page).toHaveURL(/\/dashboard$/);
-      await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('link', { name: 'Mở kế hoạch Plan P1', exact: true })
+      ).toBeVisible();
 
       // 4. Focus chỉ đọc queue: không PATCH queue và không tạo session trước khi Student Start.
       expect(queueMutations).toHaveLength(0);
