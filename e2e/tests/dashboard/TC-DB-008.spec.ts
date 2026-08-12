@@ -4,11 +4,6 @@ import { seedDashboardData } from './dashboard-test-utils';
 
 const prisma = createTestPrismaClient();
 
-interface StartInterviewPayload {
-  planId: string;
-  conceptIds: string[];
-}
-
 test.beforeAll(async () => {
   await prisma.$connect();
 });
@@ -174,25 +169,16 @@ test.describe('TC-DB-008: Quan hệ graph và panel chi tiết khi click node', 
       await expect(panelC).toContainText('Concept B');
       await expect(panelC).not.toContainText('Phiên kiểm tra');
 
-      // 7. Quay lại B và kiểm tra CTA phát request tạo Interview với đúng plan/concept.
+      // 7. Quay lại B và kiểm tra CTA chuyển đúng dữ liệu sang lối vào Interview.
       await nodeB.click();
       await expect(panelB).toBeVisible();
-      const startRequest = page.waitForRequest(
-        (request) =>
-          new URL(request.url()).pathname === '/api/v1/interviews' && request.method() === 'POST'
+      const interviewUrl = new RegExp(
+        `/interview\\?planId=${p1.id}&conceptId=${conceptB.id.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}`
       );
-      const startResponse = page.waitForResponse(
-        (response) =>
-          new URL(response.url()).pathname === '/api/v1/interviews' &&
-          response.request().method() === 'POST' &&
-          response.status() === 201
-      );
-      await panelB.getByRole('button', { name: 'Kiểm tra ngay', exact: true }).click();
-      const request = await startRequest;
-      const response = await startResponse;
-      const payload = JSON.parse(request.postData() ?? '{}') as StartInterviewPayload;
-      expect(payload).toEqual({ planId: p1.id, conceptIds: [conceptB.id] });
-      expect(response.status()).toBe(201);
+      await Promise.all([
+        page.waitForURL(interviewUrl),
+        panelB.getByRole('button', { name: 'Kiểm tra ngay', exact: true }).click(),
+      ]);
     } finally {
       // 8. Đợi mọi mutation đã assert xong rồi dọn dữ liệu theo user.
       await prisma.user.delete({ where: { id: seed.user.id } });

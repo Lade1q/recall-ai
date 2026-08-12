@@ -1,0 +1,78 @@
+import { expect, test } from '@playwright/test';
+import { createTestPrismaClient, loginViaUi } from '../focus-session/focus-session-test-utils';
+import { seedDashboardData } from './dashboard-test-utils';
+
+const prisma = createTestPrismaClient();
+
+test.beforeAll(async () => {
+  await prisma.$connect();
+});
+
+test.afterAll(async () => {
+  await prisma.$disconnect();
+});
+
+test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duyệt', () => {
+  test('Tab thứ hai chỉ nhận mastery mới sau khi reload và không tự tạo session', async ({
+    page,
+  }) => {
+    const seed = await seedDashboardData(prisma, 'tc_db_029');
+    const secondTab = await page.context().newPage();
+
+    try {
+      const [p1] = seed.plans;
+      if (!p1) throw new Error('Seed TC-DB-029 thiếu P1.');
+      const c1 = await prisma.concept.findFirstOrThrow({
+        where: { planId: p1.id, name: 'Concept C1' },
+        select: { id: true },
+      });
+
+      // 1. Đăng nhập Dashboard rồi mở tab thứ hai cùng phiên xác thực như thao tác duplicate tab.
+      await loginViaUi(page, seed.user.email);
+      await secondTab.goto('/dashboard');
+      const secondTabC1 = secondTab.locator('.react-flow__node').filter({ hasText: 'Concept C1' });
+      await expect(secondTabC1.locator('.concept-node__score')).toHaveText('0.20');
+      await expect(secondTab.getByText('1/3', { exact: true })).toBeVisible();
+
+      // 2. Cập nhật kết quả Interview từ nguồn bên ngoài tab đang mở để mô phỏng tab thứ nhất hoàn tất.
+      await prisma.concept.update({
+        where: { id: c1.id },
+        data: { masteryScore: 0.9, lastTestedAt: new Date() },
+      });
+
+      // 3. Không có realtime sync nên tab thứ hai giữ snapshot trước reload, không crash hoặc tạo phiên.
+      await expect(secondTabC1.locator('.concept-node__score')).toHaveText('0.20');
+      await expect(secondTab.getByText('1/3', { exact: true })).toBeVisible();
+
+      // 4. Reload tab thứ hai, chờ nguồn graph và stats thật rồi xác nhận mastery mới được phản ánh nhất quán.
+      const planResponse = secondTab.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/api/v1/plans/${p1.id}` &&
+          response.request().method() === 'GET' &&
+          response.status() === 200
+      );
+      const statsResponse = secondTab.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/v1/dashboard/stats' &&
+          response.request().method() === 'GET' &&
+          response.status() === 200
+      );
+      await secondTab.reload();
+      await Promise.all([planResponse, statsResponse]);
+      await expect(secondTabC1.locator('.concept-node__score')).toHaveText('0.90');
+      await expect(secondTab.getByText('2/3', { exact: true })).toBeVisible();
+
+      // 5. Đối chiếu DB: chỉ có kết quả mastery ngoài tab, không có Focus/Interview mới từ các thao tác đọc.
+      await expect
+        .poll(() => prisma.focusSession.count({ where: { userId: seed.user.id } }))
+        .toBe(1);
+      await expect
+        .poll(() => prisma.interviewSession.count({ where: { userId: seed.user.id } }))
+        .toBe(1);
+    } finally {
+      // 6. Đóng tab duplicate trước khi cascade dọn dữ liệu của Student.
+      await secondTab.close();
+      await prisma.user.delete({ where: { id: seed.user.id } });
+    }
+  });
+});

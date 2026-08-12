@@ -78,11 +78,14 @@ test.describe('TC-DB-018: Cô lập dữ liệu Dashboard giữa Student', () =>
         headers: { Authorization: `Bearer ${tokenA}` },
       });
       expect(plansA.status()).toBe(200);
-      await expect(plansA.json()).resolves.toMatchObject({
+      const plansABody = (await plansA.json()) as {
+        success: boolean;
+        data: { plans: Array<{ id: string }> };
+      };
+      expect(plansABody).toMatchObject({
         success: true,
-        data: expect.arrayContaining([expect.objectContaining({ id: planA.id })]),
+        data: { plans: expect.arrayContaining([expect.objectContaining({ id: planA.id })]) },
       });
-      const plansABody = (await plansA.json().catch(() => null)) as unknown;
       expect(JSON.stringify(plansABody)).not.toContain(planB.id);
 
       // 3. Dùng token A truy cập thẳng resource của B: không được lộ metadata.
