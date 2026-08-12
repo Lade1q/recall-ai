@@ -210,3 +210,14 @@ Mỗi rule mới có thể vô tình phủ định một rule cũ hoặc làm c�
 - Tìm lại các từ khóa bắt buộc và tham chiếu chéo (`BẮT BUỘC`, `TUYỆT ĐỐI`, `PASS`, `FAIL`, `SKIP`, `CHƯA IMPLEMENT`, `Mục ...`) để phát hiện câu cũ còn trái nghĩa hoặc trỏ sai section.
 - Nếu phát hiện xung đột, phải sửa đồng bộ tất cả section liên quan trong cùng thay đổi và ghi câu chữ đủ rõ để không cần áp dụng "rule nào ưu tiên hơn". Không được âm thầm bỏ qua một rule cũ.
 - Sau khi sửa, chạy format/check tài liệu và tóm tắt xung đột đã phát hiện cùng cách giải quyết. Nếu chưa thể hòa giải vì cần quyết định nghiệp vụ, không thêm rule mơ hồ; ghi rõ điểm cần người dùng xác nhận.
+
+## 22. Viết Test Plan/Test Case như Báo cáo Độc lập
+
+File Markdown Test Plan/Test Case là tài liệu báo cáo cho QA, Product, Dev và người ra quyết định; người đọc **không được phải mở script test** mới hiểu dữ liệu, hành vi đã kiểm tra, kết quả hay điểm còn cần quyết định.
+
+- **Tên dữ liệu theo nghiệp vụ:** Trong Điều kiện tiên quyết, Dữ liệu đầu vào, Kết quả mong đợi, Kết quả thực tế và Trạng thái, dùng tên có nghĩa như “kế hoạch còn hạn”, “kế hoạch đã lưu trữ”, “khái niệm chưa kiểm tra”, “người học chính/người học khác”. Không dùng mã seed/biến đơn độc như `P1`, `C4`, `S_FS`, `userA` hoặc `seed`.
+- **Nếu cần mã kỹ thuật:** Chỉ đặt mã route, field, HTTP status, tên file hoặc tên biến trong dấu backtick ở Ghi chú/Dẫn chứng kỹ thuật. **Ngoại lệ:** nếu mã/trường/giá trị đó là tiêu chí API hoặc dữ liệu cần dùng trực tiếp để triển khai và đối chiếu test, giữ nguyên nó trong Kết quả mong đợi/Kết quả thực tế, đồng thời giải thích nghĩa nghiệp vụ ngay lần xuất hiện đầu, ví dụ: `archived` (đã lưu trữ), `mastery_score` (mức độ vững). Không diễn giải lại làm mất tên field, giá trị hoặc hợp đồng API.
+- **Kết luận sub-case tự đủ nghĩa:** Mỗi trạng thái `Pass`, `Fail`, `Partial`, `N/A`, `Chưa implement` phải nêu rõ sub-case nào thuộc trạng thái đó, hành vi quan sát được và — với `Partial`/`N/A` — quyết định nghiệp vụ hoặc boundary còn thiếu cụ thể là gì. Không ghi chung chung “cần clarification”.
+- **Tách kết quả khỏi cách làm:** "Kết quả thực tế" nói điều người dùng/QA quan sát được; không dùng chi tiết Playwright, selector, seed, worker, mock hay thao tác nội bộ để thay cho kết luận. Các thông tin truy vết đó để ở Ghi chú, kèm đường dẫn source khi cần.
+- **Từ ngữ dễ đọc:** Ưu tiên tiếng Việt nghiệp vụ như “tải lại trang”, “nút hành động”, “đồ thị”, “khái niệm”, “phiên vấn đáp”, “phiên học tập trung”. Chỉ giữ thuật ngữ kỹ thuật chuẩn khi chúng là một phần hợp đồng cần kiểm tra (HTTP, API, `404`, `mastery_score`…).
+- **Rà soát trước khi hoàn tất:** Sau mỗi lần cập nhật Test Plan/Test Case, tìm các mã seed/viết tắt nội bộ còn sót và đọc riêng các ô Kết quả thực tế, Trạng thái, Ghi chú như một người không biết source. Sửa mọi câu không trả lời được “dữ liệu nào, điều gì đã xảy ra, kết luận là gì”.
