@@ -33,7 +33,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test.describe('TC-DB-014: Thống kê Dashboard theo plan và session hợp lệ', () => {
+test.describe('TC-DB-014: Ba chỉ số thống kê Dashboard theo dữ liệu hợp lệ', () => {
   test('API/UI tổng hợp 55 phút và 2/4 mastery, rồi trả 0 khi không còn Focus completed tuần này', async ({
     page,
     request,

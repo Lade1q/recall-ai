@@ -13,7 +13,7 @@ test.afterAll(async () => {
   await prisma.$disconnect();
 });
 
-test.describe('TC-DB-004: Trạng thái không có plan và tất cả plan hết hạn', () => {
+test.describe('TC-DB-004: Trạng thái không có plan và mọi hạn ôn đã qua', () => {
   test('a) Không có study plan: onboarding và CTA mở đúng luồng tạo plan', async ({ page }) => {
     const seed = await seedDashboardData(prisma, 'tc_db_004_a', { hasP1: false });
 
@@ -42,17 +42,17 @@ test.describe('TC-DB-004: Trạng thái không có plan và tất cả plan hế
     }
   });
 
-  test('b) Mọi plan active đã quá deadline: không được hiển thị Dashboard active bình thường', async ({
+  test('b) Mọi plan active đã quá deadline: vẫn hiển thị plan active và cảnh báo quá hạn', async ({
     page,
   }) => {
     const seed = await seedDashboardData(prisma, 'tc_db_004_b', {
-      p1Deadline: new Date(Date.now() - 3 * MS_PER_DAY),
+      p1Deadline: new Date(Date.now() - 28 * MS_PER_DAY),
       hasP2: true,
-      p2Deadline: new Date(Date.now() - MS_PER_DAY),
+      p2Deadline: new Date(Date.now() - 11 * MS_PER_DAY),
     });
 
     try {
-      // 1. Chờ response /plans thật trước khi kiểm tra trạng thái vắng plan trên UI.
+      // 1. Chờ response /plans thật trước khi kiểm tra trạng thái A3 trên UI.
       const plansResponse = page.waitForResponse(
         (response) =>
           new URL(response.url()).pathname === '/api/v1/plans' &&
@@ -64,22 +64,19 @@ test.describe('TC-DB-004: Trạng thái không có plan và tất cả plan hế
       await loginViaUi(page, seed.user.email);
       await expect(page).toHaveURL(/\/dashboard$/);
       await plansResponse;
-      await Promise.any([
-        page.getByRole('link', { name: 'Mở kế hoạch Plan P1', exact: true }).waitFor(),
-        page.getByText('Chưa có kế hoạch nào đang hoạt động.', { exact: true }).waitFor(),
-        page
-          .getByRole('heading', { name: 'Bắt đầu kế hoạch ôn tập đầu tiên', exact: true })
-          .waitFor(),
-      ]);
-
-      // 3. Theo UC-16 E2, đây phải là gợi ý tạo plan mới chứ không phải catalog active bình thường.
+      // 3. State A3 giữ plan active, không nhầm sang onboarding khi mọi deadline đã qua.
       await expect(
         page.getByRole('link', { name: 'Mở kế hoạch Plan P1', exact: true })
-      ).toHaveCount(0);
+      ).toBeVisible();
       await expect(
         page.getByRole('link', { name: 'Mở kế hoạch Plan P2', exact: true })
+      ).toBeVisible();
+      await expect(page.getByText('2 kế hoạch đang hoạt động', { exact: false })).toBeVisible();
+      await expect(page.getByText('quá hạn 28 ngày', { exact: true })).toBeVisible();
+      await expect(page.getByText('quá hạn 11 ngày', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Bắt đầu kế hoạch ôn tập đầu tiên', exact: true })
       ).toHaveCount(0);
-      await expect(page.getByRole('link', { name: /Tạo kế hoạch/i })).toBeVisible();
     } finally {
       // 4. Dọn dữ liệu test.
       await prisma.user.delete({ where: { id: seed.user.id } });

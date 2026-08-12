@@ -129,4 +129,87 @@ test.describe('TC-DB-033: Spam click CTA "Bắt đầu phiên" từ gợi ý hô
       await prisma.user.delete({ where: { id: seed.user.id } });
     }
   });
+
+  test('Vào lại Interview sau Back tiếp tục phiên đang dở thay vì tạo phiên thứ hai', async ({
+    page,
+  }) => {
+    const seed = await seedDashboardData(prisma, 'tc_db_033_resume', { seedActivity: false });
+
+    try {
+      const [p1] = seed.plans;
+      if (!p1) throw new Error('Seed TC-DB-033 resume thiếu P1.');
+      const concept = await prisma.concept.findFirstOrThrow({
+        where: { planId: p1.id, name: 'Concept C1' },
+        select: { id: true },
+      });
+      // Khi server chạy AI thật, pre-check yêu cầu plan có tài liệu trước cả nhánh resume.
+      await prisma.document.create({
+        data: {
+          planId: p1.id,
+          filename: 'resume-source.pdf',
+          fileKey: `tc-db-033-resume-${Date.now()}.pdf`,
+        },
+      });
+      const existingSession = await prisma.interviewSession.create({
+        data: {
+          userId: seed.user.id,
+          planId: p1.id,
+          status: 'active',
+          conceptQueue: [concept.id],
+        },
+        select: { id: true },
+      });
+
+      // 1. Mở Dashboard và lần đầu vào lối vào Interview của phiên đang dở.
+      await loginViaUi(page, seed.user.email);
+      const interviewLink = page.getByRole('link', {
+        name: 'Vào thẳng phiên kiểm tra',
+        exact: true,
+      });
+      const firstResumeResponse = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/v1/interviews' &&
+          response.request().method() === 'POST'
+      );
+      await interviewLink.click();
+      const firstResume = await firstResumeResponse;
+      expect(firstResume.status()).toBe(200);
+      await expect(firstResume.json()).resolves.toMatchObject({
+        success: true,
+        data: { created: false, session: { id: existingSession.id } },
+      });
+      await expect(
+        page.getByRole('heading', { name: 'Bạn có một phiên đang dở', exact: true })
+      ).toBeVisible();
+
+      // 2. Back về Dashboard, sau đó bấm lại đúng lối vào để mô phỏng thao tác c).
+      await page.goBack();
+      await expect(page).toHaveURL('/dashboard');
+      const secondResumeResponse = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === '/api/v1/interviews' &&
+          response.request().method() === 'POST'
+      );
+      await interviewLink.click();
+      const secondResume = await secondResumeResponse;
+      expect(secondResume.status()).toBe(200);
+      await expect(secondResume.json()).resolves.toMatchObject({
+        success: true,
+        data: { created: false, session: { id: existingSession.id } },
+      });
+      await expect(
+        page.getByRole('heading', { name: 'Bạn có một phiên đang dở', exact: true })
+      ).toBeVisible();
+
+      // 3. Đối chiếu DB: hai lần vào đều resume cùng record, không sinh Interview thứ hai.
+      await expect
+        .poll(() =>
+          prisma.interviewSession.count({ where: { userId: seed.user.id, planId: p1.id } })
+        )
+        .toBe(1);
+    } finally {
+      // 4. Dọn Student độc lập sau khi kiểm tra resume hoàn tất.
+      await prisma.user.delete({ where: { id: seed.user.id } });
+    }
+  });
 });

@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { createTestPrismaClient, loginViaUi } from '../focus-session/focus-session-test-utils';
+import {
+  API_BASE_URL,
+  createTestPrismaClient,
+  loginViaUi,
+} from '../focus-session/focus-session-test-utils';
 import { seedDashboardData } from './dashboard-test-utils';
 
 const prisma = createTestPrismaClient();
@@ -13,8 +17,9 @@ test.afterAll(async () => {
 });
 
 test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duyệt', () => {
-  test('Tab thứ hai chỉ nhận mastery mới sau khi reload và không tự tạo session', async ({
+  test('Tab thứ hai nhận mastery mới sau reload; sáu request Focus song song đều được tạo', async ({
     page,
+    request,
   }) => {
     const seed = await seedDashboardData(prisma, 'tc_db_029');
     const secondTab = await page.context().newPage();
@@ -62,15 +67,41 @@ test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duy�
       await expect(secondTabC1.locator('.concept-node__score')).toHaveText('0.90');
       await expect(secondTab.getByText('2/3', { exact: true })).toBeVisible();
 
-      // 5. Đối chiếu DB: chỉ có kết quả mastery ngoài tab, không có Focus/Interview mới từ các thao tác đọc.
+      // 5. Gửi sáu POST song song cho cùng Student/plan/concept để xác minh hành vi không dedup hiện tại.
+      const token = await page.evaluate(() => localStorage.getItem('access_token'));
+      expect(token).toBeTruthy();
+      const focusResponses = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          request.post(`${API_BASE_URL}/api/v1/focus-sessions`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { planId: p1.id, conceptIds: [c1.id] },
+          })
+        )
+      );
+      for (const response of focusResponses) {
+        expect(response.status()).toBe(201);
+      }
+      const focusBodies = await Promise.all(
+        focusResponses.map((response) => response.json() as Promise<{ data: { id: string } }>)
+      );
+      expect(new Set(focusBodies.map((body) => body.data.id)).size).toBe(6);
+
+      // 6. Đối chiếu DB: chỉ đọc không tạo phiên, còn sáu POST độc lập tạo sáu Focus running.
       await expect
         .poll(() => prisma.focusSession.count({ where: { userId: seed.user.id } }))
-        .toBe(1);
+        .toBe(7);
+      await expect
+        .poll(() =>
+          prisma.focusSession.count({
+            where: { userId: seed.user.id, planId: p1.id, status: 'running' },
+          })
+        )
+        .toBe(6);
       await expect
         .poll(() => prisma.interviewSession.count({ where: { userId: seed.user.id } }))
         .toBe(1);
     } finally {
-      // 6. Đóng tab duplicate trước khi cascade dọn dữ liệu của Student.
+      // 7. Đóng tab duplicate trước khi cascade dọn dữ liệu của Student.
       await secondTab.close();
       await prisma.user.delete({ where: { id: seed.user.id } });
     }
