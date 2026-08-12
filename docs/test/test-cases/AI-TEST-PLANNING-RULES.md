@@ -59,3 +59,9 @@ Tài liệu này là bộ quy tắc (System Prompt / Guidelines) dành cho AI Ag
 - **Giữ traceability khi loại TC:** Không xóa dấu vết quyết định. Lập bảng nêu mã TC cũ, lý do loại, nguồn chứng minh và nơi tiếp nhận (module, issue hoặc sprint) để không mất coverage liên module.
 - **Edge case cần expected result có căn cứ:** Được chủ động kiểm các hành vi như spam click, reload hoặc nhiều tab, nhưng không được tự suy diễn policy mới (ví dụ mutual exclusion toàn bộ tab) khi MVP chưa quy định. Nếu chưa có expected result đáng tin cậy, ghi thành điểm cần quyết định thay vì một TC FAIL.
 - **Bug thật phải phản ánh đúng phạm vi:** Với bug đã xác nhận, TC regression phải nêu cả hành vi by-design cần giữ nguyên, lỗi còn lại cần sửa, issue theo dõi và severity/priority đã thống nhất.
+
+## 10. Test Case là Báo cáo Độc lập
+
+- File Test Plan/Test Case là tài liệu báo cáo có thể được push, review và đọc độc lập với mã nguồn và script kiểm thử. Mỗi ô phải tự mô tả được dữ liệu nghiệp vụ, hành vi và kết luận mà không yêu cầu người đọc mở code.
+- **Không ghi đường dẫn mã nguồn hoặc script test** trong Điều kiện tiên quyết, Dữ liệu đầu vào, Kết quả mong đợi, Kết quả thực tế, Trạng thái, Ghi chú hay Nhận xét; ví dụ: `src/...`, `e2e/...`, `*.spec.ts`. Không dùng các đường dẫn này làm viện dẫn cho kết quả.
+- Khi cần truy xuất nguồn gốc, viện dẫn theo tên/đề mục tài liệu đặc tả, mã Use Case, mockup, API contract, endpoint, HTTP status hoặc issue/PR liên quan. Chỉ giữ chi tiết kỹ thuật khi đó là một phần của hợp đồng cần kiểm tra; không thay kết luận nghiệp vụ bằng tên biến, selector, seed hoặc cách triển khai test.
