@@ -234,7 +234,8 @@ Theo `UC-Overview.md §5.1`, AI **chỉ** được gọi qua 4 schema; mọi đi
   "language_detected": "en" }
 
 // 2. generate_question (AE-02)
-{ "question_text": "...", "question_type": "...", "concept_id": "..." }
+// Không có `concept_id`: caller đã biết đang hỏi khái niệm nào (chốt 2026-08-11, xem §5.1).
+{ "question_text": "...", "question_type": "recall|application|why" }
 
 // 3. grade_answer (AE-02)
 { "score": 0.0, "feedback": "...", "verdict": "deep|shallow|wrong" }

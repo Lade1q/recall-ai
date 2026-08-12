@@ -11,6 +11,7 @@ import { useSessionDocument } from '../hooks/useSessionDocument';
 import type { CreateFocusSessionResponse, PomodoroConfig } from '../types/focus.types';
 import type { ReviewQueueItem } from '@/features/review-queue/types/review-queue.types';
 import { formatClock, formatClockTime, formatMinutesSecondsPhrase } from '../utils/format';
+import { sessionLockName } from '../utils/sessionLock';
 import { CancelSessionDialog } from './CancelSessionDialog';
 import { NotesPanel } from './NotesPanel';
 import { PomodoroClockRing } from './PomodoroClockRing';
@@ -135,7 +136,7 @@ export function RunningSession({
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    locks.request(`recall.focus.session.${session.id}`, () => held).catch(() => {});
+    locks.request(sessionLockName(session.id), () => held).catch(() => {});
     return () => release();
   }, [session.id]);
 

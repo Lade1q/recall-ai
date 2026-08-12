@@ -34,8 +34,10 @@
   2. Google OAuth trả về profile (email, name)
   3. Nếu email đã có tài khoản → liên kết theo email (silent merge, xem UC-Overview §5.6). Nếu chưa
      có → tạo tài khoản kèm **một mật khẩu ngẫu nhiên** để giữ ràng buộc `password_hash NOT NULL`;
-     Student đặt lại mật khẩu qua AM-05 khi muốn đăng nhập bằng mật khẩu. Cách này giữ nguyên lược
-     đồ hiện tại — không cần cho `password_hash` nhận NULL.
+     Student đặt lại mật khẩu qua AM-05 khi muốn đăng nhập bằng mật khẩu (AM-05 **cũng** là POST-MVP —
+     xem `UC-Overview.md` §5.6 — nên hai hạng mục này về cùng một đợt, không có giai đoạn nào tài khoản
+     Google tồn tại mà không có cách đặt lại mật khẩu). Cách này giữ nguyên lược đồ hiện tại — không
+     cần cho `password_hash` nhận NULL.
   4. Redirect về Dashboard
 
 ### Luồng ngoại lệ
@@ -73,7 +75,14 @@
 ### Luồng ngoại lệ
 
 - **[E1] Email không tồn tại hoặc mật khẩu sai:** Hiển thị lỗi chung "Email hoặc mật khẩu không đúng" (không phân biệt để bảo mật), giữ nguyên email đã nhập
-- **[E2] Tài khoản bị khóa / chưa xác thực:** Hiển thị trạng thái tương ứng và hướng dẫn xử lý
+- **[E2] Tài khoản bị khóa / chưa xác thực — hoãn POST-MVP** _(chốt 2026-08-11)_: MVP **không có
+  đường nào chạm tới nhánh này**, nên đừng viết test case cho nó. Bảng `users` chỉ có
+  `id/email/password_hash/name/pomodoro_config/created_at/updated_at` — không có `is_active`,
+  `email_verified` hay `locked_until` — và `login()` trong `auth.service.ts` chỉ có đúng hai nhánh
+  thất bại (không tìm thấy email; sai mật khẩu), cả hai trả cùng một lỗi 401 "Email or password
+  incorrect". Để [E2] chạm được cần: (1) thêm cột trạng thái tài khoản vào `users`, (2) một nhánh lỗi
+  riêng trong `login()` với mã lỗi khác 401 chung, (3) quy trình đặt trạng thái đó (xác thực email
+  hoặc khóa sau N lần sai). Giữ lại mục này để không mất dấu thiết kế, **không** phải để implement ở MVP.
 - **[E3] Lỗi server:** Hiển thị thông báo lỗi chung
 
 ---

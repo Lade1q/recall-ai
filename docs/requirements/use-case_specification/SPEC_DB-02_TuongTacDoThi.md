@@ -24,6 +24,7 @@ Use case này cho phép Sinh viên tương tác trực quan với Đồ thị Kh
 7. **Hiển thị thông tin chi tiết:** Hệ thống hiển thị panel (sidebar/modal) thông tin chi tiết của khái niệm được chọn, bao gồm:
    - Lịch sử học tập (History) của khái niệm đó qua các phiên học trước.
    - Danh sách các khái niệm tiên quyết (Prerequisites) cần nắm vững trước đó.
+   - Hai nút **lối ra**: "Bắt đầu Focus Session" và "Bắt đầu Interview" cho khái niệm này. Bấm vào là **rời DB-02** và bắt đầu một use case khác (FS-01 / AE-01) — xem ghi chú ở Post-conditions.
 
 ## Alternative Flows
 
@@ -47,3 +48,7 @@ Use case này cho phép Sinh viên tương tác trực quan với Đồ thị Kh
 ## Post-conditions
 
 - Hệ thống không có thay đổi nào về mặt dữ liệu (đây là tác vụ read-only). Sinh viên nắm được tổng quan về trạng thái nắm bắt kiến thức và vị trí của điểm yếu trong chuỗi kiến thức dựa trên đồ thị trực quan.
+
+> ⚠️ **Đã làm rõ ranh giới read-only (chốt 2026-08-11):** post-condition "read-only" nói về **phạm vi của chính DB-02** — xem, zoom/pan, lọc, mở panel chi tiết đều không ghi gì vào cơ sở dữ liệu. Nó **không** mâu thuẫn với nút "Bắt đầu Interview" ở `UC-05_Dashboard.md` UC-17 bước 3 (và nút "Bắt đầu Focus Session" đi kèm): hai nút đó là **lối ra** sang FS-01 / AE-01, và mọi thay đổi dữ liệu sau đó thuộc use case được gọi, không thuộc DB-02. Đúng như code: `ConceptDetailPanel.tsx` chỉ `navigate()` sang `/focus` và `/interview`, bản thân panel không gọi endpoint ghi nào.
+>
+> Cách đọc: DB-02 kết thúc **ngay tại thời điểm** sinh viên bấm một trong hai nút. Nếu sinh viên không bấm, post-condition read-only đúng tuyệt đối.

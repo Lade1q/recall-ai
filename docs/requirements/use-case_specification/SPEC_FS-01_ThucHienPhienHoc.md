@@ -29,7 +29,7 @@ Use case này mô tả quá trình Sinh viên thực hiện một phiên học t
 1. **Sinh viên** yêu cầu bắt đầu một phiên học mới từ giao diện ứng dụng (Dashboard hoặc màn hình chi tiết môn học).
 2. **Hệ thống** hiển thị màn hình thiết lập, yêu cầu Sinh viên chọn khái niệm (concept) cần ôn và cấu hình thời gian học (mặc định theo Pomodoro).
 3. **Sinh viên** chọn concept muốn học và xác nhận bắt đầu.
-4. **Hệ thống** hiển thị giao diện phiên học chính, bao gồm bộ đếm ngược thời gian (timer), khung hiển thị tài liệu gốc PDF (side-by-side) và công cụ ghi chú.
+4. **Hệ thống** hiển thị giao diện phiên học chính, gồm bộ đếm ngược thời gian (timer) và một thanh điều hướng mở hai panel bên cạnh timer: khung tài liệu gốc (FS-04) và công cụ ghi chú (FS-05). **Hai panel loại trừ nhau** — mở panel này thì panel kia tạm ẩn và được khôi phục nguyên trạng khi đóng, không mở đồng thời cả hai.
 5. **Sinh viên** nhấn nút "Bắt đầu" (Start).
 6. **Hệ thống** bắt đầu đếm ngược thời gian.
 7. **Sinh viên** xem tài liệu, học bài và nhập các ghi chú nhanh có liên kết với concept.
@@ -38,6 +38,10 @@ Use case này mô tả quá trình Sinh viên thực hiện một phiên học t
 10. **Hệ thống** lưu lại toàn bộ record (tổng thời gian, concept, ghi chú) và gửi thông tin cho SRE.
 11. **SRE (Actor)** tiếp nhận thông tin và cập nhật **thống kê học tập** của concept (tổng thời gian học, số phiên). Phiên học **không** sửa `mastery_score` — chỉ AI Examiner (AE-02) mới ghi `mastery_score` và `lastTestedAt`.
 12. **Hệ thống** hiển thị màn hình thông báo hoàn thành phiên học kèm theo kết quả tổng kết, và đưa ra các tùy chọn tiếp theo (ví dụ: nghỉ giải lao hoặc chuyển sang AI Examiner).
+
+> ⚠️ **Bước 4 & 7 KHÔNG bị hoãn (chốt 2026-08-11):** #128 (viết lúc lập kế hoạch Sprint 4) yêu cầu đánh dấu bước 4 và bước 7 là _deferred_ vì lúc đó FS-04/FS-05 dự kiến đẩy sang Sprint 5. **Sprint 4 đã làm xong cả hai** — FS-04 "Xem tài liệu gốc trong phiên" (#227) và FS-05 "Ghi chú nhanh trong phiên" (#228, có bảng `session_notes` + 4 endpoint `POST|GET|PATCH|DELETE /focus-sessions/:id/notes`). Vì vậy hai bước này **giữ nguyên là basic flow**, không gắn nhãn hoãn; gắn nhãn bây giờ mới là làm tài liệu lệch code. Điểm duy nhất cần sửa so với bản kế hoạch là câu chữ "side-by-side ... và công cụ ghi chú" ở bước 4 — thực tế hai panel loại trừ nhau, đã sửa ở trên.
+>
+> Kéo theo: post-condition "Các ghi chú nhanh ... được lưu trữ và liên kết đúng với các concept đã chọn" (§5) **là điều kiện đạt được ở Sprint 4**, không còn là điều kiện treo — `session_notes` có cột `concept_id` NOT NULL, cascade theo cả phiên lẫn khái niệm.
 
 ## 7. Alternative Flows
 

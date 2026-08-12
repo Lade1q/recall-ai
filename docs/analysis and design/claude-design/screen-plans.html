@@ -260,7 +260,16 @@
       color: var(--mastery-weak);
     }
 
-    /* Kế hoạch đang chờ phân tích: chưa mở được đồ thị, nên không giả vờ là thẻ bấm được */
+    /* "Chờ xác nhận" (job xong, plan vẫn draft) là một bước BÌNH THƯỜNG của luồng tạo kế
+       hoạch, KHÔNG phải lỗi — nên dùng tông trung tính (--muted), không token cảnh báo. Khớp
+       Badge tone="neutral" của code (bg-muted + muted-foreground). */
+    .pill--awaiting {
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+
+    /* Bản nháp — cả ba trạng thái (đang phân tích / chờ xác nhận / phân tích lỗi): chưa mở
+       thẳng đồ thị được nên viền đứt, không giả vờ là thẻ bấm được. */
     .plan--draft {
       border-style: dashed;
     }
@@ -433,7 +442,7 @@
         <div>
           <h1 class="page-title">Kế hoạch ôn tập</h1>
           <p>Nơi ở của mục menu cùng tên. Dashboard chỉ tóm tắt các kế hoạch đang hoạt động;
-            còn lưu trữ, xóa, kế hoạch đang chờ phân tích và hàng đợi ôn sửa được của từng kế
+            còn lưu trữ, xóa, kế hoạch nháp chưa xác nhận và hàng đợi ôn sửa được của từng kế
             hoạch thì nằm ở đây.</p>
         </div>
         <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
@@ -445,12 +454,15 @@
         </a>
       </div>
 
-      <!-- Ba tab = ba giá trị enum StudyPlanStatus (draft / active / archived) -->
+      <!-- Ba tab = ba giá trị enum StudyPlanStatus (draft / active / archived). Sau #265 tab
+           `draft` gom CẢ ba trạng thái con (đang phân tích / chờ xác nhận / phân tích lỗi) nên
+           nhãn là "Chưa xác nhận" chứ không còn "Đang phân tích". Tab rỗng (code PlansPage.tsx):
+           "Không có kế hoạch nào đang chờ xác nhận." -->
       <div class="filters" role="tablist" aria-label="Lọc theo trạng thái">
         <button type="button" role="tab" aria-selected="true">Đang hoạt động <span
             class="filters__n">3</span></button>
-        <button type="button" role="tab" aria-selected="false">Đang phân tích <span
-            class="filters__n">1</span></button>
+        <button type="button" role="tab" aria-selected="false">Chưa xác nhận <span
+            class="filters__n">2</span></button>
         <button type="button" role="tab" aria-selected="false">Đã lưu trữ <span class="filters__n">2</span></button>
       </div>
 
@@ -571,6 +583,41 @@
               border-bottom:1px solid var(--border);">Xem tiến trình</a>
           </div>
         </div>
+
+        <!--
+          Kế hoạch nháp đã phân tích XONG, đang chờ người dùng kiểm chứng đồ thị (bước cuối
+          SP-01). Sau #265 đây là trạng thái sống lâu & phổ biến nhất của một bản nháp vừa tạo —
+          KHÔNG phải lỗi (phân tích thành công), nên badge dùng tông trung tính, không token
+          cảnh báo. Trạng thái do latestJob quyết định, không do plan.status (isAnalysisInProgress()).
+        -->
+        <div class="card plan plan--draft">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+            <span class="pill pill--awaiting">Chờ xác nhận</span>
+            <!-- ⋯ của bản nháp CHỈ có "Xóa vĩnh viễn": server từ chối lưu trữ draft (#265), nên
+                 không mời "Lưu trữ" / "Phân tích lại" như thẻ đã xác nhận. Lối thoát: kiểm chứng
+                 (link dưới) hoặc xóa. -->
+            <button type="button" aria-label="Tuỳ chọn cho Cơ sở dữ liệu" style="background:none;
+              border:none; padding:2px; margin:-1px -4px 0 0; color:var(--muted-foreground);
+              cursor:pointer; line-height:0;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+              </svg>
+            </button>
+          </div>
+          <div class="plan__top" style="margin-top:9px;">
+            <h2>Cơ sở dữ liệu</h2>
+          </div>
+          <div class="plan__meta">CSDL-Chuong-3-Chuan-hoa.pdf · 34 trang · 22 khái niệm</div>
+          <p style="font-size:12.5px; line-height:1.65; color:var(--muted-foreground); margin:14px 0 0;">
+            AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.
+          </p>
+          <div class="plan__foot">
+            <!-- Bản thật trỏ /plan/:id/verify — route riêng của bước kiểm chứng (#274), KHÔNG
+                 phải ?mode=edit. Mockup tĩnh nên trỏ vào màn đồ thị. -->
+            <a href="screen-concept-graph.html" style="color:var(--foreground); text-decoration:none;
+              border-bottom:1px solid var(--border);">Kiểm chứng đồ thị</a>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -623,7 +670,9 @@
         </div>
         <p class="state__desc">
           SP-04 chưa có chỗ đứng nào trên giao diện cũ. Lưu trữ đặt trước xóa, và xóa tách riêng dưới
-          đường kẻ — hai thao tác khác hẳn nhau về hậu quả thì không nên nằm sát nhau.
+          đường kẻ — hai thao tác khác hẳn nhau về hậu quả thì không nên nằm sát nhau. Đây là menu của
+          kế hoạch <b>đã xác nhận</b> (active); bản nháp <b>chưa xác nhận</b> chỉ có &ldquo;Xóa vĩnh
+          viễn&rdquo; — server từ chối lưu trữ draft (#265).
         </p>
         <div class="state__demo" style="background:var(--muted);">
           <div class="menu" role="menu">

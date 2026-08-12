@@ -23,7 +23,7 @@
 | AM-02 | Đăng nhập                            | Student, Google OAuth | High     | ✅          |
 | AM-03 | Quản lý hồ sơ cá nhân                | Student               | Low      | ✅          |
 | AM-04 | Đăng xuất                            | Student               | Low      | ✅          |
-| AM-05 | Quên mật khẩu / Đặt lại mật khẩu     | Student               | Medium   | ✅          |
+| AM-05 | Quên mật khẩu / Đặt lại mật khẩu     | Student               | Medium   | ⚠️ POST-MVP |
 | AM-06 | Liên kết / Hủy liên kết Google OAuth | Student, Google OAuth | Low      | ⚠️ POST-MVP |
 
 ### MODULE 2: AI STUDY PLANNER - INGEST & MAP (SP)
@@ -43,15 +43,15 @@
 
 ### MODULE 3: FOCUS SESSION (FS)
 
-| ID    | Tên Use-case                                           | Actors                                   | Priority | MVP?          |
-| ----- | ------------------------------------------------------ | ---------------------------------------- | -------- | ------------- |
-| FS-01 | Bắt đầu phiên Focus Session                            | Student, Scheduling & Remediation Engine | **High** | ✅            |
-| FS-02 | Cấu hình phương pháp học (Pomodoro Settings)           | Student                                  | Medium   | ✅            |
-| FS-03 | Xem lịch sử phiên Focus Session                        | Student                                  | Medium   | ✅            |
-| FS-04 | Xem tài liệu gốc trong phiên học                       | Student                                  | Low      | ✅ Sprint 4-5 |
-| FS-05 | Ghi chú nhanh trong phiên học                          | Student                                  | Low      | ✅ Sprint 4-5 |
-| FS-06 | Xem gợi ý khái niệm từ Scheduling & Remediation Engine | Student, Scheduling & Remediation Engine | **High** | ✅            |
-| FS-07 | Xem thống kê học tập (Streak & Total Hours)            | Student                                  | Medium   | ✅ Sprint 5   |
+| ID    | Tên Use-case                                           | Actors                                   | Priority | MVP?        |
+| ----- | ------------------------------------------------------ | ---------------------------------------- | -------- | ----------- |
+| FS-01 | Bắt đầu phiên Focus Session                            | Student, Scheduling & Remediation Engine | **High** | ✅          |
+| FS-02 | Cấu hình phương pháp học (Pomodoro Settings)           | Student                                  | Medium   | ✅          |
+| FS-03 | Xem lịch sử phiên Focus Session                        | Student                                  | Medium   | ✅          |
+| FS-04 | Xem tài liệu gốc trong phiên học                       | Student                                  | Low      | ✅ Sprint 4 |
+| FS-05 | Ghi chú nhanh trong phiên học                          | Student                                  | Low      | ✅ Sprint 4 |
+| FS-06 | Xem gợi ý khái niệm từ Scheduling & Remediation Engine | Student, Scheduling & Remediation Engine | **High** | ✅          |
+| FS-07 | Xem thống kê học tập (Streak & Total Hours)            | Student                                  | Medium   | ✅ Sprint 5 |
 
 ### MODULE 4: AI EXAMINER - INTERVIEW (AE)
 
@@ -70,17 +70,26 @@
 
 ### MODULE 5: DASHBOARD & VISUALIZATION (DB)
 
-| ID    | Tên Use-case                                  | Actors                                   | Priority | MVP?          |
-| ----- | --------------------------------------------- | ---------------------------------------- | -------- | ------------- |
-| DB-01 | Xem Dashboard tổng quan                       | Student, Scheduling & Remediation Engine | **High** | ✅            |
-| DB-02 | Tương tác với Concept Graph Visualization     | Student                                  | **High** | ✅            |
-| DB-03 | Xem lịch sử phiên Interview                   | Student                                  | Medium   | ✅ Sprint 5   |
-| DB-04 | Nhận nhắc nhở ôn tập chủ động (Agentic)       | Scheduling & Remediation Engine, Student | **High** | ✅            |
-| DB-05 | Lọc / Tìm kiếm khái niệm trên đồ thị          | Student                                  | **High** | ✅            |
-| DB-06 | Xem chi tiết khái niệm (Concept Detail Panel) | Student                                  | **High** | ✅            |
-| DB-07 | Xem lịch & Deadline sắp tới (Calendar View)   | Student, Scheduling & Remediation Engine | Medium   | ✅ Sprint 4-5 |
-| DB-08 | Xem lịch sử phiên Focus Session               | Student                                  | Medium   | ✅ Sprint 5   |
-| DB-09 | Điều chỉnh gợi ý ôn tập (Dismiss / Snooze)    | Student                                  | Medium   | ✅ Sprint 5   |
+| ID    | Tên Use-case                                  | Actors                                   | Priority | MVP?        |
+| ----- | --------------------------------------------- | ---------------------------------------- | -------- | ----------- |
+| DB-01 | Xem Dashboard tổng quan                       | Student, Scheduling & Remediation Engine | **High** | ✅          |
+| DB-02 | Tương tác với Concept Graph Visualization     | Student                                  | **High** | ✅          |
+| DB-03 | Xem lịch sử phiên Interview                   | Student                                  | Medium   | ✅ Sprint 5 |
+| DB-04 | Nhận nhắc nhở ôn tập chủ động (Agentic)       | Scheduling & Remediation Engine, Student | **High** | ✅          |
+| DB-05 | Lọc / Tìm kiếm khái niệm trên đồ thị          | Student                                  | **High** | ✅          |
+| DB-06 | Xem chi tiết khái niệm (Concept Detail Panel) | Student                                  | **High** | ✅          |
+| DB-07 | Xem lịch & Deadline sắp tới (Calendar View)   | Student, Scheduling & Remediation Engine | Medium   | ⚠️ POST-MVP |
+| DB-08 | Xem lịch sử phiên Focus Session               | Student                                  | Medium   | ✅ Sprint 5 |
+| DB-09 | Điều chỉnh gợi ý ôn tập (Dismiss / Snooze)    | Student                                  | Medium   | ✅ Sprint 4 |
+
+> ⚠️ **Đã sửa nhãn sprint (chốt 2026-08-11):** ba UC dưới đây được gắn nhãn lúc lập kế hoạch rồi **làm xong sớm hơn dự kiến**, nhãn cũ không được cập nhật theo:
+>
+> - **FS-04** và **FS-05**: `✅ Sprint 4-5` → **`✅ Sprint 4`** (#227 và #228, cả hai đã đóng). FS-05 kèm bảng `session_notes` + 4 endpoint ghi chú.
+> - **DB-09**: `✅ Sprint 5` → **`✅ Sprint 4`** (#233 đã đóng).
+>
+> Và một dòng đi ngược lại — **DB-07**: `✅ Sprint 4-5` → **`⚠️ POST-MVP`**. #234 đã chốt **phương án A** cho MVP (PR #313, đã merge): gỡ hẳn liên kết "Xem lịch →" chết trên Dashboard thay vì dựng màn lịch. Không có issue nào được tạo cho màn lịch, nên DB-07 **nằm ngoài MVP**; nếu sau này làm thì đi theo phương án C — một màn riêng, cần issue riêng. Dữ liệu đã sẵn (`GET /plans` có `deadline`) nên hoãn không tốn gì. Quan hệ `<<extend>>` ở §3 đã đánh dấu theo.
+>
+> Các nhãn `Sprint 5` còn lại (SP-09, AE-04, AE-10, DB-03, DB-08, FS-07) **chưa kiểm** trong đợt này — đừng suy ra là đã xong chỉ vì bốn dòng trên đã đổi.
 
 ---
 
@@ -93,7 +102,7 @@
   MODULE ACCOUNT MANAGEMENT
 ═══════════════════════════════════════════════════════════
 AM-02 (Đăng nhập)
-  └── <<extend>> AM-05 (Quên mật khẩu) - khi click "Quên mật khẩu?"
+  └── <<extend>> AM-05 (Quên mật khẩu) - khi click "Quên mật khẩu?" - POST-MVP
 AM-03 (Quản lý hồ sơ)
   └── <<include>> AM-06 (Liên kết Google) - POST-MVP
 
@@ -155,7 +164,7 @@ AE-09 (Kết quả tổng hợp)
 DB-01 (Dashboard)
   ├── <<include>> DB-02 (mini Concept Graph)
   ├── <<include>> DB-04 (Gợi ý hôm nay từ Scheduling & Remediation Engine)
-  └── <<extend>> DB-07 (Deadline Calendar - khi click "Xem lịch")
+  └── <<extend>> DB-07 (Deadline Calendar - khi click "Xem lịch") - POST-MVP, liên kết đã gỡ (#234 phương án A)
 
 DB-02 (Concept Graph)
   ├── <<extend>> DB-05 (Lọc/Tìm kiếm - khi Student click filter)
@@ -211,11 +220,13 @@ DB-03 (Lịch sử Interview) ↔ [tabs với] DB-08 (Lịch sử Focus Session)
 AI Service chỉ được gọi với 4 JSON schema cố định:
 
 - `extract_concepts` → `{concepts[], edges[], language_detected}`
-- `generate_question` → `{question_text, question_type, concept_id}`
+- `generate_question` → `{question_text, question_type}`
 - `grade_answer` → `{score: 0.0-1.0, feedback, verdict: "deep|shallow|wrong"}`
 - `summarize_session` → `{summary_text, strengths[], weaknesses[], recommendations[]}`
 
 Mọi điều phối (khi nào dừng, khi nào traceback, khi nào fallback) = **logic phần mềm tất định**.
+
+> ⚠️ **Đã sửa shape `generate_question` (chốt 2026-08-11):** bỏ `concept_id` khỏi response. Bản cũ ghi `{question_text, question_type, concept_id}`, nhưng caller đã biết mình đang hỏi khái niệm nào — bắt AI trả lại `concept_id` là để AI xác nhận một dữ kiện của phần mềm, và nếu AI trả sai id thì phần mềm cũng phải bỏ qua. Shape đang chạy là `generateQuestionResponseSchema` trong `src/server/src/schemas/ai-interview.schema.ts`: đúng hai trường `question_text` + `question_type` (`recall|application|why`). Đây là **nguồn sự thật duy nhất** cho shape này; header `UC-04_AIExaminer.md` và mục 5 của `docs/analysis and design/gemini-api-research.md` đã sửa theo.
 
 ### 5.2 DAG Constraint
 
@@ -284,5 +295,12 @@ ALTER TABLE users ADD COLUMN pomodoro_config JSONB DEFAULT '{"work":25,"short_br
   nhập. Khi triển khai, cách xử lý là **silent merge theo email** (không làm UI liên kết/hủy). Ràng
   buộc `password_hash NOT NULL` **không đổi**: tài khoản tạo qua Google được đặt một mật khẩu ngẫu
   nhiên, nên không cần cho `password_hash` nhận NULL và mọi tài khoản đều luôn có mật khẩu.
+- **AM-05 (Quên mật khẩu / Đặt lại mật khẩu): hoãn POST-MVP** _(chốt 2026-08-11)_. Trước đây gắn nhãn
+  MVP ✅ nhưng chưa từng có gì đỡ: `UC-01_Account.md` không có luồng, `auth.routes.ts` không có
+  `/forgot-password` hay `/reset-password`, và lược đồ không có bảng lưu token đặt lại. Để làm được
+  cần **ba** thứ chưa ai lên lịch: bảng `password_reset_tokens` (token băm, `expires_at`, `used_at`),
+  hai route trên, và một kênh gửi email — hạng mục cuối là phụ thuộc ngoài, chưa chọn nhà cung cấp và
+  ngân sách SDP là 0đ. Trong MVP, việc đổi mật khẩu vẫn làm được qua AM-03 (Hồ sơ cá nhân) khi Student
+  còn đăng nhập được; AM-05 chỉ cần cho trường hợp **mất** quyền truy cập.
 - SP-10: Import kế hoạch từ file
 - ~~Voice Input (đề cập trong proposal nhưng không có UC chính thức)~~ → **SỬA:** Voice Input **có** UC chính thức (trong `Use-case_Specification.pdf` mục 2.3, nằm ở basic flow: TTS đọc câu hỏi, trả lời qua micro, STT). Sprint 4 chốt làm **luồng text trước**, tách tầng voice thành issue riêng (I6.9) — hoãn sang Sprint 5, không phải "ngoài MVP".

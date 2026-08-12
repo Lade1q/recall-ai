@@ -3,15 +3,297 @@
 Tất cả các API dưới đây có tiền tố `/api/v1/interviews` và yêu cầu xác thực người dùng qua
 Header `Authorization: Bearer <TOKEN>`.
 
-> Tài liệu này hiện mô tả endpoint **AE-09 (I6.5) — Kết quả tổng hợp cuối phiên** (§1), trường
-> **`sourceCitation`** dùng chung cho các endpoint hỏi–đáp (§2), và endpoint **kết thúc phiên
-> sớm** (§3). Bản đặc tả đầy đủ của các endpoint còn lại (`POST /`, `GET /:id`,
-> `POST /:id/answers`, `.../pause`, `.../resume` — I6.3/#115, AE-05/#116) sẽ được bổ sung khi
-> I9.2 (#128) tổng hợp toàn bộ API spec.
+> **Vòng đời một phiên (I6.3 / AE-01…AE-09):** `POST /` mở phiên → `GET /:id` dựng lại màn →
+> `POST /:id/answers` nộp trả lời & lấy bước kế → `pause` / `resume` → `GET /:id/summary` kết
+> quả cuối; `POST /:id/abandon` kết thúc sớm mà vẫn chấm phần đã làm. Trường **`sourceCitation`**
+> (C5) đi kèm mọi câu hỏi — đặc tả ở mục 7.
+>
+> **Mục lục:** 1. Bắt đầu phiên · 2. Lấy trạng thái + transcript · 3. Nộp trả lời ⭐ · 4. Tạm dừng · 5. Tiếp tục · 6. Kết quả tổng hợp · 7. `sourceCitation` · 8. Kết thúc sớm.
 
 ---
 
-### 1. Lấy Kết quả Tổng hợp của một Phiên (Get Session Summary)
+### 1. Bắt đầu / lấy lại phiên (Start Interview — AE-01)
+
+- **Endpoint:** `POST /api/v1/interviews`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Body:**
+
+  ```jsonc
+  {
+    "planId": "3fa85f64-...-uuid", // UUID, BẮT BUỘC
+    "conceptIds": ["b2d3e4f5-...-uuid"], // UUID[], 1–5 phần tử; BỎ TRỐNG = "chọn hộ tôi"
+    "maxTurnsPerConcept": 3, // int 1–3, tùy chọn (mặc định C6 = 3)
+  }
+  ```
+
+  - `conceptIds` vắng ⇒ service tự lấy top-K khái niệm từ đầu hàng đợi ôn (I7.3) của plan.
+  - Ràng buộc Zod: `planId` UUID; `conceptIds` mỗi phần tử UUID, `min(1)`, `max(5)`; `maxTurnsPerConcept` số nguyên `1..3`.
+
+- **Dùng để:** mở một phiên vấn đáp cho plan (AE-01). Nếu plan đã có phiên `active`/`paused` dở, endpoint **trả lại chính phiên đó** (`created = false`) thay vì tạo trùng — FE hiện dialog AE-03 để người dùng chọn _"tiếp tục"_ hay _"kết thúc & chấm phần đã làm"_.
+
+- **Ràng buộc quan trọng:**
+  - **Một plan chỉ một phiên chưa kết thúc.** Đã có phiên dở ⇒ `created = false` + trả session và câu hỏi đang chờ; muốn phiên mới thì FE gọi `POST /:id/abandon` rồi gọi lại endpoint này.
+  - `created = true` ⇒ HTTP **201 Created**; `created = false` (trả phiên cũ) ⇒ HTTP **200 OK**.
+  - Plan phải có tài liệu đã phân tích — plan không có material trả lỗi (xem #272).
+  - Câu hỏi đầu tiên sinh bằng lời gọi AI `generate_question` — **độ trễ dự kiến 10–20s**, FE nên đặt timeout ≥ 30s. AI lỗi **không** làm request thất bại: phiên vẫn mở, `fallback ≠ null` và client vào luồng flashcard (AE-05).
+
+- **Response thành công (HTTP 201 tạo mới · HTTP 200 trả phiên cũ):**
+
+  ```jsonc
+  {
+    "success": true,
+    "data": {
+      "created": true,
+      "session": {
+        "id": "7c9e6679-...-uuid",
+        "planId": "3fa85f64-...-uuid",
+        "status": "active",
+        "fallbackMode": false,
+        "startedAt": "2026-08-11T09:00:00.000Z",
+        "endedAt": null,
+        "currentConcept": { "id": "b2d3e4f5-...-uuid", "name": "Đạo hàm riêng" },
+        "progress": {
+          "conceptIndex": 0,
+          "conceptTotal": 3,
+          "completedConcepts": 0,
+          "turnIndex": 1,
+          "maxTurnsPerConcept": 3,
+        },
+      },
+      "question": {
+        "turnId": "5f1c2d3e-...-uuid",
+        "conceptId": "b2d3e4f5-...-uuid",
+        "conceptName": "Đạo hàm riêng",
+        "turnIndex": 1,
+        "questionText": "Đạo hàm riêng của f theo x nghĩa là gì?",
+        "questionType": "recall",
+        "source": "ai",
+        "sourceCitation": {
+          "documentId": "...",
+          "filename": "giai-tich.pdf",
+          "kind": "pdf",
+          "pageFrom": 7,
+          "pageTo": 7,
+        },
+      },
+      "message": null,
+      "fallback": null,
+    },
+  }
+  ```
+
+  - `created = false`: `message` mang gợi ý _"Đang tiếp tục phiên chưa kết thúc…"_; `question` là câu đang chờ của phiên cũ.
+  - `fallback ≠ null` (vd `reason: "question_unavailable"`): AI lỗi lúc sinh câu đầu — phiên vẫn `active`, `session.fallbackMode` có thể đã bật, FE vào luồng flashcard.
+
+- **Response lỗi:** `400 VALIDATION_ERROR` (body sai schema) · `404 NOT_FOUND` (plan không tồn tại/không thuộc user) · `NO_MATERIAL` (plan chưa có tài liệu — #272).
+
+- **Liên quan:** [`interview.service.ts`](../../src/server/src/services/interview.service.ts) `startInterview()`; [`scheduling.service.ts`](../../src/server/src/services/scheduling.service.ts) (chọn hộ khái niệm khi `conceptIds` vắng).
+
+---
+
+### 2. Lấy trạng thái phiên + transcript (Get Interview)
+
+- **Endpoint:** `GET /api/v1/interviews/:id`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Path params:** `id` (UUID, required) — id của `InterviewSession`.
+- **Dùng để:** FE dựng lại màn phỏng vấn (I6.6) — câu hỏi đang chờ, tiến độ, và toàn bộ transcript. Là **nguồn chân lý** khi client không chắc trạng thái (vd sau reload, sau double-click `/answers` bị `replayed`).
+- **Ràng buộc quan trọng:**
+  - `currentQuestion = null` khi phiên đã kết thúc (`completed`/`abandoned`) hoặc đang chờ AI sinh câu.
+  - `turns` là transcript đầy đủ, cũ → mới, tối đa **5 khái niệm × 3 lượt**. Lượt đã trả lời mang điểm/verdict; lượt trong fallback có `source = "cache_fallback"`.
+  - `fallback ≠ null` khi phiên đang ở chế độ flashcard (AE-05).
+
+- **Response thành công (HTTP 200 OK):**
+
+  ```jsonc
+  {
+    "success": true,
+    "data": {
+      "session": {/* InterviewSessionState — xem mục 1 */},
+      "currentQuestion": {/* InterviewQuestionResponse hoặc null — xem mục 1 */},
+      "turns": [
+        {
+          "id": "...",
+          "conceptId": "...",
+          "conceptName": "Đạo hàm riêng",
+          "turnIndex": 1,
+          "questionText": "...",
+          "questionType": "recall",
+          "answerText": "Là tốc độ thay đổi của f theo x khi giữ biến khác cố định",
+          "score": 0.7,
+          "feedback": "Đúng ý chính, thiếu điều kiện giữ biến khác cố định.",
+          "verdict": "shallow",
+          "askedAt": "...",
+          "answeredAt": "...",
+          "sourceCitation": {
+            "documentId": "...",
+            "filename": "giai-tich.pdf",
+            "kind": "pdf",
+            "pageFrom": 7,
+            "pageTo": 7,
+          },
+        },
+      ],
+      "fallback": null,
+    },
+  }
+  ```
+
+- **Response lỗi:** `404 NOT_FOUND` (phiên không tồn tại/không thuộc user).
+
+- **Liên quan:** [`interview.service.ts`](../../src/server/src/services/interview.service.ts) `getInterview()` / `buildView()`.
+
+---
+
+### 3. Nộp câu trả lời và lấy bước kế tiếp (Submit Answer) ⭐
+
+- **Endpoint:** `POST /api/v1/interviews/:id/answers`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Path params:** `id` (UUID, required).
+- **Body — HAI chế độ chấm (không được gửi cả hai, schema `.strict()`):**
+
+  ```jsonc
+  // (A) Chế độ AI chấm — mặc định
+  { "answerText": "..." }               // string, 1–5000 ký tự
+
+  // (B) Chế độ tự chấm — chỉ dùng trong flashcard fallback (AE-05)
+  { "selfGrade": "correct" }            // enum: correct | partial | wrong
+  ```
+
+- **Dùng để:** ghi câu trả lời cho câu hỏi đang chờ, chấm điểm, và trả về **bước tiếp theo** của máy trạng thái phỏng vấn (I6.3). Đây là endpoint phức tạp nhất — FE đọc kỹ nhất.
+
+- **Ràng buộc quan trọng:**
+  - Chế độ (A) gọi AI `grade_answer` — **độ trễ 10–20s**, FE đặt timeout ≥ 30s. AI lỗi ⇒ **không** fail: trả `grading = null`, `fallback = { reason: "grading_unavailable" }`, phiên bật `fallbackMode`.
+  - Chế độ (B) `selfGrade` dùng khi phiên **đã** ở fallback: không gọi AI, `grading.feedback = null` (không có nhận xét AI).
+  - **C6:** tối đa 3 lượt/khái niệm. `decideNextStep` (AI) / `resolveFallbackStep` (flashcard) quyết định lượt kế / kết thúc khái niệm.
+  - **`replayed = true`:** gọi lại trên câu đã chấm (double-click/retry) — trả lại kết quả đã lưu, **không tạo lượt 2**. Coi `nextQuestion` ở đây là _gợi ý_ và lấy `GET /interviews/:id` làm chuẩn.
+  - Kết thúc khái niệm ⇒ `conceptCompleted ≠ null` (đi qua `finalizeConceptResult` I7.2: ghi `mastery_score`, xếp lịch ôn, chạy truy ngược AE-07).
+
+- **BỐN loại response — phân biệt bằng tổ hợp field (FE nhìn field, không đoán):**
+
+  | Trạng thái                            | `grading` | `conceptCompleted`      | `nextQuestion`                | `sessionCompleted`        |
+  | ------------------------------------- | --------- | ----------------------- | ----------------------------- | ------------------------- |
+  | **Còn lượt tiếp** (cùng khái niệm)    | ≠ null    | `null`                  | ≠ null (turnIndex+1)          | `false`                   |
+  | **Hết khái niệm** (sang khái niệm kế) | ≠ null    | ≠ null                  | ≠ null (câu ĐẦU khái niệm kế) | `false`                   |
+  | **Hết phiên**                         | ≠ null    | ≠ null (khái niệm cuối) | `null`                        | `true`                    |
+  | **Fallback** (AI lỗi)                 | `null`    | (tùy)                   | (tùy)                         | (tùy) + `fallback ≠ null` |
+
+  ```jsonc
+  // (1) CÒN LƯỢT TIẾP
+  {
+    "success": true,
+    "data": {
+      "session": { /* ... status: "active" ... */ },
+      "grading": { "score": 0.7, "feedback": "Đúng ý chính, thiếu…", "verdict": "shallow" },
+      "gradedTurnId": "5f1c2d3e-...-uuid",
+      "nextQuestion": { /* cùng conceptId, turnIndex: 2 */ },
+      "conceptCompleted": null,
+      "sessionCompleted": false,
+      "replayed": false,
+      "fallback": null
+    }
+  }
+
+  // (2) HẾT KHÁI NIỆM — nextQuestion là câu đầu của khái niệm KẾ
+  {
+    "success": true,
+    "data": {
+      "session": { /* progress.completedConcepts +1 */ },
+      "grading": { "score": 0.85, "feedback": "…", "verdict": "deep" },
+      "gradedTurnId": "...",
+      "conceptCompleted": {
+        "conceptId": "b2d3e4f5-...", "conceptName": "Đạo hàm riêng",
+        "masteryScore": 0.78, "reviewInDays": 5, "scheduledFor": "2026-08-16T...",
+        "prerequisites": [
+          { "conceptId": "c4e5...", "name": "Giới hạn hàm số", "depth": 1, "reason": "weak_prerequisite", "masteryScore": 0.4 }
+        ],
+        "tracebackSkipReason": null
+      },
+      "nextQuestion": { "conceptId": "<khái niệm kế>", "turnIndex": 1, "...": "..." },
+      "sessionCompleted": false,
+      "replayed": false,
+      "fallback": null
+    }
+  }
+
+  // (3) HẾT PHIÊN — nextQuestion null, sessionCompleted true
+  {
+    "success": true,
+    "data": {
+      "session": { /* status: "completed", endedAt ≠ null, currentConcept: null */ },
+      "grading": { "score": 0.5, "feedback": "…", "verdict": "shallow" },
+      "gradedTurnId": "...",
+      "conceptCompleted": { /* khái niệm cuối, prerequisites có thể rỗng */ },
+      "nextQuestion": null,
+      "sessionCompleted": true,
+      "replayed": false,
+      "fallback": null
+    }
+  }
+
+  // (4) FALLBACK — AI chấm không khả dụng
+  {
+    "success": true,
+    "data": {
+      "session": { /* fallbackMode: true */ },
+      "grading": null,
+      "gradedTurnId": "...",
+      "nextQuestion": { "source": "cache_fallback", "...": "..." },   // hoặc null nếu hết
+      "conceptCompleted": null,
+      "sessionCompleted": false,
+      "replayed": false,
+      "fallback": { "reason": "grading_unavailable", "message": "Không chấm được câu trả lời lúc này — chuyển sang chế độ ôn nhanh." }
+    }
+  }
+  ```
+
+  - `fallback.reason`: `grading_unavailable` (chấm lỗi) · `question_unavailable` (sinh câu lỗi) · `no_cached_questions` (fallback cần câu cache nhưng không có — UC-12 E1, phiên tự đóng `completed`).
+  - `conceptCompleted.tracebackSkipReason ≠ null` (vd `"mastered"`) ⇒ không truy ngược tiên quyết nào; `null` ⇒ truy ngược đã chạy.
+
+- **Response lỗi:** `400 VALIDATION_ERROR` (body không phải `{answerText}` hay `{selfGrade}` hợp lệ, hoặc lẫn cả hai) · `404 NOT_FOUND` · `409` (phiên đã kết thúc, không còn câu chờ).
+
+- **Liên quan:** [`interview.service.ts`](../../src/server/src/services/interview.service.ts) `submitAnswer()` · `decideNextStep()` (AI) / `resolveFallbackStep()` (flashcard); [`concept-result.service.ts`](../../src/server/src/services/concept-result.service.ts) `finalizeConceptResult()` (I7.2).
+
+---
+
+### 4. Tạm dừng phiên (Pause Interview)
+
+- **Endpoint:** `POST /api/v1/interviews/:id/pause`
+- **Xác thực:** ✅ Yêu cầu Bearer Token · **Path params:** `id` (UUID).
+- **Body:** _không có._
+- **Dùng để:** chuyển phiên `active → paused` (AE-04) — người dùng rời giữa chừng, câu đang chờ được giữ nguyên.
+- **Ràng buộc:** chỉ phiên `active` mới pause được; gọi trên phiên `paused` là no-op trả trạng thái hiện tại; phiên đã kết thúc ⇒ `409`. Không gọi AI.
+- **Response thành công (HTTP 200):** `{ "success": true, "data": { "session": { /* status: "paused" */ } } }`
+- **Response lỗi:** `404 NOT_FOUND` · `409` (phiên đã `completed`/`abandoned`).
+- **Liên quan:** [`interview.service.ts`](../../src/server/src/services/interview.service.ts) `pauseInterview()`.
+
+---
+
+### 5. Tiếp tục phiên (Resume Interview)
+
+- **Endpoint:** `POST /api/v1/interviews/:id/resume`
+- **Xác thực:** ✅ Yêu cầu Bearer Token · **Path params:** `id` (UUID).
+- **Body:** _không có._
+- **Dùng để:** chuyển `paused → active` và trả lại câu hỏi đang chờ để FE dựng lại màn.
+- **Ràng buộc:** phiên `active` sẵn ⇒ no-op trả câu hiện tại; phiên đã kết thúc ⇒ `409`. `fallback ≠ null` nếu phiên đang ở chế độ flashcard.
+- **Response thành công (HTTP 200):**
+
+  ```jsonc
+  {
+    "success": true,
+    "data": {
+      "session": {/* status: "active" */},
+      "currentQuestion": {/* InterviewQuestionResponse hoặc null */},
+      "fallback": null,
+    },
+  }
+  ```
+
+- **Response lỗi:** `404 NOT_FOUND` · `409` (phiên đã kết thúc).
+- **Liên quan:** [`interview.service.ts`](../../src/server/src/services/interview.service.ts) `resumeInterview()`.
+
+---
+
+### 6. Lấy Kết quả Tổng hợp của một Phiên (Get Session Summary)
 
 - **Endpoint:** `GET /api/v1/interviews/:id/summary`
 - **Xác thực:** ✅ Yêu cầu Bearer Token
@@ -146,11 +428,11 @@ Header `Authorization: Bearer <TOKEN>`.
 
 ---
 
-### 2. Neo nguồn trích dẫn của câu hỏi (`sourceCitation` — C5)
+### 7. Neo nguồn trích dẫn của câu hỏi (`sourceCitation` — C5)
 
 > Mô tả **một trường dùng chung**, không phải một endpoint. Ba endpoint mang nó — `POST /`
 > (`question`), `GET /:id` (`currentQuestion` và từng phần tử của `turns`), `POST /:id/answers`
-> (`nextQuestion`) — sẽ được đặc tả đầy đủ ở I9.2 (#128).
+> (`nextQuestion`) — đã đặc tả ở mục 1, 2, 3.
 
 - **Dùng để:** đóng ràng buộc cứng **C5 ("AI không bịa")** ngay trên màn phỏng vấn (I6.6) —
   dưới mỗi câu hỏi, sinh viên thấy được câu hỏi đó hỏi về khái niệm lấy ra từ **tài liệu nào,
@@ -221,7 +503,7 @@ Header `Authorization: Bearer <TOKEN>`.
 
 ---
 
-### 3. Kết thúc phiên sớm và chấm phần đã làm (Abandon Session)
+### 8. Kết thúc phiên sớm và chấm phần đã làm (Abandon Session)
 
 - **Endpoint:** `POST /api/v1/interviews/:id/abandon`
 - **Xác thực:** ✅ Yêu cầu Bearer Token

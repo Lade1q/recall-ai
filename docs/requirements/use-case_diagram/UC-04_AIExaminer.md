@@ -5,7 +5,7 @@
 > **DB liên quan:** `interview_sessions`, `interview_turns`, `concepts` (cập nhật `mastery_score`)
 > **AI calls:**
 >
-> - `generate_question` → trả về `{question_text, concept_id, question_type}`
+> - `generate_question` → trả về `{question_text, question_type}` — **không** có `concept_id`, xem `UC-Overview.md` §5.1
 > - `grade_answer` → trả về `{score: 0.0-1.0, feedback: string, verdict: "deep"|"shallow"|"wrong"}`
 
 ---

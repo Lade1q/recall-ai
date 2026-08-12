@@ -1,0 +1,82 @@
+{
+  "_note": "Fixture spike S0 — chép tay CHỈ cho spike (production sinh checkpoint qua extract_concepts / INV-1). Phục vụ ② (materialSlice → câu hỏi) và ③ (checkpoints → record_evidence: liveness + checkpointId accuracy + INV-2). Validate bởi Quân 10/08.",
+  "conceptId": "ipv4-classful",
+  "conceptName": "Địa chỉ IP Classful (phân lớp A–E)",
+  "source": {
+    "file": "CTT105-2-IP&subnetting_2.0.pdf",
+    "pages": "13-18",
+    "course": "CTT105 Mạng máy tính — Khoa CNTT, ĐH KHTN TP.HCM"
+  },
+  "materialSlice": "Địa chỉ IPv4 theo mô hình phân lớp (classful) chia không gian địa chỉ thành năm lớp A, B, C, D, E, xác định bằng các bit đầu của octet thứ nhất. Lớp A bắt đầu bằng bit 0 (octet đầu 1–126), dùng 1 byte cho NetID và 3 byte cho HostID. Lớp B bắt đầu bằng 10 (octet đầu 128–191), NetID 2 byte, HostID 2 byte. Lớp C bắt đầu bằng 110 (octet đầu 192–223), NetID 3 byte, HostID 1 byte. Lớp D bắt đầu bằng 1110 (224–239) dành cho địa chỉ multicast. Lớp E bắt đầu bằng 1111 (240–255) được dự phòng cho tương lai.\n\nTrong một đường mạng, địa chỉ đường mạng (net address) giữ nguyên các bit NetID và đặt toàn bộ bit HostID về 0; địa chỉ broadcast giữ nguyên NetID và bật toàn bộ bit HostID lên 1. Hai host có cùng địa chỉ đường mạng thì thuộc cùng một đường mạng. Số địa chỉ host hợp lệ trong một đường mạng là 2^m − 2, với m là số bit của phần HostID; trừ 2 vì địa chỉ đường mạng và địa chỉ broadcast không cấp cho host.\n\nVí dụ 172.29.7.10 thuộc lớp B: địa chỉ đường mạng là 172.29.0.0, địa chỉ broadcast là 172.29.255.255, số host là 2^16 − 2, dải địa chỉ dùng được từ 172.29.0.1 đến 172.29.255.254. Các dải private gồm 10.0.0.0/8 (lớp A), 172.16.0.0–172.31.255.255 (lớp B), 192.168.0.0–192.168.255.255 (lớp C); dải loopback là 127.0.0.0–127.255.255.255.",
+  "checkpoints": [
+    {
+      "id": "cp_1",
+      "order": 1,
+      "claim": "Lớp xác định bằng bit đầu octet 1: 0→A, 10→B, 110→C, 1110→D, 1111→E."
+    },
+    {
+      "id": "cp_2",
+      "order": 2,
+      "claim": "Dải octet đầu: A 1–126 · B 128–191 · C 192–223 · D 224–239 · E 240–255."
+    },
+    { "id": "cp_3", "order": 3, "claim": "Số byte NetID/HostID: A = 1/3 · B = 2/2 · C = 3/1." },
+    {
+      "id": "cp_4",
+      "order": 4,
+      "claim": "Địa chỉ đường mạng: giữ nguyên NetID, toàn bộ bit HostID = 0."
+    },
+    {
+      "id": "cp_5",
+      "order": 5,
+      "claim": "Địa chỉ broadcast: giữ nguyên NetID, toàn bộ bit HostID = 1."
+    },
+    {
+      "id": "cp_6",
+      "order": 6,
+      "claim": "Hai host cùng địa chỉ đường mạng thì thuộc cùng một đường mạng."
+    },
+    {
+      "id": "cp_7",
+      "order": 7,
+      "claim": "Số host hợp lệ = 2^m − 2 (m = số bit HostID); trừ 2 vì loại net address và broadcast."
+    },
+    {
+      "id": "cp_8",
+      "order": 8,
+      "claim": "172.29.7.10 (lớp B): net 172.29.0.0 · broadcast 172.29.255.255 · dải host 172.29.0.1–172.29.255.254."
+    },
+    {
+      "id": "cp_9",
+      "order": 9,
+      "claim": "Lớp D dùng cho multicast; lớp E dự phòng, không cấp cho host thường."
+    },
+    {
+      "id": "cp_10",
+      "order": 10,
+      "claim": "Private: A 10.0.0.0/8 · B 172.16.0.0–172.31.255.255 · C 192.168.0.0/16; loopback 127.0.0.0/8."
+    }
+  ],
+  "probes": [
+    {
+      "id": "covered_control",
+      "targetCheckpoint": "cp_1",
+      "studentUtterance": "Nhìn bit đầu là biết lớp: 0 là A, 10 là B, 110 là C.",
+      "expect": "record_evidence(cp_1, covered)",
+      "purpose": "Positive control — bắn đúng khi sinh viên trả lời đúng."
+    },
+    {
+      "id": "contradicted_control",
+      "targetCheckpoint": "cp_2",
+      "studentUtterance": "Lớp B thì octet đầu chạy từ 192 tới 223.",
+      "expect": "record_evidence(cp_2, contradicted)",
+      "purpose": "Positive control — 192–223 là dải lớp C ⇒ hiểu-sai rõ, model phải bắn contradicted."
+    },
+    {
+      "id": "inv2_incomplete",
+      "targetCheckpoint": "cp_7",
+      "studentUtterance": "Số host á… 2 mũ m gì đó, mà tôi quên phải trừ mấy rồi…",
+      "expect": "NONE (no record_evidence) → not_discussed",
+      "purpose": "INV-2 — dở dang/ngập ngừng KHÔNG phải hiểu-sai; model phải im, không bắn contradicted."
+    }
+  ]
+}

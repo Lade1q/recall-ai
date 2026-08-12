@@ -1,9 +1,11 @@
 const mockCreate = jest.fn();
+const mockUpload = jest.fn();
+const mockGet = jest.fn();
 
 jest.mock('@google/genai', () => ({
   GoogleGenAI: jest.fn().mockImplementation(() => ({
     interactions: { create: mockCreate },
-    files: { upload: jest.fn(), get: jest.fn() },
+    files: { upload: mockUpload, get: mockGet },
   })),
 }));
 
@@ -11,6 +13,8 @@ import {
   generateQuestion,
   gradeAnswer,
   summarizeSession,
+  uploadFile,
+  GEMINI_TIMEOUT_MS,
   AiMaterial,
 } from '../services/gemini.service';
 import { AppError } from '../middleware/errorHandler';
@@ -47,6 +51,8 @@ describe('AI Examiner Gemini calls', () => {
 
   beforeEach(() => {
     mockCreate.mockReset();
+    mockUpload.mockReset();
+    mockGet.mockReset();
     process.env.USE_MOCK_AI = 'false';
   });
 
@@ -95,6 +101,28 @@ describe('AI Examiner Gemini calls', () => {
         code: 'AI_UNAVAILABLE',
       });
       expect(mockCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it('times out instead of hanging forever, and reports it as AI_UNAVAILABLE', async () => {
+      jest.useFakeTimers();
+      try {
+        mockCreate.mockImplementation(() => new Promise(() => {})); // never resolves
+
+        // Attach the rejection assertion before advancing timers, so the eventual reject
+        // always has a handler already in place (an attach-after-reject window here would
+        // surface as a Node unhandledRejection and fail the test even though this passes).
+        const pending = expect(generateQuestion(QUESTION_PARAMS)).rejects.toMatchObject({
+          code: 'AI_UNAVAILABLE',
+        });
+        // 2 attempts, each bounded by GEMINI_TIMEOUT_MS — advance past both.
+        await jest.advanceTimersByTimeAsync(GEMINI_TIMEOUT_MS * 2);
+        await pending;
+
+        expect(mockCreate).toHaveBeenCalledTimes(2);
+      } finally {
+        // In a `finally` so a failed assertion above can't leak fake timers into later tests.
+        jest.useRealTimers();
+      }
     });
 
     it('passes the concept and mode steer in the prompt without asking the AI to route (C4)', async () => {
@@ -241,6 +269,30 @@ describe('AI Examiner Gemini calls', () => {
       expect(result.strengths).toEqual(['Stack']);
       expect(result.weaknesses).toEqual(['Recursion']);
       expect(mockCreate).not.toHaveBeenCalled();
+    });
+  });
+
+  // The interview file path (loadMaterial → uploadFile) is gated by `isAiFailure`, which only
+  // recognises AppErrors coded `AI_*`. This proves a hung upload surfaces as such an error, so a
+  // Gemini File API hang on the first turn of a PDF/image plan degrades to the AE-05 flashcard
+  // fallback instead of a bare 500 — the interview counterpart of the callStructured case above.
+  describe('uploadFile', () => {
+    it('bounds a hung upload and surfaces it as an AI_TIMEOUT error (degrades to AE-05)', async () => {
+      jest.useFakeTimers();
+      try {
+        mockUpload.mockImplementation(() => new Promise(() => {})); // never resolves
+
+        // Attach before advancing so the eventual reject always has a handler in place.
+        const pending = expect(
+          uploadFile('/tmp/material.pdf', 'application/pdf')
+        ).rejects.toMatchObject({ code: 'AI_TIMEOUT', statusCode: 504 });
+        await jest.advanceTimersByTimeAsync(GEMINI_TIMEOUT_MS + 1);
+        await pending;
+
+        expect(mockUpload).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
   });
 });

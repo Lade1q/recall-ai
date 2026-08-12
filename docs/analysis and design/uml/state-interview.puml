@@ -1,0 +1,38 @@
+@startuml RecallAI-Interview-StateMachine
+!pragma layout smetana
+' SAD Section 4.x — AI Examiner state machine (AI mode + Flashcard fallback).
+' Issue #128 / I9.2 (Sprint-4 addition), feeds #84 / I5.1.
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam state {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Interview State Machine (AI mode + Flashcard fallback)
+
+[*] --> AwaitingAnswer : POST /interviews\n(generate_question)
+
+AwaitingAnswer --> Grading : POST /:id/answers
+note right of Grading
+  AI mode  : grade_answer (answerText)
+  Fallback : self-grade   (selfGrade)
+end note
+
+Grading --> DecideNextStep : score + verdict recorded
+
+state DecideNextStep <<choice>>
+DecideNextStep --> AwaitingAnswer : more turns\n(turnIndex < C6, unresolved)\n-> next question
+DecideNextStep --> ConceptDone : concept ends\n(C6 reached / decided)
+
+ConceptDone --> NextConcept : finalizeConceptResult\n(mastery, schedule, AE-07 traceback)
+NextConcept --> AwaitingAnswer : queue has more concepts\n-> first question of next
+NextConcept --> SessionComplete : queue empty
+SessionComplete --> [*] : summarize_session\n-> GET /:id/summary
+
+AwaitingAnswer --> Paused : POST /:id/pause
+Paused --> AwaitingAnswer : POST /:id/resume
+
+Grading --> Fallback : any Gemini call fails
+Fallback --> AwaitingAnswer : fallbackMode = true\n(cached question, self-grade)
+
+@enduml

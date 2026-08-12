@@ -27,6 +27,7 @@ import type {
   PomodoroConfig,
 } from '@/features/focus/types/focus.types';
 import { cyclesToWords, formatClock, formatMinutesPhrase } from '@/features/focus/utils/format';
+import { sessionLockName } from '@/features/focus/utils/sessionLock';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import type { ReviewQueueItem } from '@/features/review-queue/types/review-queue.types';
 
@@ -50,12 +51,6 @@ const DEFAULT_CONFIG: PomodoroConfig = {
 };
 
 const STRICT_MODE_KEY = 'recall.focusStrictMode';
-
-/** M3 — tên khoá liveness Web Locks của một phiên. Tab đang chạy phiên giữ khoá này suốt vòng
- *  đời (RunningSession); tab khác dùng `locks.query()` (CHỈ ĐỌC bảng khoá) để biết phiên còn sống
- *  hay không. KHÔNG dò bằng `request({ifAvailable})`: chiếm-để-dò tự tạo trạng thái giữ tạm khiến
- *  prober khác soi nhầm (và đua với chính mình dưới React StrictMode) — xem chú thích ở prober. */
-const sessionLockName = (sessionId: string) => `recall.focus.session.${sessionId}`;
 
 type EntryBranch =
   | { kind: 'has-item'; item: ReviewQueueItem }
@@ -195,11 +190,13 @@ export default function FocusPage() {
   const [resumeSnapshot, setResumeSnapshot] = useState<FocusSessionSnapshot | null>(null);
   const [isResumeSubmitting, setIsResumeSubmitting] = useState(false);
 
-  // Phát hiện phiên gián đoạn ở mount. Chỉ SET, không bao giờ clear, nên `user` quay `null` giữa
-  // chừng (auth:logout) làm effect chạy lại cũng KHÔNG vứt nhầm snapshot đang hiện (④). StrictMode
-  // chạy đôi vô hại (`cancelled` + chỉ đọc localStorage). Đặt trong effect (không lazy initializer)
-  // vì liveness M3 là bất đồng bộ — và mọi `setResumeSnapshot` ở đây đều trong callback async nên
-  // `react-hooks/set-state-in-effect` không chặn.
+  // Phát hiện phiên gián đoạn ở mount, và (#311) dọn hàng orphan của phiên quá ngắn để mời.
+  // `setResumeSnapshot` chỉ SET, không bao giờ clear, nên `user` quay `null` giữa chừng
+  // (auth:logout) làm effect chạy lại cũng KHÔNG vứt nhầm snapshot đang hiện (④). Chạy lại nhiều
+  // lần vô hại: `cancelled` chặn setState, còn khoá `ifAvailable` chặn PATCH dọn trùng (chỉ một
+  // lần chiếm được khoá). Đặt trong effect (không lazy initializer) vì liveness M3 là bất đồng bộ
+  // — và mọi `setResumeSnapshot` ở đây đều trong callback async nên `react-hooks/set-state-in-effect`
+  // không chặn.
   useEffect(() => {
     if (!user) return; // chưa biết chủ thì chưa quyết (thực tế luôn có user dưới ProtectedRoute)
     const snapshot = readFocusSessionSnapshot();
@@ -209,15 +206,61 @@ export default function FocusPage() {
     // chủ. Không xoá localStorage, chỉ lờ đi: chủ kia đăng nhập lại vẫn còn phiên.
     if (snapshot.userId && snapshot.userId !== user.id) return;
     // L4 — snapshot ghi ngay t=0 lúc phiên bắt đầu; nếu tab đóng trong ~phút đầu thì thời gian tập
-    // trung làm tròn ra 0 phút, mời "Ghi nhận 0 phút" là vô nghĩa. Dưới 1 phút thì không mời (cũng
-    // không xoá — phiên mới sẽ đè). `formatMinutesPhrase` của hộp thoại tính theo PHÚT nên đây là
-    // đúng ngưỡng nó bắt đầu hiển thị được một con số khác 0.
-    if (Math.floor(snapshot.focusedMs / 1000) < 60) return;
+    // trung làm tròn ra 0 phút, mời "Ghi nhận 0 phút" là vô nghĩa. Dưới 1 phút thì KHÔNG mời.
+    // `formatMinutesPhrase` của hộp thoại tính theo PHÚT nên đây là đúng ngưỡng nó bắt đầu hiển
+    // thị được một con số khác 0. Đây CHỈ là ngưỡng của việc MỜI khôi phục — không còn là lối
+    // thoát sớm của cả effect nữa (xem `discardOrphan`, #311).
+    const isTooShortToOffer = Math.floor(snapshot.focusedMs / 1000) < 60;
 
     let cancelled = false;
     const offer = () => {
       if (!cancelled) setResumeSnapshot(snapshot);
     };
+
+    /**
+     * #311 — Phiên dưới 1 phút bị reload: UX vẫn là KHÔNG mời khôi phục (L4 ở trên), nhưng hàng
+     * `focus_sessions` ở server thì vẫn `status=running, ended_at=null` cho tới lượt
+     * `reapStaleSessions()` sau 8 GIỜ. Trước đây effect `return` ngay ở ngưỡng 60s nên không ai
+     * đóng hàng đó — đúng lỗi QA TC-FS-024 đo được. Ở đây đóng luôn bằng `cancelled`: chính
+     * `status === 'cancelled'` ép `durationMinutes = 0` ở server (Alt flow 4) BẤT KỂ số giây gửi
+     * lên, nên KHÔNG ghi mastery hay lịch ôn — hủy phiên không có tác dụng phụ nào ngoài đóng hàng.
+     *
+     * Gửi `focusedSeconds` THẬT (không phải 0): server vẫn lưu nguyên trường này để giữ số liệu
+     * thô, khớp cách đường hủy thủ công (`RunningSession.finalizeSession('cancelled')` qua
+     * `getFinalStats()`) ghi trường đó. Chỉ RIÊNG `focusedSeconds` là khớp — lối này CỐ Ý không
+     * gửi `awayCount`/`pomodorosCompleted` (server mặc định 0), nên `away_count` có thể lệch với
+     * một phiên hủy tay từng rời tab; chấp nhận được vì phiên đã bị hủy, không tính vào lịch sử.
+     * `focusedSeconds` luôn ≤ elapsed thật (thời gian tập trung không thể vượt wall-clock) nên qua
+     * được validator `focusedSeconds ≤ elapsedSeconds` của server.
+     *
+     * Trả về promise để người gọi GIỮ được khoá liveness suốt lúc PATCH (xem chỗ gọi) — chống
+     * gọi trùng nằm ở CHÍNH cái khoá đó, không phải ở một cờ riêng. Fire-and-forget với người
+     * dùng: màn setup do effect entry phía dưới dựng độc lập, không ai phải đợi request dọn dẹp
+     * này mới thấy màn hình.
+     */
+    // Chỉ xoá snapshot nếu nó VẪN là của phiên mình vừa dọn. PATCH dọn bay bất đồng bộ; nếu trong
+    // lúc đó user bấm "Bắt đầu" một phiên MỚI, `localStorage` đã mang snapshot của phiên mới —
+    // xoá vô điều kiện ở đây sẽ vứt manh mối khôi phục của nó, tái lập đúng orphan #311 cho phiên
+    // mới nếu nó reload/crash trong ~10s trước lần ghi snapshot kế. So theo `sessionId` (không phải
+    // sự tồn tại) vì phiên mới cũng ghi vào cùng một khoá `recall.focusSession`.
+    const clearIfStillOurs = () => {
+      if (readFocusSessionSnapshot()?.sessionId === snapshot.sessionId) clearFocusSessionSnapshot();
+    };
+    const discardOrphan = () =>
+      focusSessionApi
+        .end(snapshot.sessionId, {
+          status: 'cancelled',
+          focusedSeconds: Math.floor(snapshot.focusedMs / 1000),
+        })
+        .then(clearIfStillOurs)
+        .catch((error: unknown) => {
+          // Cùng lý lẽ M4 của `handleResumeCommit`: 4xx (`ALREADY_ENDED` do reap 8h đã chạy hoặc
+          // tab khác vừa đóng phiên / phiên không còn) ⇒ chẳng còn gì để dọn, xoá snapshot. Lỗi
+          // TẠM THỜI (mất mạng, 5xx) thì GIỮ snapshot để lần mở màn sau dọn lại — xoá ở đây là tự
+          // bỏ mất manh mối duy nhất về hàng orphan, tức rơi lại về đúng cảnh chờ reap 8h.
+          // Im lặng với người dùng: họ không yêu cầu việc dọn này và không có gì để họ quyết.
+          if (isTerminalFocusSessionError(error)) clearIfStillOurs();
+        });
 
     // M3 — liveness qua Web Locks: tab đang chạy phiên GIỮ khoá `sessionLockName(id)` suốt vòng
     // đời (RunningSession). Ở đây QUERY (chỉ đọc, không chiếm) danh sách khoá đang giữ toàn origin:
@@ -229,8 +272,37 @@ export default function FocusPage() {
     // Dùng `query()` thay vì thử-chiếm `ifAvailable`: hai lần chiếm-đồng-thời cùng tên khoá (React
     // StrictMode gọi effect đôi ở dev, hoặc remount nhanh) khiến lần sau thấy lần trước GIỮ tạm →
     // `null` → cả hai bỏ mời. `query()` chỉ đọc nên không có cuộc đua tự-gây đó.
+    //
+    // #311 — hai nhánh dùng HAI primitive khác nhau, chọn theo CHI PHÍ CỦA KẾT QUẢ SAI chứ không
+    // theo "cái nào chuẩn hơn". Nhánh MỜI (ở đây) sai kiểu false-"có tab đang giữ" thì chỉ nuốt
+    // mất lời mời khôi phục ⇒ `query()` chỉ-đọc là đủ và tránh được cuộc đua tự-gây. Nhánh DỌN
+    // (dưới) sai kiểu false-"không ai giữ" thì GIẾT phiên đang sống của tab khác ⇒ phải nguyên tử,
+    // xem chú thích ở đó. Mặc định an toàn của hai nhánh NGƯỢC nhau, nên KHÔNG hợp nhất chúng lại
+    // thành một lời gọi rồi rẽ theo cùng một biến `held`.
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks) {
+    if (!locks) {
+      // Không hỗ trợ Web Locks → mặc định an toàn của MỜI là vẫn mời (thà hỏi thừa còn hơn nuốt
+      // mất số liệu); còn DỌN thì mù liveness ⇒ không làm gì, để reap 8h dọn hộ.
+      // Qua microtask để không setState đồng bộ trong thân effect.
+      if (!isTooShortToOffer) queueMicrotask(offer);
+    } else if (isTooShortToOffer) {
+      // DỌN — `request({ ifAvailable: true })` chứ KHÔNG phải `query()`: chiếm được khoá là bằng
+      // chứng NGUYÊN TỬ rằng không tab nào đang sống với phiên, và mình giữ khoá suốt lúc PATCH nên
+      // không còn cửa sổ đua. `query()` thì có: khoá được TRÌNH DUYỆT cấp bất đồng bộ, nên ngay sau
+      // khi tab khác bắt đầu một phiên (snapshot đã ghi ở t=0, khoá còn đang chờ cấp) một
+      // `query()` xen vào đọc ra "không ai giữ" ⇒ hủy đúng phiên vừa sống. Chiếm không được thì
+      // im lặng bỏ qua: chỉ là hoãn dọn tới lần mở màn sau (hoặc reap 8h), rẻ hơn hẳn.
+      //
+      // TUYỆT ĐỐI không kiểm `cancelled` trong callback: dưới StrictMode, twin1 chiếm được khoá rồi
+      // cleanup bật `cancelled` — bỏ chạy ở đây thì twin2 đã bị `ifAvailable` từ chối, KHÔNG ai dọn,
+      // và cả fix im lặng không chạy ở dev. `cancelled` chỉ để chặn setState.
+      void locks
+        .request(sessionLockName(snapshot.sessionId), { ifAvailable: true }, async (lock) => {
+          if (!lock) return; // một tab đang sống với phiên này — không phải việc của mount này
+          await discardOrphan();
+        })
+        .catch(() => {}); // API lỗi bất ngờ ⇒ mù liveness ⇒ không hủy mù, để reap 8h dọn
+    } else {
       const lockName = sessionLockName(snapshot.sessionId);
       locks
         .query()
@@ -239,10 +311,6 @@ export default function FocusPage() {
           if (!held) offer();
         })
         .catch(() => offer()); // API lỗi bất ngờ → mặc định an toàn: vẫn mời
-    } else {
-      // Không hỗ trợ Web Locks → mặc định an toàn là MỜI (thà hỏi thừa còn hơn nuốt mất số liệu).
-      // Qua microtask để không setState đồng bộ trong thân effect.
-      queueMicrotask(offer);
     }
 
     return () => {

@@ -38,6 +38,7 @@ record_evidence(checkpointId, status: 'covered' | 'contradicted', quote: <trích
 - **Voice:** model gọi `record_evidence` **tăng dần** (async FC + `SILENT`: ghi nhận không cắt lời) mỗi khi một checkpoint ngã ngũ.
 - **Text:** `grade_answer` **đổi schema** sang cùng shape evidence (thay `{score,feedback,verdict}`). Một câu trả lời text → 0..n evidence.
 - 🔎 **Quyết định mở:** gom `grade_answer` (text) + `record_evidence` (voice) thành **một schema `assess_checkpoints`** dùng chung? → giảm còn 4 fixed-schema. Nghiêng "có" (cùng shape, khác cách gọi). Chốt khi dựng schema.
+- 🛡️ **Model KHÔNG đáng tin về nhãn** (đo ở spike S0 11/08): schema-enum lẫn prompt đều không đáng tin làm ràng buộc ⇒ guard tất định **`sanitizeEvidence`** (drop enum-rác + hạ bất-định) chạy trước công thức coverage — xem **§2.5**.
 
 ### 2.2 Bảng evidence + atomicity
 
@@ -73,6 +74,43 @@ else:                                  masteryScore = round2(ev_covered / resolv
 ### 2.4 Guard tiền-điều-kiện: concept KHÔNG checkpoint → đường text (R17/R18)
 
 Concept thiếu checkpoint (plan cũ chưa backfill, hoặc ~6,2% concept không có `concept_source` ref) **không voice-assessable** — coverage không định nghĩa được. **Guard tất định** route concept đó sang **đường text** (generate_question/grade_answer→evidence), model Live **KHÔNG được ứng biến** checkpoint trong ca này (vi phạm INV-1). Cờ đếm được để đo tần suất. Đây là **nhánh bắt buộc tồn tại**, không phải ngoại lệ hiếm — viết vào DoD.
+
+### 2.5 Backstop tất định `sanitizeEvidence` — sau spike S0 (11/08)
+
+Spike S0 đo LIVE trên Vertex native-audio chứng minh **hai lần độc lập** rằng ràng buộc khai-báo KHÔNG được bảo đảm trên Live async — cả **schema** lẫn **prompt**:
+
+- **INV-2 không thực thi bằng prompt:** model **probe đúng** (_"Bạn có nhớ trừ đi hai địa chỉ đặc biệt không?"_) → nghe _"tôi không nhớ, không chắc"_ → **vẫn dán `contradicted`**. Câu bất định bị phạt như hiểu-sai — đúng lời-chê-gốc, sống sót qua cả prompt "thà bỏ sót còn hơn phạt oan".
+- **enum không thực thi dưới async-lag:** ở chế độ `WHEN_IDLE` (backlog), model đẻ `status:"Running"` (ngoài enum `{covered,contradicted}`) **dù enum đã khai trong schema**, coi tool như job có vòng đời. (SILENT giữ enum 10/10 trong run này — nhưng **KHÔNG tựa vào**: n=1 không chứng minh SILENT mãi sạch.)
+
+⇒ Safety **dời từ AI-schema/prompt-trust sang một guard tất định** ở `utils/` (lane 2, thuần R05, test bằng fixture), chạy trên **MỌI evidence trước** công thức coverage (§2.3):
+
+```
+sanitizeEvidence(fire):
+  (a) status ∉ {covered, contradicted}   -> DROP           # enum-drop: coi như chưa từng có fire
+  (b) else, quote khớp marker BẤT ĐỊNH    -> not_discussed  # INV-2 guard: hạ, bất kể model khai covered/contradicted
+  (c) else                                 -> giữ nguyên
+```
+
+Thứ tự **(a) trước (b)**: `Running` bị drop bất kể quote. Ăn khớp `upsert (session,conceptId,checkpointId)` (§2.2): `Running` drop, `covered` re-fire sau vẫn set đúng ô ⇒ trạng thái cuối đúng.
+
+**Bảo đảm MỘT CHIỀU (lý lẽ rubric):** guard chỉ sai được theo chiều **KHÔNG-phạt** — hạ nhầm một `contradicted` thật thành `not_discussed` = bỏ sót một hiểu-sai (đúng chiều INV-2 cho phép); **không bao giờ** biến `not_discussed` thành điểm phạt, không bao giờ nâng cấp trạng thái.
+
+**Ranh giới:** guard chống **phạt-oan-bất-định** (INV-2) + **enum rác**. KHÔNG chống status-fidelity sai kiểu covered↔contradicted trên câu **chắc chắn** — đó là chất lượng grain, đo riêng ở S1 bằng fixture transcript.
+
+**Marker bất định** (data một chỗ ở `utils/`, khớp theo **cụm** sau lowercase + bỏ dấu):
+`"không nhớ" · "không chắc" · "không biết" · "không rõ" · "không nắm" · "quên rồi" · "quên mất" · "tôi quên" · "hình như" · "chắc là" · "chắc gì" · "đại khái" · "gì đó" · "mơ hồ" · "lơ mơ" · "hên xui" · "đoán đại" · "chịu, không"`
+🔴 **Loại trừ bắt buộc** (dạng khẳng định chứa substring dễ nhầm, KHÔNG match): `"chắc chắn" · "nhớ rõ" · "biết rõ" · "rõ ràng"`. ⇒ marker là **phrase, không phải stem**; thêm marker phải kèm một fixture test.
+
+**Prompt harm-reduction** (giảm tần suất, KHÔNG bảo đảm — đánh gốc "model tưởng tool là job async"): _"record_evidence ghi một kết luận CUỐI CÙNG cho một checkpoint, gọi đúng một lần khi checkpoint đã ngã ngũ. KHÔNG cập nhật tiến độ, KHÔNG có trạng thái trung gian. status chỉ nhận covered hoặc contradicted."_ Chặn cả `Running` lẫn double-fire (cùng gốc). Nhưng **code (a)(b) mới là bảo đảm** — prompt/schema đã chứng minh không đủ.
+
+**Test spec** (R05-thuần, `utils/__tests__/`):
+
+1. Ca spike — **HẠ**: `{contradicted, quote:'…2 mũ m gì đó, quên phải trừ mấy…|…không chắc nữa'}` → `not_discussed`.
+2. Hiểu-sai thật — **GIỮ**: `{contradicted, quote:'Lớp B octet đầu 192 tới 223'}` → `contradicted`.
+3. Khẳng định đúng chống false-match — **GIỮ**: `{covered, quote:'chắc chắn là 2 mũ m trừ 2'}` → `covered`.
+4. Covered-bất-định (đối xứng) — **HẠ**: `{covered, quote:'hình như 2 mũ m gì đó, không chắc'}` → `not_discussed`.
+5. Invariant một chiều (property): mọi input → output ∈ {giữ, hạ}; guard **không bao giờ** nâng cấp trạng thái.
+6. Enum-drop: `{status:'Running', quote:'…hợp lệ…'}` → **DROP** (không vào `resolved` lẫn phần `C` đã-resolved). Phân biệt DROP (a) với downgrade (b): coverage cùng kết quả, nhưng audit đếm enum-leak riêng.
 
 ---
 

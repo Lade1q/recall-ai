@@ -92,14 +92,15 @@ Nếu đổi grain mà để model phát thẳng `masteryScore` holistic thì t�
 
 Thiết kế đã chốt làm ngược lại:
 
-|                       | Hôm nay                | Sprint 5                                                     |
-| --------------------- | ---------------------- | ------------------------------------------------------------ |
-| AI phát               | `score` (con số)       | `covered` / `contradicted` + trích dẫn transcript            |
-| Code tính             | trung bình có trọng số | **điểm, từ coverage**                                        |
-| `not_discussed`       | không tồn tại          | **code suy** (`checkpoint đã chốt − checkpoint có evidence`) |
-| Thước đo (checkpoint) | không có               | **chốt trước khi connection mở, bất biến**                   |
+|                       | Hôm nay                | Sprint 5                                                                                    |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
+| AI phát               | `score` (con số)       | `covered` / `contradicted` + trích dẫn transcript                                           |
+| Code tính             | trung bình có trọng số | **điểm, từ coverage**                                                                       |
+| `not_discussed`       | không tồn tại          | **code suy** (`checkpoint đã chốt − checkpoint có evidence`)                                |
+| Thước đo (checkpoint) | không có               | **chốt trước khi connection mở, bất biến**                                                  |
+| Guard bất định        | không có               | **code hạ evidence bất-định / enum-rác → `not_discussed`** (backstop INV-2, §2.5 kiến trúc) |
 
-Câu tóm cho báo cáo và cho PA5: **"AI chỉ chứng kiến; deterministic mới chấm."**
+Câu tóm cho báo cáo và cho PA5 (sửa sau spike S0): **"AI chứng kiến; CODE bảo đảm — không chỉ chấm (coverage) mà còn chặn phạt-oan điều chưa rõ (guard bất định §2.5). Spike S0 chứng minh model một mình sẽ dán 'không nhớ' = hiểu-sai; nên 'không phạt điều chưa rõ' là bảo đảm của code, không phải kỳ vọng ở prompt."**
 
 Hai bất biến chống âm-tính-giả (chi tiết ở tài liệu kiến trúc):
 
@@ -107,6 +108,8 @@ Hai bất biến chống âm-tính-giả (chi tiết ở tài liệu kiến trú
 - Coverage dưới ngưỡng ⇒ `masteryScore = null` (**"chưa kiểm"**), không phải điểm thấp.
 
 Cả hai là hệ quả trực tiếp của luật `null ≠ 0.0` đã có sẵn trong repo — không phải luật mới.
+
+> ⚠️ **Đính chính sau spike S0 (11/08):** bất biến thứ nhất KHÔNG tự thực thi được bằng prompt — đo LIVE, model **probe đúng rồi vẫn dán `contradicted`** lên câu "không nhớ/không chắc". Vế "chưa ngã ngũ → không phát gì" là _kỳ vọng ở model_, và model **phá** nó. INV-2 giữ được là nhờ **guard tất định `sanitizeEvidence`** ở `utils/` (§2.5 kiến trúc: hạ evidence bất-định → `not_discussed`), **không** nhờ model tự im.
 
 ### 3.5 Trích dẫn nguồn C5 chưa có bản voice — đừng đánh rơi tính năng đã ship
 
@@ -152,7 +155,7 @@ Spike đo đúng 5 thứ. Số liệu, không cảm tính:
 
 ---
 
-## 5. Sửa SDP — ba mệnh đề phải viết lại
+## 5. Sửa SDP — ba mệnh đề sửa + một backstop mới (④)
 
 Đây là điều kiện để bảo toàn claim "deterministic differentiator" chứ không phải thủ tục. Cả ba đều **bắt buộc, kể cả khi nhánh B bị huỷ** — vì nhánh A một mình đã đụng C6 và bề mặt gọi AI.
 
@@ -182,6 +185,13 @@ Nếu `grade_answer` (text) và `record_evidence` (voice) được hợp nhất 
 **② C6 — trần 3 lượt.** Thay bằng: trần **coverage + budget thời gian/lượt nói mỗi concept**, cộng luật coverage-dưới-ngưỡng ⇒ `null`. Ghi rõ mục đích gốc của C6 (chặn chi phí và thời gian đáp) **vẫn được phục vụ**, chỉ đổi đơn vị đo.
 
 **③ Zero budget.** Ghi thành sửa đổi có chủ đích, kèm con số: ~$0,023/phút hội thoại. Không được để dạng "im lặng bỏ qua" — nó là ràng buộc có viết trong SDP đã nộp.
+
+**④ Backstop tất định `sanitizeEvidence` (BỔ SUNG, không sửa constraint cũ) — bằng chứng "đã đo" từ spike S0 (11/08).** Ràng buộc khai trong **schema** (enum) lẫn kỷ luật trong **prompt** đều **KHÔNG phải ràng buộc đáng tin trên Live async**, đo LIVE trên Vertex native-audio:
+
+- model đẻ `status:"Running"` ngoài enum `{covered,contradicted}` dưới `WHEN_IDLE` **dù enum đã khai trong schema** (SILENT giữ enum 10/10 run này — nhưng **không tựa vào**: n=1 không chứng minh SILENT mãi sạch);
+- model dán `contradicted` lên câu "không nhớ/không chắc" **dù prompt cấm** và đã **probe đúng**.
+
+⇒ Một **guard tất định** ở `utils/` (`sanitizeEvidence`: drop-ngoài-enum + hạ-bất-định → `not_discussed`; xem §2.5 kiến trúc) là **bảo đảm DUY NHẤT** — cùng họ "dời safety từ AI-schema/prompt-trust sang code tất định". Chuyển INV-2 + fidelity từ "đã viết prompt" sang **"đã đo, có bằng chứng"** (fixture before/after hạ đúng quote spike). Đây là mệnh đề rubric mạnh nhất: **hai lần độc lập chứng minh không tin được model kể cả khi đã ràng buộc (schema + prompt) ⇒ code là bảo đảm.**
 
 Kèm theo: cập nhật `sprint-4-plan.md` mục 6 và `UC-Overview.md` §5.1 cho khớp, và ghi vào [#128](https://github.com/Lade1q/planning-ai/issues/128) / [#249](https://github.com/Lade1q/planning-ai/issues/249).
 

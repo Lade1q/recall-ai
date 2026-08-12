@@ -543,7 +543,7 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
   { "status": "archived" }
   ```
 
-  Chỉ nhận `"archived"` (lưu trữ) hoặc `"active"` (khôi phục). Giá trị `"draft"` bị từ chối — chỉ pipeline phân tích được đặt trạng thái đó; cho client gửi sẽ đẩy một Plan đã có đồ thị đầy đủ kẹt vĩnh viễn ở tab "Đang phân tích".
+  Chỉ nhận `"archived"` (lưu trữ) hoặc `"active"` (khôi phục). Giá trị `"draft"` bị từ chối — chỉ pipeline phân tích được đặt trạng thái đó; cho client gửi sẽ đẩy một Plan đã có đồ thị đầy đủ kẹt vĩnh viễn ở tab "Chưa xác nhận".
 
 - **Response thành công (HTTP 200 OK):**
 
@@ -573,12 +573,12 @@ Cạnh (`ConceptEdge`) thì **dựng lại toàn bộ** theo bản mới — c�
     "success": false,
     "error": {
       "code": "STATUS_TRANSITION_NOT_ALLOWED",
-      "message": "A plan that is still being analysed cannot be archived"
+      "message": "An unconfirmed plan cannot be archived — confirm its concept graph, or delete it"
     }
   }
   ```
 
-  Lưu trữ là cách cất đi tài liệu đã học xong; một `draft` chưa có nội dung nào để cất — thao tác áp dụng cho nó là retry (mục 5) hoặc xóa (mục 8).
+  Guard này giữ bước kiểm chứng SP-01 bắt buộc (#265): một `draft` chưa xác nhận đồ thị chưa phải "tài liệu đã học xong" để cất — phải xác nhận đồ thị trước (`PUT /plans/:id/graph { "confirm": true }`) hoặc xóa (mục 8); nếu phân tích lỗi thì retry (mục 5). Yêu cầu **khôi phục** (`{ "status": "active" }`) trên một `draft` cũng bị từ chối cùng `code`, với `message: "A draft plan becomes active by confirming its concept graph"`.
 
 - **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
 
