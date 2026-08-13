@@ -2,7 +2,7 @@
 
 > **Module:** Authentication  
 > **Người viết:** Nguyễn Minh Phát  
-> **Ngày tạo:** 2026-07-25  
+> **Ngày tạo:** 25/07/2026  
 > **Phiên bản:** 1.0
 
 ---
@@ -17,7 +17,7 @@
 | **Mức độ (Severity)**     | Medium                                           |
 | **Độ ưu tiên (Priority)** | Medium                                           |
 | **Trạng thái (Status)**   | Closed                                           |
-| **Ngày báo cáo (Date)**   | 2026-07-25                                       |
+| **Ngày báo cáo (Date)**   | 25/07/2026                                       |
 | **Phát hiện ở**           | Sprint 3                                         |
 | **Người báo cáo**         | Nguyễn Minh Phát                                 |
 | **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |

@@ -2,7 +2,7 @@
 
 > **Module:** AI Planning  
 > **Người viết:** Nguyễn Thế Quân  
-> **Ngày tạo:** 2026-07-31  
+> **Ngày tạo:** 31/07/2026  
 > **Phiên bản:** 1.0
 
 ---
@@ -17,7 +17,7 @@
 | **Mức độ (Severity)**     | High                                                           |
 | **Độ ưu tiên (Priority)** | Medium                                                         |
 | **Trạng thái (Status)**   | Closed                                                         |
-| **Ngày báo cáo (Date)**   | 2026-07-31                                                     |
+| **Ngày báo cáo (Date)**   | 31/07/2026                                                     |
 | **Phát hiện ở**           | Sprint 4                                                       |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                |
 | **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)               |

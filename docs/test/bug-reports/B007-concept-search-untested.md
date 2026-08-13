@@ -2,7 +2,7 @@
 
 > **Module:** Concept Graph (DB-05)  
 > **Người viết:** Nguyễn Thế Quân  
-> **Ngày tạo:** 2026-08-02  
+> **Ngày tạo:** 02/08/2026  
 > **Phiên bản:** 1.0
 
 ---
@@ -17,7 +17,7 @@
 | **Mức độ (Severity)**     | High                                                                        |
 | **Độ ưu tiên (Priority)** | High                                                                        |
 | **Trạng thái (Status)**   | Closed                                                                      |
-| **Ngày báo cáo (Date)**   | 2026-08-02                                                                  |
+| **Ngày báo cáo (Date)**   | 02/08/2026                                                                  |
 | **Phát hiện ở**           | Sprint 4                                                                    |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                             |
 | **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                            |

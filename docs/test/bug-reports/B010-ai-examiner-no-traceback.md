@@ -2,7 +2,7 @@
 
 > **Module:** AI Examiner — State Machine  
 > **Người viết:** Nguyễn Minh Phát  
-> **Ngày tạo:** 2026-08-06  
+> **Ngày tạo:** 06/08/2026  
 > **Phiên bản:** 1.0
 
 ---
@@ -17,7 +17,7 @@
 | **Mức độ (Severity)**     | High                                                              |
 | **Độ ưu tiên (Priority)** | High                                                              |
 | **Trạng thái (Status)**   | Closed                                                            |
-| **Ngày báo cáo (Date)**   | 2026-08-06                                                        |
+| **Ngày báo cáo (Date)**   | 06/08/2026                                                        |
 | **Phát hiện ở**           | Sprint 4                                                          |
 | **Người báo cáo**         | Nguyễn Minh Phát                                                  |
 | **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                  |
