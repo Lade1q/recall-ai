@@ -9,18 +9,18 @@
 
 ## B001: Đăng ký chấp nhận mật khẩu chỉ có khoảng trắng
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B001                                                      |
-| **Tiêu đề (Title)**       | API đăng ký cho phép mật khẩu chỉ gồm dấu cách            |
-| **Module / Function ID**  | Authentication — `POST /api/v1/auth/register`             |
-| **Mức độ (Severity)**     | High                                                      |
-| **Độ ưu tiên (Priority)** | High                                                      |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-07-25                                                |
-| **Phát hiện ở**           | Sprint 3                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B001                                             |
+| **Tiêu đề (Title)**       | API đăng ký cho phép mật khẩu chỉ gồm dấu cách   |
+| **Module / Function ID**  | Authentication — `POST /api/v1/auth/register`    |
+| **Mức độ (Severity)**     | High                                             |
+| **Độ ưu tiên (Priority)** | High                                             |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-07-25                                       |
+| **Phát hiện ở**           | Sprint 3                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
 ### Mô tả
 

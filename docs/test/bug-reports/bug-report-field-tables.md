@@ -1,28 +1,28 @@
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B001                                                      |
-| **Tiêu đề (Title)**       | API đăng ký cho phép mật khẩu chỉ gồm dấu cách            |
-| **Module / Function ID**  | Authentication — POST /api/v1/auth/register               |
-| **Mức độ (Severity)**     | High                                                      |
-| **Độ ưu tiên (Priority)** | High                                                      |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-07-25                                                |
-| **Phát hiện ở**           | Sprint 3                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B001                                             |
+| **Tiêu đề (Title)**       | API đăng ký cho phép mật khẩu chỉ gồm dấu cách   |
+| **Module / Function ID**  | Authentication — POST /api/v1/auth/register      |
+| **Mức độ (Severity)**     | High                                             |
+| **Độ ưu tiên (Priority)** | High                                             |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-07-25                                       |
+| **Phát hiện ở**           | Sprint 3                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B002                                                      |
-| **Tiêu đề (Title)**       | Màn hình đăng nhập treo khi API trả sai mật khẩu          |
-| **Module / Function ID**  | Authentication — LoginPage / Sign In                      |
-| **Mức độ (Severity)**     | Medium                                                    |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-07-25                                                |
-| **Phát hiện ở**           | Sprint 3                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B002                                             |
+| **Tiêu đề (Title)**       | Màn hình đăng nhập treo khi API trả sai mật khẩu |
+| **Module / Function ID**  | Authentication — LoginPage / Sign In             |
+| **Mức độ (Severity)**     | Medium                                           |
+| **Độ ưu tiên (Priority)** | Medium                                           |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-07-25                                       |
+| **Phát hiện ở**           | Sprint 3                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
 | Trường                    | Nội dung                                                       |
 | ------------------------- | -------------------------------------------------------------- |
@@ -35,7 +35,7 @@
 | **Ngày báo cáo (Date)**   | 2026-07-31                                                     |
 | **Phát hiện ở**           | Sprint 4                                                       |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)      |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)               |
 
 | Trường                    | Nội dung                                                     |
 | ------------------------- | ------------------------------------------------------------ |
@@ -48,33 +48,33 @@
 | **Ngày báo cáo (Date)**   | 2026-08-01                                                   |
 | **Phát hiện ở**           | Sprint 4                                                     |
 | **Người báo cáo**         | Nguyễn Thế Quân                                              |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)    |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)             |
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B005                                                      |
-| **Tiêu đề (Title)**       | PlanDetailPage hiển thị deadline muộn hơn một ngày        |
-| **Module / Function ID**  | Plan Management — PlanDetailPage / deadline               |
-| **Mức độ (Severity)**     | Medium                                                    |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-02                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                           |
+| ------------------------- | -------------------------------------------------- |
+| **Mã Bug (Defect ID)**    | B005                                               |
+| **Tiêu đề (Title)**       | PlanDetailPage hiển thị deadline muộn hơn một ngày |
+| **Module / Function ID**  | Plan Management — PlanDetailPage / deadline        |
+| **Mức độ (Severity)**     | Medium                                             |
+| **Độ ưu tiên (Priority)** | Medium                                             |
+| **Trạng thái (Status)**   | Closed                                             |
+| **Ngày báo cáo (Date)**   | 2026-08-02                                         |
+| **Phát hiện ở**           | Sprint 4                                           |
+| **Người báo cáo**         | Nguyễn Minh Phát                                   |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)   |
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B006                                                      |
-| **Tiêu đề (Title)**       | API tạo Plan từ chối file có kích thước đúng 10 MB        |
-| **Module / Function ID**  | AI Planning — POST /api/v1/plans / upload file            |
-| **Mức độ (Severity)**     | Medium                                                    |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-02                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                           |
+| ------------------------- | -------------------------------------------------- |
+| **Mã Bug (Defect ID)**    | B006                                               |
+| **Tiêu đề (Title)**       | API tạo Plan từ chối file có kích thước đúng 10 MB |
+| **Module / Function ID**  | AI Planning — POST /api/v1/plans / upload file     |
+| **Mức độ (Severity)**     | Medium                                             |
+| **Độ ưu tiên (Priority)** | Medium                                             |
+| **Trạng thái (Status)**   | Closed                                             |
+| **Ngày báo cáo (Date)**   | 2026-08-02                                         |
+| **Phát hiện ở**           | Sprint 4                                           |
+| **Người báo cáo**         | Nguyễn Minh Phát                                   |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)   |
 
 | Trường                    | Nội dung                                                                    |
 | ------------------------- | --------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-02                                                                  |
 | **Phát hiện ở**           | Sprint 4                                                                    |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                             |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                   |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                            |
 
 | Trường                    | Nội dung                                                                           |
 | ------------------------- | ---------------------------------------------------------------------------------- |
@@ -100,7 +100,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-05                                                                         |
 | **Phát hiện ở**           | Sprint 4                                                                           |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                                    |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                          |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                                   |
 
 | Trường                    | Nội dung                                                                  |
 | ------------------------- | ------------------------------------------------------------------------- |
@@ -113,7 +113,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-06                                                                |
 | **Phát hiện ở**           | Sprint 4                                                                  |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                           |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                          |
 
 | Trường                    | Nội dung                                                          |
 | ------------------------- | ----------------------------------------------------------------- |
@@ -126,7 +126,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-06                                                        |
 | **Phát hiện ở**           | Sprint 4                                                          |
 | **Người báo cáo**         | Nguyễn Minh Phát                                                  |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)         |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                  |
 
 | Trường                    | Nội dung                                                          |
 | ------------------------- | ----------------------------------------------------------------- |
@@ -139,20 +139,20 @@
 | **Ngày báo cáo (Date)**   | 2026-08-06                                                        |
 | **Phát hiện ở**           | Sprint 4                                                          |
 | **Người báo cáo**         | Nguyễn Minh Phát                                                  |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)         |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                  |
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B012                                                      |
-| **Tiêu đề (Title)**       | Lỗi hiển thị Tooltip trong Đồ thị khái niệm               |
-| **Module / Function ID**  | Concept Graph — Tooltip chi tiết khái niệm                |
-| **Mức độ (Severity)**     | Low                                                       |
-| **Độ ưu tiên (Priority)** | Low                                                       |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-07                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B012                                             |
+| **Tiêu đề (Title)**       | Lỗi hiển thị Tooltip trong Đồ thị khái niệm      |
+| **Module / Function ID**  | Concept Graph — Tooltip chi tiết khái niệm       |
+| **Mức độ (Severity)**     | Low                                              |
+| **Độ ưu tiên (Priority)** | Low                                              |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-08-07                                       |
+| **Phát hiện ở**           | Sprint 4                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
 | Trường                    | Nội dung                                                                 |
 | ------------------------- | ------------------------------------------------------------------------ |
@@ -165,7 +165,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-08                                                               |
 | **Phát hiện ở**           | Sprint 4                                                                 |
 | **Người báo cáo**         | Nguyễn Minh Phát                                                         |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                         |
 
 | Trường                    | Nội dung                                                        |
 | ------------------------- | --------------------------------------------------------------- |
@@ -178,7 +178,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-08                                                      |
 | **Phát hiện ở**           | Sprint 4                                                        |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                 |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)       |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                |
 
 | Trường                    | Nội dung                                                           |
 | ------------------------- | ------------------------------------------------------------------ |
@@ -191,7 +191,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-09                                                         |
 | **Phát hiện ở**           | Sprint 4                                                           |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                    |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)          |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                   |
 
 | Trường                    | Nội dung                                                             |
 | ------------------------- | -------------------------------------------------------------------- |
@@ -204,20 +204,20 @@
 | **Ngày báo cáo (Date)**   | 2026-08-09                                                           |
 | **Phát hiện ở**           | Sprint 4                                                             |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                      |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)            |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                     |
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B017                                                      |
-| **Tiêu đề (Title)**       | Hàng đợi ôn và auto-pick không loại khái niệm deprecated  |
-| **Module / Function ID**  | Review Queue / resolvePlanQueue                           |
-| **Mức độ (Severity)**     | High                                                      |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-13                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Thế Quân                                           |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                                 |
+| ------------------------- | -------------------------------------------------------- |
+| **Mã Bug (Defect ID)**    | B017                                                     |
+| **Tiêu đề (Title)**       | Hàng đợi ôn và auto-pick không loại khái niệm deprecated |
+| **Module / Function ID**  | Review Queue / resolvePlanQueue                          |
+| **Mức độ (Severity)**     | High                                                     |
+| **Độ ưu tiên (Priority)** | Medium                                                   |
+| **Trạng thái (Status)**   | Closed                                                   |
+| **Ngày báo cáo (Date)**   | 2026-08-13                                               |
+| **Phát hiện ở**           | Sprint 4                                                 |
+| **Người báo cáo**         | Nguyễn Thế Quân                                          |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)         |
 
 | Trường                    | Nội dung                                                          |
 | ------------------------- | ----------------------------------------------------------------- |
@@ -230,4 +230,4 @@
 | **Ngày báo cáo (Date)**   | 2026-08-13                                                        |
 | **Phát hiện ở**           | Sprint 4                                                          |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                   |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)         |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                  |

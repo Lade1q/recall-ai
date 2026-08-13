@@ -9,18 +9,18 @@
 
 ## B012: Tooltip đồ thị khái niệm bị tràn chữ và bị node che khuất
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B012                                                      |
-| **Tiêu đề (Title)**       | Lỗi hiển thị Tooltip trong Đồ thị khái niệm               |
-| **Module / Function ID**  | Concept Graph — Tooltip chi tiết khái niệm                |
-| **Mức độ (Severity)**     | Low                                                       |
-| **Độ ưu tiên (Priority)** | Low                                                       |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-07                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B012                                             |
+| **Tiêu đề (Title)**       | Lỗi hiển thị Tooltip trong Đồ thị khái niệm      |
+| **Module / Function ID**  | Concept Graph — Tooltip chi tiết khái niệm       |
+| **Mức độ (Severity)**     | Low                                              |
+| **Độ ưu tiên (Priority)** | Low                                              |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-08-07                                       |
+| **Phát hiện ở**           | Sprint 4                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
 ### Mô tả
 

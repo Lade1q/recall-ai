@@ -9,18 +9,18 @@
 
 ## B002: Đăng nhập bị treo khi nhập sai mật khẩu
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B002                                                      |
-| **Tiêu đề (Title)**       | Màn hình đăng nhập treo khi API trả sai mật khẩu          |
-| **Module / Function ID**  | Authentication — `LoginPage` / Sign In                    |
-| **Mức độ (Severity)**     | Medium                                                    |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-07-25                                                |
-| **Phát hiện ở**           | Sprint 3                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                         |
+| ------------------------- | ------------------------------------------------ |
+| **Mã Bug (Defect ID)**    | B002                                             |
+| **Tiêu đề (Title)**       | Màn hình đăng nhập treo khi API trả sai mật khẩu |
+| **Module / Function ID**  | Authentication — `LoginPage` / Sign In           |
+| **Mức độ (Severity)**     | Medium                                           |
+| **Độ ưu tiên (Priority)** | Medium                                           |
+| **Trạng thái (Status)**   | Closed                                           |
+| **Ngày báo cáo (Date)**   | 2026-07-25                                       |
+| **Phát hiện ở**           | Sprint 3                                         |
+| **Người báo cáo**         | Nguyễn Minh Phát                                 |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
 
 ### Mô tả
 

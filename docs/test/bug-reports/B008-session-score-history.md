@@ -20,7 +20,7 @@
 | **Ngày báo cáo (Date)**   | 2026-08-05                                                                           |
 | **Phát hiện ở**           | Sprint 4                                                                             |
 | **Người báo cáo**         | Nguyễn Thế Quân                                                                      |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                            |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)                                     |
 
 ### Mô tả
 

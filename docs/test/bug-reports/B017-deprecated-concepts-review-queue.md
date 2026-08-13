@@ -9,18 +9,18 @@
 
 ## B017: Hàng đợi ôn vẫn đưa khái niệm đã deprecated
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B017                                                      |
-| **Tiêu đề (Title)**       | Hàng đợi ôn và auto-pick không loại khái niệm deprecated  |
-| **Module / Function ID**  | Review Queue / `resolvePlanQueue`                         |
-| **Mức độ (Severity)**     | High                                                      |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-13                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Thế Quân                                           |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                                 |
+| ------------------------- | -------------------------------------------------------- |
+| **Mã Bug (Defect ID)**    | B017                                                     |
+| **Tiêu đề (Title)**       | Hàng đợi ôn và auto-pick không loại khái niệm deprecated |
+| **Module / Function ID**  | Review Queue / `resolvePlanQueue`                        |
+| **Mức độ (Severity)**     | High                                                     |
+| **Độ ưu tiên (Priority)** | Medium                                                   |
+| **Trạng thái (Status)**   | Closed                                                   |
+| **Ngày báo cáo (Date)**   | 2026-08-13                                               |
+| **Phát hiện ở**           | Sprint 4                                                 |
+| **Người báo cáo**         | Nguyễn Thế Quân                                          |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)         |
 
 ### Mô tả
 

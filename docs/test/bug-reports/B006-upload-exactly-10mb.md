@@ -9,18 +9,18 @@
 
 ## B006: Upload tệp đúng 10 MB bị từ chối
 
-| Trường                    | Nội dung                                                  |
-| ------------------------- | --------------------------------------------------------- |
-| **Mã Bug (Defect ID)**    | B006                                                      |
-| **Tiêu đề (Title)**       | API tạo Plan từ chối file có kích thước đúng 10 MB        |
-| **Module / Function ID**  | AI Planning — `POST /api/v1/plans` / upload file          |
-| **Mức độ (Severity)**     | Medium                                                    |
-| **Độ ưu tiên (Priority)** | Medium                                                    |
-| **Trạng thái (Status)**   | Closed                                                    |
-| **Ngày báo cáo (Date)**   | 2026-08-02                                                |
-| **Phát hiện ở**           | Sprint 4                                                  |
-| **Người báo cáo**         | Nguyễn Minh Phát                                          |
-| **Môi trường**            | Firefox 152.0.6 · Arch Linux (Linux 7.1.4-arch1-1 x86_64) |
+| Trường                    | Nội dung                                           |
+| ------------------------- | -------------------------------------------------- |
+| **Mã Bug (Defect ID)**    | B006                                               |
+| **Tiêu đề (Title)**       | API tạo Plan từ chối file có kích thước đúng 10 MB |
+| **Module / Function ID**  | AI Planning — `POST /api/v1/plans` / upload file   |
+| **Mức độ (Severity)**     | Medium                                             |
+| **Độ ưu tiên (Priority)** | Medium                                             |
+| **Trạng thái (Status)**   | Closed                                             |
+| **Ngày báo cáo (Date)**   | 2026-08-02                                         |
+| **Phát hiện ở**           | Sprint 4                                           |
+| **Người báo cáo**         | Nguyễn Minh Phát                                   |
+| **Môi trường**            | Chrome · Arch Linux (Linux 7.1.4-arch1-1 x86_64)   |
 
 ### Mô tả
 
