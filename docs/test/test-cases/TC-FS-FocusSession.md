@@ -13,14 +13,13 @@
 1. Nguồn chốt cho phạm vi và hành vi UI là mockup [screen-focus-session.html](../../analysis%20and%20design/claude-design/screen-focus-session.html), đặc biệt các state “Vào phiên học khi chưa chọn khái niệm”, “Chưa bắt đầu”, “Hoàn thành phiên · bàn giao AI Examiner” và “Phiên bị gián đoạn”.
 2. [focus-sessions.md](../../api/focus-sessions.md) là nguồn chốt cho contract API, xác thực, ownership và dữ liệu session.
 3. [UC-03](../../requirements/use-case_diagram/UC-03_FocusSession.md) và [SPEC_FS-01](../../requirements/use-case_specification/SPEC_FS-01_ThucHienPhienHoc.md) chỉ được dùng cho phần không mâu thuẫn với hai nguồn trên. Các mô tả Sprint 3 đã bị de-scope không tạo test đỏ cho Focus Session.
-4. Quyết định đối chiếu từ [PR #309](https://github.com/Lade1q/planning-ai/pull/309#issuecomment-5232907616) được ghi vào bảng loại trừ bên dưới.
 
 ## Quy ước dữ liệu và môi trường
 
 - Student A đã đăng nhập; có plan P1, concept C1 và một review-queue item R1 trỏ tới C1. Student B là người dùng khác.
 - Môi trường test cho phép rút ngắn một lượt Pomodoro; ý nghĩa phải tương đương cấu hình mặc định 25 phút.
 - Không mock request thành công. Có thể kiểm tra request, response và DB để xác minh contract.
-- Kết quả PASS/FAIL phản ánh lần chạy Playwright ngày 2026-08-10 trên Chromium và Firefox; TC-FS-024 được re-verify PASS ngày 2026-08-12 sau khi #311 được đóng qua #319.
+- Kết quả PASS/FAIL phản ánh lần chạy Playwright ngày 2026-08-10 trên Chromium và Firefox; TC-FS-024 được re-verify PASS ngày 2026-08-12 sau khi sửa regression cleanup phiên ngắn.
 - Các case N/A ở bảng loại trừ là quyết định phạm vi, không phải kết quả chạy test và không được tính vào chỉ số PASS/FAIL.
 
 ## Ma trận bao phủ yêu cầu
@@ -36,17 +35,17 @@
 
 ## Các ID được loại khỏi execution scope
 
-| ID cũ     | Quyết định                                                                                                                                 | Nguồn và nơi theo dõi                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| TC-FS-003 | N/A — by design. Focus không có picker concept tại chỗ; concept đến từ review queue, deep-link hoặc Dashboard/đồ thị.                      | Mockup state “Vào phiên học khi chưa chọn khái niệm”, dòng 1704–1707 và 1768–1777; PR #309. |
-| TC-FS-010 | N/A — de-scoped. MVP chỉ có Pomodoro, không có Free Timer.                                                                                 | Mockup state “Chưa bắt đầu”, dòng 1866–1910; PR #309.                                       |
-| TC-FS-014 | N/A — chuyển assertion mastery/SRE sang AI Examiner. Focus chỉ lưu thời gian học và bàn giao CTA.                                          | Mockup dòng 2443–2475; API Focus dòng 5–9; PR #309.                                         |
-| TC-FS-015 | N/A — de-scoped. Không có offline queue hoặc auto-sync completion trong MVP; chỉ có recovery localStorage.                                 | Mockup state “Phiên bị gián đoạn”, dòng 2482–2505; PR #309.                                 |
-| TC-FS-017 | N/A — chuyển sang DB-03/DB-08, Sprint 5.                                                                                                   | PR #309; theo dõi #245/#246.                                                                |
-| TC-FS-018 | N/A — chuyển sang DB-03/DB-08, Sprint 5.                                                                                                   | PR #309; theo dõi #245/#246.                                                                |
-| TC-FS-019 | N/A — fallback khi chấm mastery thuộc Interview, không thuộc Focus.                                                                        | Mockup dòng 2466–2475; PR #309.                                                             |
-| TC-FS-021 | N/A — PDF không đọc được thuộc validation của module Upload.                                                                               | PR #309.                                                                                    |
-| TC-FS-025 | N/A — chưa có yêu cầu MVP quy định chỉ một session chạy trên toàn bộ tab/origin; không tự suy diễn mutual exclusion thành expected result. | UC-03 E2 chỉ nói recovery; PR #309. Cần requirement mới trước khi lập TC.                   |
+| ID cũ     | Quyết định                                                                                                                                 | Nguồn và nơi theo dõi                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| TC-FS-003 | N/A — by design. Focus không có picker concept tại chỗ; concept đến từ review queue, deep-link hoặc Dashboard/đồ thị.                      | Mockup state “Vào phiên học khi chưa chọn khái niệm”, dòng 1704–1707 và 1768–1777.                   |
+| TC-FS-010 | N/A — de-scoped. MVP chỉ có Pomodoro, không có Free Timer.                                                                                 | Mockup state “Chưa bắt đầu”, dòng 1866–1910.                                                         |
+| TC-FS-014 | N/A — chuyển assertion mastery/SRE sang AI Examiner. Focus chỉ lưu thời gian học và bàn giao CTA.                                          | Mockup dòng 2443–2475; API Focus dòng 5–9.                                                           |
+| TC-FS-015 | N/A — de-scoped. Không có offline queue hoặc auto-sync completion trong MVP; chỉ có recovery localStorage.                                 | Mockup state “Phiên bị gián đoạn”, dòng 2482–2505.                                                   |
+| TC-FS-017 | N/A — chuyển sang DB-03 (Lịch sử Interview) / DB-08 (Lịch sử Focus), Sprint 5.                                                             | DB-03 (Lịch sử Interview) và DB-08 (Lịch sử Focus), Sprint 5.                                        |
+| TC-FS-018 | N/A — chuyển sang DB-03 (Lịch sử Interview) / DB-08 (Lịch sử Focus), Sprint 5.                                                             | DB-03 (Lịch sử Interview) và DB-08 (Lịch sử Focus), Sprint 5.                                        |
+| TC-FS-019 | N/A — fallback khi chấm mastery thuộc Interview, không thuộc Focus.                                                                        | Mockup dòng 2466–2475.                                                                               |
+| TC-FS-021 | N/A — PDF không đọc được thuộc validation của module Upload.                                                                               | Thuộc phạm vi validation của module Upload.                                                          |
+| TC-FS-025 | N/A — chưa có yêu cầu MVP quy định chỉ một session chạy trên toàn bộ tab/origin; không tự suy diễn mutual exclusion thành expected result. | UC-03, alternative flow E2 (khôi phục phiên) chỉ nói recovery. Cần requirement mới trước khi lập TC. |
 
 ## FS-01 — Vào và thực hiện phiên học
 
@@ -274,7 +273,7 @@
 
 | Trường                   | Nội dung                                                                                                                                                                                                                            |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | FS-01 exception interrupted session. Nguồn: mockup dòng 2482–2505; PR #309 về ngưỡng recovery từ 60 giây.                                                                                                                           |
+| **Function / Feature**   | FS-01 (Bắt đầu phiên Focus Session) — ngoại lệ phiên bị gián đoạn. Nguồn: mockup dòng 2482–2505; API Focus quy định ngưỡng recovery 60 giây.                                                                                        |
 | **Mã TC**                | TC-FS-016                                                                                                                                                                                                                           |
 | **Tiêu đề**              | Phiên từ 60 giây trở lên cho phép ghi nhận hoặc bỏ qua sau khi mở lại                                                                                                                                                               |
 | **Mô tả**                | Kiểm tra recovery là phạm vi MVP thay cho offline-sync toàn phần.                                                                                                                                                                   |
@@ -350,11 +349,11 @@
 | **Ghi chú**              | Không mở rộng thành policy cấm hai tab toàn origin; đó là TC-FS-025 bị loại do thiếu requirement.                                                                       |
 | **Nhận xét**             | Expected result chỉ áp dụng cho cùng một hành động Start đang pending.                                                                                                  |
 
-### TC-FS-024: Reload phiên dưới 60 giây — regression #311
+### TC-FS-024: Reload phiên dưới 60 giây — regression cleanup phiên ngắn
 
 | Trường                   | Nội dung                                                                                                                                                                                            |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | Cleanup khi abandon session ngắn. Nguồn: [issue #311](https://github.com/Lade1q/planning-ai/issues/311); PR #309; API Focus dòng 65–69.                                                             |
+| **Function / Feature**   | Cleanup khi abandon session ngắn. Nguồn: API Focus dòng 65–69.                                                                                                                                      |
 | **Mã TC**                | TC-FS-024                                                                                                                                                                                           |
 | **Tiêu đề**              | Reload dưới 60 giây không mời recovery nhưng phải đóng sạch record running                                                                                                                          |
 | **Mô tả**                | Regression bảo vệ cleanup DB và UX by-design không hiện dialog với phiên quá ngắn.                                                                                                                  |
@@ -374,7 +373,7 @@
 
 | Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                      |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | Completion handoff. Nguồn: mockup dòng 2435–2477; API Focus dòng 5–9; contract `POST /interviews` tại [issue #115](https://github.com/Lade1q/planning-ai/issues/115).                                                                                                                                                         |
+| **Function / Feature**   | Completion handoff. Nguồn: mockup dòng 2435–2477; API Focus dòng 5–9; API contract `POST /interviews`.                                                                                                                                                                                                                        |
 | **Mã TC**                | TC-FS-026                                                                                                                                                                                                                                                                                                                     |
 | **Tiêu đề**              | Màn tổng kết bàn giao đúng context sang AI Examiner hoặc Dashboard                                                                                                                                                                                                                                                            |
 | **Mô tả**                | Kiểm tra CTA sau completion và boundary: Focus không tự chấm mastery.                                                                                                                                                                                                                                                         |
