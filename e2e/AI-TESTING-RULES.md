@@ -122,8 +122,10 @@ Trong quá trình viết và chạy test, có khả năng tài liệu đặc t�
 
 Khi gặp trường hợp này:
 
-- Nếu đánh giá logic của project là hợp lý và an toàn, **trực tiếp cập nhật/sửa lại tài liệu Test Case** để khớp với code thực tế của project.
-- **BẮT BUỘC** phải để lại ghi chú (note) rõ ràng ngay trong tài liệu hoặc Test Case đó: Ghi rõ yêu cầu ban đầu từ tài liệu là gì và thực tế project đang xử lý như thế nào. Việc này giúp mọi người hiểu được tại sao có sự điều chỉnh.
+- **Audit nguồn chốt trước:** Đọc lại toàn bộ thứ tự ưu tiên đã khai báo trong Test Plan/TC. Với hành vi UI, mockup `claude-design` hoặc quyết định Product/Owner đã phê duyệt là nguồn chốt; với request/response, xác nhận API contract là nguồn chốt. Code hiện tại, UC cũ hoặc câu chữ do test tự đặt ra không được dùng để mở lại một quyết định đã chốt.
+- **Quyết định đã chốt không phải điểm cần làm rõ:** Nếu nguồn chốt mô tả dứt khoát hành vi và hệ thống thực hiện đúng, cập nhật expected result/dẫn chứng và ghi `PASS`. Không hạ `Partial`, `FAIL` hoặc ghi “cần Product chốt” chỉ vì tài liệu cấp thấp hơn còn khác hay nội dung chưa được lặp lại ở nơi khác.
+- **Chỉ mở clarification khi thật sự chưa có phán quyết:** Sau audit mà các nguồn cùng cấp vẫn không quyết định được hành vi, ghi rõ câu hỏi, các nguồn đã kiểm và người/nhóm cần quyết định. Không tự suy diễn expected result mới.
+- Nếu code lệch nguồn chốt, giữ assertion theo nguồn chốt, ghi `FAIL` và không làm yếu test để khớp code. Chỉ cập nhật Test Case để khớp implementation khi không có nguồn chốt trái ngược hoặc khi có quyết định mới được phê duyệt; ghi rõ nguồn và lý do thay đổi.
 
 ## 12. Triển khai Tuần tự (Từng Test Case một)
 
@@ -220,5 +222,6 @@ File Markdown Test Plan/Test Case là tài liệu báo cáo cho QA, Product, Dev
 - **Không viện dẫn code trong báo cáo:** TC có thể được push và review không kèm code. Vì vậy, trong mọi ô của Test Plan/Test Case không ghi đường dẫn mã nguồn hoặc script test như `src/...`, `e2e/...`, `*.spec.ts`; cũng không dùng chúng để giải thích kết quả. Thay vào đó, nêu hành vi tự đủ nghĩa và, khi cần, viện dẫn tên/đề mục tài liệu đặc tả, mã Use Case, mockup, API contract, endpoint, HTTP status hoặc issue/PR liên quan.
 - **Kết luận sub-case tự đủ nghĩa:** Mỗi trạng thái `Pass`, `Fail`, `Partial`, `N/A`, `Chưa implement` phải nêu rõ sub-case nào thuộc trạng thái đó, hành vi quan sát được và — với `Partial`/`N/A` — quyết định nghiệp vụ hoặc boundary còn thiếu cụ thể là gì. Không ghi chung chung “cần clarification”.
 - **Tách kết quả khỏi cách làm:** "Kết quả thực tế" nói điều người dùng/QA quan sát được; không dùng chi tiết Playwright, selector, seed, worker, mock hay thao tác nội bộ để thay cho kết luận. Thông tin truy vết để ở Ghi chú theo quy tắc trên, không kèm đường dẫn source/test script.
+- **Cập nhật ô Nhận xét theo ý nghĩa sản phẩm:** Mỗi lần cập nhật Test Plan/Test Case, phải rà soát và bổ sung **Nhận xét** khi kết quả có ý nghĩa cho người dùng, UX, mức rủi ro, phạm vi nghiệm thu hoặc hành động tiếp theo. Nhận xét trả lời “kết quả này có ý nghĩa gì?” — ví dụ người học có/không có đường đi rõ ràng, rủi ro còn nằm ngoài phạm vi UI, hoặc lỗi cần ưu tiên trước nghiệm thu. Không lặp lại `Kết quả thực tế`/`Trạng thái`, không chép log hay chi tiết kỹ thuật; những chi tiết đó thuộc **Ghi chú**. Có thể để trống chỉ khi không có kết luận bổ sung thực sự hữu ích.
 - **Từ ngữ dễ đọc:** Ưu tiên tiếng Việt nghiệp vụ như “tải lại trang”, “nút hành động”, “đồ thị”, “khái niệm”, “phiên vấn đáp”, “phiên học tập trung”. Chỉ giữ thuật ngữ kỹ thuật chuẩn khi chúng là một phần hợp đồng cần kiểm tra (HTTP, API, `404`, `mastery_score`…).
 - **Rà soát trước khi hoàn tất:** Sau mỗi lần cập nhật Test Plan/Test Case, tìm các mã seed/viết tắt nội bộ và đường dẫn mã nguồn/test script còn sót; sau đó đọc riêng các ô Kết quả thực tế, Trạng thái, Ghi chú như một người không biết source. Sửa mọi câu không trả lời được “dữ liệu nào, điều gì đã xảy ra, kết luận là gì”.

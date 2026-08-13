@@ -4,8 +4,8 @@
 > **Use Case tham chiếu:** FS-01, FS-02, FS-03, FS-04, FS-05, FS-06; UC-09 chỉ dùng khi không mâu thuẫn với thiết kế MVP
 > **Người viết:** Nguyễn Minh Phát
 > **Ngày tạo:** 2026-08-07
-> **Ngày cập nhật:** 2026-08-12
-> **Phiên bản:** 1.1
+> **Ngày cập nhật:** 2026-08-13
+> **Phiên bản:** 1.2
 > **Loại kiểm thử chung:** Functionality / UI-E2E / Integration
 
 ## Nguồn và thứ tự ưu tiên
@@ -20,7 +20,7 @@
 - Student A đã đăng nhập; có plan P1, concept C1 và một review-queue item R1 trỏ tới C1. Student B là người dùng khác.
 - Môi trường test cho phép rút ngắn một lượt Pomodoro; ý nghĩa phải tương đương cấu hình mặc định 25 phút.
 - Không mock request thành công. Có thể kiểm tra request, response và DB để xác minh contract.
-- Kết quả PASS/FAIL phản ánh lần chạy Playwright ngày 2026-08-10 trên Chromium và Firefox; TC-FS-024 vẫn là regression đỏ đã biết theo #311.
+- Kết quả PASS/FAIL phản ánh lần chạy Playwright ngày 2026-08-10 trên Chromium và Firefox; TC-FS-024 được re-verify PASS ngày 2026-08-12 sau khi #311 được đóng qua #319.
 - Các case N/A ở bảng loại trừ là quyết định phạm vi, không phải kết quả chạy test và không được tính vào chỉ số PASS/FAIL.
 
 ## Ma trận bao phủ yêu cầu
