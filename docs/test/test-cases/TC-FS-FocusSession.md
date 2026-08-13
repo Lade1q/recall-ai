@@ -67,7 +67,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: route chuyển về Login, UI không POST tạo session; API không token trả 401.<br>b) PASS — Chromium + Firefox: hiện đúng heading/CTA của mockup, không có nút Bắt đầu, POST hoặc record session.<br>c) PASS — Chromium + Firefox: hiện C1, lý do queue, 25:00 và link Dashboard; không có timer/nút Hủy/POST/record trước Start. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>c) PASS<br>Tổng: PASS                                                                                                                                                                                                                                                                                                                 |
 | **Ghi chú**              | Không kiểm một màn chọn concept mới: đó là hành vi bị loại ở TC-FS-003.                                                                                                                                                                                                                                                                                     |
-| **Nhận xét**             | Nhánh hoàn thành hôm nay dùng nguyên message backend; nhánh chưa có plan dùng heading/CTA riêng đã chốt trong mockup dòng 1838–1860.                                                                                                                                                                                                                        |
+| **Nhận xét**             | Người học hiểu vì sao chưa thể bắt đầu và có một bước tiếp theo rõ ràng, thay vì bị đưa vào một phiên rỗng.                                                                                                                                                                                                                                                 |
 
 ### TC-FS-002: Cấu hình Pomodoro theo phiên trước và trong khi chạy
 
@@ -87,7 +87,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: panel hiện đủ 25/5/15/4, sound và Strict Mode.<br>b) PASS — bộ 1/2/3/2 chỉ áp dụng session hiện tại, không PATCH cấu hình user.<br>c) PASS — đổi giữa lượt sang 2/4/6/3 và sound=false không reset lượt hiện tại; các work/short/long/cycles mới lần lượt có hiệu lực từ ranh giới sau, không phát chime, Strict bị khóa và không PATCH cấu hình user. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>c) PASS<br>Tổng: PASS                                                                                                                                                                                                                                                                                                                                          |
 | **Ghi chú**              | Không có Free Timer; xem quyết định TC-FS-010.                                                                                                                                                                                                                                                                                                                                       |
-| **Nhận xét**             | Nhóm a/b/c chung một context cấu hình Pomodoro, tránh tách case vụn theo từng field.                                                                                                                                                                                                                                                                                                 |
+| **Nhận xét**             | Người học vẫn làm chủ phiên đang diễn ra: thay đổi giữa chừng không khiến đồng hồ hay chế độ nghiêm ngặt đổi bất ngờ.                                                                                                                                                                                                                                                                |
 
 ### TC-FS-004: Bắt đầu phiên Pomodoro và timer đếm ngược
 
@@ -107,7 +107,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: API trả 400 `VALIDATION_ERROR`, DB không có record.<br>b) PASS — Strict Mode bật/tắt đều phát đúng một POST, response và DB cùng C1/P1/strictMode; timer đếm giảm.<br>c) PASS — API tạo đúng một session liên kết đủ C1/C2/C3. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>c) PASS<br>Tổng: PASS                                                                                                                                                                                                                  |
 | **Ghi chú**              | Case spam click được kiểm riêng ở TC-FS-023.                                                                                                                                                                                                                 |
-| **Nhận xét**             | UI chỉ bắt đầu C1 đã được chọn sẵn. Nhánh đa concept kiểm contract API; không suy diễn UI picker hoặc hành vi tự loại ID trùng.                                                                                                                              |
+| **Nhận xét**             | Ranh giới trước và sau khi bấm Bắt đầu rõ ràng, giúp tránh tạo phiên vô tình hoặc học nhầm khái niệm.                                                                                                                                                        |
 
 ### TC-FS-005: Xem tài liệu gốc trong phiên học
 
@@ -127,7 +127,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: Ẩn/Trích đoạn/Toàn văn có selected-state đúng; excerpt, filename và page anchor khớp source DB; PDF thật tải đúng trang; timer tiếp tục và không tạo session mới. |
 | **Trạng thái**           | PASS                                                                                                                                                                                         |
 | **Ghi chú**              | PDF lỗi/bytes không hợp lệ không thuộc module này; xem TC-FS-021 bị loại.                                                                                                                    |
-| **Nhận xét**             | Chỉ dùng tài liệu đã qua validation Upload.                                                                                                                                                  |
+| **Nhận xét**             | Việc đổi mức chi tiết tài liệu không làm mất nhịp học hay thời gian đang theo dõi, phù hợp khi người học cần tra cứu nhanh.                                                                  |
 
 ### TC-FS-006: Ghi chú nhanh được liên kết concept và auto-save
 
@@ -147,7 +147,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: rail mở bằng nút/N, overlay không làm lệch hoặc dừng timer; POST/PATCH giữ đúng một note của S1/C1 và đọc lại nội dung mới nhất sau remount. |
 | **Trạng thái**           | PASS                                                                                                                                                                    |
 | **Ghi chú**              | Khi request save thất bại dùng TC-FS-020; không suy diễn offline-sync.                                                                                                  |
-| **Nhận xét**             | Không tạo case riêng cho từng lần sửa vì đều là biến thể dữ liệu cùng ngữ cảnh.                                                                                         |
+| **Nhận xét**             | Người học có thể ghi lại ý vừa nghĩ ra mà không lo bản sửa mới nhất bị mất hoặc làm gián đoạn phiên.                                                                    |
 
 ### TC-FS-007: Hết chu kỳ tự nhiên, xác nhận hoàn tất và tổng kết phiên
 
@@ -167,7 +167,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: lượt work tự chuyển sang nghỉ dài và chưa PATCH; xác nhận tại màn nghỉ phát đúng một completion, summary khớp DB và masteryScore/lastTestedAt của C1 không đổi.                                                                                                                                                     |
 | **Trạng thái**           | PASS                                                                                                                                                                                                                                                                                                                                           |
 | **Ghi chú**              | Product hiện không auto-finalize khi timer về 0: `useFocusTimer` chuyển phase, còn `RunningSession` chỉ gọi completion khi Student xác nhận. Đây là completion sau ranh giới tự nhiên, không phải nhánh Kết thúc sớm giữa lượt của TC-FS-008. Assertion không đổi mastery là boundary của Focus, không phải call SRE/mastery cũ của TC-FS-014. |
-| **Nhận xét**             | Handoff sang Interview được kiểm sâu hơn ở TC-FS-026.                                                                                                                                                                                                                                                                                          |
+| **Nhận xét**             | Xác nhận hoàn tất trước khi chốt phiên giúp người học không vô tình ghi nhận tiến độ sai và dễ hiểu bước tiếp theo.                                                                                                                                                                                                                            |
 
 ### TC-FS-008: Kết thúc sớm và tính đúng thời gian tập trung
 
@@ -187,7 +187,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: 65 giây liên tục, một completion, `durationMinutes = 1`, summary khớp DB.<br>b) PASS — Chromium + Firefox: 65 giây focused với pause + away; wall-time gián đoạn bị loại, `awayCount = 1`, payload/summary/DB khớp. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>Tổng: PASS                                                                                                                                                                                                                  |
 | **Ghi chú**              | Không dùng full offline để tạo completion failure.                                                                                                                                                                                                |
-| **Nhận xét**             | a/b là data-driven sub-tests cho cùng hành vi kết thúc sớm.                                                                                                                                                                                       |
+| **Nhận xét**             | Thời gian nghỉ không bị tính như thời gian học, nên thống kê phản ánh công sức thực tế và đáng tin hơn.                                                                                                                                           |
 
 ### TC-FS-009: Pause và Resume
 
@@ -207,7 +207,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: một Pause/Resume đóng băng hai đồng hồ, tiếp tục đúng Pomodoro 1/4 và completion loại thời gian pause.<br>b) PASS — Chromium + Firefox: hai lần Pause/Resume cho cùng kết quả; payload, summary và DB khớp. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>Tổng: PASS                                                                                                                                                                                                          |
 | **Ghi chú**              | Rời tab Strict Mode là cơ chế riêng ở TC-FS-012.                                                                                                                                                                                          |
-| **Nhận xét**             | Không dùng thời gian wall-clock làm expected result.                                                                                                                                                                                      |
+| **Nhận xét**             | Tạm dừng không làm lệch tiến độ của phiên, giúp người học yên tâm quay lại sau gián đoạn ngắn.                                                                                                                                            |
 
 ### TC-FS-011: Gợi ý concept từ review queue
 
@@ -227,7 +227,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: Focus gọi `limit=1`, hiển thị nguyên `items[0]` và reason server, không có picker.<br>b) PASS — Chromium + Firefox: `items=[]` hiển thị đúng message server, hai CTA và không tạo session.<br>c) PASS — “Chọn khái niệm khác” về Dashboard trước khi tạo session; test xác minh plan card đã seed vì header Dashboard là lời chào động, không phải heading tĩnh `Dashboard`. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>c) PASS<br>Tổng: PASS                                                                                                                                                                                                                                                                                                                                                                |
 | **Ghi chú**              | Không gọi hay mô phỏng SRE tính mastery trong Focus.                                                                                                                                                                                                                                                                                                                                                       |
-| **Nhận xét**             | Re-verified PASS trên Chromium và Firefox ngày 2026-08-12. Đây là coverage thay thế cho phần UI cũ của TC-FS-003.                                                                                                                                                                                                                                                                                          |
+| **Nhận xét**             | Lý do gợi ý và lối đổi khái niệm giúp người học hiểu lựa chọn hiện tại thay vì bị buộc theo một đề xuất mơ hồ.                                                                                                                                                                                                                                                                                             |
 
 ### TC-FS-012: Strict Mode khi rời tab
 
@@ -247,7 +247,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: một lần away có giải thích 3 giây, timer/focused dừng, Strict bị khóa và completion `awayCount = 1`.<br>b) PASS — hai lần away tích lũy đúng count; CTA away tắt Strict cho phần còn lại của phiên, thời gian away bị loại và payload/summary/DB khớp. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>Tổng: PASS                                                                                                                                                                                                                                                     |
 | **Ghi chú**              | Switch cấu hình Strict chỉ chỉnh trước Start và bị khóa trong panel đang chạy; riêng away panel có CTA “Tắt chế độ nghiêm ngặt” theo mockup dòng 2174–2176.                                                                                                                          |
-| **Nhận xét**             | Browser sandbox không cho phép expected result là chặn website/tab khác.                                                                                                                                                                                                             |
+| **Nhận xét**             | Chế độ nghiêm ngặt giải thích rõ thời gian bị loại khi rời tab, nên tạo trách nhiệm mà không gây cảm giác bị phạt vô cớ.                                                                                                                                                             |
 
 ### TC-FS-013: Hủy phiên giữa chừng
 
@@ -267,7 +267,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: “Quay lại phiên” giữ S1 running; xác nhận gửi payload `cancelled` với raw focusedSeconds, DB lưu audit `durationMinutes = 0`, không có completed session. |
 | **Trạng thái**           | PASS                                                                                                                                                                                 |
 | **Ghi chú**              | Hủy khác với Kết thúc sớm ở TC-FS-008.                                                                                                                                               |
-| **Nhận xét**             | Không kiểm một link hủy ở state pre-start vì khi đó chưa có session để hủy.                                                                                                          |
+| **Nhận xét**             | Hủy cần là lựa chọn có chủ đích; người học không bị tính tiến độ khi quyết định dừng giữa chừng.                                                                                     |
 
 ### TC-FS-016: Khôi phục phiên bị gián đoạn từ localStorage
 
@@ -287,7 +287,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: dialog đọc đúng snapshot ≥60s; đúng một PATCH hoàn tất S1 cũ, payload/DB khớp, snapshot bị xóa và reload không lặp.<br>b) PASS — “Bỏ qua” không tạo completed session, xóa snapshot và không hỏi lại. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>Tổng: PASS                                                                                                                                                                                                    |
 | **Ghi chú**              | Recovery dưới 60 giây có UX không mời dialog theo thiết kế; cleanup DB tương ứng nằm ở TC-FS-024.                                                                                                                                   |
-| **Nhận xét**             | Không suy ra duration từ khoảng thời gian tab đóng qua đêm.                                                                                                                                                                         |
+| **Nhận xét**             | Sau gián đoạn, người học có quyền tiếp tục hoặc bỏ phiên và không gặp phiên ma hay lời nhắc lặp lại.                                                                                                                                |
 
 ### TC-FS-020: Auto-save ghi chú thất bại
 
@@ -307,7 +307,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: fault injection hẹp trả 503 cho POST note; UI hiện “Lưu lỗi · thử lại”, không báo đã lưu, giữ N1 qua remount rail; timer/S1 tiếp tục và DB không có note giả. |
 | **Trạng thái**           | PASS                                                                                                                                                                                     |
 | **Ghi chú**              | Không đặt expected result là tự đồng bộ sau khi online; hành vi đó bị de-scope ở TC-FS-015.                                                                                              |
-| **Nhận xét**             | Đây là negative test của một feature có thật, không tạo thêm offline feature.                                                                                                            |
+| **Nhận xét**             | Khi lưu ghi chú gặp lỗi, nội dung đang soạn vẫn được giữ để người học không nhận một thành công giả.                                                                                     |
 
 ### TC-FS-022: Cô lập dữ liệu session giữa các Student
 
@@ -327,7 +327,7 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: B PATCH S1 của A nhận 404/`NOT_FOUND` không lộ identifier; history B chỉ có control S2/C2 của B; toàn bộ scalar state S1 của A không đổi. |
 | **Trạng thái**           | PASS                                                                                                                                                                 |
 | **Ghi chú**              | 404 là yêu cầu contract, không thay bằng 403.                                                                                                                        |
-| **Nhận xét**             | Đối chiếu cả response lẫn persistence để tránh chỉ chặn ở UI.                                                                                                        |
+| **Nhận xét**             | Người học có thể tin rằng lịch sử và phiên của mình không lộ sang tài khoản khác.                                                                                    |
 
 ### TC-FS-023: Spam click Bắt đầu
 
@@ -347,27 +347,27 @@
 | **Kết quả thực tế**      | PASS — Chromium + Firefox: khi POST đầu còn pending, 5 mouse click độc lập làm nút disabled/aria-busy; chỉ một POST/record C1-P1, timer snapshot dùng đúng ID response. |
 | **Trạng thái**           | PASS                                                                                                                                                                    |
 | **Ghi chú**              | Không mở rộng thành policy cấm hai tab toàn origin; đó là TC-FS-025 bị loại do thiếu requirement.                                                                       |
-| **Nhận xét**             | Expected result chỉ áp dụng cho cùng một hành động Start đang pending.                                                                                                  |
+| **Nhận xét**             | Bấm lặp do nôn nóng hoặc mạng chậm không làm nhân đôi phiên hay khiến tiến độ bị nhiễu.                                                                                 |
 
 ### TC-FS-024: Reload phiên dưới 60 giây — regression cleanup phiên ngắn
 
-| Trường                   | Nội dung                                                                                                                                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Function / Feature**   | Cleanup khi abandon session ngắn. Nguồn: API Focus dòng 65–69.                                                                                                                                      |
-| **Mã TC**                | TC-FS-024                                                                                                                                                                                           |
-| **Tiêu đề**              | Reload dưới 60 giây không mời recovery nhưng phải đóng sạch record running                                                                                                                          |
-| **Mô tả**                | Regression bảo vệ cleanup DB và UX by-design không hiện dialog với phiên quá ngắn.                                                                                                                  |
-| **Loại kiểm thử**        | Resilience / Integration / Database                                                                                                                                                                 |
-| **Phương thức thực thi** | Playwright reload + API/DB verify                                                                                                                                                                   |
-| **Độ ưu tiên**           | Low                                                                                                                                                                                                 |
-| **Điều kiện tiên quyết** | Session S1-C1 đang running; focused time nhỏ hơn 60 giây.                                                                                                                                           |
-| **Các bước thực hiện**   | 1. Bắt đầu S1, chạy dưới 60 giây.<br>2. Reload trang.<br>3. Kiểm tra UI và DB ngay sau reload.                                                                                                      |
-| **Dữ liệu đầu vào**      | focusedSeconds = 10–59; page.reload().                                                                                                                                                              |
-| **Kết quả mong đợi**     | UI quay về setup, không hiện dialog recovery và không tạo S2. S1 được đóng cancelled với durationMinutes = 0 ngay khi bị bỏ, không chờ lazy-reap 8 giờ.                                             |
-| **Kết quả thực tế**      | PASS — Chromium + Firefox: UX đúng (setup, không recovery dialog, không S2); reload gửi PATCH `cancelled` cho S1, DB lưu `endedAt`, `durationMinutes = 0` và không còn record running.              |
-| **Trạng thái**           | PASS                                                                                                                                                                                                |
-| **Ghi chú**              | Không còn đánh dấu Critical hoặc yêu cầu resume/prompt cho phiên dưới 60 giây.                                                                                                                      |
-| **Nhận xét**             | Re-verified PASS trên Chromium và Firefox ngày 2026-08-12. Test dùng browser clock cho snapshot nhưng lùi `startedAt` bằng DB sau Start response để server thật chấp nhận `focusedSeconds` cleanup. |
+| Trường                   | Nội dung                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | Cleanup khi abandon session ngắn. Nguồn: API Focus dòng 65–69.                                                                                                                         |
+| **Mã TC**                | TC-FS-024                                                                                                                                                                              |
+| **Tiêu đề**              | Reload dưới 60 giây không mời recovery nhưng phải đóng sạch record running                                                                                                             |
+| **Mô tả**                | Regression bảo vệ cleanup DB và UX by-design không hiện dialog với phiên quá ngắn.                                                                                                     |
+| **Loại kiểm thử**        | Resilience / Integration / Database                                                                                                                                                    |
+| **Phương thức thực thi** | Playwright reload + API/DB verify                                                                                                                                                      |
+| **Độ ưu tiên**           | Low                                                                                                                                                                                    |
+| **Điều kiện tiên quyết** | Session S1-C1 đang running; focused time nhỏ hơn 60 giây.                                                                                                                              |
+| **Các bước thực hiện**   | 1. Bắt đầu S1, chạy dưới 60 giây.<br>2. Reload trang.<br>3. Kiểm tra UI và DB ngay sau reload.                                                                                         |
+| **Dữ liệu đầu vào**      | focusedSeconds = 10–59; page.reload().                                                                                                                                                 |
+| **Kết quả mong đợi**     | UI quay về setup, không hiện dialog recovery và không tạo S2. S1 được đóng cancelled với durationMinutes = 0 ngay khi bị bỏ, không chờ lazy-reap 8 giờ.                                |
+| **Kết quả thực tế**      | PASS — Chromium + Firefox: UX đúng (setup, không recovery dialog, không S2); reload gửi PATCH `cancelled` cho S1, DB lưu `endedAt`, `durationMinutes = 0` và không còn record running. |
+| **Trạng thái**           | PASS                                                                                                                                                                                   |
+| **Ghi chú**              | Không còn đánh dấu Critical hoặc yêu cầu resume/prompt cho phiên dưới 60 giây.                                                                                                         |
+| **Nhận xét**             | Làm mới rất sớm được xem như rời phiên, tránh khôi phục ngoài ý muốn và không tạo thêm phiên trùng.                                                                                    |
 
 ### TC-FS-026: Điều hướng sau khi hoàn tất phiên
 
@@ -387,7 +387,7 @@
 | **Kết quả thực tế**      | a) PASS — Chromium + Firefox: CTA POST Interview với P1/C1, route dùng ID response, mở thẳng C1 không chọn lại; mastery/lastTestedAt không đổi trước scoring.<br>b) PASS — về Dashboard không tạo Focus/Interview mới; assessment C1 vẫn bất biến. Dashboard được xác minh bằng plan card đã seed vì header là lời chào động. |
 | **Trạng thái**           | a) PASS<br>b) PASS<br>c) PASS — boundary mastery<br>Tổng: PASS                                                                                                                                                                                                                                                                |
 | **Ghi chú**              | Cơ chế chấm mastery hoặc fallback nằm trong plan test AI Examiner, không quay lại TC-FS-014/019.                                                                                                                                                                                                                              |
-| **Nhận xét**             | Re-verified PASS trên Chromium và Firefox ngày 2026-08-12. “Để sau — về Dashboard” là CTA hợp lệ theo mockup; không bắt buộc một nút riêng nhãn “Nghỉ giải lao”.                                                                                                                                                              |
+| **Nhận xét**             | Kết thúc phiên cho người học một lựa chọn kế tiếp rõ ràng mà không ép phải bắt đầu kiểm tra ngay.                                                                                                                                                                                                                             |
 
 ## Bảng tóm tắt — Focus Session
 
