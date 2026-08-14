@@ -6,6 +6,15 @@
 
 > **⚠️ Lưu ý về vòng đời model**: Model Gemini **hết hạn/bị thay thế rất nhanh** — ngay trong dòng 3.x, `gemini-2.0-flash` và `gemini-3-pro-preview` đã từng bị shut down. Model ID **luôn để trong biến môi trường/config**, không hardcode; và bọc Gemini sau một **lớp abstraction** (khớp risk R10 & ràng buộc C4-C6 của SDP). Trước khi dùng lại tài liệu này ở Sprint sau, kiểm tra lại danh mục model còn hiệu lực trong AI Studio.
 
+> **📌 Luật model ID của dự án: luôn dùng alias `-latest`, không bao giờ ghim tên có phiên bản/ngày tháng.**
+>
+> - Mặc định của Recall AI là **`gemini-flash-latest`** và **`gemini-flash-lite-latest`**. Alias rolling tự trỏ sang bản GA hiện hành ⇒ model bị khai tử không làm gãy hệ thống.
+> - Tên có số phiên bản (`gemini-2.5-flash`, `gemini-3.5-flash`…) là **tên ghim**. Khi Google khai tử, lời gọi **fail cứng HTTP 404**, không degrade — đo trên chính API key của dự án: `gemini-2.5-flash` + `gemini-2.5-flash-lite` trả 404 ngày **25/07/2026**, `gemini-2.5-flash` đo lại vẫn 404 ngày **13/08/2026** (`"This model models/gemini-2.5-flash is no longer available to new users"`), trong khi `gemini-flash-latest` route bình thường.
+> - ⚠️ **Bẫy khi kiểm chứng**: `ai.models.list()` và `ai.models.get()` **vẫn báo model đã khai tử là PRESENT/OK** ⇒ false pass. Chỉ **bề mặt gọi thật** (`ai.interactions.create`) mới lộ 404. Muốn xác nhận một model ID còn sống thì phải gọi thật, đừng tra danh mục.
+> - Các model ID có số phiên bản trong tài liệu này (§3.1b) là **ảnh chụp danh mục & bảng giá tại 07/2026**, giữ lại để tham chiếu lịch sử — **không** phải giá trị đem đi hardcode.
+>
+> Cùng luật này đã ghi ở `src/server/README.md` và `src/server/.env.example`.
+
 ---
 
 ## 1. Tổng quan kiến trúc tích hợp
@@ -50,7 +59,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 ```typescript
 const interaction = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: 'Explain how AI works in a few words',
 });
 console.log(interaction.output_text);
@@ -63,7 +72,7 @@ console.log(interaction.output_text);
 
 ```typescript
 const interaction = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: 'Hello there',
   system_instruction: 'You are a cat. Your name is Neko.',
 });
@@ -75,12 +84,12 @@ const interaction = await ai.interactions.create({
 
 ```typescript
 const t1 = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: 'I have 2 dogs in my house.',
 });
 
 const t2 = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: 'How many paws are in my house?',
   previous_interaction_id: t1.id, // ← server tự nối lịch sử, KHÔNG cần gửi lại history
 });
@@ -108,7 +117,7 @@ const schema = z.object({
 const jsonSchema = z.toJSONSchema(schema);
 
 const interaction = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: 'Analyze this feedback...',
   response_format: {
     type: 'text',
@@ -135,7 +144,7 @@ const uploaded = await ai.files.upload({
 });
 
 const interaction = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: [
     { type: 'text', text: 'Trích xuất các khái niệm chính và quan hệ tiên quyết.' },
     { type: 'image', uri: uploaded.uri, mime_type: uploaded.mimeType },
@@ -151,7 +160,7 @@ const interaction = await ai.interactions.create({
 
 ```typescript
 const interaction = await ai.interactions.create({
-  model: 'gemini-2.5-flash',
+  model: 'gemini-flash-latest',
   input: '...',
   generation_config: {
     thinking_level: 'low', // giảm suy luận → nhanh hơn, rẻ hơn
@@ -172,34 +181,49 @@ const interaction = await ai.interactions.create({
 
 ## 3. Danh mục Model (07/2026) & khuyến nghị cho Recall AI
 
-### 3.1. Bảng model text/multimodal hiện hành
+### 3.1. Alias `-latest` — thứ duy nhất được đem đi cấu hình
 
-| Model ID (chuỗi truyền vào `model`)                                 | Trạng thái          | Free tier | Giá paid (input / output, /1M token)          |
-| ------------------------------------------------------------------- | ------------------- | --------- | --------------------------------------------- |
-| `gemini-3.6-flash`                                                  | GA (flagship flash) | ✅        | $1.50 / $7.50                                 |
-| `gemini-3.5-flash`                                                  | GA                  | ✅        | $1.50 / $9.00                                 |
-| `gemini-3.5-flash-lite`                                             | GA                  | ✅        | $0.30 / $2.50                                 |
-| `gemini-3.1-flash-lite`                                             | GA                  | ✅        | $0.25 (text/img/video), $0.50 (audio) / $1.50 |
-| `gemini-2.5-pro`                                                    | GA                  | ✅        | $1.25 (≤200k) → $2.50 / $10 (≤200k) → $15     |
-| `gemini-2.5-flash`                                                  | GA                  | ✅        | $0.30 / $2.50                                 |
-| `gemini-2.5-flash-lite`                                             | GA                  | ✅        | $0.10 / $0.40                                 |
-| `gemini-3.1-pro-preview`                                            | Preview             | ❌        | $2.00 (≤200k) → $4.00 / $12 (≤200k) → $18     |
-| `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-3-pro-preview` | ⛔ **Shut down**    | –         | –                                             |
-| **Embedding**: Gemini Embedding / Gemini Embedding 2                | GA                  | ✅        | (RAG/semantic search – **không cần cho MVP**) |
+| Alias (chuỗi truyền vào `model`)  | Trỏ tới                     | Free tier | Giá                              |
+| --------------------------------- | --------------------------- | --------- | -------------------------------- |
+| **`gemini-flash-latest`** ⭐      | Bản Flash GA hiện hành      | ✅        | Theo model mà alias đang trỏ tới |
+| **`gemini-flash-lite-latest`** ⭐ | Bản Flash-Lite GA hiện hành | ✅        | Theo model mà alias đang trỏ tới |
+
+Alias là giá trị **duy nhất** được ghi vào `.env` / config. Đánh đổi: không biết trước chính xác giá và hành vi của bản mà alias trỏ tới ⇒ khi cần con số chi phí cho báo cáo thì tra AI Studio tại thời điểm đó, đừng chép lại bảng bên dưới.
+
+### 3.1b. Ảnh chụp danh mục model tại 07/2026 (tham chiếu lịch sử — **không hardcode**)
+
+> Bảng này giữ nguyên để đối chiếu giá/năng lực khi chọn alias. Cột "Trạng thái" đã cập nhật theo đo đạc mới nhất; **các ID có số phiên bản đều là tên ghim**, không được đưa vào code hay `.env`.
+
+| Model ID (chuỗi truyền vào `model`)                                 | Trạng thái                                         | Free tier | Giá paid tại 07/2026 (input / output, /1M token) |
+| ------------------------------------------------------------------- | -------------------------------------------------- | --------- | ------------------------------------------------ |
+| `gemini-3.6-flash`                                                  | GA (flagship flash) tại 07/2026                    | ✅        | $1.50 / $7.50                                    |
+| `gemini-3.5-flash`                                                  | GA tại 07/2026                                     | ✅        | $1.50 / $9.00                                    |
+| `gemini-3.5-flash-lite`                                             | GA tại 07/2026                                     | ✅        | $0.30 / $2.50                                    |
+| `gemini-3.1-flash-lite`                                             | GA tại 07/2026                                     | ✅        | $0.25 (text/img/video), $0.50 (audio) / $1.50    |
+| `gemini-2.5-pro`                                                    | GA tại 07/2026 (chưa đo lại)                       | ✅        | $1.25 (≤200k) → $2.50 / $10 (≤200k) → $15        |
+| `gemini-2.5-flash`                                                  | ⛔ **404 với key mới** — đo 25/07 & lại 13/08/2026 | –         | $0.30 / $2.50                                    |
+| `gemini-2.5-flash-lite`                                             | ⛔ **404 với key mới** — đo 25/07/2026             | –         | $0.10 / $0.40                                    |
+| `gemini-3.1-pro-preview`                                            | Preview tại 07/2026                                | ❌        | $2.00 (≤200k) → $4.00 / $12 (≤200k) → $18        |
+| `gemini-2.0-flash`, `gemini-2.0-flash-lite`, `gemini-3-pro-preview` | ⛔ **Shut down**                                   | –         | –                                                |
+| **Embedding**: Gemini Embedding / Gemini Embedding 2                | GA tại 07/2026                                     | ✅        | (RAG/semantic search – **không cần cho MVP**)    |
+
+> Hai dòng ⛔ 404 chính là minh hoạ cho luật ở đầu tài liệu: tại 07/2026 chúng còn là "GA ✅" trong bảng này. Trạng thái GA của các dòng còn lại là ảnh chụp 07/2026 và **có thể đã hết hiệu lực** — dùng alias thì không phải quan tâm.
 
 > Context window & max output không được liệt kê ở trang tổng quan — tra ở trang chi tiết của từng model nếu cần con số chính xác. (Dòng Flash truyền thống ~1M token input, nhưng hãy **xác nhận lại** trước khi cam kết trong tài liệu.)
 
 ### 3.2. Khuyến nghị model theo từng call của Recall AI
 
-| AI call (schema)           | UC               | Model đề xuất                                                  | Lý do                                                                                                                     |
-| -------------------------- | ---------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `extract_concepts`         | SP-01 (**I3.2**) | **`gemini-2.5-flash`** (mặc định) hoặc `gemini-3.5-flash-lite` | Multimodal PDF/ảnh, structured JSON, free tier, suy luận đủ tốt để tìm quan hệ tiên quyết. Chạy nền nên độ trễ không gắt. |
-| `generate_question`        | AE-02            | `gemini-2.5-flash` / `gemini-3.5-flash`                        | Cần chất lượng hội thoại + độ trễ thấp; `thinking_level: low`.                                                            |
-| `grade_answer`             | AE-02            | `gemini-2.5-flash-lite` / `gemini-3.5-flash-lite`              | Chấm theo rubric cố định, cần nhanh & rẻ; gọi **stateless**.                                                              |
-| `summarize_session`        | AE-09            | `gemini-2.5-flash-lite`                                        | Tóm tắt 1 phát từ điểm đã lưu; rẻ.                                                                                        |
-| Pre-generate cache câu hỏi | AE-06            | `*-flash-lite`                                                 | Chạy nền số lượng lớn → ưu tiên chi phí thấp nhất.                                                                        |
+| AI call (schema)           | UC               | Model đề xuất                  | Lý do                                                                                                                     |
+| -------------------------- | ---------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `extract_concepts`         | SP-01 (**I3.2**) | **`gemini-flash-latest`**      | Multimodal PDF/ảnh, structured JSON, free tier, suy luận đủ tốt để tìm quan hệ tiên quyết. Chạy nền nên độ trễ không gắt. |
+| `generate_question`        | AE-02            | **`gemini-flash-latest`**      | Cần chất lượng hội thoại + độ trễ thấp; `thinking_level: low`.                                                            |
+| `grade_answer`             | AE-02            | **`gemini-flash-latest`**      | Chấm theo rubric cố định, cần nhanh & rẻ; gọi **stateless**.                                                              |
+| `summarize_session`        | AE-09            | **`gemini-flash-lite-latest`** | Tóm tắt 1 phát từ điểm đã lưu; rẻ.                                                                                        |
+| Pre-generate cache câu hỏi | AE-06            | **`gemini-flash-lite-latest`** | Chạy nền số lượng lớn → ưu tiên chi phí thấp nhất.                                                                        |
 
-> **Đặt trong config/env**, ví dụ: `GEMINI_MODEL_EXTRACT`, `GEMINI_MODEL_QUESTION`, `GEMINI_MODEL_GRADE`, `GEMINI_MODEL_SUMMARY`. Khi model bị deprecate chỉ cần đổi env, không sửa code.
+> ⚠️ Cột "Model đề xuất" **chỉ được chứa alias `-latest`**. Bảng này trước đây ghi `gemini-2.5-flash` làm mặc định và đó chính là nguồn đã seed bug hardcode fallback trong `gemini.service.ts` — khi model bị khai tử, mọi lời gọi extract fail 404. Muốn so sánh năng lực/giá giữa các thế hệ thì xem §3.1b, nhưng **đừng chép ID có số phiên bản ra khỏi bảng đó**.
+
+> **Đặt trong config/env**: hiện dự án dùng **`GEMINI_MODEL_EXTRACT`** (cho `extract_concepts`) và **`GEMINI_MODEL_INTERVIEW`** (dùng chung cho `generate_question` + `grade_answer`) — xem `src/server/.env.example`. Khi model bị deprecate chỉ cần đổi env, không sửa code. Giá trị fallback trong code cũng phải là alias `-latest`, không phải tên ghim.
 
 ---
 
@@ -252,7 +276,7 @@ Theo `UC-Overview.md §5.1`, AI **chỉ** được gọi qua 4 schema; mọi đi
 
 ## 6. Vận hành & Rủi ro (khuyến nghị triển khai)
 
-1. **Lớp abstraction AI** (`ai.service.ts` / interface `AIProvider`): tách SDK Gemini khỏi business logic ⇒ đổi provider/model không lan tỏa (R10). Model ID lấy từ env.
+1. **Lớp abstraction AI** (`ai.service.ts` / interface `AIProvider`): tách SDK Gemini khỏi business logic ⇒ đổi provider/model không lan tỏa (R10). Model ID lấy từ env, và **giá trị fallback trong code cũng phải là alias `-latest`** — env thiếu/rỗng mà rơi về một tên ghim thì đúng lúc cần degrade lại fail 404 (xem luật ở đầu tài liệu).
 2. **Xử lý lỗi 429 `RESOURCE_EXHAUSTED`**: **exponential backoff** (2s → 4s → 8s), sau đó fail mềm. Không retry vô hạn.
 3. **JSON sai định dạng**: dù đã bật structured output vẫn phải `try/catch JSON.parse` + `zod.safeParse`; retry tối đa 2 lần (SP-01 Alt Flow 2) → nếu vẫn hỏng thì cho nhập thủ công / `failed`.
 4. **Fallback AI (AE-05)**: khi Gemini fail/hết quota → chuyển sang **flashcard tĩnh** từ `question_cache`, self-grading, lịch ôn vẫn chạy.

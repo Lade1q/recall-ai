@@ -3,7 +3,7 @@ import { AppError } from '../middleware/errorHandler';
 import { CreatePlanInput, UpdatePlanStatusInput } from '../schemas/plan.schema';
 import { createStorageService } from './storage.service';
 import { STALE_JOB_THRESHOLD_MS } from './analysis.service';
-import { ON_SCHEDULE_WHERE } from './scheduling.service';
+import { ACTIVE_CONCEPT_WHERE, ON_SCHEDULE_WHERE } from './scheduling.service';
 import { clearQuestionCacheForPlan } from './question-cache.service';
 import { summariseMasteryDistribution } from '../utils/mastery';
 import {
@@ -124,9 +124,13 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
     // One group per (plan, concept) still on the schedule — grouping by the pair is what makes
     // this a count of concepts rather than of rows, since a concept collects one row per session
     // that graded it (#232). Counting the groups per plan is then plain arithmetic.
+    //
+    // `ACTIVE_CONCEPT_WHERE` (#343) has to match the queue's own filter exactly: this number is
+    // the "N khái niệm cần ôn" badge on the plan card, and the list it promises is
+    // `resolvePlanQueue`. Filtering one and not the other is how you get badge 3 / list 0.
     prisma.reviewQueueItem.groupBy({
       by: ['planId', 'conceptId'],
-      where: { planId: { in: planIds }, ...ON_SCHEDULE_WHERE },
+      where: { planId: { in: planIds }, ...ON_SCHEDULE_WHERE, ...ACTIVE_CONCEPT_WHERE },
     }),
   ]);
 
@@ -216,6 +220,11 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
     // still on the schedule: one the student removed, or has finished, is history, and a node
     // still pulsing for it would be telling them to do something they no longer have to.
     // Same predicate as the review queue itself — see `OFF_SCHEDULE_STATUSES` (#224).
+    //
+    // Deliberately *not* also filtered by `ACTIVE_CONCEPT_WHERE` (#343): these ids are only ever
+    // looked up against `plan.concepts`, which is already `status: 'active'` above, so a
+    // tombstone id in this set matches nothing and reaches no surface — the chip is a toggle,
+    // not a count. Adding the filter here would buy an extra join for an unobservable result.
     prisma.reviewQueueItem.findMany({
       where: { planId, ...ON_SCHEDULE_WHERE },
       select: { conceptId: true },

@@ -1,7 +1,9 @@
+import fs from 'fs';
 import { processAnalysisJob } from '../services/analysis.service';
 import prisma from '../config/prisma';
 import { extractConcepts } from '../services/gemini.service';
 import { pregenerateForPlan } from '../services/question-cache.service';
+import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
 
 // Mock Prisma client — $transaction chạy callback với cùng mock client, mô phỏng
 // đúng interactive transaction API của Prisma (giống pattern trong retry-plan.test.ts).
@@ -22,6 +24,12 @@ jest.mock('../config/prisma', () => {
       updateMany: jest.fn(),
     },
     conceptEdge: { deleteMany: jest.fn(), create: jest.fn() },
+    conceptCheckpoint: {
+      findMany: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+      createMany: jest.fn(),
+    },
     document: { findFirst: jest.fn() },
     conceptSourceRef: { deleteMany: jest.fn(), createMany: jest.fn() },
     studyPlan: { update: jest.fn() },
@@ -69,6 +77,45 @@ function expectMarkFailedNotCalled() {
 describe('processAnalysisJob', () => {
   const originalUseMockAi = process.env.USE_MOCK_AI;
 
+  /**
+   * Chạy pipeline với đúng MỘT concept ('Variable') và trường `checkpoints` do test đặt.
+   *
+   * USE_MOCK_AI trả về hằng `MOCK_EXTRACT_RESULT` nên không đổi payload được; phải đi qua
+   * `extractConcepts` (đã mock). `readFile` bị chặn vì fileKey trỏ tệp không có thật trên đĩa.
+   * Dọn trong `finally` để một assertion hỏng không rò env/spy sang test sau.
+   */
+  async function runWithCheckpoints(checkpoints: string[] | null) {
+    mockedExtractConcepts.mockResolvedValue({
+      ...MOCK_EXTRACT_RESULT,
+      concepts: [{ ...MOCK_EXTRACT_RESULT.concepts[0], checkpoints }],
+      edges: [],
+    });
+    const readFile = jest.spyOn(fs.promises, 'readFile').mockResolvedValue('nội dung tài liệu');
+    process.env.USE_MOCK_AI = 'false';
+    try {
+      await processAnalysisJob(JOB_ID);
+    } finally {
+      readFile.mockRestore();
+      mockedExtractConcepts.mockReset();
+      process.env.USE_MOCK_AI = 'true';
+    }
+  }
+
+  /** Kế hoạch đã có concept 'Variable' cùng 2 checkpoint đã chốt từ lần phân tích trước. */
+  function givenStoredCheckpoints() {
+    (mockedPrisma.concept.findMany as jest.Mock).mockResolvedValue([
+      { id: 'c-variable', name: 'Variable', status: 'active' },
+    ]);
+    (mockedPrisma.conceptCheckpoint.findMany as jest.Mock).mockResolvedValue(
+      (MOCK_EXTRACT_RESULT.concepts[0]?.checkpoints ?? []).map((text, orderIndex) => ({
+        id: `cp-${orderIndex}`,
+        conceptId: 'c-variable',
+        text,
+        orderIndex,
+      }))
+    );
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.USE_MOCK_AI = 'true'; // callAi trả thẳng MOCK_EXTRACT_RESULT, không gọi Gemini thật
@@ -88,6 +135,11 @@ describe('processAnalysisJob', () => {
     );
     (mockedPrisma.conceptEdge.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.conceptEdge.create as jest.Mock).mockResolvedValue({});
+    // #329: chưa có checkpoint nào lưu trước đó — lần phân tích đầu, mọi checkpoint là toCreate.
+    (mockedPrisma.conceptCheckpoint.findMany as jest.Mock).mockResolvedValue([]);
+    (mockedPrisma.conceptCheckpoint.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockedPrisma.conceptCheckpoint.update as jest.Mock).mockResolvedValue({});
+    (mockedPrisma.conceptCheckpoint.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue(null);
     (mockedPrisma.conceptSourceRef.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.conceptSourceRef.createMany as jest.Mock).mockResolvedValue({ count: 0 });
@@ -158,6 +210,141 @@ describe('processAnalysisJob', () => {
     // AE-06 hook: fired fire-and-forget once the job's transaction (incl. validateDAG) succeeds.
     expect(mockedPregenerateForPlan).toHaveBeenCalledWith(PLAN_ID);
   });
+
+  // --- #329 (INV-1): thước đo được chốt LÚC PHÂN TÍCH, không phải lúc phỏng vấn ---
+  it('commits each concept’s checkpoints in the same transaction as the concepts', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+
+    await processAnalysisJob(JOB_ID);
+
+    const variable = MOCK_EXTRACT_RESULT.concepts[0];
+    expect(mockedPrisma.conceptCheckpoint.createMany).toHaveBeenCalledWith({
+      // `concept-<name>` là id do mock concept.create sinh ra ở trên.
+      data: (variable?.checkpoints ?? []).map((text, orderIndex) => ({
+        conceptId: `concept-${variable?.name}`,
+        text,
+        orderIndex,
+      })),
+    });
+    // Đủ cả 5 concept của MOCK_EXTRACT_RESULT, không phải chỉ concept đầu.
+    expect(mockedPrisma.conceptCheckpoint.createMany).toHaveBeenCalledTimes(
+      MOCK_EXTRACT_RESULT.concepts.length
+    );
+  });
+
+  it('keeps the id of a checkpoint that survives a re-analysis, and drops the one that did not', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+    // Kế hoạch đã có concept 'Variable' (SP-05 phân tích lại) — planConceptMerge giữ lại id của nó.
+    (mockedPrisma.concept.findMany as jest.Mock).mockResolvedValue([
+      { id: 'c-variable', name: 'Variable', status: 'active' },
+    ]);
+    const [surviving, added] = MOCK_EXTRACT_RESULT.concepts[0]?.checkpoints ?? [];
+    (mockedPrisma.conceptCheckpoint.findMany as jest.Mock).mockResolvedValue([
+      // Lần trích trước xếp nó ở vị trí 5; lần này nó là checkpoint đầu tiên.
+      { id: 'cp-keep', conceptId: 'c-variable', text: surviving, orderIndex: 5 },
+      { id: 'cp-gone', conceptId: 'c-variable', text: 'Điểm tài liệu cũ không còn', orderIndex: 6 },
+    ]);
+
+    await processAnalysisJob(JOB_ID);
+
+    // Giữ nguyên hàng cũ: bằng chứng phỏng vấn (#330) trỏ vào `cp-keep`, tái tạo hàng là mất nó.
+    expect(mockedPrisma.conceptCheckpoint.update).toHaveBeenCalledWith({
+      where: { id: 'cp-keep' },
+      data: { text: surviving, orderIndex: 0 },
+    });
+    expect(mockedPrisma.conceptCheckpoint.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cp-gone'] } },
+    });
+    expect(mockedPrisma.conceptCheckpoint.createMany).toHaveBeenCalledWith({
+      data: [{ conceptId: 'c-variable', text: added, orderIndex: 1 }],
+    });
+
+    // Thứ tự delete -> update -> create là ràng buộc thật: unique (concept_id, text) sẽ từ chối
+    // một hàng được tạo/đổi tên đè lên text mà bản trùng chưa bị xoá còn giữ. Prisma mock không
+    // có unique index nên sẽ không tự vỡ — phải ghim ở đây, nếu không ai gộp/đảo 3 khối này sẽ
+    // thấy toàn bộ test xanh rồi vỡ trên DB thật.
+    const firstCall = (fn: unknown) => (fn as jest.Mock).mock.invocationCallOrder[0] ?? Infinity;
+    expect(firstCall(mockedPrisma.conceptCheckpoint.deleteMany)).toBeLessThan(
+      firstCall(mockedPrisma.conceptCheckpoint.update)
+    );
+    expect(firstCall(mockedPrisma.conceptCheckpoint.update)).toBeLessThan(
+      firstCall(mockedPrisma.conceptCheckpoint.createMany)
+    );
+  });
+
+  it('writes nothing when a re-analysis returns the checkpoints already stored', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+    givenStoredCheckpoints();
+
+    await processAnalysisJob(JOB_ID);
+
+    // Phân tích lại một tài liệu không đổi không được đụng vào hàng nào — đụng là bump `updatedAt`
+    // của thước đo dù nó y nguyên.
+    expect(mockedPrisma.conceptCheckpoint.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'cp-0' } })
+    );
+    expect(mockedPrisma.conceptCheckpoint.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('commits nothing for a concept the model gave no checkpoints — C = 0 is a valid outcome', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+
+    await runWithCheckpoints([]);
+
+    expect(mockedPrisma.conceptCheckpoint.createMany).not.toHaveBeenCalled();
+    // Không checkpoint KHÔNG phải lỗi: phân tích vẫn hoàn tất bình thường.
+    expectMarkFailedNotCalled();
+    expect(mockedPrisma.analysisJob.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: JOB_ID, status: 'processing' },
+      data: { status: 'done', completedAt: expect.any(Date) },
+    });
+  });
+
+  it('still clears the ruler when the model deliberately returns an empty list', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+    givenStoredCheckpoints();
+
+    await runWithCheckpoints([]);
+
+    // Nhánh xoá phải còn sống: tài liệu mới thật sự không còn đỡ checkpoint nào thì `C` về 0,
+    // không phải "sửa blocker bằng cách không bao giờ xoá nữa".
+    expect(mockedPrisma.conceptCheckpoint.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['cp-0', 'cp-1'] } },
+    });
+  });
+
+  // --- Blocker review PR #333: output hỏng KHÔNG được đọc thành "concept này không có checkpoint" ---
+  const unreadable: [string, string[] | null][] = [
+    ['null (field vắng / null / không phải mảng)', null],
+    ['mảng non-empty mà mọi entry đều hỏng', ['', '']],
+  ];
+  it.each(unreadable)(
+    'keeps the stored ruler when checkpoints are unreadable — %s',
+    async (_label, raw) => {
+      (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+      givenStoredCheckpoints();
+
+      await runWithCheckpoints(raw);
+
+      // Một lần trích lỡ nhịp không được xoá thước đo đã chốt — và từ #330 trở đi, xoá thước là
+      // xoá luôn bằng chứng trỏ vào id của nó.
+      expect(mockedPrisma.conceptCheckpoint.deleteMany).not.toHaveBeenCalled();
+      expect(mockedPrisma.conceptCheckpoint.update).not.toHaveBeenCalled();
+      expect(mockedPrisma.conceptCheckpoint.createMany).not.toHaveBeenCalled();
+      // Nhưng bản thân lần phân tích vẫn thành công: một field hỏng không đánh sập cả job.
+      expectMarkFailedNotCalled();
+      expect(mockedPrisma.analysisJob.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { id: JOB_ID, status: 'processing' },
+        data: { status: 'done', completedAt: expect.any(Date) },
+      });
+    }
+  );
 
   // --- #265: phân tích xong KHÔNG được tự kích hoạt kế hoạch ---
   it('leaves the plan in draft — only the user confirming the graph activates it', async () => {

@@ -1,0 +1,1522 @@
+<!-- @dsCard group="Screens" subtitle="DB-02 — Đồ thị khái niệm (toàn màn hình)" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Recall AI — Đồ thị khái niệm</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    .graph-main {
+      padding: 32px 40px 40px;
+      max-width: none;
+    }
+
+    .graph-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .breadcrumb {
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin-bottom: 8px;
+    }
+
+    .breadcrumb a {
+      color: var(--muted-foreground);
+      text-decoration: none;
+    }
+
+    .breadcrumb a:hover {
+      color: var(--foreground);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Bộ chọn kế hoạch — câu trả lời cho "muốn xem kế hoạch khác thì làm sao" */
+    .plan-switch {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .plan-switch label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+    }
+
+    .plan-switch select {
+      padding: 9px 12px;
+      min-width: 260px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--card);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    /* ── Thanh công cụ: DB-05 lọc & tìm kiếm ── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: calc(var(--radius) * 1.35) calc(var(--radius) * 1.35) 0 0;
+      background: var(--card);
+    }
+
+    .search-field {
+      position: relative;
+      flex: none;
+      width: 240px;
+    }
+
+    .search-field input {
+      width: 100%;
+      padding: 9px 12px 9px 34px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+    }
+
+    .search-field svg {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted-foreground);
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    /*
+      Chú giải màu ĐÃ ĐƯỢC GỘP VÀO BỘ LỌC. Bản cũ có hai thứ nói cùng một điều:
+      một chú giải nổi ở góc canvas (thụ động) và một hàng chip lọc (chủ động),
+      cùng bốn mức mastery, khác thứ tự nhau. Giữ một cái duy nhất — chip vừa
+      giải thích màu vừa lọc được — và trả góc canvas lại cho chú giải CẠNH,
+      thứ trước đây không ai giải thích dù đồ thị có tới ba kiểu cạnh.
+    */
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      border-radius: calc(var(--radius) * 0.7);
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: background var(--duration-fast) var(--ease-standard);
+    }
+
+    .filter-chip i {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: block;
+      flex: none;
+    }
+
+    .filter-chip:hover {
+      background: var(--accent);
+    }
+
+    .filter-chip--on {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    /* Thứ tự vững → yếu, khớp .dist-legend ở dashboard và danh sách kế hoạch.
+       Bản cũ đảo ngược thứ tự đó, khiến cùng bốn nhãn xuất hiện ba kiểu
+       trên ba màn hình. */
+    .filter-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    .toolbar__count {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Vùng làm việc: canvas + panel chi tiết ── */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      border: 1px solid var(--border);
+      border-radius: 0 0 calc(var(--radius) * 1.35) calc(var(--radius) * 1.35);
+      background: var(--card);
+      overflow: hidden;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      background: var(--muted);
+      min-height: 520px;
+      overflow: hidden;
+    }
+
+    /* Lưới nền cho biết đây là mặt phẳng kéo/thả được, không phải một danh sách */
+    .canvas-wrap::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, var(--border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .canvas {
+      position: absolute;
+      left: 14px;
+      top: 60px;
+      width: 752px;
+      height: 430px;
+    }
+
+    /*
+      MÃ HÓA DƯ THỪA — không chỉ dựa vào màu.
+      Bốn token mastery trong global.css đều ở lightness ≈ 0.5; strong (155°),
+      learning (85°) và weak (25°) chỉ khác nhau ở SẮC. Với người mù màu đỏ–lục,
+      "vững" và "yếu" là hai ô giống hệt nhau — mà đó lại là tín hiệu chính của
+      cả màn hình này. Nên mỗi node mang luôn con số mastery_score. Màu vẫn giữ
+      nguyên (phải khớp global.css), chỉ thêm một kênh đọc được thứ hai.
+    */
+    .canvas .concept-node,
+    .mini .concept-node {
+      position: absolute;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .canvas .concept-node {
+      width: 174px;
+      padding: 10px 12px;
+    }
+
+    .concept-node__name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .concept-node__score {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.7;
+      flex: none;
+    }
+
+    .concept-node.is-selected {
+      box-shadow: 0 0 0 2px var(--foreground);
+    }
+
+    /*
+      Remediation KHÔNG phải một mức mastery — nó là cờ trực giao "khái niệm này
+      đang nằm trong hàng đợi ôn lại hôm nay". Bản cũ tô Ngăn xếp bằng
+      --remediate và do đó XÓA MẤT việc nó đang ở 0.51, tức là yếu: nhìn vào
+      chỉ thấy màu cam, tưởng trung bình. Tách hai kênh — màu nền = mastery,
+      vòng ngoài = đang ôn lại — thì một node nói được cả hai điều cùng lúc.
+      Đây là lý do .concept-node--remediating không còn được dùng ở đây.
+    */
+    .is-remediating {
+      outline: 2px solid var(--remediate);
+      outline-offset: 2px;
+      animation: pulse-remediate 2s var(--ease-standard) infinite;
+    }
+
+    /* DB-02 bước 3: zoom & pan */
+    .viewport-controls {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .viewport-controls button {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--foreground);
+      border-radius: calc(var(--radius) * 0.5);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      font-size: 15px;
+    }
+
+    .viewport-controls button:hover {
+      background: var(--accent);
+    }
+
+    .viewport-controls .zoom-level {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+      padding: 0 6px;
+      min-width: 44px;
+      text-align: center;
+    }
+
+    .viewport-controls .divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      margin: 0 2px;
+    }
+
+    /* Chú giải CẠNH — đồ thị có ba kiểu cạnh và trước đây không cái nào
+       được giải thích. Cạnh mới là thứ chở lập luận của AE-07. */
+    .edge-legend {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 9px 13px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    .edge-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* ── DB-06: Concept Detail Panel ── */
+    .detail {
+      border-left: 1px solid var(--border);
+      padding: 22px 22px 26px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .detail__top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .detail__title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .detail__close {
+      border: none;
+      background: transparent;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: calc(var(--radius) * 0.5);
+    }
+
+    .detail__close:hover {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+
+    .score-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted-foreground);
+      margin-bottom: 7px;
+    }
+
+    .score-row b {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--mastery-weak);
+    }
+
+    .score-track {
+      height: 5px;
+      border-radius: 999px;
+      background: var(--muted);
+      overflow: hidden;
+    }
+
+    .score-track span {
+      display: block;
+      height: 100%;
+      background: var(--mastery-weak);
+    }
+
+    /* Ngưỡng 0.6 lấy thẳng từ global.css (weak khi score < 0.6) — vẽ ra để
+       con số 0.42 có chỗ đứng, thay vì bắt người đọc tự nhớ ngưỡng. */
+    .score-mark {
+      position: relative;
+      height: 14px;
+      margin-top: 4px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted-foreground);
+    }
+
+    .score-mark span {
+      position: absolute;
+      left: 60%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .score-mark::before {
+      content: "";
+      position: absolute;
+      left: 60%;
+      top: -6px;
+      width: 1px;
+      height: 5px;
+      background: var(--border);
+    }
+
+    .detail h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      font-weight: 600;
+      margin: 0 0 10px;
+    }
+
+    .meta-line {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      font-family: var(--font-mono);
+      margin-top: 8px;
+    }
+
+    /*
+      NEO NGUỒN — thứ PR #148/#149 vừa đưa vào DB (documents + concept_sources
+      với page_from/page_to/excerpt) nhưng màn hình này chưa dùng.
+      Đây là chỗ ràng buộc C5 "AI không bịa" trở thành thứ nhìn thấy được:
+      sinh viên đang đứng trước một lỗ hổng thì phải mở được đúng trang tài liệu
+      sinh ra khái niệm đó. Trích đoạn dưới đây còn nói thẳng vì sao Ngăn xếp là
+      tiên quyết của DFS — nghĩa là đường truy ngược AE-07 kiểm chứng được
+      bằng chính tài liệu của sinh viên, không phải bằng lời hứa của mô hình.
+    */
+    .src {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 12px 14px;
+    }
+
+    .src__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      margin-bottom: 9px;
+    }
+
+    /* Tên tệp cắt bằng ellipsis chứ không xuống dòng: số trang là thứ phải luôn
+       đọc được, tên tệp thì đã có ở nút "Mở tài liệu" ngay bên dưới. */
+    .src__head span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .src__head span:last-child {
+      font-family: var(--font-mono);
+      color: var(--muted-foreground);
+      white-space: nowrap;
+      flex: none;
+    }
+
+    .src__quote {
+      margin: 0;
+      padding-left: 10px;
+      border-left: 2px solid var(--border);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      text-wrap: pretty;
+    }
+
+    .src__quote mark {
+      background: oklch(from var(--remediate) l c h / 0.16);
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    .link-inline {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .link-inline:hover {
+      border-bottom-color: var(--foreground);
+    }
+
+    .rel-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .rel-item:last-of-type {
+      border-bottom: none;
+    }
+
+    .rel-item__why {
+      display: block;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin-top: 2px;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-item__when {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      display: block;
+      margin-top: 1px;
+    }
+
+    .history-item__score {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .detail__actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .detail__actions .btn {
+      width: 100%;
+    }
+
+    /* ── Phụ lục trạng thái ────────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 660px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 740px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+    }
+
+    /* Canvas thu nhỏ dùng lại cho mọi trạng thái phụ lục */
+    .mini {
+      position: relative;
+      height: 232px;
+      background: var(--muted);
+      overflow: hidden;
+    }
+
+    .mini::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(to right, var(--border) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+      background-size: 32px 32px;
+      opacity: 0.5;
+    }
+
+    .mini .concept-node {
+      width: 170px;
+      font-size: 12px;
+      padding: 8px 12px;
+      min-width: 0;
+    }
+
+    .mini-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .mini-bar .toolbar__count {
+      font-size: 11px;
+    }
+
+    /* DB-02 bước 5: node khớp giữ nguyên, node còn lại mờ đi — không ẩn.
+       Ẩn thì mất luôn ngữ cảnh vị trí của lỗ hổng trong chuỗi kiến thức,
+       mà đó chính là lý do tồn tại của đồ thị. */
+    .is-dimmed {
+      opacity: 0.22;
+    }
+
+    .canvas-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+      padding: 0 24px;
+      z-index: 2;
+    }
+
+    .canvas-msg__title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .canvas-msg__body {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      max-width: 420px;
+      text-wrap: pretty;
+    }
+
+    .tip {
+      position: absolute;
+      z-index: 3;
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--card);
+      box-shadow: var(--shadow-soft);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .tip b {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--mastery-weak);
+      margin-left: 8px;
+    }
+
+    .banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: oklch(from var(--mastery-learning) l c h / 0.07);
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .banner strong {
+      font-weight: 600;
+    }
+
+    .banner .btn {
+      margin-left: auto;
+    }
+
+    .gap {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 16px 18px;
+      max-width: 740px;
+    }
+
+    .gap h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .gap p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-wrap: pretty;
+    }
+
+    .gap p:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="app-sidebar">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <a class="app-sidebar__link" href="screen-plans.html">Kế hoạch ôn tập</a>
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-concept-graph.html" aria-current="page">Đồ
+        thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </aside>
+
+    <main class="app-main graph-main">
+      <div class="graph-head">
+        <div>
+          <nav class="breadcrumb"><a href="screen-plans.html">Kế hoạch ôn tập</a> / Cấu trúc dữ liệu &amp; Giải thuật /
+            Đồ thị khái niệm</nav>
+          <h1 class="font-heading" style="font-size:28px; margin:0;">Đồ thị khái niệm</h1>
+        </div>
+        <!--
+          DB-02 áp dụng cho "các môn học hoặc kế hoạch ôn tập" (số nhiều) — nên phạm vi
+          phải đổi được ngay tại đây, không bắt sinh viên quay về dashboard rồi vào lại.
+        -->
+        <div class="plan-switch">
+          <label for="plan">Kế hoạch</label>
+          <select id="plan">
+            <option>Cấu trúc dữ liệu &amp; Giải thuật — 24 khái niệm</option>
+            <option>Hệ điều hành — 18 khái niệm</option>
+            <option>Mạng máy tính — 16 khái niệm</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- DB-05 (<<extend>> của DB-02): tìm kiếm theo tên + lọc theo mức mastery -->
+      <div class="toolbar">
+        <div class="search-field">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.6-3.6" />
+          </svg>
+          <input type="text" placeholder="Tìm khái niệm theo tên..." aria-label="Tìm khái niệm" />
+        </div>
+        <div class="filter-group">
+          <button class="filter-chip filter-chip--on">Tất cả</button>
+          <button class="filter-chip"><i style="background:var(--mastery-strong);"></i>Vững</button>
+          <button class="filter-chip"><i style="background:var(--mastery-learning);"></i>Đang học</button>
+          <button class="filter-chip"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+          <button class="filter-chip"><i style="background:var(--mastery-untested);"></i>Chưa kiểm tra</button>
+          <!--
+            "Đang ôn lại" nằm sau vạch ngăn vì nó KHÔNG cùng loại với bốn mức trên:
+            bốn cái kia loại trừ nhau, cái này chồng lên bất kỳ cái nào.
+            Xếp chung một hàng là ngầm nói chúng cùng một trục — chính là lỗi
+            mà bản cũ mắc phải khi tô Ngăn xếp bằng màu remediate.
+          -->
+          <span class="filter-sep"></span>
+          <button class="filter-chip"><i style="background:var(--remediate);"></i>Đang ôn lại</button>
+        </div>
+        <!--
+          Bản cũ ghi "11 / 24 hiển thị" trong khi chip "Tất cả" đang bật — một phân số
+          không thể đúng khi không lọc gì. Ở trạng thái mặc định thì con số hữu ích
+          không phải "bao nhiêu node vẽ được" mà là "bao nhiêu chỗ đang hỏng".
+          Dạng phân số chỉ xuất hiện khi thực sự có bộ lọc — xem trạng thái 2 ở phụ lục.
+        -->
+        <span class="toolbar__count">24 khái niệm · 2 yếu · 3 chưa kiểm tra</span>
+      </div>
+
+      <div class="workspace">
+        <div class="canvas-wrap">
+          <div class="canvas">
+            <svg width="752" height="430" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="174" y1="81.5" x2="190" y2="51.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="174" y1="81.5" x2="190" y2="161.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="174" y1="81.5" x2="190" y2="281.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="174" y1="221.5" x2="190" y2="161.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="174" y1="361.5" x2="190" y2="401.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="364" y1="281.5" x2="380" y2="311.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="364" y1="401.5" x2="380" y2="411.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="554" y1="311.5" x2="570" y2="311.5" stroke="var(--border)" stroke-width="1.5" />
+              <!-- Cạnh đi RA khỏi node đang chọn: đây là "bán kính ảnh hưởng" của lỗ hổng.
+                   UC-17 bước 3 yêu cầu cả upstream lẫn downstream; bản cũ chỉ vẽ upstream. -->
+              <line x1="554" y1="191.5" x2="570" y2="191.5" stroke="var(--border)" stroke-width="1.5" />
+              <!-- Hai cạnh tiên quyết của node đang chọn được làm đậm; cạnh từ khái niệm
+                   tiên quyết còn yếu vẽ nét đứt màu "yếu" — đây là đường mà AE-07 đã truy ngược -->
+              <line x1="174" y1="221.5" x2="380" y2="191.5" stroke="var(--foreground)" stroke-width="2" />
+              <line x1="364" y1="161.5" x2="380" y2="191.5" stroke="var(--mastery-weak)" stroke-width="2" stroke-dasharray="4 3" />
+            </svg>
+
+            <div class="concept-node concept-node--strong" style="left:0; top:60px;">
+              <span class="concept-node__name">Mảng &amp; Con trỏ</span><span class="concept-node__score">0.91</span>
+            </div>
+            <div class="concept-node concept-node--strong" style="left:0; top:200px;">
+              <span class="concept-node__name">Đệ quy</span><span class="concept-node__score">0.88</span>
+            </div>
+            <div class="concept-node concept-node--strong" style="left:0; top:340px;">
+              <span class="concept-node__name">Danh sách liên kết</span><span class="concept-node__score">0.83</span>
+            </div>
+
+            <div class="concept-node concept-node--learning" style="left:190px; top:30px;">
+              <span class="concept-node__name">Sắp xếp nhanh</span><span class="concept-node__score">0.64</span>
+            </div>
+            <!-- Yếu (0.51) VÀ đang ôn lại — hai kênh, không phải một -->
+            <div class="concept-node concept-node--weak is-remediating" style="left:190px; top:140px;">
+              <span class="concept-node__name">Ngăn xếp</span><span class="concept-node__score">0.51</span>
+            </div>
+            <div class="concept-node concept-node--strong" style="left:190px; top:260px;">
+              <span class="concept-node__name">Hàng đợi</span><span class="concept-node__score">0.86</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:190px; top:380px;">
+              <span class="concept-node__name">Cây nhị phân</span><span class="concept-node__score">0.72</span>
+            </div>
+
+            <div class="concept-node concept-node--weak is-selected" style="left:380px; top:170px;">
+              <span class="concept-node__name">Duyệt đồ thị DFS</span><span class="concept-node__score">0.42</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:380px; top:290px;">
+              <span class="concept-node__name">Duyệt đồ thị BFS</span><span class="concept-node__score">0.68</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:380px; top:390px;">
+              <span class="concept-node__name">Cây AVL</span><span class="concept-node__score">—</span>
+            </div>
+
+            <div class="concept-node concept-node--untested" style="left:570px; top:170px;">
+              <span class="concept-node__name">Sắp xếp topo</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:570px; top:290px;">
+              <span class="concept-node__name">Dijkstra</span><span class="concept-node__score">—</span>
+            </div>
+          </div>
+
+          <div class="edge-legend">
+            <span>
+              <svg width="26" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="var(--border)" stroke-width="1.5" />
+              </svg>Quan hệ tiên quyết
+            </span>
+            <span>
+              <svg width="26" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="var(--foreground)" stroke-width="2" />
+              </svg>Liên quan tới khái niệm đang chọn
+            </span>
+            <span>
+              <svg width="26" height="8" aria-hidden="true">
+                <line x1="0" y1="4" x2="26" y2="4" stroke="var(--mastery-weak)" stroke-width="2" stroke-dasharray="4 3" />
+              </svg>Tiên quyết còn yếu — đường truy ngược AE-07
+            </span>
+          </div>
+
+          <div class="viewport-controls">
+            <button title="Thu nhỏ" aria-label="Thu nhỏ">−</button>
+            <span class="zoom-level">100%</span>
+            <button title="Phóng to" aria-label="Phóng to">+</button>
+            <span class="divider"></span>
+            <button title="Vừa khung hình" aria-label="Vừa khung hình">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- DB-06 (<<extend>> của DB-02): panel chi tiết khi click vào node -->
+        <aside class="detail">
+          <div>
+            <div class="detail__top">
+              <div>
+                <h2 class="detail__title">Duyệt đồ thị DFS</h2>
+                <span class="badge" style="background: oklch(from var(--mastery-weak) l c h / 0.14); color: var(--mastery-weak);">Yếu</span>
+              </div>
+              <button class="detail__close" aria-label="Đóng panel">×</button>
+            </div>
+            <!-- UC-17 bước 3 yêu cầu last_tested_at — bản cũ bỏ sót, chỉ có
+                 danh sách lịch sử. Ngày tuyệt đối kèm khoảng cách tương đối:
+                 "1 ngày trước" trả lời được câu hỏi thật, "26/07" thì kiểm chứng được. -->
+            <p class="meta-line">last_tested_at · 26/07/2026 — 1 ngày trước</p>
+          </div>
+
+          <div>
+            <div class="score-row">
+              <span>mastery_score</span>
+              <b>0.42</b>
+            </div>
+            <div class="score-track"><span style="width:42%;"></span></div>
+            <div class="score-mark"><span>ngưỡng 0.60</span></div>
+          </div>
+
+          <!-- Neo nguồn: documents + concept_sources (PR #148/#149) -->
+          <div>
+            <h4>Trích từ tài liệu</h4>
+            <div class="src">
+              <div class="src__head">
+                <span>Giải thuật — Chương 4: Đồ thị.pdf</span>
+                <span>tr. 118–121</span>
+              </div>
+              <blockquote class="src__quote">
+                Duyệt theo chiều sâu đi xa nhất có thể trên mỗi nhánh trước khi quay lui. Thuật toán
+                cần một <mark>ngăn xếp</mark> — tường minh, hoặc ngầm định qua đệ quy — để ghi nhớ
+                những đỉnh còn phải quay lại.
+              </blockquote>
+              <a class="link-inline" href="#">Mở tài liệu tại trang 118</a>
+            </div>
+          </div>
+
+          <div>
+            <h4>Khái niệm tiên quyết</h4>
+            <div class="rel-item">
+              <div>
+                Ngăn xếp
+                <span class="rel-item__why">Chèn vào lịch hôm nay bởi truy ngược AE-07</span>
+              </div>
+              <span class="badge" style="background: oklch(from var(--mastery-weak) l c h / 0.14); color: var(--mastery-weak);">0.51</span>
+            </div>
+            <div class="rel-item">
+              <span>Đệ quy</span>
+              <span class="badge" style="background: oklch(from var(--mastery-strong) l c h / 0.14); color: var(--mastery-strong);">0.88</span>
+            </div>
+          </div>
+
+          <!--
+            Hậu kế — UC-17 bước 3 nêu đích danh "tiên quyết (upstream) VÀ hậu kế
+            (downstream)", bản cũ chỉ có nửa đầu. Nửa sau mới là nửa có sức nặng:
+            nó biến "bạn yếu một khái niệm" thành "một khái niệm yếu đang chặn hai
+            khái niệm khác", tức là chi phí của việc trì hoãn.
+          -->
+          <div>
+            <h4>Khái niệm phụ thuộc</h4>
+            <div class="rel-item">
+              <div>
+                Sắp xếp topo
+                <span class="rel-item__why">Chưa kiểm tra · đang bị chặn</span>
+              </div>
+              <span class="badge">—</span>
+            </div>
+            <div class="rel-item">
+              <div>
+                Thành phần liên thông
+                <span class="rel-item__why">Chưa kiểm tra · ngoài khung nhìn</span>
+              </div>
+              <span class="badge">—</span>
+            </div>
+          </div>
+
+          <div>
+            <h4>Lịch sử học tập</h4>
+            <div class="history-item">
+              <div>
+                Phiên kiểm tra
+                <span class="history-item__when">26/07 · 21:40 · 3 lượt</span>
+              </div>
+              <span class="history-item__score" style="color:var(--mastery-weak);">0.42</span>
+            </div>
+            <div class="history-item">
+              <div>
+                Focus Session
+                <span class="history-item__when">24/07 · 19:05 · 25 phút</span>
+              </div>
+              <span class="history-item__score" style="color:var(--muted-foreground);">—</span>
+            </div>
+            <div class="history-item">
+              <div>
+                Phiên kiểm tra
+                <span class="history-item__when">21/07 · 20:15 · 2 lượt</span>
+              </div>
+              <span class="history-item__score" style="color:var(--mastery-weak);">0.35</span>
+            </div>
+          </div>
+
+          <!-- UC-Overview: DB-06 <<extend>> FS-01 và AE-01 — hành động bắt đầu ngay từ panel -->
+          <div class="detail__actions">
+            <button class="btn btn-primary">Học lại khái niệm này</button>
+            <button class="btn btn-secondary">Kiểm tra ngay</button>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       PHỤ LỤC — các trạng thái DB-02 / DB-05 / UC-17 có định nghĩa
+       nhưng bản mockup cũ không vẽ
+       ══════════════════════════════════════════════════════════════════════ -->
+  <section class="gallery" aria-label="Các trạng thái còn lại">
+    <div class="gallery__wrap">
+
+      <div class="gallery__lede">
+        <h2>Các trạng thái còn lại</h2>
+        <p>
+          SPEC_DB-02 có hai luồng thay thế, UC-17 có thêm hai luồng ngoại lệ, và bước 5
+          của luồng chính là một trạng thái riêng. Bản thiết kế trước vẽ đúng một:
+          "đã tải xong, không lọc, có node đang chọn". Trong đó trạng thái đầu tiên dưới
+          đây — toàn bộ node xám — lại là thứ <em>mọi</em> sinh viên nhìn thấy trước nhất,
+          ngay sau khi SP-01 chạy xong.
+        </p>
+      </div>
+
+      <!-- ── 1 · Chưa có phiên kiểm tra nào ──────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Vừa tạo kế hoạch xong — chưa có phiên kiểm tra nào</span>
+          <span class="tag">UC-17 [E2]</span>
+          <span class="tag">Lần đầu</span>
+        </div>
+        <p class="state__desc">
+          <code>mastery_score</code> là <code>null</code> ở toàn bộ 24 node, nên bảng màu — thứ mang
+          gần như toàn bộ giá trị của màn hình này — chưa nói được gì. Không giả vờ rằng có dữ liệu:
+          bộ lọc mastery bị vô hiệu (lọc theo một cột toàn null là thao tác rỗng), và chỗ trống được
+          dùng để chỉ ra thứ đồ thị <em>vẫn</em> nói được ngay lúc này — cấu trúc tiên quyết, tức là
+          nên bắt đầu từ đâu.
+        </p>
+        <div class="state__demo">
+          <div class="mini-bar">
+            <button class="filter-chip" disabled style="opacity:0.45; cursor:not-allowed;">Tất cả</button>
+            <button class="filter-chip" disabled style="opacity:0.45; cursor:not-allowed;"><i style="background:var(--mastery-strong);"></i>Vững</button>
+            <button class="filter-chip" disabled style="opacity:0.45; cursor:not-allowed;"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+            <span class="toolbar__count" style="margin-left:auto;">24 khái niệm · chưa có dữ liệu mastery</span>
+          </div>
+          <div class="mini">
+            <svg width="600" height="232" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="194" y1="48.5" x2="224" y2="38.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="48.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="48.5" x2="224" y2="178.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="148.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="394" y1="108.5" x2="424" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="394" y1="178.5" x2="424" y2="178.5" stroke="var(--border)" stroke-width="1.5" />
+            </svg>
+            <div class="concept-node concept-node--untested" style="left:24px; top:30px;">
+              <span class="concept-node__name">Mảng &amp; Con trỏ</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:24px; top:130px;">
+              <span class="concept-node__name">Đệ quy</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:224px; top:20px;">
+              <span class="concept-node__name">Sắp xếp nhanh</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:224px; top:90px;">
+              <span class="concept-node__name">Ngăn xếp</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:224px; top:160px;">
+              <span class="concept-node__name">Hàng đợi</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:424px; top:90px;">
+              <span class="concept-node__name">Duyệt đồ thị DFS</span><span class="concept-node__score">—</span>
+            </div>
+            <div class="concept-node concept-node--untested" style="left:424px; top:160px;">
+              <span class="concept-node__name">Duyệt đồ thị BFS</span><span class="concept-node__score">—</span>
+            </div>
+
+            <div style="position:absolute; right:24px; top:26px; width:240px; z-index:2;">
+              <div class="card" style="padding:16px 18px;">
+                <div style="font-size:13px; font-weight:600; margin-bottom:6px;">Chưa đo được gì</div>
+                <p style="font-size:12px; line-height:1.65; color:var(--muted-foreground); margin:0 0 12px;">
+                  Đồ thị đã dựng xong nhưng chưa biết bạn vững ở đâu. Bốn khái niệm không có tiên quyết
+                  nào là điểm bắt đầu tự nhiên.
+                </p>
+                <button class="btn btn-primary" style="width:100%;">Kiểm tra 4 khái niệm gốc</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 2 · Đang lọc, có kết quả ─────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Đang lọc — làm nổi node khớp, làm mờ phần còn lại</span>
+          <span class="tag">DB-02 bước 5</span>
+          <span class="tag">DB-05</span>
+        </div>
+        <p class="state__desc">
+          Node không khớp bị làm mờ chứ không bị ẩn: ẩn đi thì mất luôn ngữ cảnh vị trí của lỗ hổng
+          trong chuỗi kiến thức, mà đó đúng là lý do dùng đồ thị thay vì một danh sách. Cạnh vẫn vẽ,
+          nên vẫn thấy được hai node yếu này nối với nhau — thông tin mà một bộ lọc dạng bảng
+          không bao giờ cho được.
+        </p>
+        <div class="state__demo">
+          <div class="mini-bar">
+            <button class="filter-chip">Tất cả</button>
+            <button class="filter-chip filter-chip--on"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+            <button class="filter-chip"><i style="background:var(--mastery-learning);"></i>Đang học</button>
+            <span class="toolbar__count" style="margin-left:auto;">Yếu · 2 / 24 khái niệm</span>
+          </div>
+          <div class="mini">
+            <svg width="600" height="232" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="194" y1="48.5" x2="224" y2="38.5" stroke="var(--border)" stroke-width="1.5" opacity="0.35" />
+              <line x1="194" y1="48.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" opacity="0.35" />
+              <line x1="194" y1="48.5" x2="224" y2="178.5" stroke="var(--border)" stroke-width="1.5" opacity="0.35" />
+              <line x1="194" y1="148.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" opacity="0.35" />
+              <line x1="394" y1="108.5" x2="424" y2="108.5" stroke="var(--mastery-weak)" stroke-width="2" stroke-dasharray="4 3" />
+              <line x1="394" y1="178.5" x2="424" y2="178.5" stroke="var(--border)" stroke-width="1.5" opacity="0.35" />
+            </svg>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:24px; top:30px;">
+              <span class="concept-node__name">Mảng &amp; Con trỏ</span><span class="concept-node__score">0.91</span>
+            </div>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:24px; top:130px;">
+              <span class="concept-node__name">Đệ quy</span><span class="concept-node__score">0.88</span>
+            </div>
+            <div class="concept-node concept-node--learning is-dimmed" style="left:224px; top:20px;">
+              <span class="concept-node__name">Sắp xếp nhanh</span><span class="concept-node__score">0.64</span>
+            </div>
+            <div class="concept-node concept-node--weak is-remediating" style="left:224px; top:90px;">
+              <span class="concept-node__name">Ngăn xếp</span><span class="concept-node__score">0.51</span>
+            </div>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:224px; top:160px;">
+              <span class="concept-node__name">Hàng đợi</span><span class="concept-node__score">0.86</span>
+            </div>
+            <div class="concept-node concept-node--weak" style="left:424px; top:90px;">
+              <span class="concept-node__name">Duyệt đồ thị DFS</span><span class="concept-node__score">0.42</span>
+            </div>
+            <div class="concept-node concept-node--learning is-dimmed" style="left:424px; top:160px;">
+              <span class="concept-node__name">Duyệt đồ thị BFS</span><span class="concept-node__score">0.68</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 3 · Lọc không khớp gì ────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Không có khái niệm nào khớp</span>
+          <span class="tag">DB-02 Alt flow 1</span>
+        </div>
+        <p class="state__desc">
+          Spec yêu cầu làm mờ toàn bộ đồ thị và báo "Không tìm thấy khái niệm phù hợp". Thêm một
+          thứ spec không nói nhưng thiếu thì bế tắc: lối ra. Sinh viên lọc "Yếu" trên một môn đã ôn
+          xong sẽ rơi vào đây, và đó là tin tốt — nên câu chữ nói đúng điều đó thay vì báo lỗi.
+        </p>
+        <div class="state__demo">
+          <div class="mini-bar">
+            <button class="filter-chip">Tất cả</button>
+            <button class="filter-chip filter-chip--on"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+            <span class="toolbar__count" style="margin-left:auto;">Yếu · 0 / 18 khái niệm</span>
+          </div>
+          <div class="mini">
+            <div class="canvas-msg">
+              <div class="canvas-msg__title">Không có khái niệm nào ở mức yếu</div>
+              <p class="canvas-msg__body">
+                Cả 18 khái niệm của Hệ điều hành đều từ 0.60 trở lên. Bỏ bộ lọc để xem toàn bộ đồ thị,
+                hoặc lọc "Đang học" để thấy 4 khái niệm chưa chắc.
+              </p>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-secondary">Xóa bộ lọc</button>
+                <button class="btn btn-ghost">Lọc "Đang học"</button>
+              </div>
+            </div>
+            <svg width="600" height="232" style="position:absolute; inset:0; opacity:0.16;" aria-hidden="true">
+              <line x1="194" y1="48.5" x2="224" y2="38.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="48.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="148.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="394" y1="108.5" x2="424" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+            </svg>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:24px; top:30px;">
+              <span class="concept-node__name">Tiến trình</span><span class="concept-node__score">0.94</span>
+            </div>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:24px; top:130px;">
+              <span class="concept-node__name">Luồng</span><span class="concept-node__score">0.87</span>
+            </div>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:224px; top:20px;">
+              <span class="concept-node__name">Định thời CPU</span><span class="concept-node__score">0.82</span>
+            </div>
+            <div class="concept-node concept-node--learning is-dimmed" style="left:224px; top:90px;">
+              <span class="concept-node__name">Khóa chết</span><span class="concept-node__score">0.66</span>
+            </div>
+            <div class="concept-node concept-node--strong is-dimmed" style="left:424px; top:90px;">
+              <span class="concept-node__name">Bộ nhớ ảo</span><span class="concept-node__score">0.81</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 4 · Lỗi tải đồ thị ───────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Không tải được đồ thị</span>
+          <span class="tag">DB-02 Alt flow 2</span>
+        </div>
+        <p class="state__desc">
+          Spec dừng ở "hiện thông báo lỗi và nút Thử lại". Thanh công cụ bị vô hiệu theo, vì lọc một
+          đồ thị chưa tải được là thao tác không có nghĩa — để nguyên các chip bấm được là mời người
+          dùng bấm vào chỗ chết. Bộ chọn kế hoạch thì giữ nguyên: nếu chỉ một kế hoạch hỏng,
+          đổi sang kế hoạch khác là lối thoát nhanh hơn là bấm thử lại.
+        </p>
+        <div class="state__demo">
+          <div class="mini-bar" style="opacity:0.45;">
+            <button class="filter-chip" disabled style="cursor:not-allowed;">Tất cả</button>
+            <button class="filter-chip" disabled style="cursor:not-allowed;"><i style="background:var(--mastery-strong);"></i>Vững</button>
+            <button class="filter-chip" disabled style="cursor:not-allowed;"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+          </div>
+          <div class="mini">
+            <div class="canvas-msg">
+              <div class="canvas-msg__title">Không thể tải đồ thị khái niệm</div>
+              <p class="canvas-msg__body">
+                Yêu cầu tới máy chủ hết thời gian chờ. Dữ liệu học tập của bạn không bị ảnh hưởng —
+                chỉ phần hiển thị này chưa lấy được.
+              </p>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="btn btn-primary">Thử lại</button>
+                <button class="btn btn-ghost">Chọn kế hoạch khác</button>
+              </div>
+              <code style="margin-top:2px;">GET /api/plans/7/graph · 504</code>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 5 · Đồ thị lớn ───────────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Đồ thị vượt 50 node</span>
+          <span class="tag">UC-17 [E1]</span>
+        </div>
+        <p class="state__desc">
+          UC-17 yêu cầu cảnh báo hiệu năng kèm bộ lọc theo nhóm. Cảnh báo suông thì vô dụng — sinh
+          viên không tự làm đồ thị nhỏ lại được. Nên cảnh báo đi kèm đúng một hành động giải quyết
+          được nó, và mặc định đã bật sẵn: chỉ vẽ vùng quanh các khái niệm chưa vững. Bấm để xem
+          toàn bộ vẫn được, nhưng đó phải là lựa chọn có ý thức.
+        </p>
+        <div class="state__demo">
+          <div class="banner">
+            <span><strong>72 khái niệm</strong> — đang hiển thị 19 khái niệm chưa vững và tiên quyết
+              trực tiếp của chúng.</span>
+            <button class="btn btn-secondary">Hiện toàn bộ 72 node</button>
+          </div>
+          <div class="mini-bar">
+            <button class="filter-chip">Tất cả</button>
+            <button class="filter-chip"><i style="background:var(--mastery-strong);"></i>Vững</button>
+            <button class="filter-chip"><i style="background:var(--mastery-learning);"></i>Đang học</button>
+            <button class="filter-chip"><i style="background:var(--mastery-weak);"></i>Yếu</button>
+            <span class="toolbar__count" style="margin-left:auto;">19 / 72 khái niệm</span>
+          </div>
+          <div class="mini" style="height:180px;">
+            <svg width="600" height="180" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="194" y1="48.5" x2="224" y2="38.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="48.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="394" y1="108.5" x2="424" y2="108.5" stroke="var(--mastery-weak)" stroke-width="2" stroke-dasharray="4 3" />
+            </svg>
+            <div class="concept-node concept-node--strong" style="left:24px; top:30px;">
+              <span class="concept-node__name">Chuẩn hóa CSDL</span><span class="concept-node__score">0.84</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:224px; top:20px;">
+              <span class="concept-node__name">Phụ thuộc hàm</span><span class="concept-node__score">0.61</span>
+            </div>
+            <div class="concept-node concept-node--weak" style="left:224px; top:90px;">
+              <span class="concept-node__name">Dạng chuẩn 3NF</span><span class="concept-node__score">0.38</span>
+            </div>
+            <div class="concept-node concept-node--weak" style="left:424px; top:90px;">
+              <span class="concept-node__name">Dạng chuẩn BCNF</span><span class="concept-node__score">0.29</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- ── 6 · Hover tooltip ────────────────────────────────────────────── -->
+      <article>
+        <div class="state__head">
+          <span class="state__name">Hover — tóm tắt nhanh trước khi mở panel</span>
+          <span class="tag">DB-02 bước 3</span>
+        </div>
+        <p class="state__desc">
+          Spec chỉ đòi tên và <code>mastery_score</code>. Từ khi node đã mang sẵn con số, tooltip
+          không nên lặp lại nó — thứ còn thiếu là thời điểm: một khái niệm 0.42 đo hôm qua khác hẳn
+          một khái niệm 0.42 đo ba tuần trước. Rê chuột thì đọc, bấm vào thì mới mở panel đầy đủ.
+        </p>
+        <div class="state__demo">
+          <div class="mini" style="height:180px;">
+            <svg width="600" height="180" style="position:absolute; inset:0;" aria-hidden="true">
+              <line x1="194" y1="48.5" x2="224" y2="38.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="194" y1="48.5" x2="224" y2="108.5" stroke="var(--border)" stroke-width="1.5" />
+              <line x1="394" y1="108.5" x2="424" y2="108.5" stroke="var(--mastery-weak)" stroke-width="2" stroke-dasharray="4 3" />
+            </svg>
+            <div class="concept-node concept-node--strong" style="left:24px; top:30px;">
+              <span class="concept-node__name">Mảng &amp; Con trỏ</span><span class="concept-node__score">0.91</span>
+            </div>
+            <div class="concept-node concept-node--learning" style="left:224px; top:20px;">
+              <span class="concept-node__name">Sắp xếp nhanh</span><span class="concept-node__score">0.64</span>
+            </div>
+            <div class="concept-node concept-node--weak is-remediating" style="left:224px; top:90px;">
+              <span class="concept-node__name">Ngăn xếp</span><span class="concept-node__score">0.51</span>
+            </div>
+            <div class="concept-node concept-node--weak" style="left:424px; top:90px;">
+              <span class="concept-node__name">Duyệt đồ thị DFS</span><span class="concept-node__score">0.42</span>
+            </div>
+            <div class="tip" style="left:424px; top:32px;">
+              Duyệt đồ thị DFS <b>0.42</b>
+              <span style="display:block; font-family:var(--font-mono); font-size:10.5px; color:var(--muted-foreground); margin-top:3px;">
+                kiểm tra lần cuối 26/07 · 2 khái niệm phụ thuộc
+              </span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!--
+        Mâu thuẫn tài liệu — ghi lại ở đây thay vì im lặng sửa số trên mockup.
+      -->
+      <div class="gap" style="border-left-color:var(--mastery-strong);">
+        <h3>Ngưỡng màu trong UC-17 — đã sửa cho khớp global.css</h3>
+        <p>
+          Bảng màu cũ ở UC-17 ghi: đỏ khi <code>&lt; 0.4</code>, cam <code>0.4–0.6</code>, xanh
+          <code>&gt; 0.7</code>. Còn <code>src/client/src/global.css</code> — thứ đang chạy — định nghĩa
+          yếu khi <code>&lt; 0.6</code>, đang học <code>0.6–0.8</code>, vững <code>≥ 0.8</code>.
+          Hai bộ ngưỡng khác nhau, và bảng cũ còn để hở khoảng <code>0.6–0.7</code>
+          không thuộc màu nào.
+        </p>
+        <p>
+          Màn hình này theo global.css, đồng bộ với screen-interview và screen-focus-session
+          (cả hai đang nói "0.42 — dưới ngưỡng 0.60"). Tức là <strong>tài liệu mới là bản lệch</strong>,
+          không phải thiết kế. Bảng trong <code>UC-05_Dashboard.md</code> đã được sửa lại theo
+          <code>--mastery-*</code>, kèm ghi chú phân biệt ba dải màu với ngưỡng truy ngược
+          <code>0.6</code> và ngưỡng lập lịch <code>0.7</code> của UC-19 để không bị "sửa nhầm" về sau.
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+<style>
+
+.gallery { display: none !important; }
+/* Make nodes clickable */
+.concept-node { cursor: pointer; transition: transform .1s, box-shadow .1s; }
+.concept-node:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.concept-node.selected { outline: 2px solid var(--foreground); outline-offset: 2px; }
+/* Node detail panel */
+#_node-panel {
+  position: fixed; right: 0; top: 0; height: 100%;
+  width: 300px; background: var(--card); border-left: 1px solid var(--border);
+  padding: 28px 24px; box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  transform: translateX(100%); transition: transform .2s;
+  z-index: 100; overflow-y: auto;
+}
+#_node-panel.open { transform: translateX(0); }
+#_node-close {
+  position: absolute; top: 14px; right: 14px;
+  background: none; border: none; cursor: pointer; font-size: 18px; color: var(--muted-foreground);
+}
+._np-name { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+._np-score {
+  display: inline-block; font-family: var(--font-mono); font-size: 12px;
+  padding: 2px 8px; border-radius: 99px; margin-bottom: 16px;
+}
+._np-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+._np-actions a { text-decoration: none; }
+
+</style>
+<script>
+(function(){
+
+var d = document;
+
+/* Build node detail panel */
+var panel = d.createElement('div');
+panel.id = '_node-panel';
+panel.innerHTML = '<button id="_node-close" aria-label="Đóng">✕</button>'
+  + '<p class="_np-name" id="_np-name">Khái niệm</p>'
+  + '<span class="_np-score" id="_np-score"></span>'
+  + '<p id="_np-desc" style="font-size:13px;color:var(--muted-foreground);line-height:1.65;margin:0 0 8px;"></p>'
+  + '<div class="_np-actions">'
+  + '<a href="screen-focus-session.html" class="btn btn-primary">⏱ Học lại khái niệm này</a>'
+  + '<a href="screen-interview.html" class="btn btn-secondary">💬 Kiểm tra ngay</a>'
+  + '</div>';
+d.body.appendChild(panel);
+
+d.getElementById('_node-close').addEventListener('click', function() {
+  panel.classList.remove('open');
+  d.querySelectorAll('.concept-node.selected').forEach(function(n) { n.classList.remove('selected'); });
+});
+
+var MASTERY_LABEL = { strong: 'Vững', learning: 'Đang học', weak: 'Yếu', untested: 'Chưa kiểm tra' };
+var MASTERY_COLOR = { strong: 'var(--mastery-strong)', learning: 'var(--mastery-learning)', weak: 'var(--mastery-weak)', untested: 'var(--mastery-untested)' };
+
+d.querySelectorAll('.concept-node').forEach(function(node) {
+  node.addEventListener('click', function() {
+    d.querySelectorAll('.concept-node.selected').forEach(function(n) { n.classList.remove('selected'); });
+    this.classList.add('selected');
+
+    var nameEl = this.querySelector('.concept-node__name');
+    var scoreEl = this.querySelector('.concept-node__score');
+    var name = nameEl ? nameEl.textContent.trim() : 'Khái niệm';
+    var score = scoreEl ? scoreEl.textContent.trim() : '';
+
+    /* Determine mastery level */
+    var level = 'untested';
+    ['strong','learning','weak','untested'].forEach(function(l) {
+      if (node.classList.contains('concept-node--' + l)) level = l;
+    });
+
+    d.getElementById('_np-name').textContent = name;
+    var scoreTag = d.getElementById('_np-score');
+    scoreTag.textContent = score ? (MASTERY_LABEL[level] + ' · ' + score) : MASTERY_LABEL[level];
+    scoreTag.style.background = 'oklch(from ' + MASTERY_COLOR[level] + ' l c h / 0.15)';
+    scoreTag.style.color = MASTERY_COLOR[level];
+
+    var descs = {
+      strong: 'Bạn nắm vững khái niệm này. Có thể ôn lại để duy trì hoặc bắt đầu kiểm tra.',
+      learning: 'Khái niệm đang trong giai đoạn học. Tiếp tục ôn tập để củng cố.',
+      weak: 'Khái niệm này cần chú ý hơn. Học lại trước khi kiểm tra.',
+      untested: 'Khái niệm chưa được kiểm tra lần nào. Bắt đầu một phiên Focus Session.'
+    };
+    d.getElementById('_np-desc').textContent = descs[level];
+
+    panel.classList.add('open');
+  });
+});
+
+/* Close panel on outside click */
+d.addEventListener('click', function(e) {
+  if (!panel.contains(e.target) && !e.target.closest('.concept-node')) {
+    panel.classList.remove('open');
+    d.querySelectorAll('.concept-node.selected').forEach(function(n) { n.classList.remove('selected'); });
+  }
+});
+
+})();
+</script>
+</body>
+
+</html>

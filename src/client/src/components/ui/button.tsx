@@ -14,12 +14,13 @@ import { Spinner } from '@/components/ui/spinner';
  * ở bốn điểm, đều là điều components.html nói rõ:
  *   · bo góc 0.8×radius (`rounded-md`), không phải 1×
  *   · nhấn = `scale(0.98)`, không phải dịch xuống 1px
- *   · focus = viền ngoài 2px cách 1px, không phải ring 3px mờ
+ *   · focus = viền ngoài 2px cách 1px (`[outline-style:none]` dùng thay cho `outline-none`/`outline-hidden`
+ *     vì Tailwind v4 gán `--tw-outline-style: none` làm triệt tiêu `focus-visible:outline-*` ring, #271)
  *   · hover đổi độ sáng của chính token, không phải hạ opacity — nút mờ đi khi
  *     rê chuột trông như đang bị vô hiệu hoá
  */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap outline-none select-none transition-[background-color,border-color,color,transform] duration-(--duration-fast) ease-(--ease-standard) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap [outline-style:none] select-none transition-[background-color,border-color,color,transform] duration-(--duration-fast) ease-(--ease-standard) focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {

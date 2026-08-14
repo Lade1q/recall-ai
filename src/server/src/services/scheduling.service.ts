@@ -42,6 +42,70 @@ export const COMPLETED_PLAN_MESSAGE =
   'Bạn đã ôn hết kế hoạch này. Mỗi khái niệm có ngày ôn lại riêng, xa dần theo mức bạn nắm.';
 
 /**
+ * #345, ca (c) — kế hoạch **đã** có kết quả vấn đáp, nhưng mọi khái niệm từng lên lịch đã bị
+ * `mergePlan` gỡ khỏi nội dung hiện tại. Đi qua `noScheduleNote`, **không** qua `message`: ở ca
+ * này `items` không rỗng (đang hiện gợi ý A3) nên theo định nghĩa `message` phải là `null`.
+ *
+ * Ba cụm cố ý, đừng gọn hoá (#345):
+ * - **"đã được phân tích lại"** — `status: 'deprecated'` chỉ có **một** đường ghi (`mergePlan`),
+ *   nên đây là chẩn đoán duy nhất tới được, không phải phỏng đoán.
+ * - **"khái niệm trong lịch ôn trước đó"**, không phải "bạn từng ôn": hàng đợi có cả mục
+ *   traceback mà sinh viên chưa vấn đáp lần nào.
+ * - **"không còn trong nội dung hiện tại"**, không phải "đã xoá": dòng vẫn còn và hồi sinh được
+ *   nguyên vẹn nếu tài liệu nhắc lại tên (#343).
+ */
+export const CONTENT_CHANGED_PLAN_NOTE =
+  'Kế hoạch này đã được phân tích lại, nên những khái niệm trong lịch ôn trước đó không còn ' +
+  'trong nội dung hiện tại. Làm một phiên với nội dung mới để có lịch thật.';
+
+/**
+ * #345, nhánh `CHANGED` trên `/today`. Câu **riêng** chứ không dùng lại
+ * `CONTENT_CHANGED_PLAN_NOTE`: `/today` gộp mọi kế hoạch của user, nên "Kế hoạch này" ở đó là sai.
+ *
+ * ⚠️ **LUẬT CÂU CHỮ — vế cuối nêu VIỆC NGƯỜI DÙNG LÀM, không nêu NƠI NGƯỜI DÙNG TỚI.** Nút đã
+ * nói nơi rồi; để chữ lặp lại cái nút là mất một vế mà không mua được gì. Bản nháp của câu này
+ * từng kết bằng *"mở kế hoạch để xem đồ thị hiện tại"* và được biện minh bằng *"vế cuối khớp CTA
+ * `/plans`"* — chính lối thoát mà luật trên bác. Nếu định "khôi phục" nó vì thấy khớp nút, đọc
+ * lại dòng này trước; và đọc cả `NO_ACTIVE_CONCEPTS_TODAY_MESSAGE` ngay dưới, nơi cùng luật đó
+ * được viện để **không** nhắc "mở kế hoạch".
+ *
+ * Hệ quả kiểm được: sau khi theo luật, vế hành động của câu này **trùng nguyên văn** với vế cuối
+ * của `CONTENT_CHANGED_PLAN_NOTE`. Bốn câu, hai cặp, không cặp nào lệch chữ ở phần việc-phải-làm.
+ */
+export const CONTENT_CHANGED_TODAY_MESSAGE =
+  'Hôm nay không có gì đến hạn. Nội dung kế hoạch đã thay đổi nên lịch ôn cũ không còn hiệu ' +
+  'lực — làm một phiên với nội dung mới để có lịch thật.';
+
+/**
+ * #345, ca (d) — kế hoạch `active` mà **không còn khái niệm `active` nào**.
+ *
+ * ⚠️ Câu này gánh **hai vai**. Ngoài empty-state của màn hàng đợi, nó còn là **body của 409
+ * `NO_CONCEPTS_TO_REVIEW`**: `resolveConceptQueue` ném `queue.message ?? NO_CONCEPTS_MESSAGE`
+ * và `queue` ở đó là `getReviewQueueForPlan`. Sửa câu này là sửa cả lý do từ chối mở phiên, nên
+ * nó phải đọc lọt ở cả hai ngữ cảnh — có assertion ghim trong test, không chỉ ghi chú.
+ */
+export const NO_ACTIVE_CONCEPTS_PLAN_MESSAGE =
+  'Kế hoạch này hiện không có khái niệm nào, nên chưa có gì để ôn. Thêm khái niệm vào đồ thị ' +
+  'hoặc phân tích lại tài liệu để bắt đầu.';
+
+/**
+ * #345, ca (d) trên `/today`. Lại là câu riêng: đây là câu **đa kế hoạch** (mọi kế hoạch `active`
+ * của user đều rỗng khái niệm) nên không được nói "Kế hoạch này". Nó rơi vào nhánh cuối của
+ * `TodayNudge`, nơi không có badge lẫn heading, nên câu phải tự đứng được một mình — ba mệnh đề
+ * *hôm nay thế nào → vì sao → làm gì*; vế đầu tồn tại chính vì không có heading.
+ *
+ * Vế hành động **trùng khít từng chữ** với `NO_ACTIVE_CONCEPTS_PLAN_MESSAGE` là cố ý: hai bề mặt
+ * nói cùng một việc thì phải nói bằng cùng một chữ. Nó cũng cố ý **không** nhắc "mở kế hoạch" —
+ * nút "Xem kế hoạch ôn tập" nằm ngay dưới, để nút lo điều hướng còn chữ lo nội dung.
+ *
+ * "**hiện không có**" gánh cả hai biến thể của ca (d), cùng lý do như câu kia: "chưa có" sai với
+ * kế hoạch từng có khái niệm rồi bị xoá, "không còn" sai với kế hoạch chưa bao giờ có.
+ */
+export const NO_ACTIVE_CONCEPTS_TODAY_MESSAGE =
+  'Hôm nay không có gì đến hạn. Kế hoạch của bạn hiện không có khái niệm nào — thêm khái niệm ' +
+  'vào đồ thị hoặc phân tích lại tài liệu để bắt đầu.';
+
+/**
  * Câu rỗng của `GET /review-queue?planId=` khi kế hoạch còn là `draft` (#232 phần 4, 06/08).
  * Trước #265 `draft` chỉ sống vài giây trong lúc AI phân tích, nên một câu chung "chưa ở trạng
  * thái hoạt động" cho mọi status không-`active` là vô hại. Giờ `draft` nghĩa là *đã phân tích
@@ -127,6 +191,29 @@ export const OFF_SCHEDULE_STATUSES: ReviewItemStatus[] = ['skipped', 'done'];
 
 /** `where` fragment dùng chung cho mọi truy vấn "mục còn nằm trên lịch" — xem trên. */
 export const ON_SCHEDULE_WHERE = { status: { notIn: OFF_SCHEDULE_STATUSES } } as const;
+
+/**
+ * "Khái niệm còn thuộc kế hoạch" (#343). Đi kèm `ON_SCHEDULE_WHERE` ở mọi đường **đọc** hàng
+ * đợi: hai điều kiện khác trục nhau — cái trên là trạng thái *của mục* (sinh viên đã gỡ chưa),
+ * cái này là trạng thái *của khái niệm* (tài liệu còn dạy nó không).
+ *
+ * SP-05 re-analyze gỡ một khái niệm khỏi kế hoạch bằng `status: 'deprecated'`, **không xoá**
+ * (`analysis.service.ts` `mergePlan`). Hàng đợi thì chỉ lọc item-status, nên mọi khái niệm từng
+ * được ôn rồi bị gỡ sau vẫn nổi lên — và hàng đợi chảy thẳng vào nhánh auto-pick của
+ * `interview.service.ts`, dựng cả một phiên phỏng vấn trên thứ đã rời cả kế hoạch lẫn đồ thị
+ * (`graph.service` render active-only).
+ *
+ * **Sửa ở đường đọc chứ không đụng data**, vì deprecate là cửa **hai chiều**: `mergePlan.toKeep`
+ * set `status: 'active'` vô điều kiện, nên tài liệu nhắc lại tên là tombstone sống lại **cùng
+ * `id`**; `ReviewQueueItem.concept` là relation **bắt buộc** (FK Cascade), nên hàng đợi tự gắn
+ * lại, giữ nguyên `scheduledFor`, priority và cả quyết định `skipped` của sinh viên. Bộ lọc này
+ * là một **view**: hồi sinh khôi phục hiển thị miễn phí, còn mọi bản vá ghi vào data sẽ là cửa
+ * một chiều bắc qua một trạng thái hai chiều.
+ *
+ * Vì relation là bắt buộc, thêm fragment này **không** âm thầm làm rụng hàng: mọi
+ * `ReviewQueueItem` đều có đúng một `Concept`, nên phép lọc chỉ loại đúng hàng trỏ tombstone.
+ */
+export const ACTIVE_CONCEPT_WHERE = { concept: { status: 'active' } } as const;
 
 export interface CalculatePriorityInput {
   masteryScore: number | null;
@@ -246,6 +333,30 @@ export interface ReviewQueueListResponse {
    * Every entry has `status: 'skipped'` and is put back with `PATCH { "status": "pending" }`.
    */
   skippedItems?: ReviewQueueItemResponse[];
+  /**
+   * #345: the "your queued concepts are no longer in this plan's content" note, for the one case
+   * where `items` is **not** empty (the A3 suggestion list is showing) so `message` cannot carry
+   * it. `null` everywhere else — including `/today`, whose aggregate wording is different.
+   *
+   * Deliberately a separate field rather than a second sentence in `message`: `noScheduleNote
+   * !== null` is exactly the discriminator the client needs. If the server put a sentence in the
+   * same place for both the "never graded" and the "content changed" cases, the client would
+   * have to **read the string** to tell which case it is in.
+   */
+  noScheduleNote: string | null;
+  /**
+   * #345: whether the plan's graph still holds anything. A **fact**, not a sentence — the client
+   * picks its empty-state frame (icon, heading, CTA) from it, the same way it already picks one
+   * from `planStatus`. Choosing a frame by sniffing `message` for a substring is the thing this
+   * field exists to make unnecessary.
+   *
+   * Absent — not `false` — when the plan is not `active`, following `skippedItems`' precedent in
+   * this same interface: those responses return before anything is counted, and a `draft` plan
+   * does hold concepts (awaiting confirmation), so `false` there would be a lie rather than a
+   * default. The client never needs it in that case: `resolveFrame` answers `draft`/`archived`
+   * before it ever looks at this.
+   */
+  hasActiveConcepts?: boolean;
 }
 
 /**
@@ -506,10 +617,39 @@ async function toResponseItems(
   );
 }
 
+/**
+ * The three facts an empty queue has to be told apart by (#345). One flag answering two
+ * questions is what produced the bug this issue exists to fix, so each of these answers exactly
+ * one — and they are deliberately **not** derivable from each other:
+ *
+ * - `hasQueueOnActiveConcepts` — is there a row on the schedule pointing at a concept the plan still has?
+ * - `hadGradedHistory` — was this plan ever graded at all? (unfiltered; a plan whose whole
+ *   history points at tombstones has `hasQueueOnActiveConcepts: false` and `hadGradedHistory: true`)
+ * - `hasActiveConcepts` — is there anything in the graph to review?
+ */
 interface PlanQueueResolution {
   items: ReviewQueueItemResponse[];
-  /** `false` only when the plan has never had a `ReviewQueueItem` row (A3 fallback path). */
-  hasHistory: boolean;
+  /**
+   * `false` when nothing is on the schedule *that the plan still contains* — which since #343
+   * includes a plan whose every queued concept was deprecated. Was called `hasHistory` until
+   * #345; that name outlived its meaning the moment the count behind it started filtering.
+   */
+  hasQueueOnActiveConcepts: boolean;
+  /**
+   * Ever graded, counting rows that point at tombstones. This is what separates "chưa vấn đáp
+   * bao giờ" from "đã vấn đáp, nội dung đã đổi" — the two states #344 collapsed into one
+   * sentence.
+   *
+   * ⚠️ Read from `ReviewQueueItem`, **not** from `InterviewSession`/`InterviewTurn`, and that is
+   * a decision rather than a convenience: (i) the queue only ever gets a row when there is a
+   * *graded result*, which is exactly the claim the copy makes — counting sessions would let a
+   * session abandoned before its first answer read as history and swallow the sentence that
+   * should have fired; (ii) switching source would not rescue the wiped-graph case anyway,
+   * since `InterviewTurn.concept` is `onDelete: Cascade` too.
+   */
+  hadGradedHistory: boolean;
+  /** Whether the graph still has anything in it. Guards case (d) — see `getReviewQueueForPlan`. */
+  hasActiveConcepts: boolean;
 }
 
 /**
@@ -535,18 +675,39 @@ interface PlanQueueResolution {
  * belongs on `/today` — the same reason a `draft` plan contributes nothing there (#265). The
  * empty state this opens ("has plans, nothing due yet") is left to `resolveEmptyMessage` to
  * answer with `null`; its wording is #231/#232-phần-4's call, not this function's.
+ *
+ * #343: `ACTIVE_CONCEPT_WHERE` sits on **both** reads, and the two are not the same decision.
+ * On `findMany` it just keeps tombstones out of the list. On `count` it picks *which empty
+ * state shows*: filtered, a plan whose whole queue history points at deprecated concepts reads
+ * as `hasQueueOnActiveConcepts: false` and falls to the A3 suggestion list; unfiltered it would read as
+ * `hasQueueOnActiveConcepts: true` and answer `COMPLETED_PLAN_MESSAGE` — congratulating the student for
+ * finishing a plan they never finished. The wording of neither sentence changes here, only
+ * which branch is taken (#231/#232-phần-4 still owns the words).
  */
 async function resolvePlanQueue(
   plan: QueuePlan,
   now: Date,
   options: { dueOnly: boolean }
 ): Promise<PlanQueueResolution> {
-  const totalCount = await prisma.reviewQueueItem.count({ where: { planId: plan.id } });
+  const totalCount = await prisma.reviewQueueItem.count({
+    where: { planId: plan.id, ...ACTIVE_CONCEPT_WHERE },
+  });
 
   if (totalCount === 0) {
+    // #345: the two extra counts live **inside** this branch, not beside `totalCount`. `/today`
+    // calls this function once per active plan, so an unconditional count at the top multiplies
+    // by the number of plans; here the hot path pays nothing and only the already-empty path
+    // spends one extra round trip.
+    const [gradedEver, activeConcepts] = await Promise.all([
+      prisma.reviewQueueItem.count({ where: { planId: plan.id } }),
+      prisma.concept.count({ where: { planId: plan.id, status: 'active' } }),
+    ]);
+
     return {
       items: options.dueOnly ? [] : await buildFallbackItems(plan, now),
-      hasHistory: false,
+      hasQueueOnActiveConcepts: false,
+      hadGradedHistory: gradedEver > 0,
+      hasActiveConcepts: activeConcepts > 0,
     };
   }
 
@@ -554,6 +715,7 @@ async function resolvePlanQueue(
     where: {
       planId: plan.id,
       ...ON_SCHEDULE_WHERE,
+      ...ACTIVE_CONCEPT_WHERE,
       ...(options.dueOnly ? { scheduledFor: { lte: now } } : {}),
     },
     include: QUEUE_ROW_INCLUDE,
@@ -561,7 +723,16 @@ async function resolvePlanQueue(
 
   const items = await toResponseItems(rows, plan, now);
 
-  return { items: dedupeByConcept(items), hasHistory: true };
+  // The other two flags are **entailed** here, not assumed, so they cost no query: `totalCount`
+  // counts rows whose concept is still active, so `> 0` gives at least one such row — which means
+  // the plan was graded at some point (`gradedEver >= totalCount`), and that the concept the row
+  // points at exists and is active (the relation is required).
+  return {
+    items: dedupeByConcept(items),
+    hasQueueOnActiveConcepts: true,
+    hadGradedHistory: true,
+    hasActiveConcepts: true,
+  };
 }
 
 /**
@@ -576,6 +747,11 @@ async function resolvePlanQueue(
  * Folded to one row per concept for the same reason the live queue is (#232): the student
  * removed a *concept* from the schedule, and `updateReviewQueueItemStatus()` moves all of its
  * rows together, so listing the concept once is what actually happened.
+ *
+ * #343: this list needs `ACTIVE_CONCEPT_WHERE` more than the live queue does, not less. Every
+ * row here is drawn with a **"Đưa lại vào lịch"** button, so an unfiltered tombstone is not a
+ * stale line the student can ignore — it is a one-click way to put a concept the plan no longer
+ * contains back onto the schedule.
  */
 async function resolveSkippedItems(
   plan: QueuePlan,
@@ -583,7 +759,7 @@ async function resolveSkippedItems(
   limit: number
 ): Promise<ReviewQueueItemResponse[]> {
   const rows = await prisma.reviewQueueItem.findMany({
-    where: { planId: plan.id, status: 'skipped' },
+    where: { planId: plan.id, status: 'skipped', ...ACTIVE_CONCEPT_WHERE },
     include: QUEUE_ROW_INCLUDE,
   });
 
@@ -602,13 +778,13 @@ async function resolveSkippedItems(
  */
 function resolveEmptyMessage(
   items: readonly ReviewQueueItemResponse[],
-  hasHistory: boolean,
+  hasQueueOnActiveConcepts: boolean,
   completedMessage: string
 ): string | null {
   if (items.length > 0) {
     return null;
   }
-  return hasHistory ? completedMessage : null;
+  return hasQueueOnActiveConcepts ? completedMessage : null;
 }
 
 /**
@@ -640,22 +816,86 @@ export async function getReviewQueueForPlan(
     return {
       items: [],
       message: buildInactivePlanMessage(plan.status),
+      // Nothing was counted on this path, so `hasActiveConcepts` is omitted rather than guessed —
+      // a `draft` plan does have concepts, they are just unconfirmed (see the field's docstring).
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     };
   }
 
   const now = new Date();
-  const { items, hasHistory } = await resolvePlanQueue(plan, now, { dueOnly: false });
+  const { items, hasQueueOnActiveConcepts, hadGradedHistory, hasActiveConcepts } =
+    await resolvePlanQueue(plan, now, { dueOnly: false });
   const sorted = sortReviewItems(items).slice(0, limit);
+
+  // #345 ca (c): đã từng có kết quả chấm, không còn gì trên lịch mà plan vẫn giữ, nhưng đồ thị
+  // vẫn còn khái niệm — nên `items` là danh sách **gợi ý A3**, không rỗng, và câu phải đi bằng
+  // `noScheduleNote`. Nhét vào `message` là không được: `message` theo định nghĩa là câu của
+  // trạng thái rỗng, mà ở đây danh sách có nội dung.
+  const noScheduleNote =
+    !hasQueueOnActiveConcepts && hadGradedHistory && hasActiveConcepts
+      ? CONTENT_CHANGED_PLAN_NOTE
+      : null;
 
   return {
     items: sorted,
-    message: resolveEmptyMessage(sorted, hasHistory, COMPLETED_PLAN_MESSAGE),
+    // #345 ca (d) gác bằng `hasActiveConcepts`, **không** bằng `hadGradedHistory`: câu này khẳng
+    // định một điều về **đồ thị**, mà trả lời câu hỏi về đồ thị bằng một dữ kiện về **lịch sử**
+    // chính là nước đi "một cờ trả lời hai câu hỏi" đã đẻ ra chính issue này.
+    message: hasActiveConcepts
+      ? resolveEmptyMessage(sorted, hasQueueOnActiveConcepts, COMPLETED_PLAN_MESSAGE)
+      : NO_ACTIVE_CONCEPTS_PLAN_MESSAGE,
+    noScheduleNote,
+    hasActiveConcepts,
     totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
     ...(options.includeSkipped
       ? { skippedItems: await resolveSkippedItems(plan, now, limit) }
       : {}),
   };
+}
+
+/**
+ * #345 — which sentence `/today` says once nothing is due. Branches are named, not numbered: the
+ * three sessions that designed this table numbered them differently and nearly swapped two.
+ *
+ * | `DUE-DONE`     | some plan still has a live queue | `COMPLETED_TODAY_MESSAGE` |
+ * | `EMPTY-GRAPH`  | every plan's graph is empty      | `NO_ACTIVE_CONCEPTS_TODAY_MESSAGE` |
+ * | `CHANGED`      | every plan was graded before     | `CONTENT_CHANGED_TODAY_MESSAGE` |
+ * | `INVITE`       | no plan was ever graded          | `null` → the client's A2b invitation |
+ * | `INVITE-MIXED` | some were, some weren't          | `null` → same, **borrowed on purpose** |
+ *
+ * **The three flags use three different quantifiers, and that is the point — do not "unify"
+ * them.** A2b is an *invitation*: one plan genuinely ready for a first session is enough to keep
+ * it (`some`). The other two are *diagnoses*, and a diagnosis has to be true of **every** plan it
+ * speaks about (`every`). Collapsing `every` to `some` here is the exact bug an earlier draft of
+ * #345 carried: it fires "your content changed" at a student whose other plan is simply new, and
+ * swallows the one invitation they could have acted on.
+ *
+ * `INVITE` and `INVITE-MIXED` return the same `null` for **different reasons**, which is why the
+ * distinction is written down rather than silently merged: in the mixed case the invitation is
+ * not merely harmless, it is the correct thing to show — at least one plan really is waiting for
+ * its first session.
+ *
+ * `EMPTY-GRAPH` is tested before `CHANGED` because a wiped graph satisfies both, and "your plans
+ * have no concepts" is the more specific and more actionable of the two — where `CHANGED` would
+ * send the student off to look at a graph that is empty.
+ *
+ * ⚠️ **Precondition: `resolutions` is never empty.** `[].every(...)` is `true`, so an empty array
+ * would fire `EMPTY-GRAPH` at a user who has no active plan at all. The only thing preventing
+ * that is the `activePlans.length === 0` early return in the caller. Move or drop that early
+ * return and this function **must** grow a length guard.
+ */
+function resolveTodayMessage(resolutions: readonly PlanQueueResolution[]): string | null {
+  if (resolutions.some((resolution) => resolution.hasQueueOnActiveConcepts)) {
+    return COMPLETED_TODAY_MESSAGE;
+  }
+  if (resolutions.every((resolution) => !resolution.hasActiveConcepts)) {
+    return NO_ACTIVE_CONCEPTS_TODAY_MESSAGE;
+  }
+  if (resolutions.every((resolution) => resolution.hadGradedHistory)) {
+    return CONTENT_CHANGED_TODAY_MESSAGE;
+  }
+  return null;
 }
 
 /**
@@ -681,6 +921,7 @@ export async function getTodayReviewQueue(
     return {
       items: [],
       message: buildNoActivePlanMessage(plans.map((plan) => plan.status)),
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     };
   }
@@ -691,12 +932,14 @@ export async function getTodayReviewQueue(
   );
 
   const allItems = resolutions.flatMap((resolution) => resolution.items);
-  const hasHistory = resolutions.some((resolution) => resolution.hasHistory);
   const sorted = sortReviewItems(allItems).slice(0, limit);
 
   return {
     items: sorted,
-    message: resolveEmptyMessage(sorted, hasHistory, COMPLETED_TODAY_MESSAGE),
+    // A non-empty list needs no sentence — the same rule `resolveEmptyMessage` applies on the
+    // other endpoint. Which sentence an *empty* one gets is `resolveTodayMessage`'s table.
+    message: sorted.length > 0 ? null : resolveTodayMessage(resolutions),
+    noScheduleNote: null,
     totalEstimatedMinutes: sorted.reduce((total, item) => total + item.estimatedMinutes, 0),
   };
 }

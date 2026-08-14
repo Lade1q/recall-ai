@@ -2,10 +2,14 @@
 !pragma layout smetana
 ' =====================================================================
 ' Recall AI — Entity-Relationship Model (PlantUML, crow's-foot)
-' SAD Database component. Issue #86 / I5.3. Source: schema.prisma (post-#138).
-' Render:  java -jar plantuml.jar -tpng -Sdpi=200 er-model.puml
+' SAD Database component. Issue #86 / I5.3, updated for #111 (PA4).
+' Source: schema.prisma, authoritative as of the #111 (PA4) scope (13 tables, incl. Sprint-5 session_notes).
+' Render:  java -DPLANTUML_LIMIT_SIZE=16384 -jar plantuml.jar -tpng -Sdpi=200 er-model.puml
+' (limit-size override needed: "left to right direction" widens the layout past the
+' default 4096px cap and silently truncates the right edge otherwise)
 ' =====================================================================
 hide circle
+left to right direction
 skinparam linetype ortho
 skinparam roundcorner 6
 skinparam shadowing false
@@ -13,7 +17,7 @@ skinparam entity {
   BackgroundColor #FDFDFF
   BorderColor #6A6AC0
 }
-title Recall AI — Database ER Model (PostgreSQL)
+title Recall AI — Database ER Model (PostgreSQL, 13 tables)\n\nReflects the #111 (PA4) scope; excludes Sprint 5 / Interview v2 tables not yet part of this deliverable (concept_checkpoints — #329, InterviewEvidence — #330).\n\n
 
 entity "users" as users {
   * id : uuid <<PK>>
@@ -35,6 +39,7 @@ entity "study_plans" as study_plans {
   * status : study_plan_status
   * dag_auto_fixed : boolean
   * traceback_enabled : boolean
+  language_detected : varchar(20)
   * created_at : timestamp
   * updated_at : timestamp
 }
@@ -68,6 +73,8 @@ entity "analysis_jobs" as analysis_jobs {
   plan_draft_id : uuid  (soft)
   file_key : text
   * status : analysis_job_status
+  phase : analysis_job_phase
+  error_message : text
   * retry_count : integer
   * created_at : timestamp
   completed_at : timestamp
@@ -113,6 +120,9 @@ entity "interview_turns" as interview_turns {
   feedback : text
   verdict : turn_verdict
   * source : turn_source
+  source_document_id : uuid  (soft)
+  source_page_from : integer
+  source_page_to : integer
   * asked_at : timestamp
   answered_at : timestamp
   .. unique(session_id, concept_id, turn_index) ..
@@ -126,6 +136,10 @@ entity "focus_sessions" as focus_sessions {
   * concept_ids : jsonb
   * status : focus_session_status
   * duration_minutes : integer
+  * focused_seconds : integer
+  * away_count : integer
+  * pomodoros_completed : integer
+  * strict_mode : boolean
   * started_at : timestamp
   ended_at : timestamp
 }
@@ -146,6 +160,40 @@ entity "review_queue_items" as review_queue_items {
   .. unique(source_session_id, concept_id) ..
 }
 
+entity "documents" as documents {
+  * id : uuid <<PK>>
+  --
+  * plan_id : uuid <<FK>>
+  * filename : varchar(255)
+  * file_key : text
+  * kind : document_kind
+  page_count : integer
+  byte_size : integer
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
+entity "concept_sources" as concept_sources {
+  * id : uuid <<PK>>
+  --
+  * concept_id : uuid <<FK>>
+  * document_id : uuid <<FK>>
+  page_from : integer
+  page_to : integer
+  excerpt : text
+  * created_at : timestamp
+}
+
+entity "session_notes" as session_notes {
+  * id : uuid <<PK>>
+  --
+  * session_id : uuid <<FK>>
+  * concept_id : uuid <<FK>>
+  * body : text
+  * created_at : timestamp
+  * updated_at : timestamp
+}
+
 ' ---- Foreign-key relationships (crow's foot, ON DELETE CASCADE) ----
 users              ||--o{ study_plans        : owns
 users              ||--o{ interview_sessions : starts
@@ -155,22 +203,31 @@ study_plans        ||--o{ concept_edges      : contains
 study_plans        ||--o{ interview_sessions : examined in
 study_plans        |o--o{ focus_sessions     : studied in
 study_plans        ||--o{ review_queue_items : queues
+study_plans        ||--o{ documents          : sources
 concepts           ||--o{ concept_edges      : from (prereq)
 concepts           ||--o{ concept_edges      : to (dependent)
 concepts           ||--o{ question_cache     : caches
 concepts           ||--o{ interview_turns    : tested by
 concepts           ||--o{ review_queue_items : reviewed as
+concepts           ||--o{ concept_sources    : grounded in
+concepts           ||--o{ session_notes      : annotated by
+documents          ||--o{ concept_sources    : anchors
 interview_sessions ||--o{ interview_turns    : has
+focus_sessions     ||--o{ session_notes      : has
 
 ' ---- Soft references (no FK constraint) ----
 analysis_jobs      }o..|| study_plans        : soft
 review_queue_items }o..|| concepts           : soft (source)
 review_queue_items }o..|| interview_sessions : soft (source)
+' interview_turns.source_document_id -> documents.id is also a soft reference
+' (citation anchor); omitted as a drawn edge here to avoid a long cross-diagram
+' line that pushed documents/concept_sources off-canvas under smetana layout.
+' It is documented in the entity catalog / §5.2 of database-design.md instead.
 
 legend right
   |= Notation |= Meaning |
-  | ||--o{ | one to zero-or-many (FK, cascade) |
-  | |o--o{ | zero-or-one to zero-or-many |
+  | &#124;&#124;--o{ | one to zero-or-many (FK, cascade) |
+  | &#124;o--o{ | zero-or-one to zero-or-many |
   | ..     | soft reference (no FK) |
   | <<PK>> / <<FK>> / <<UK>> | primary / foreign / unique key |
   | *      | NOT NULL |

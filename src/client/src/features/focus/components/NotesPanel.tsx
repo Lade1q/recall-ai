@@ -82,7 +82,7 @@ export function NotesPanel({ sessionId, conceptId, conceptName, className }: Not
         aria-label={`Ghi chú cho khái niệm ${conceptName}`}
         placeholder="Ghi lại điều đáng nhớ về khái niệm này…"
         maxLength={5000}
-        className="border-border bg-background text-foreground focus-visible:outline-ring min-h-24 w-full resize-y rounded-[calc(var(--radius)*0.7)] border px-3 py-2.5 text-[13px] leading-[1.6] outline-none focus-visible:outline-2 focus-visible:-outline-offset-1"
+        className="border-border bg-background text-foreground focus-visible:outline-ring min-h-24 w-full resize-y rounded-[calc(var(--radius)*0.7)] border px-3 py-2.5 text-[13px] leading-[1.6] [outline-style:none] focus-visible:outline-2 focus-visible:-outline-offset-1"
       />
 
       <div className="flex justify-end">

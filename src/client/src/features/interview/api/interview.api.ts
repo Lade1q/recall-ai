@@ -9,6 +9,7 @@ import type {
   SelfGrade,
   StartInterviewResponse,
   SubmitAnswerResponse,
+  SessionSummaryResponse,
 } from '../types/interview.types';
 
 /** Backend bọc mọi response trong `{ success: true, data: {...} }`. */
@@ -155,5 +156,27 @@ export const interviewApi = {
       ENDPOINTS.INTERVIEWS.ABANDON(id)
     );
     return response.data.data;
+  },
+
+  /**
+   * GET /interviews/:id/summary (I6.5 / AE-09) — dữ liệu tổng hợp cuối phiên.
+   *
+   * Lần gọi đầu của một phiên chưa có cache phải chờ `summarize_session` (1 lượt + 1 lượt thử
+   * lại, chưa có timeout phía server — xem #292), nên dùng timeout dài như các lệnh chờ AI
+   * khác. Để mặc định 10s thì đúng lúc AI chậm hoặc hỏng — chính hoàn cảnh mà nhánh
+   * `generatedByAi: false` sinh ra để phục vụ — client lại bỏ cuộc trước khi server kịp trả
+   * bảng điểm, và người dùng mất luôn màn kết quả thay vì mất mỗi phần nhận xét.
+   */
+  getSummary: async (id: string): Promise<SessionSummaryResponse> => {
+    const response = await apiClient.get<ApiEnvelope<SessionSummaryResponse>>(
+      ENDPOINTS.INTERVIEWS.SUMMARY(id),
+      { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /** PATCH /review-queue/:itemId — Bỏ khỏi lịch từ màn tổng kết */
+  skipReviewItem: async (itemId: string): Promise<void> => {
+    await apiClient.patch(ENDPOINTS.REVIEW_QUEUE.ITEM(itemId), { status: 'skipped' });
   },
 };

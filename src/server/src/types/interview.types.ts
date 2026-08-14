@@ -8,7 +8,7 @@ import type {
   TurnVerdict,
 } from '@prisma/client';
 import type { TracebackReason } from '../services/traceback.service';
-import type { TracebackSkipReason } from '../services/concept-result.service';
+import type { TracebackSkipReason } from '../services/concept-schedule.service';
 
 /**
  * Response shapes of the Interview API (I6.3 / #115), consumed by the interview screen (I6.6)

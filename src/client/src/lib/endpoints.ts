@@ -28,6 +28,7 @@ export const ENDPOINTS = {
     PAUSE: (id: string) => `/api/v1/interviews/${id}/pause`,
     RESUME: (id: string) => `/api/v1/interviews/${id}/resume`,
     ABANDON: (id: string) => `/api/v1/interviews/${id}/abandon`,
+    SUMMARY: (id: string) => `/api/v1/interviews/${id}/summary`,
   },
   REVIEW_QUEUE: {
     BASE: '/api/v1/review-queue',

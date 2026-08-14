@@ -47,6 +47,7 @@ function makeResponse(overrides: Partial<ReviewQueueListResponse> = {}): ReviewQ
   return {
     items: [],
     message: null,
+    noScheduleNote: null,
     totalEstimatedMinutes: 0,
     ...overrides,
   };
@@ -148,6 +149,95 @@ describe('PlanReviewQueuePage — empty-state disambiguation', () => {
       'href',
       '/plan/plan-1/verify'
     );
+  });
+
+  /**
+   * #345 — the two states #344 left without a sentence of their own. Both are driven by fields,
+   * never by matching on `message`: the page must be able to tell them apart from a response
+   * alone.
+   */
+  it('an empty graph gets its own frame, and never the congratulation tick', async () => {
+    const EMPTY_GRAPH_MESSAGE =
+      'Kế hoạch này hiện không có khái niệm nào, nên chưa có gì để ôn. Thêm khái niệm vào đồ thị hoặc phân tích lại tài liệu để bắt đầu.';
+    vi.mocked(reviewQueueApi.getReviewQueue).mockResolvedValueOnce(
+      makeResponse({
+        items: [],
+        skippedItems: [],
+        message: EMPTY_GRAPH_MESSAGE,
+        hasActiveConcepts: false,
+      })
+    );
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText('Đồ thị khái niệm đang trống')).toBeInTheDocument()
+    );
+    expect(screen.getByText(EMPTY_GRAPH_MESSAGE)).toBeInTheDocument();
+    // The heading it must NOT borrow — a tick over an empty plan congratulates the student for
+    // work they have not done, which is the whole reason #345 exists.
+    expect(screen.queryByText('Không còn khái niệm nào chờ ôn')).not.toBeInTheDocument();
+    // "Mở", not "Xem": the destination is right, the verb was promising something to look at.
+    expect(screen.getByRole('link', { name: 'Mở đồ thị khái niệm' })).toHaveAttribute(
+      'href',
+      '/plan/plan-1'
+    );
+  });
+
+  it('still shows the ordinary empty frame when the graph is intact', async () => {
+    // The control for the case above: same empty list, opposite flag, old frame unchanged.
+    vi.mocked(reviewQueueApi.getReviewQueue).mockResolvedValueOnce(
+      makeResponse({ items: [], skippedItems: [], message: '', hasActiveConcepts: true })
+    );
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText('Không còn khái niệm nào chờ ôn')).toBeInTheDocument()
+    );
+    expect(screen.queryByText('Đồ thị khái niệm đang trống')).not.toBeInTheDocument();
+  });
+
+  it('the suggestion banner says why the old schedule is gone, when the server says so', async () => {
+    const CHANGED_NOTE =
+      'Kế hoạch này đã được phân tích lại, nên những khái niệm trong lịch ôn trước đó không còn trong nội dung hiện tại. Làm một phiên với nội dung mới để có lịch thật.';
+    vi.mocked(reviewQueueApi.getReviewQueue).mockResolvedValueOnce(
+      // `id: null` is what makes these A3 suggestions rather than a real schedule.
+      makeResponse({ items: [makeItem({ id: null })], noScheduleNote: CHANGED_NOTE })
+    );
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText(CHANGED_NOTE)).toBeInTheDocument());
+    // The client's own sentence is for the never-graded case and must not appear beside it.
+    expect(screen.queryByText(/chưa có kết quả vấn đáp nào/)).not.toBeInTheDocument();
+    // The lead-in is shared by both — it is the banner, not the diagnosis.
+    expect(screen.getByText('Đây là gợi ý, chưa phải lịch ôn của bạn.')).toBeInTheDocument();
+    // …and the link back to review history, which `isFallbackSuggestion` alone used to hide here.
+    // This student HAS history — that is the definition of this case — so hiding it removed a
+    // route, silently, which is worse than the wrong sentence next to it.
+    expect(screen.getByRole('link', { name: 'Lịch sử ôn tập' })).toBeInTheDocument();
+  });
+
+  it('falls back to the client sentence when there is no note — the never-graded case', async () => {
+    // Byte-for-byte the previous fixture except `noScheduleNote`. That is the assertion, not a
+    // coincidence: the two cases must be told apart by exactly ONE discriminator. Answer the
+    // "has history?" question with a second flag and this pair stops flipping together — which
+    // is how the bug being fixed here got in.
+    vi.mocked(reviewQueueApi.getReviewQueue).mockResolvedValueOnce(
+      makeResponse({ items: [makeItem({ id: null })], noScheduleNote: null })
+    );
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText(/chưa có kết quả vấn đáp nào/)).toBeInTheDocument()
+    );
+    // "kết quả", not "phiên": a session abandoned before its first answer leaves no queue row,
+    // so the old wording called it "no session" while the student remembered sitting one.
+    expect(screen.queryByText(/chưa có phiên vấn đáp nào/)).not.toBeInTheDocument();
+    // Genuinely no history here, so the link stays hidden — the flag's original job, unchanged.
+    expect(screen.queryByRole('link', { name: 'Lịch sử ôn tập' })).not.toBeInTheDocument();
   });
 
   it('reads the plan name off the queue items instead of refetching the whole graph', async () => {

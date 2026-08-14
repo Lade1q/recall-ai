@@ -8,18 +8,75 @@ import type {
 
 // Fixed sample DAG (Variable -> Loop -> Array -> {Sorting, Recursion}) used when
 // USE_MOCK_AI=true, so frontend/backend dev and demos don't consume Gemini quota.
+//
+// `checkpoints` (#329) follows the same rule the real prompt asks for: the harder concept gets
+// more lines rather than a weight, so Recursion carries four where Variable carries two — which
+// also makes the mock exercise a range of `C` for the coverage formula.
 export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
   concepts: [
-    // prettier-ignore
-    { name: 'Variable', difficulty: 1, description: 'Basic variables and data types', source_page: 1, source_excerpt: 'A variable is a named location in memory that holds a value of a given type.' },
-    // prettier-ignore
-    { name: 'Loop', difficulty: 2, description: 'for/while loops', source_page: 3, source_excerpt: 'A loop repeatedly executes a block of statements while a condition holds.' },
-    // prettier-ignore
-    { name: 'Array', difficulty: 2, description: 'Arrays and indexing', source_page: 5, source_excerpt: 'An array stores a fixed-size sequence of elements accessed by a zero-based index.' },
-    // prettier-ignore
-    { name: 'Recursion', difficulty: 4, description: 'Functions that call themselves', source_page: 9, source_excerpt: 'A recursive function solves a problem by calling itself on a smaller subproblem.' },
-    // prettier-ignore
-    { name: 'Sorting', difficulty: 3, description: 'Sorting algorithms', source_page: 7, source_excerpt: 'Sorting arranges the elements of a collection into a defined order.' },
+    {
+      name: 'Variable',
+      difficulty: 1,
+      description: 'Basic variables and data types',
+      source_page: 1,
+      source_excerpt:
+        'A variable is a named location in memory that holds a value of a given type.',
+      checkpoints: [
+        'Say what a variable is: a named location in memory holding a value',
+        'Explain why a variable has a type and what the type decides',
+      ],
+    },
+    {
+      name: 'Loop',
+      difficulty: 2,
+      description: 'for/while loops',
+      source_page: 3,
+      source_excerpt: 'A loop repeatedly executes a block of statements while a condition holds.',
+      checkpoints: [
+        'State that a loop repeats a block while its condition holds',
+        'Identify the condition that ends a given loop',
+        'Explain what makes a loop run forever',
+      ],
+    },
+    {
+      name: 'Array',
+      difficulty: 2,
+      description: 'Arrays and indexing',
+      source_page: 5,
+      source_excerpt:
+        'An array stores a fixed-size sequence of elements accessed by a zero-based index.',
+      checkpoints: [
+        'State that an array holds a fixed-size sequence of elements',
+        'Give the index of the first and the last element of an array of n elements',
+        'Explain what happens when an index falls outside the array',
+      ],
+    },
+    {
+      name: 'Recursion',
+      difficulty: 4,
+      description: 'Functions that call themselves',
+      source_page: 9,
+      source_excerpt:
+        'A recursive function solves a problem by calling itself on a smaller subproblem.',
+      checkpoints: [
+        'Say that a recursive function calls itself on a smaller subproblem',
+        'Name the base case of a given recursive function and say why it is needed',
+        'Show that each call moves towards the base case',
+        'Explain what happens when the base case is never reached',
+      ],
+    },
+    {
+      name: 'Sorting',
+      difficulty: 3,
+      description: 'Sorting algorithms',
+      source_page: 7,
+      source_excerpt: 'Sorting arranges the elements of a collection into a defined order.',
+      checkpoints: [
+        'State that sorting arranges elements into a defined order',
+        'Describe the steps of one sorting algorithm from the material',
+        'Compare two sorting algorithms on the work they do',
+      ],
+    },
   ],
   edges: [
     { from: 'Variable', to: 'Loop' },

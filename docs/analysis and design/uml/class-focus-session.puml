@@ -1,0 +1,89 @@
+@startuml RecallAI-ClassDiagram-FocusSession
+!pragma layout smetana
+' SAD Section 4.8 — Component: Focus Session (FS-01, FS-03, FS-05). Issue #111 (PA4).
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam class {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Focus Session Component (back end + key front-end pieces)
+
+package "Server" {
+  class FocusSessionController <<controller>> {
+    +createFocusSessionController(req, res)
+    +endFocusSessionController(req, res)
+    +listFocusSessionsController(req, res)
+  }
+  class FocusSessionService <<service>> {
+    -number STALE_SESSION_HOURS = 8
+    +createFocusSession(userId, input) CreateFocusSessionResponse
+    +endFocusSession(userId, id, input) EndFocusSessionResponse
+    +listFocusSessions(userId, opts) List~FocusSessionListItem~
+    +getOwnedFocusSessionOrThrow(userId, id) FocusSession
+    -reapStaleSessions(userId)
+  }
+  class SessionNoteController <<controller>> {
+    +createSessionNoteController(req, res)
+    +listSessionNotesController(req, res)
+    +updateSessionNoteController(req, res)
+    +deleteSessionNoteController(req, res)
+  }
+  class SessionNoteService <<service>> {
+    +createSessionNote(userId, sessionId, input) SessionNoteResponse
+    +updateSessionNote(userId, sessionId, noteId, input) SessionNoteResponse
+    +listSessionNotes(userId, sessionId) List~SessionNoteResponse~
+    +deleteSessionNote(userId, sessionId, noteId)
+    +assertConceptInSession(sessionConceptIds, conceptId)
+    +parseConceptIds(value) List~string~
+    +toSessionNoteResponse(note) SessionNoteResponse
+    -getSessionNoteOrThrow(sessionId, noteId) SessionNote
+  }
+  class PrismaClient <<external>>
+}
+
+package "Client · features/focus" {
+  class useFocusTimer <<hook>> {
+    +phase : "work" | "short_break" | "long_break"
+    +readFocusSessionSnapshot() FocusSessionSnapshot
+    +clearFocusSessionSnapshot()
+    -playChime()
+  }
+  class useAutosaveNote <<hook>> {
+    -number AUTOSAVE_DEBOUNCE_MS = 800
+    +status : NoteSaveStatus
+    -readPersistedDraft(sessionId) PersistedDraft
+    -writePersistedDraft(sessionId, draft)
+  }
+  class focusSessionApi <<module>> {
+    +create(payload) CreateFocusSessionResponse
+    +end(id, input) EndFocusSessionResponse
+  }
+  class sessionNoteApi <<module>> {
+    +list(sessionId) List~SessionNote~
+    +create(sessionId, payload) SessionNote
+    +update(sessionId, noteId, body) SessionNote
+    +remove(sessionId, noteId)
+  }
+  class RunningSession <<component>> {
+    +render()
+  }
+  class NotesPanel <<component>> {
+    +render()
+  }
+}
+
+FocusSessionController ..> FocusSessionService : delegates
+SessionNoteController ..> SessionNoteService : delegates
+SessionNoteService ..> FocusSessionService : getOwnedFocusSessionOrThrow\n(shared ownership gate)
+FocusSessionService ..> PrismaClient
+SessionNoteService ..> PrismaClient
+
+RunningSession ..> useFocusTimer
+RunningSession ..> focusSessionApi
+NotesPanel ..> useAutosaveNote
+useAutosaveNote ..> sessionNoteApi
+focusSessionApi ..> FocusSessionController : HTTP\nPOST/PATCH /focus-sessions
+sessionNoteApi ..> SessionNoteController : HTTP\n/focus-sessions/:id/notes
+
+@enduml

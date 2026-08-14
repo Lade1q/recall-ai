@@ -38,3 +38,6 @@ npm-debug.log*
 
 # Uploads
 uploads/
+
+# Local diagram-rendering tools (not SAD content)
+tools/plantuml.jar

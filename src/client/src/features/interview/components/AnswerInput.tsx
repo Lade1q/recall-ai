@@ -61,7 +61,7 @@ export function AnswerInput({
         disabled={isBlocked}
         spellCheck={false}
         placeholder="Nhập câu trả lời của bạn…"
-        className="max-h-50 min-h-23 border-border bg-background text-foreground focus-visible:outline-ring px-3.75 py-3.25 block w-full resize-y rounded-md border text-sm leading-[1.62] outline-none transition-colors focus-visible:border-transparent focus-visible:outline-2 focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
+        className="max-h-50 min-h-23 border-border bg-background text-foreground focus-visible:outline-ring px-3.75 py-3.25 block w-full resize-y rounded-md border text-sm leading-[1.62] transition-colors [outline-style:none] focus-visible:border-transparent focus-visible:outline-2 focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-60"
       />
       <div className="text-muted-foreground mt-2.5 flex items-center gap-3.5 text-xs">
         <span>

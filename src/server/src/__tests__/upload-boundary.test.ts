@@ -14,7 +14,9 @@ const STAGING_DIR = path.resolve(process.cwd(), 'uploads', '.staging');
 function buildTestApp() {
   const app = express();
   app.post('/upload', upload.single('file'), (req, res) => {
-    res.status(200).json({ size: req.file?.size ?? null });
+    res
+      .status(200)
+      .json({ size: req.file?.size ?? null, originalname: req.file?.originalname ?? null });
   });
   app.use(errorHandler);
   return app;
@@ -85,5 +87,34 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('FILE_TOO_LARGE');
+  });
+});
+
+// Busboy defaults to decoding non-extended Content-Disposition filename params as latin1,
+// mangling UTF-8 filenames into mojibake before they reach the controller. multer's
+// `defParamCharset: 'utf8'` fixes this at the source, so a name never gets persisted
+// broken to Document.filename.
+describe('upload filename encoding — tên file tiếng Việt không bị mojibake', () => {
+  const app = buildTestApp();
+  let preexisting: Set<string>;
+
+  beforeAll(() => {
+    preexisting = new Set(listStagingFiles());
+  });
+
+  afterAll(() => {
+    for (const f of listStagingFiles()) {
+      if (!preexisting.has(f)) fs.rmSync(path.join(STAGING_DIR, f), { force: true });
+    }
+  });
+
+  it('giữ nguyên UTF-8 cho tên file có dấu tiếng Việt', async () => {
+    const res = await request(app).post('/upload').attach('file', Buffer.from('nội dung'), {
+      filename: 'ngăn-xếp.txt',
+      contentType: 'text/plain',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.originalname).toBe('ngăn-xếp.txt');
   });
 });

@@ -1,0 +1,1133 @@
+<!-- @dsCard group="Screens" subtitle="AM-03 · AM-04 · FS-02 — Hồ sơ &amp; Cấu hình" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Hồ sơ</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    h1.page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+    }
+
+    .head {
+      margin-bottom: 34px;
+    }
+
+    .head p {
+      font-size: 14px;
+      color: var(--muted-foreground);
+      margin: 0;
+      max-width: 620px;
+      text-wrap: pretty;
+    }
+
+    /* ── Khung cài đặt ────────────────────────────────────────────────────
+       Không bọc mỗi nhóm trong một thẻ .card. Ba nhóm ở đây không cạnh tranh
+       nhau để được chú ý — chúng chỉ nối tiếp nhau, nên một đường kẻ ngang là
+       đủ. Bọc thẻ sẽ tạo cảm giác mỗi nhóm là một đối tượng riêng biệt bấm
+       được, mà chúng thì không.
+
+       Cột trái giữ tiêu đề + lý do, cột phải giữ điều khiển. Đây là lý do
+       trang này KHÔNG kéo hết 1100px của .app-main: một ô nhập tên rộng
+       1000px là một ô nhập sai. Chỗ trống bên trái dùng để giải thích cái
+       gì đang được ghi vào đâu, chứ không để trống. */
+    .settings {
+      max-width: 900px;
+    }
+
+    .set {
+      display: grid;
+      grid-template-columns: 236px minmax(0, 1fr);
+      gap: 12px 44px;
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      scroll-margin-top: 24px;
+    }
+
+    .set:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .set__aside h2 {
+      font-family: var(--font-heading);
+      font-size: 17px;
+      letter-spacing: -0.015em;
+      line-height: 1.3;
+      margin: 0 0 7px;
+    }
+
+    .set__aside p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 10px;
+      text-wrap: pretty;
+    }
+
+    .set__ids {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    /* ── Trường nhập ──────────────────────────────────────────────────────*/
+    .field {
+      margin-bottom: 18px;
+      max-width: 360px;
+    }
+
+    .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .field label,
+    .lbl {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--foreground);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 9px 12px;
+      transition: border-color var(--duration-fast) var(--ease-standard);
+    }
+
+    .input:hover {
+      border-color: var(--muted-foreground);
+    }
+
+    .input:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    .hint {
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 7px 0 0;
+      text-wrap: pretty;
+    }
+
+    /* Email không phải ô nhập bị "disabled" mà là một dòng dữ liệu. Một ô
+       input xám vẫn mời người ta click vào rồi mới phát hiện gõ không được;
+       hiển thị thẳng giá trị kèm ổ khóa thì không hứa hẹn gì cả. */
+    .locked {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 14px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 9px 12px;
+      color: var(--muted-foreground);
+    }
+
+    .locked span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .locked svg {
+      flex: none;
+      margin-left: auto;
+    }
+
+    .who {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    /* Không có avatar. Bảng users không có cột ảnh, và không use case nào mô
+       tả việc tải ảnh lên — vẽ một ô "đổi ảnh đại diện" ở đây là bịa ra một
+       tính năng chưa ai đồng ý làm. Chữ cái đầu lấy từ chính `name`. Vuông
+       bo góc chứ không tròn: hình tròn ở kích thước này bị đọc là "ảnh". */
+    .monogram {
+      width: 52px;
+      height: 52px;
+      flex: none;
+      border-radius: calc(var(--radius) * 0.9);
+      background: var(--secondary);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-heading);
+      font-size: 19px;
+      letter-spacing: -0.01em;
+    }
+
+    .who__name {
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .who__since {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+    }
+
+    /* ── Chu kỳ Pomodoro ──────────────────────────────────────────────────
+       Bốn ô số không cho biết một khối học dài bao lâu. work=25, cycles=4
+       trông vô hại cho tới lúc nhận ra `long_break` chỉ rơi vào cuối chu kỳ
+       thứ tư, và tổng khối là 2 giờ 10 phút. Dải này vẽ đúng thứ tự thật của
+       các đoạn, theo tỉ lệ thời gian thật, và cộng tổng ra bên dưới. */
+    .cycle {
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      padding: 15px 16px 14px;
+      margin-bottom: 22px;
+    }
+
+    .cycle__bar {
+      display: flex;
+      gap: 2px;
+      height: 28px;
+      margin-bottom: 11px;
+    }
+
+    .seg {
+      border-radius: 3px;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* Đoạn học dùng --focus-session, cùng token màn hình Focus Session đang
+       dùng cho vòng đếm giờ. Người ta chỉnh ở đây rồi nhìn thấy ở đó. */
+    .seg--work {
+      background: oklch(from var(--focus-session) l c h / 0.16);
+      border: 1px solid oklch(from var(--focus-session) l c h / 0.32);
+      color: var(--focus-session);
+      font-weight: 500;
+    }
+
+    /* Đoạn nghỉ tô bằng --muted-foreground pha loãng, KHÔNG dùng --secondary:
+       nền tấm .cycle là --muted (L 0.955) còn --secondary là L 0.95 — hai giá
+       trị này chênh nhau 0.005, nên đoạn nghỉ ngắn biến mất hẳn và người xem
+       đọc nó thành khe hở giữa hai khối học. Cũng không mượn --mastery-untested:
+       đó là token trạng thái khái niệm, ở đây thời gian nghỉ chẳng liên quan gì
+       tới mastery. */
+    .seg--short {
+      background: oklch(from var(--muted-foreground) l c h / 0.24);
+      color: var(--muted-foreground);
+    }
+
+    /* Nghỉ dài phân biệt bằng viền đậm hơn + có nhãn, không bằng màu thứ ba:
+       thêm một màu nữa vào bảng chỉ để phân biệt hai loại nghỉ là lạm phát
+       màu, trong khi bề rộng (15 so với 5) đã nói gần hết rồi. */
+    .seg--long {
+      background: oklch(from var(--muted-foreground) l c h / 0.24);
+      border: 1px solid oklch(from var(--muted-foreground) l c h / 0.6);
+      color: var(--muted-foreground);
+      font-weight: 500;
+    }
+
+    .cycle__legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      font-size: 11.5px;
+      color: var(--muted-foreground);
+      padding-bottom: 11px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cycle__legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cycle__legend i {
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      display: block;
+      flex: none;
+    }
+
+    .cycle__total {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--muted-foreground);
+      padding-top: 11px;
+    }
+
+    .cycle__total b {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .cycle__math {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grid4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      max-width: 460px;
+    }
+
+    .grid4 .field {
+      margin-bottom: 0;
+      max-width: none;
+    }
+
+    .num {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.65);
+      padding: 8px 10px;
+    }
+
+    .num:focus-within {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    .num input {
+      width: 100%;
+      min-width: 0;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--foreground);
+      background: none;
+      border: 0;
+      padding: 0;
+    }
+
+    .num input:focus {
+      outline: none;
+    }
+
+    .num u {
+      font-size: 11.5px;
+      text-decoration: none;
+      color: var(--muted-foreground);
+      flex: none;
+    }
+
+    /* ── Công tắc âm báo ──────────────────────────────────────────────────*/
+    .switch-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 26px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      max-width: 560px;
+    }
+
+    .switch-row .hint {
+      margin-top: 4px;
+      max-width: 400px;
+    }
+
+    .switch {
+      flex: none;
+      width: 40px;
+      height: 23px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: var(--secondary);
+      padding: 2px;
+      cursor: pointer;
+      transition: background var(--duration-fast) var(--ease-standard);
+    }
+
+    .switch i {
+      display: block;
+      width: 17px;
+      height: 17px;
+      border-radius: 9999px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      transition: transform var(--duration-fast) var(--ease-standard);
+    }
+
+    .switch[aria-checked="true"] {
+      background: var(--primary);
+      border-color: var(--primary);
+    }
+
+    .switch[aria-checked="true"] i {
+      transform: translateX(17px);
+      border-color: transparent;
+    }
+
+    /* ── Nút lưu của từng nhóm ────────────────────────────────────────────
+       Ba nút lưu riêng thay vì một nút "Lưu tất cả" ở cuối trang. Đổi mật
+       khẩu là một endpoint khác, cần mật khẩu hiện tại và có hai kiểu lỗi
+       riêng (AM-03 [E1], [E2]); gộp nó chung một lần submit với việc sửa tên
+       nghĩa là một lần gõ sai mật khẩu sẽ làm hỏng luôn cả việc đổi tên. */
+    .save {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .save .hint {
+      margin: 0;
+    }
+
+    .rule {
+      height: 1px;
+      background: var(--border);
+      margin: 26px 0;
+      max-width: 560px;
+    }
+
+    /* ── Trạng thái lỗi (dùng ở phụ lục) ──────────────────────────────────*/
+    .input--error {
+      border-color: var(--mastery-weak);
+    }
+
+    .err {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--mastery-weak);
+      margin: 7px 0 0;
+    }
+
+    .err svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    .req {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 7px;
+    }
+
+    .req--ok {
+      color: var(--mastery-strong);
+    }
+
+    /* Nhãn phân biệt hai ảnh chụp cùng một ô trong cùng một khung demo — nếu
+       không có nó, hai ô cùng nhãn "Mật khẩu mới" xếp chồng trông như một biểu
+       mẫu có hai trường trùng tên chứ không phải hai thời điểm của một trường. */
+    .mini {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin-bottom: 9px;
+    }
+
+    /* ── Phụ lục trạng thái ───────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 680px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 740px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 26px 28px;
+    }
+
+    .gap {
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--mastery-weak);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 16px 18px;
+      max-width: 760px;
+    }
+
+    .gap h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+
+    .gap p {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-wrap: pretty;
+    }
+
+    .gap p:last-child {
+      margin-bottom: 0;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    @media (max-width: 820px) {
+      .set {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+      }
+
+      .grid4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <nav class="app-sidebar" aria-label="Điều hướng chính">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <a class="app-sidebar__link" href="screen-plans.html">Kế hoạch ôn tập</a>
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-profile.html" aria-current="page">Hồ sơ</a>
+    </nav>
+
+    <main class="app-main">
+      <div class="head">
+        <h1 class="page-title">Hồ sơ</h1>
+        <!--
+          Lời dẫn nói đúng phạm vi của trang, vì AM-03 ("xem và chỉnh sửa
+          thông tin cá nhân") nghe rộng hơn nhiều so với thứ thật sự lưu được.
+          Bảng `users` chỉ có: email, password_hash, name, pomodoro_config.
+          Trang này là chỗ duy nhất ghi vào bốn cột đó — không hơn.
+        -->
+        <p>Nơi duy nhất ghi vào bản ghi tài khoản. Ba nhóm dưới đây tương ứng đúng ba thứ được lưu
+          trên bảng <code>users</code>: danh tính, cấu hình Pomodoro và mật khẩu.</p>
+      </div>
+
+      <div class="settings">
+
+        <!-- ══ 1. Danh tính (AM-03) ══════════════════════════════════════ -->
+        <section class="set" id="danh-tinh">
+          <div class="set__aside">
+            <h2>Danh tính</h2>
+            <p>Tên hiển thị dùng trong lời chào ở Tổng quan. Email là thứ dùng để đăng nhập,
+              nên nó không sửa được tại đây.</p>
+            <div class="set__ids"><span class="tag">AM-03</span><span class="tag">users.name</span></div>
+          </div>
+
+          <div>
+            <div class="who">
+              <div class="monogram" aria-hidden="true">MA</div>
+              <div>
+                <div class="who__name">Trần Minh Anh</div>
+                <div class="who__since">Tham gia 12/03/2026 · 3 kế hoạch</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="name">Tên hiển thị</label>
+              <input class="input" id="name" type="text" value="Trần Minh Anh" />
+              <p class="hint">Cột <code>name</code> cho phép rỗng. Bỏ trống thì hệ thống dùng phần đầu
+                của email — xem trạng thái đầu tiên ở phụ lục.</p>
+            </div>
+
+            <!--
+              Email hiển thị chứ không cho sửa. Đây là quyết định thiết kế, không
+              phải thiếu sót: UC-02 bước 2 so khớp đăng nhập theo email, và cột
+              `email` là UNIQUE. Đổi email nghĩa là đổi định danh đăng nhập — cần
+              một luồng xác thực địa chỉ mới, kiểm tra trùng (AM-01 [E1]) và xử lý
+              trường hợp mất quyền truy cập hòm thư cũ. Không use case nào tả luồng
+              đó. Vẽ một ô nhập email ở đây là hứa một thứ chưa được đặc tả.
+            -->
+            <div class="field">
+              <span class="lbl">Email đăng nhập</span>
+              <div class="locked">
+                <span>minhanh.tran@student.hcmus.edu.vn</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+                  <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" />
+                </svg>
+              </div>
+              <p class="hint">Email vừa là định danh đăng nhập vừa là khóa duy nhất của tài khoản.
+                Chưa có use case nào mô tả luồng đổi email, nên trang này không mở nó ra.</p>
+            </div>
+
+            <div class="save">
+              <button class="btn btn-primary" type="button">Lưu tên</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ 2. Cấu hình Pomodoro (FS-02) ══════════════════════════════ -->
+        <section class="set" id="pomodoro">
+          <div class="set__aside">
+            <h2>Chu kỳ Pomodoro</h2>
+            <!--
+              FS-02 là một use case Medium priority nhưng trước đây không có màn
+              hình nào nhận nó. Lý do nó thuộc về trang Hồ sơ nằm ngay trong lược
+              đồ: `pomodoro_config` là một cột của bảng `users`, không phải của
+              `focus_sessions` — nó là mặc định của người dùng, không phải tham số
+              của một phiên. UC-Overview §5.5 cũng ghi thẳng "Cấu hình Pomodoro lưu
+              trong profile". Liên kết "Đổi cấu hình Pomodoro" trong màn hình Focus
+              Session trỏ tới đúng chỗ neo #pomodoro này.
+            -->
+            <p>Mặc định áp cho mọi phiên học mới. Đang chạy dở thì không đổi giữa chừng — phiên
+              hiện tại giữ nguyên cấu hình lúc bắt đầu.</p>
+            <div class="set__ids"><span class="tag">FS-02</span><span class="tag">users.pomodoro_config</span></div>
+          </div>
+
+          <div>
+            <div class="cycle">
+              <!--
+                Tỉ lệ bề rộng là tỉ lệ thời gian thật trên tổng 130 phút:
+                4 × 25 (19.2%) + 3 × 5 (3.9%) + 15 (11.5%) = 100%.
+                Đoạn nghỉ ngắn hẹp tới mức không nhét được chữ — đó chính là
+                thông tin: nghỉ ngắn gần như không đáng kể so với khối học.
+              -->
+              <div class="cycle__bar" aria-hidden="true">
+                <div class="seg seg--work" style="width:19.2%;">25</div>
+                <div class="seg seg--short" style="width:3.9%;"></div>
+                <div class="seg seg--work" style="width:19.2%;">25</div>
+                <div class="seg seg--short" style="width:3.9%;"></div>
+                <div class="seg seg--work" style="width:19.2%;">25</div>
+                <div class="seg seg--short" style="width:3.9%;"></div>
+                <div class="seg seg--work" style="width:19.2%;">25</div>
+                <div class="seg seg--long" style="width:11.5%;">15</div>
+              </div>
+              <div class="cycle__legend">
+                <span><i style="background:oklch(from var(--focus-session) l c h / 0.35);"></i>Học 25 phút</span>
+                <span><i style="background:oklch(from var(--muted-foreground) l c h / 0.24);"></i>Nghỉ ngắn 5
+                  phút</span>
+                <span><i style="background:oklch(from var(--muted-foreground) l c h / 0.24); border:1px solid oklch(from var(--muted-foreground) l c h / 0.6);"></i>Nghỉ dài 15
+                  phút</span>
+              </div>
+              <div class="cycle__total">
+                <span>Trọn một khối 4 chu kỳ mất <b>2 giờ 10 phút</b></span>
+                <span class="cycle__math">4 × 25 + 3 × 5 + 15 = 130</span>
+              </div>
+            </div>
+
+            <div class="grid4">
+              <div class="field">
+                <label for="work">Học</label>
+                <div class="num"><input id="work" type="number" value="25" /><u>phút</u></div>
+              </div>
+              <div class="field">
+                <label for="short">Nghỉ ngắn</label>
+                <div class="num"><input id="short" type="number" value="5" /><u>phút</u></div>
+              </div>
+              <div class="field">
+                <label for="long">Nghỉ dài</label>
+                <div class="num"><input id="long" type="number" value="15" /><u>phút</u></div>
+              </div>
+              <div class="field">
+                <label for="cycles">Số chu kỳ</label>
+                <div class="num"><input id="cycles" type="number" value="4" /><u>lượt</u></div>
+              </div>
+            </div>
+
+            <!--
+              `sound` là khóa thứ năm trong pomodoro_config. UC-09 bước 5 viết
+              "phát thông báo (âm thanh HOẶC visual)" — nên tắt âm không có nghĩa
+              là mất thông báo, và câu chú thích phải nói rõ điều đó, nếu không
+              người ta sẽ không dám tắt.
+
+              Thông báo visual ở đây là một thay đổi trạng thái tĩnh, không phải
+              hiệu ứng nhấp nháy: tokens.css đặt animation = 0 cho mọi thứ bên
+              trong .focus-session-active. Ràng buộc đó áp cho cả chuông báo hết giờ.
+            -->
+            <div class="switch-row">
+              <div>
+                <span class="lbl" id="sound-label">Âm báo khi hết giờ</span>
+                <p class="hint">Tắt âm thì hệ thống vẫn báo bằng thay đổi trên màn hình. Phiên học
+                  không dùng hiệu ứng động, kể cả lúc báo hết giờ.</p>
+              </div>
+              <button class="switch" type="button" role="switch" aria-checked="true"
+                aria-labelledby="sound-label"><i></i></button>
+            </div>
+
+            <div class="save">
+              <button class="btn btn-primary" type="button">Lưu cấu hình</button>
+              <p class="hint">Áp dụng từ phiên học tiếp theo.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ 3. Mật khẩu & phiên đăng nhập (AM-03, AM-04) ══════════════ -->
+        <section class="set" id="bao-mat">
+          <div class="set__aside">
+            <h2>Mật khẩu &amp; phiên</h2>
+            <p>Đổi mật khẩu cần mật khẩu hiện tại — server so khớp bcrypt trước khi ghi đè,
+              không phải kiểm ở client.</p>
+            <div class="set__ids"><span class="tag">AM-03</span><span class="tag">AM-04</span></div>
+          </div>
+
+          <div>
+            <!--
+              Đổi mật khẩu để ngay trên trang, không mở modal. Đây là một biểu mẫu
+              ba trường có hai kiểu lỗi cần hiện tại chỗ ([E1] sai mật khẩu cũ,
+              [E2] mật khẩu mới không đạt); modal chỉ thêm một lớp phải đóng mở mà
+              không giải quyết gì.
+            -->
+            <div class="field">
+              <label for="pw-old">Mật khẩu hiện tại</label>
+              <input class="input" id="pw-old" type="password" value="············" />
+            </div>
+            <div class="field">
+              <label for="pw-new">Mật khẩu mới</label>
+              <input class="input" id="pw-new" type="password" />
+              <!-- Yêu cầu hiện sẵn dưới dạng gợi ý, không phải lỗi đỏ bật lên sau
+                   khi bấm gửi. UC-01 [E2] lấy "< 8 ký tự" làm ví dụ ràng buộc. -->
+              <p class="hint">Ít nhất 8 ký tự.</p>
+            </div>
+            <div class="field">
+              <label for="pw-confirm">Nhập lại mật khẩu mới</label>
+              <input class="input" id="pw-confirm" type="password" />
+            </div>
+
+            <div class="save">
+              <button class="btn btn-primary" type="button">Đổi mật khẩu</button>
+            </div>
+
+            <div class="rule"></div>
+
+            <!--
+              AM-04 (Đăng xuất) là một use case chưa từng có chỗ đứng trên bất kỳ
+              màn hình nào: thanh bên chỉ có sáu mục điều hướng, không có mục nào
+              là hành động. Đặt nó ở đây, cuối trang Hồ sơ, cùng chỗ với mọi thứ
+              thuộc về tài khoản.
+
+              Không vẽ "Xóa tài khoản". Module AM có sáu use case và không cái nào
+              là xóa tài khoản — thêm một hành động huỷ dữ liệu không thể hoàn tác
+              vào mockup sẽ biến một thiếu sót của tài liệu thành một tính năng
+              trông như đã được duyệt.
+            -->
+            <div class="switch-row" style="border-top:0; margin-top:0; padding-top:0; align-items:center;">
+              <div>
+                <span class="lbl">Đăng xuất khỏi thiết bị này</span>
+                <p class="hint">Xóa token ở client và quay về trang đăng nhập.</p>
+              </div>
+              <a class="btn btn-secondary" href="screen-auth.html">Đăng xuất</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <section class="gallery" aria-label="Các trạng thái còn lại">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái còn lại</h2>
+        <p>Một trường cho phép rỗng, hai luồng ngoại lệ của AM-03, một cấu hình Pomodoro khác
+          mặc định, và trạng thái mà lược đồ dữ liệu hiện tại chưa dựng được.</p>
+      </div>
+
+      <!-- ── 1. name = NULL ────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Chưa đặt tên hiển thị</span>
+          <span class="tag">users.name nullable</span>
+        </div>
+        <p class="state__desc">
+          <code>name String?</code> trong schema.prisma — cột này cho phép rỗng, và tài khoản đăng ký
+          bằng email thì AM-01 không hỏi tên ở bước nào cả. Chữ cái đầu và lời chào lùi về phần đầu
+          của email. Ô nhập để trống kèm placeholder chứ không điền sẵn email vào đó: điền sẵn sẽ
+          khiến người dùng bấm Lưu và vô tình đặt tên mình thành một chuỗi email.
+        </p>
+        <div class="state__demo">
+          <div class="who" style="margin-bottom:20px;">
+            <div class="monogram" aria-hidden="true"
+              style="color:var(--muted-foreground); font-family:var(--font-mono); font-size:17px;">m</div>
+            <div>
+              <div class="who__name" style="color:var(--muted-foreground); font-weight:500;">minhanh.tran</div>
+              <div class="who__since">Tham gia 12/03/2026 · 3 kế hoạch</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="name-empty">Tên hiển thị</label>
+            <input class="input" id="name-empty" type="text" placeholder="Chưa đặt" />
+            <p class="hint">Đang dùng <code>minhanh.tran</code> lấy từ email.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2. AM-03 [E1] ─────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Mật khẩu hiện tại nhập sai</span>
+          <span class="tag">AM-03 [E1]</span>
+        </div>
+        <p class="state__desc">
+          Lỗi này chỉ biết được sau khi gửi lên server (bcrypt so khớp ở đó), nên nó gắn vào đúng ô
+          gây lỗi và hai ô mật khẩu mới được giữ nguyên nội dung — bắt gõ lại cả ba ô vì sai một ô
+          là hình phạt vô cớ. Nút trở lại trạng thái bấm được ngay, không khoá.
+        </p>
+        <div class="state__demo">
+          <div class="field">
+            <label for="pw-old-err">Mật khẩu hiện tại</label>
+            <input class="input input--error" id="pw-old-err" type="password" value="········"
+              aria-invalid="true" aria-describedby="pw-old-msg" />
+            <p class="err" id="pw-old-msg">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5" />
+                <path d="M12 16.4h.01" />
+              </svg>
+              Mật khẩu hiện tại không đúng. Mật khẩu của bạn chưa bị thay đổi.
+            </p>
+          </div>
+          <div class="field">
+            <label for="pw-new-keep">Mật khẩu mới</label>
+            <input class="input" id="pw-new-keep" type="password" value="··············" />
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3. AM-03 [E2] ─────────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Mật khẩu mới không đạt yêu cầu</span>
+          <span class="tag">AM-03 [E2]</span>
+          <span class="tag">AM-01 [E2]</span>
+        </div>
+        <p class="state__desc">
+          Khác hẳn [E1]: điều kiện này kiểm được ngay ở client nên không gửi request nào cả — AM-01
+          [E2] ghi rõ "không gửi lên server". Dòng yêu cầu có sẵn từ đầu chỉ đổi trạng thái tại chỗ
+          thay vì mọc thêm một dòng lỗi mới, để chiều cao biểu mẫu không nhảy trong lúc đang gõ.
+        </p>
+        <div class="state__demo">
+          <div class="mini">Trong lúc gõ</div>
+          <div class="field">
+            <label for="pw-short">Mật khẩu mới</label>
+            <input class="input input--error" id="pw-short" type="password" value="·····" aria-invalid="true" />
+            <p class="err">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5" />
+                <path d="M12 16.4h.01" />
+              </svg>
+              Còn thiếu 3 ký tự.
+            </p>
+          </div>
+          <div class="mini" style="margin-top:24px;">Khi đã đủ 8 ký tự</div>
+          <div class="field">
+            <label for="pw-ok">Mật khẩu mới</label>
+            <input class="input" id="pw-ok" type="password" value="··············" />
+            <p class="req req--ok">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+              Đủ dài.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4. Cấu hình khác mặc định ─────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Chu kỳ dài hơn mặc định</span>
+          <span class="tag">FS-02</span>
+        </div>
+        <p class="state__desc">
+          50 / 10 / 20, ba chu kỳ. Dải và tổng tính lại theo tỉ lệ mới — đây là lúc thấy được vì sao
+          bốn ô số không đủ: cùng bốn con số "hợp lý" mà khối học nhảy từ 2 giờ 10 lên 3 giờ 10. Người
+          xếp lịch ôn theo buổi tối cần biết con số cuối đó trước khi bấm Lưu.
+        </p>
+        <div class="state__demo">
+          <div class="cycle" style="margin-bottom:0;">
+            <div class="cycle__bar" aria-hidden="true">
+              <div class="seg seg--work" style="width:26.3%;">50</div>
+              <div class="seg seg--short" style="width:5.3%;"></div>
+              <div class="seg seg--work" style="width:26.3%;">50</div>
+              <div class="seg seg--short" style="width:5.3%;"></div>
+              <div class="seg seg--work" style="width:26.3%;">50</div>
+              <div class="seg seg--long" style="width:10.5%;">20</div>
+            </div>
+            <div class="cycle__legend">
+              <span><i style="background:oklch(from var(--focus-session) l c h / 0.35);"></i>Học 50 phút</span>
+              <span><i style="background:oklch(from var(--muted-foreground) l c h / 0.24);"></i>Nghỉ ngắn 10
+                phút</span>
+              <span><i style="background:oklch(from var(--muted-foreground) l c h / 0.24); border:1px solid oklch(from var(--muted-foreground) l c h / 0.6);"></i>Nghỉ dài 20
+                phút</span>
+            </div>
+            <div class="cycle__total">
+              <span>Trọn một khối 3 chu kỳ mất <b>3 giờ 10 phút</b></span>
+              <span class="cycle__math">3 × 50 + 2 × 10 + 20 = 190</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5. Tài khoản có liên kết Google (POST-MVP) ────────────────────
+        Trước đây trạng thái này vẽ một biến thể "Đặt mật khẩu" cho tài khoản
+        Google không mật khẩu, và bảo là "chưa dựng được". Nay đã chốt: MVP giữ
+        password_hash NOT NULL, mọi tài khoản đều có mật khẩu, nên biến thể đó
+        không tồn tại — profile luôn hiện "Đổi mật khẩu" bình thường. Thứ duy
+        nhất Google thêm vào (khi làm AM-06, POST-MVP) là một dòng chỉ báo. -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Tài khoản có liên kết Google</span>
+          <span class="tag">AM-06 · POST-MVP</span>
+        </div>
+        <p class="state__desc">
+          Đã chốt sau khi giải quyết khe hở bên dưới: MVP không có OAuth và <code>password_hash</code>
+          là <code>NOT NULL</code>, nên mọi tài khoản đều có mật khẩu — không có biến thể "Đặt mật khẩu"
+          cho tài khoản không mật khẩu. Khi AM-06 được làm (POST-MVP), Google chỉ thêm <strong>một dòng
+          chỉ báo</strong>; phần "Mật khẩu &amp; phiên" ở trên giữ nguyên hình dạng, vì tài khoản vẫn có
+          mật khẩu.
+        </p>
+        <div class="state__demo">
+          <div class="field" style="max-width:420px; margin-bottom:0;">
+            <span class="lbl">Đăng nhập bằng</span>
+            <div class="locked" style="color:var(--foreground);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="8.5" />
+                <path d="M12 3.5v17M3.5 12h17" />
+                <path d="M6.2 6.6a11 11 0 0 0 0 10.8M17.8 6.6a11 11 0 0 1 0 10.8" />
+              </svg>
+              <span>Email và Google</span>
+              <span class="tag" style="margin-left:auto;">AM-06</span>
+            </div>
+            <p class="hint">Chỉ là thông tin. Đổi mật khẩu vẫn dùng đúng biểu mẫu ba ô ở nhóm trên —
+              tài khoản này có cả mật khẩu lẫn liên kết Google, không phải "chỉ Google".</p>
+          </div>
+        </div>
+      </section>
+
+      <!--
+        Khe hở đã xử lý — đổi viền sang xanh (--mastery-strong) như hai khe hở
+        trước ở màn Lịch sử và Đồ thị khái niệm. Cách giải: KHÔNG đổi lược đồ,
+        mà làm tài liệu khớp với code thật (password-only, chưa có OAuth). Đã
+        sửa AM-01 [A1], AM-02 [A1], ghi chú AM-03 trong UC-01_Account.md và
+        §5.6 trong UC-Overview.md.
+      -->
+      <section>
+        <div class="gap" style="border-left-color: var(--mastery-strong);">
+          <h3>Tài khoản Google — đã chốt: MVP password-only, không đổi lược đồ</h3>
+          <p>
+            Khe hở cũ: AM-01 [A1] nói tạo tài khoản Google "không có mật khẩu", nhưng
+            <code>password_hash</code> là <code>NOT NULL</code> (cả <code>recall-ai.dbml</code> lẫn nguồn
+            của nó <code>schema.prisma</code>), và <code>users</code> không có cột <code>provider</code>/
+            <code>google_id</code> — nên tài khoản "chỉ Google" không lưu được và profile không có căn
+            cứ để chọn "Đổi mật khẩu" hay "Đặt mật khẩu".
+          </p>
+          <p>
+            Kiểm lại code: <code>auth.routes.ts</code> chỉ có <code>/register</code>, <code>/login</code>,
+            <code>/refresh</code>, <code>/me</code> — <strong>chưa có route OAuth nào</strong>, và khóa
+            Google trong <code>.env</code> là cho Gemini AI chứ không phải đăng nhập. Code hiện tại đã
+            là password-only. Nên cách giải đúng là làm tài liệu khớp code, không phải kéo một tính
+            năng chưa dựng vào để đổi lược đồ.
+          </p>
+          <p>
+            <strong>Đã chốt (POST-MVP hoá Google OAuth):</strong> AM-01 [A1] và AM-02 [A1] hoãn POST-MVP
+            cùng AM-06; MVP chỉ đăng ký/đăng nhập bằng email + mật khẩu. Mấu chốt: giữ
+            <code>password_hash NOT NULL</code> vẫn dùng được <em>kể cả</em> khi làm Google — tài khoản
+            tạo qua Google được đặt một mật khẩu ngẫu nhiên, nên <strong>không bao giờ cần</strong> cho
+            <code>password_hash</code> nhận NULL. Vì mọi tài khoản đều có mật khẩu, profile luôn hiện
+            "Đổi mật khẩu" (không nhánh), và AM-05 chỉ đổi mật khẩu sẵn có chứ không âm thầm biến tài
+            khoản OAuth thành tài khoản mật khẩu.
+          </p>
+          <p>
+            Đã sửa ở <code>UC-01_Account.md</code> (AM-01 [A1], AM-02 [A1], ghi chú dưới AM-03) và
+            <code>UC-Overview.md</code> §5.6. Cột <code>provider</code>/<code>google_id</code> chỉ cần
+            nếu sau này làm "Hủy liên kết Google" (AM-06) — khi đó là thay đổi <em>thêm cột</em>, không
+            phá ràng buộc nào, nên không chặn MVP.
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+<style>
+
+.gallery { display: none !important; }
+/* Tab panels: hide non-active ones */
+.tab-panel { display: none !important; }
+.tab-panel.active { display: block !important; }
+/* Nav tabs: dim inactive */
+.tabs__link:not(.tabs__link--active) { opacity: 0.55; cursor: pointer; }
+.tabs__link { cursor: pointer; }
+/* Logout button */
+
+</style>
+<script>
+(function(){
+
+var d = document;
+
+/* Tab switching */
+var tabLinks = d.querySelectorAll('.tabs__link');
+var panels = d.querySelectorAll('.tab-panel, [role="tabpanel"], .profile-section');
+
+/* If structured tabs exist */
+if (tabLinks.length > 1) {
+  tabLinks.forEach(function(link, i) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      tabLinks.forEach(function(l) { l.classList.remove('tabs__link--active'); });
+      this.classList.add('tabs__link--active');
+      /* Show corresponding panel */
+      panels.forEach(function(p, j) {
+        if (j === i) { p.classList.add('active'); p.style.display = ''; }
+        else { p.classList.remove('active'); p.style.display = 'none'; }
+      });
+    });
+  });
+  /* Init: show first panel */
+  panels.forEach(function(p, i) {
+    if (i === 0) p.style.display = '';
+    else p.style.display = 'none';
+  });
+}
+
+/* Wire "Đăng xuất" → auth */
+d.querySelectorAll('button, a').forEach(function(el) {
+  if (el.textContent.trim() === 'Đăng xuất') {
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      location.href = 'screen-auth.html';
+    });
+  }
+});
+
+/* Wire save buttons → show a toast */
+d.querySelectorAll('.btn-primary, .btn.btn-primary').forEach(function(btn) {
+  if (btn.textContent.trim().startsWith('Lưu') || btn.textContent.trim().startsWith('Đổi')) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      var orig = this.textContent;
+      this.textContent = '✓ Đã lưu';
+      this.disabled = true;
+      var self = this;
+      setTimeout(function() {
+        self.textContent = orig;
+        self.disabled = false;
+      }, 1500);
+    });
+  }
+});
+
+})();
+</script>
+</body>
+
+</html>

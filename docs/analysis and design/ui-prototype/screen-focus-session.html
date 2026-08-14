@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Phiên học tập trung [Prototype]</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /*
+      ui-prototype/screen-focus-session.html
+      Interactive prototype -- state machine JS, single file.
+      KHONG sua claude-design/screen-focus-session.html.
+      CSS tai su dung ten class tu spec sheet de de so sanh.
+    */
+    body {
+      --fs-drift: oklch(0.55 0.1 45);
+    }
+    .dark body, body.dark { --fs-drift: oklch(0.75 0.11 45); }
+
+    .sr-only {
+      position:absolute; width:1px; height:1px; padding:0;
+      margin:-1px; overflow:hidden; clip:rect(0 0 0 0);
+      white-space:nowrap; border:0;
+    }
+    a.btn { text-decoration:none; }
+    .btn:focus-visible, textarea:focus-visible {
+      outline:2px solid var(--ring); outline-offset:2px;
+    }
+    kbd {
+      font-family:var(--font-mono); font-size:11px;
+      border:1px solid var(--border); border-radius:3px;
+      padding:1px 5px; background:var(--muted);
+    }
+
+    /* ===== Proto bar ===== */
+    .proto-bar {
+      position:fixed; bottom:16px; right:16px; z-index:200;
+      display:flex; align-items:center; gap:4px;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:9999px; padding:5px 10px;
+      box-shadow:0 2px 12px oklch(0 0 0 / 0.1);
+    }
+    .proto-bar__label {
+      color:var(--muted-foreground); font-family:var(--font-mono);
+      font-size:11px; padding:0 4px; white-space:nowrap;
+    }
+    .pb-btn {
+      background:none; border:1px solid transparent; border-radius:9999px;
+      padding:3px 9px; font-family:var(--font-sans); font-size:11px;
+      color:var(--muted-foreground); cursor:pointer; white-space:nowrap;
+      transition:all var(--duration-fast);
+    }
+    .pb-btn.is-active { background:var(--foreground); color:var(--background); }
+    .pb-btn:not(.is-active):hover { background:var(--muted); color:var(--foreground); }
+    @media print { .proto-bar { display:none; } }
+
+    /* ===== Shell (full-viewport grid) ===== */
+    .fs-shell {
+      display:grid;
+      grid-template-rows:auto minmax(0,1fr);
+      height:100dvh; min-height:560px; overflow:hidden;
+      background:var(--background);
+    }
+
+    /* ===== Top bar ===== */
+    .fs-top {
+      display:grid; grid-template-columns:1fr auto;
+      align-items:center; gap:20px;
+      padding:12px 22px; border-bottom:1px solid var(--border);
+      background:var(--card);
+    }
+    .fs-top__lead { display:flex; align-items:center; gap:14px; min-width:0; }
+    .fs-top__id   { display:flex; align-items:baseline; gap:9px; min-width:0; }
+    .fs-top__title { font-size:14px; font-weight:600; white-space:nowrap; }
+    .fs-top__plan  { font-size:13px; color:var(--muted-foreground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .fs-top__right { display:flex; align-items:center; justify-content:flex-end; gap:10px; }
+
+    .exit {
+      display:inline-flex; align-items:center; gap:7px;
+      flex:none; border:1px solid var(--border);
+      border-radius:calc(var(--radius)*0.6); background:var(--card);
+      color:var(--muted-foreground); font-family:var(--font-sans);
+      font-size:13px; font-weight:500; padding:7px 12px 7px 10px; cursor:pointer;
+      transition:background var(--duration-fast), color var(--duration-fast);
+    }
+    .exit:hover { background:var(--muted); color:var(--foreground); }
+
+    /* Seg / toggle */
+    .seg {
+      display:inline-flex; border:1px solid var(--border);
+      border-radius:calc(var(--radius)*0.7); overflow:hidden;
+      background:var(--muted);
+    }
+    .seg > span {
+      align-self:center; font-size:12px; color:var(--muted-foreground);
+      padding:0 10px 0 12px;
+    }
+    .seg button {
+      display:inline-flex; align-items:center; gap:6px;
+      border:0; background:transparent; color:var(--muted-foreground);
+      font-family:var(--font-sans); font-size:13px; font-weight:500;
+      padding:7px 13px; cursor:pointer;
+      transition:color var(--duration-fast);
+    }
+    .seg button:hover { color:var(--foreground); }
+    .seg button[aria-pressed="true"] {
+      background:var(--card); color:var(--foreground);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .icon-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:32px; height:32px; border:1px solid var(--border);
+      border-radius:calc(var(--radius)*0.6); background:var(--card);
+      color:var(--muted-foreground); cursor:pointer;
+      transition:background var(--duration-fast), color var(--duration-fast);
+    }
+    .icon-btn:hover { background:var(--muted); color:var(--foreground); }
+    .icon-btn.is-active { background:var(--muted); color:var(--foreground); }
+
+    /* ===== Body (centred stage) ===== */
+    .fs-body {
+      display:grid; place-items:center;
+      padding:24px 32px 30px; overflow-y:auto;
+    }
+    .stage {
+      width:100%; max-width:520px;
+      display:flex; flex-direction:column; align-items:center; gap:24px;
+    }
+
+    /* ===== Concept ===== */
+    .concept {
+      display:flex; flex-direction:column; align-items:center;
+      gap:9px; text-align:center;
+    }
+    .concept__name {
+      font-family:var(--font-heading); font-size:34px; line-height:1.15;
+      letter-spacing:-.025em; margin:0; text-wrap:balance;
+    }
+    .concept__why {
+      font-size:13px; line-height:1.65; color:var(--muted-foreground);
+      margin:0; max-width:46ch; text-wrap:pretty;
+    }
+    .concept__why strong { color:var(--foreground); font-weight:500; }
+
+    .chip {
+      display:inline-flex; align-items:center; gap:5px; flex:none;
+      font-size:11px; font-weight:600; letter-spacing:.05em;
+      text-transform:uppercase; padding:3px 9px; border-radius:9999px;
+      background:oklch(from var(--remediate) l c h / 0.12);
+      color:var(--remediate);
+    }
+    .chip--plain { background:var(--muted); color:var(--muted-foreground); }
+
+    /* ===== Clock (ring) ===== */
+    .clock {
+      display:flex; flex-direction:column; align-items:center; gap:15px;
+    }
+    .ring {
+      position:relative; width:196px; height:196px; flex:none;
+    }
+    .ring svg { display:block; transform:rotate(-90deg); }
+    .ring__inner {
+      position:absolute; inset:0;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+    }
+    .ring__time {
+      font-family:var(--font-mono); font-size:44px; font-weight:600;
+      font-variant-numeric:tabular-nums; letter-spacing:-.03em; line-height:1;
+    }
+    .ring__label {
+      font-size:10px; text-transform:uppercase; letter-spacing:.08em;
+      color:var(--muted-foreground); margin-top:6px;
+    }
+
+    /* Pomodoro meter */
+    .meter {
+      display:flex; align-items:center; justify-content:center;
+      flex-wrap:wrap; gap:5px 10px;
+    }
+    .meter__pips { display:flex; gap:4px; flex:none; }
+    .meter__seg {
+      width:20px; height:4px; border-radius:9999px; background:var(--border);
+    }
+    .meter__seg--done { background:var(--focus-session); }
+    .meter__seg--now  {
+      background:var(--focus-session);
+      box-shadow:0 0 0 3px oklch(from var(--focus-session) l c h / 0.18);
+    }
+    .meter__text { font-size:12px; color:var(--muted-foreground); }
+
+    /* ===== Tally ===== */
+    .tally {
+      display:flex; align-items:center; justify-content:center;
+      flex-wrap:wrap; gap:3px 0; margin:-4px 0 0;
+      font-size:12px; color:var(--muted-foreground);
+    }
+    .tally__item {
+      display:inline-flex; align-items:center; gap:6px; padding:0 11px;
+    }
+    .tally__item + .tally__item::before {
+      content:""; width:3px; height:3px; border-radius:50%;
+      background:var(--border); margin-right:11px; margin-left:-11px; flex:none;
+    }
+    .tally__v { font-family:var(--font-mono); font-variant-numeric:tabular-nums; font-size:13px; color:var(--foreground); }
+    .tally__item--lead .tally__v { font-weight:600; }
+    .tally__item--drift .tally__v { color:var(--fs-drift); }
+    .tally__item--strict { color:var(--focus-session); }
+    .tally__item--strict svg { flex:none; }
+
+    /* ===== Controls ===== */
+    .controls { display:flex; align-items:center; gap:10px; }
+    .btn-pause {
+      background:oklch(from var(--focus-session) l c h / 0.12);
+      border-color:oklch(from var(--focus-session) l c h / 0.45);
+      color:var(--focus-session); font-weight:600; padding:11px 22px;
+    }
+    .btn-pause:hover {
+      background:oklch(from var(--focus-session) l c h / 0.2);
+    }
+    .btn-resume {
+      background:var(--focus-session); color:#fff;
+      font-weight:600; padding:11px 22px; border-color:transparent;
+    }
+    .btn-resume:hover { filter:brightness(1.1); }
+
+    /* Keyboard hints */
+    .keys {
+      display:flex; align-items:center; justify-content:center;
+      flex-wrap:wrap; gap:6px 14px; font-size:11.5px;
+      color:var(--muted-foreground);
+    }
+    .keys span { display:inline-flex; align-items:center; gap:5px; }
+
+    /* ===== Config state (pre-session panel) ===== */
+    .config-panel {
+      width:100%; max-width:520px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*1.1);
+      background:var(--card); padding:26px 28px;
+    }
+    .config-panel h1 {
+      font-family:var(--font-heading); font-size:22px; letter-spacing:-.02em;
+      margin:0 0 6px;
+    }
+    .config-panel__sub {
+      font-size:13px; color:var(--muted-foreground); margin:0 0 22px; line-height:1.55;
+    }
+    .config-row {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding:11px 0; border-bottom:1px solid var(--border);
+    }
+    .config-row:last-of-type { border-bottom:0; }
+    .config-row__label { font-size:13px; }
+    .config-row__sub   { font-size:12px; color:var(--muted-foreground); margin-top:2px; }
+    .num-input {
+      display:inline-flex; align-items:baseline; gap:5px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.5);
+      background:var(--background); padding:4px 9px;
+    }
+    .num-input input {
+      width:36px; border:0; padding:0; background:transparent;
+      color:var(--foreground); font-family:var(--font-mono); font-size:13px; text-align:right;
+    }
+    .num-input u { font-size:11px; color:var(--muted-foreground); text-decoration:none; }
+
+    /* Toggle switch */
+    .strictrow {
+      display:flex; align-items:center; gap:13px;
+      width:100%; padding:11px 15px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.8);
+      background:var(--card); margin-top:16px;
+    }
+    .strictrow__icòn { color:var(--focus-session); flex:none; display:flex; }
+    .strictrow__body { min-width:0; flex:1; text-align:left; }
+    .strictrow__t { font-size:13px; font-weight:500; }
+    .strictrow__d { font-size:12px; line-height:1.5; color:var(--muted-foreground); margin:0; text-wrap:pretty; }
+    .switch {
+      flex:none; width:38px; height:22px; border-radius:9999px;
+      border:1px solid var(--focus-session);
+      background:oklch(from var(--focus-session) l c h / 0.22);
+      position:relative; cursor:pointer;
+      transition:background var(--duration-fast), border-color var(--duration-fast);
+    }
+    .switch::after {
+      content:""; position:absolute; top:2px; left:2px;
+      width:16px; height:16px; border-radius:50%;
+      background:var(--focus-session); transform:translateX(16px);
+      transition:transform var(--duration-fast), background var(--duration-fast);
+    }
+    .switch[aria-checked="false"] { border-color:var(--border); background:var(--muted); }
+    .switch[aria-checked="false"]::after { transform:translateX(0); background:var(--mastery-untested); }
+    .config-actions { margin-top:22px; display:flex; gap:10px; align-items:center; }
+
+    /* ===== Paused state ===== */
+    .paused-stage {
+      width:100%; max-width:520px; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:20px;
+    }
+    .paused-stage .ring__time { color:var(--muted-foreground); }
+    .paused-badge {
+      display:inline-flex; align-items:center; gap:7px;
+      font-size:13px; font-weight:600; padding:5px 14px;
+      border-radius:9999px;
+      background:oklch(from var(--focus-session) l c h / 0.12);
+      color:var(--focus-session);
+    }
+
+    /* ===== Break state ===== */
+    .break-stage {
+      width:100%; max-width:520px; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:20px;
+    }
+    .break-badge {
+      display:inline-flex; align-items:center; gap:7px;
+      font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase;
+      padding:4px 12px; border-radius:9999px; background:var(--muted); color:var(--muted-foreground);
+    }
+
+    /* ===== Done / end state ===== */
+    .done-stage {
+      width:100%; max-width:520px; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:22px;
+    }
+    .done-title {
+      font-family:var(--font-heading); font-size:28px; letter-spacing:-.025em;
+      margin:0; line-height:1.2;
+    }
+    .summary {
+      display:grid; grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:1px; background:var(--border); border:1px solid var(--border);
+      border-radius:calc(var(--radius)*0.9); overflow:hidden;
+      width:100%; max-width:440px;
+    }
+    .summary__cell { background:var(--card); padding:14px 16px; text-align:left; }
+    .summary__v {
+      font-family:var(--font-mono); font-size:19px; font-weight:600;
+      font-variant-numeric:tabular-nums;
+    }
+    .summary__k {
+      font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+      color:var(--muted-foreground); margin-top:2px;
+    }
+
+    /* ===== Notes panel (FS-05, floating overlay) ===== */
+    .notes-overlay {
+      display:none; position:fixed; inset:0; z-index:80;
+      justify-content:flex-end; align-items:stretch;
+      pointer-events:none;
+    }
+    .notes-overlay.is-active { display:flex; pointer-events:auto; }
+    .notes-panel {
+      width:320px; max-width:100vw;
+      background:var(--card); border-left:1px solid var(--border);
+      box-shadow:-6px 0 20px -14px oklch(0 0 0 / 0.1);
+      display:flex; flex-direction:column; padding:18px 20px; gap:12px;
+      overflow-y:auto;
+    }
+    .notes__head {
+      display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+    }
+    .notes__title { font-size:13px; font-weight:600; }
+    .notes__saved { font-size:11px; color:var(--muted-foreground); font-family:var(--font-mono); }
+    .notes__area {
+      width:100%; min-height:96px; resize:vertical;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.7);
+      background:var(--background); color:var(--foreground);
+      font-family:var(--font-sans); font-size:13px; line-height:1.6; padding:10px 12px;
+    }
+    .notes__list { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+    .notes__item { font-size:12px; line-height:1.55; color:var(--muted-foreground); border-left:2px solid var(--border); padding-left:10px; }
+    .notes__time { font-family:var(--font-mono); font-size:10px; color:var(--muted-foreground); display:block; }
+
+    /* ===== Overlay (cancel confirm) ===== */
+    .overlay {
+      display:none; position:fixed; inset:0; z-index:100;
+      background:oklch(0 0 0 / 0.5); align-items:center; justify-content:center; padding:24px;
+    }
+    .overlay.is-active { display:flex; }
+    .modal {
+      border:1px solid var(--border); border-radius:calc(var(--radius)*1.1);
+      background:var(--card); box-shadow:var(--shadow-soft);
+      padding:22px 24px; max-width:400px; width:100%;
+    }
+    .modal__t { font-family:var(--font-heading); font-size:17px; letter-spacing:-.02em; margin-bottom:8px; }
+    .modal__d { font-size:13px; line-height:1.65; color:var(--muted-foreground); margin:0 0 18px; text-wrap:pretty; }
+    .modal__actions { display:flex; justify-content:flex-end; gap:10px; }
+
+    /* Responsive */
+    @media (max-width:560px) {
+      .fs-top { grid-template-columns:minmax(0,1fr); row-gap:10px; }
+      .fs-top__right { justify-content:flex-start; }
+      .tally { flex-direction:column; gap:5px; }
+      .tally__item { padding:0; }
+      .tally__item + .tally__item::before { display:none; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *, *::before, *::after {
+        animation-duration:0.01ms !important;
+        transition-duration:0.01ms !important;
+        transition-delay:0s !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Proto state bar ══ -->
+<nav class="proto-bar" aria-label="Chuyển trạng thái prototype">
+  <span class="proto-bar__label">State:</span>
+  <button class="pb-btn" id="pb-config"  onclick="goState('config')">Chưa bắt đầu</button>
+  <button class="pb-btn" id="pb-running" onclick="goState('running')">Đang chạy</button>
+  <button class="pb-btn" id="pb-paused"  onclick="goState('paused')">Tạm dừng</button>
+  <button class="pb-btn" id="pb-break"   onclick="goState('break')">Nghỉ giải lao</button>
+  <button class="pb-btn" id="pb-done"    onclick="goState('done')">Kết thúc</button>
+  <button class="pb-btn" id="pb-cancel"  onclick="goState('cancel')">Hủy phiên</button>
+</nav>
+
+<!-- ══ Notes overlay (FS-05) ══ -->
+<aside class="notes-overlay" id="notes-overlay" aria-label="Ghi chú nhanh">
+  <div class="notes-panel">
+    <div class="notes__head">
+      <span class="notes__title">Ghi chú nhanh</span>
+      <span class="notes__saved" id="notes-saved">chưa lưu</span>
+    </div>
+    <textarea class="notes__area" id="notes-area" placeholder="Ghi chú trong lúc học..." oninput="onNotesInput()"></textarea>
+    <ul class="notes__list" id="notes-list">
+      <li class="notes__item">
+        <span class="notes__time">20:18</span>
+        Ngăn xếp LIFO — pop lấy phần tử trên đỉnh.
+      </li>
+    </ul>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-primary" style="font-size:12px;padding:6px 12px;" onclick="saveNote()">Lưu ghi chú</button>
+      <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px;" onclick="closeNotes()">Đóng</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══ Cancel confirm overlay ══ -->
+<div class="overlay" id="overlay-cancel" role="dialog" aria-labelledby="cancel-title">
+  <div class="modal">
+    <div class="modal__t" id="cancel-title">Hủy phiên học?</div>
+    <p class="modal__d">
+      Thời gian phiên này sẽ <strong>không được lưu</strong>. Các ghi chú vẫn giữ nguyên.
+      Hành động này không thể hoàn tác.
+    </p>
+    <div class="modal__actions">
+      <button class="btn btn-ghost" type="button" onclick="closeCancel()">Tiếp tục học</button>
+      <a class="btn btn-destructive" href="screen-dashboard.html">Hủy phiên</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN SHELL ══ -->
+<main class="fs-shell" id="fs-shell">
+
+  <!-- Top bar -->
+  <header class="fs-top">
+    <div class="fs-top__lead">
+      <button class="exit" type="button" id="btn-exit" onclick="onExit()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M11 18l-6-6 6-6"/>
+        </svg>
+        <span id="exit-label">Hủy phiên</span>
+      </button>
+      <div class="fs-top__id">
+        <span class="fs-top__title" id="session-title">Phiên học</span>
+        <span class="fs-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+      </div>
+    </div>
+    <div class="fs-top__right" id="top-right">
+      <!-- filled by JS -->
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="fs-body" id="fs-body">
+    <!-- filled by JS per state -->
+  </div>
+
+</main>
+
+<script>
+/* =====================================================================
+   Focus Session Prototype State Machine
+   States: config | running | paused | break | done | cancel
+   ===================================================================== */
+
+/* ---- Config ---- */
+var CFG = {
+  work:       25,
+  shortBreak:  5,
+  longBreak:  15,
+  cycles:      4,
+  strict:      true
+};
+
+/* ---- Runtime ---- */
+var state         = 'config';
+var pomo          = 1;          /* current Pomodoro (1-indexed) */
+var secsLeft      = CFG.work * 60;
+var focusSecs     = 0;
+var driftSecs     = 0;
+var driftCount    = 0;
+var clockHandle   = null;
+var notesOpen     = false;
+var savedWorkSecs = null;
+
+/* Concept data (demo) */
+var CONCEPT = {
+  chip:  'Truy ngược &middot; tầng 1',
+  name:  'Ngăn xếp (Stack)',
+  why:   'Phiên kiểm tra <strong>24/07</strong> chấm <strong>Đệ quy</strong> ở mức <strong>0.42</strong>. Duyệt ngược đồ thị tìm ra Ngăn xếp là khái niệm tiên quyết chưa vững.'
+};
+
+/* ---- Helpers ---- */
+function fmt(s) {
+  var m = Math.floor(s / 60), sec = s % 60;
+  return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+
+/* SVG ring circle dasharray: circumference of r=90 circle ≈ 565.5 */
+function ringDash(secsLeft, totalSecs) {
+  var pct    = Math.max(0, Math.min(1, 1 - secsLeft / totalSecs));
+  var circum = 2 * Math.PI * 90; /* ≈ 565.5 */
+  var used   = Math.round(pct * circum);
+  var rest   = Math.round(circum - used);
+  return used + ' ' + rest;
+}
+
+function totalSecs() {
+  if (state === 'break') {
+    return (pomo % CFG.cycles === 0 ? CFG.longBreak : CFG.shortBreak) * 60;
+  }
+  return CFG.work * 60;
+}
+
+/* ---- Clock tick ---- */
+function tick() {
+  if (state !== 'running' && state !== 'break') return;
+  if (secsLeft > 0) {
+    secsLeft--;
+    if (state === 'running') focusSecs++;
+  } else {
+    /* Segment finished */
+    if (state === 'running') {
+      /* work done -> go to break */
+      goState('break');
+    } else {
+      /* break done -> next pomo */
+      pomo = (pomo >= CFG.cycles) ? 1 : (pomo + 1);
+      secsLeft = CFG.work * 60;
+      goState('running');
+    }
+    return;
+  }
+  updateClock();
+}
+
+function updateClock() {
+  var rt = document.getElementById('ring-time');
+  var rc = document.getElementById('ring-circle');
+  if (rt) rt.textContent = fmt(secsLeft);
+  if (rc) rc.setAttribute('stroke-dasharray', ringDash(secsLeft, totalSecs()));
+  /* tally */
+  var ft = document.getElementById('tally-focus');
+  if (ft) ft.textContent = fmt(focusSecs);
+  var dt = document.getElementById('tally-drift');
+  if (dt) dt.textContent = driftCount + ' lần (' + fmt(driftSecs) + ')';
+}
+
+function startClock() {
+  if (clockHandle) return;
+  clockHandle = setInterval(tick, 1000);
+}
+function stopClock() {
+  if (clockHandle) { clearInterval(clockHandle); clockHandle = null; }
+}
+
+/* ---- Render helpers ---- */
+function pomoBars() {
+  var bars = '';
+  for (var i = 0; i < CFG.cycles; i++) {
+    if (i < pomo - 1)      bars += '<span class="meter__seg meter__seg--done"></span>';
+    else if (i === pomo -1) bars += '<span class="meter__seg meter__seg--now"></span>';
+    else                    bars += '<span class="meter__seg"></span>';
+  }
+  return '<span class="meter__pips" aria-hidden="true">' + bars + '</span>';
+}
+
+function ringHTML(label) {
+  var total = totalSecs();
+  var dash  = ringDash(secsLeft, total);
+  var color = state === 'break' ? 'var(--mastery-learning)' : 'var(--focus-session)';
+  return '<div class="ring" role="timer" aria-live="off">'
+    + '<svg width="196" height="196" viewBox="0 0 196 196" aria-hidden="true">'
+      + '<circle cx="98" cy="98" r="90" fill="none" stroke="var(--border)" stroke-width="6"/>'
+      + '<circle id="ring-circle" cx="98" cy="98" r="90" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round" stroke-dasharray="' + dash + '"/>'
+    + '</svg>'
+    + '<div class="ring__inner">'
+      + '<div class="ring__time" id="ring-time">' + fmt(secsLeft) + '</div>'
+      + '<div class="ring__label">' + (label || 'Còn lại') + '</div>'
+    + '</div>'
+    + '</div>';
+}
+
+function tallyHTML() {
+  var hasNotes = driftCount > 0;
+  return '<p class="tally">'
+    + '<span class="tally__item tally__item--lead">Tập trung <span class="tally__v" id="tally-focus">' + fmt(focusSecs) + '</span></span>'
+    + (CFG.strict
+        ? '<span class="tally__item tally__item--strict"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Nghiêm ngặt đang bật</span>'
+        : '')
+    + (hasNotes
+        ? '<span class="tally__item tally__item--drift">Rời tab <span class="tally__v" id="tally-drift">' + driftCount + ' lan (' + fmt(driftSecs) + ')</span></span>'
+        : '')
+    + '</p>';
+}
+
+function conceptHTML() {
+  return '<section class="concept" aria-labelledby="concept-h">'
+    + '<span class="chip">' + CONCEPT.chip + '</span>'
+    + '<h1 class="concept__name" id="concept-h">' + CONCEPT.name + '</h1>'
+    + '<p class="concept__why">' + CONCEPT.why + '</p>'
+    + '</section>';
+}
+
+/* ---- Top-right toolbar ---- */
+function renderTopRight() {
+  var el = document.getElementById('top-right');
+  if (state === 'config' || state === 'done' || state === 'cancel') {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML =
+    '<div class="seg" role="group" aria-label="Hiển thị tài liệu">'
+      + '<span>Tài liệu</span>'
+      + '<button type="button" aria-pressed="true" onclick="docToggle(this)">Ẩn</button>'
+      + '<button type="button" aria-pressed="false" onclick="docToggle(this)">Trích đoạn</button>'
+      + '<button type="button" aria-pressed="false" onclick="docToggle(this)">Toàn văn</button>'
+    + '</div>'
+    + '<button class="icon-btn" id="btn-notes" type="button" aria-label="Ghi chú nhanh" onclick="toggleNotes()" title="Ghi chú nhanh (N)">'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M14 4v6h6"/></svg>'
+    + '</button>';
+}
+
+/* ---- Exit label ---- */
+function renderExitLabel() {
+  var lbl = document.getElementById('exit-label');
+  var ttl = document.getElementById('session-title');
+  if (state === 'config') {
+    if (lbl) lbl.textContent = 'Quay lại';
+    if (ttl) ttl.textContent = 'Cấu hình phiên';
+  } else if (state === 'done') {
+    if (lbl) lbl.textContent = 'Về Dashboard';
+    if (ttl) ttl.textContent = 'Phiên học · đã xong';
+  } else {
+    if (lbl) lbl.textContent = 'Hủy phiên';
+    if (ttl) ttl.textContent = 'Phiên học';
+  }
+}
+
+/* ---- Body per state ---- */
+function renderBody() {
+  var body = document.getElementById('fs-body');
+
+  if (state === 'config') {
+    var strict = CFG.strict;
+    body.innerHTML =
+      '<div class="config-panel">'
+        + '<h1>Bắt đầu phiên học</h1>'
+        + '<p class="config-panel__sub">Khái niệm: <strong>' + CONCEPT.name + '</strong> &mdash; Truy ngược tầng 1</p>'
+        + '<div class="config-row">'
+          + '<div><div class="config-row__label">Thời gian tập trung</div><div class="config-row__sub">mỗi Pomodoro</div></div>'
+          + '<div class="num-input"><input type="number" min="1" max="60" value="' + CFG.work + '" id="cfg-work" onchange="CFG.work=+this.value"/><u>phút</u></div>'
+        + '</div>'
+        + '<div class="config-row">'
+          + '<div><div class="config-row__label">Nghỉ ngắn</div><div class="config-row__sub">sau mỗi Pomodoro</div></div>'
+          + '<div class="num-input"><input type="number" min="1" max="30" value="' + CFG.shortBreak + '" id="cfg-short" onchange="CFG.shortBreak=+this.value"/><u>phút</u></div>'
+        + '</div>'
+        + '<div class="config-row">'
+          + '<div><div class="config-row__label">Nghỉ dài</div><div class="config-row__sub">sau ' + CFG.cycles + ' Pomodoro</div></div>'
+          + '<div class="num-input"><input type="number" min="1" max="60" value="' + CFG.longBreak + '" id="cfg-long" onchange="CFG.longBreak=+this.value"/><u>phút</u></div>'
+        + '</div>'
+        + '<div class="config-row">'
+          + '<div><div class="config-row__label">Số Pomodoro</div><div class="config-row__sub">rồi nghỉ dài</div></div>'
+          + '<div class="num-input"><input type="number" min="1" max="8" value="' + CFG.cycles + '" id="cfg-cycles" onchange="CFG.cycles=+this.value"/><u>lần</u></div>'
+        + '</div>'
+        + '<div class="strictrow">'
+          + '<span class="strictrow__icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>'
+          + '<div class="strictrow__body">'
+            + '<div class="strictrow__t">Chế độ nghiêm ngặt</div>'
+            + '<p class="strictrow__d">Đếm số lần rời tab. Số liệu lưu vào kết quả phiên, không phát hiện thay.</p>'
+          + '</div>'
+          + '<button class="switch" role="switch" aria-checked="' + (strict ? 'true' : 'false') + '" id="strict-switch" onclick="toggleStrict()" aria-label="Bật / tắt chế độ nghiêm ngặt"></button>'
+        + '</div>'
+        + '<div class="config-actions">'
+          + '<button class="btn btn-primary" style="padding:10px 22px;" onclick="startSession()">Bắt đầu phiên học</button>'
+          + '<a class="btn btn-ghost" href="screen-dashboard.html">Hủy</a>'
+        + '</div>'
+      + '</div>';
+  }
+
+  else if (state === 'running') {
+    var breakLabel = (pomo % CFG.cycles === 0)
+      ? 'nghỉ dài ' + CFG.longBreak + ' phút sau lượt này'
+      : 'nghỉ ' + CFG.shortBreak + ' phút sau lượt này';
+    body.innerHTML =
+      '<div class="stage">'
+        + conceptHTML()
+        + '<section class="clock" aria-label="Đồng hồ phiên học">'
+          + ringHTML('Còn lại')
+          + '<div class="meter">' + pomoBars() + '<span class="meter__text">Pomodoro ' + pomo + ' / ' + CFG.cycles + ' &middot; ' + breakLabel + '</span></div>'
+        + '</section>'
+        + tallyHTML()
+        + '<div class="controls" id="dieu-khien">'
+          + '<button class="btn btn-pause" type="button" onclick="goState(\'paused\')" id="btn-pause">'
+            + '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>'
+            + ' Tạm dừng'
+          + '</button>'
+          + '<button class="btn btn-secondary" type="button" onclick="endSession()">Kết thúc phiên học</button>'
+        + '</div>'
+        + '<p class="keys">'
+          + '<span><kbd>Space</kbd> tạm dừng</span>'
+          + '<span><kbd>N</kbd> ghi chú</span>'
+          + '<span><kbd>D</kbd> tài liệu</span>'
+        + '</p>'
+        + '<p class="sr-only" role="status" aria-live="polite">Pomodoro ' + pomo + ' trên ' + CFG.cycles + ', còn ' + fmt(secsLeft) + '.</p>'
+      + '</div>';
+  }
+
+  else if (state === 'paused') {
+    body.innerHTML =
+      '<div class="paused-stage">'
+        + '<span class="paused-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg> Đã tạm dừng</span>'
+        + '<section class="clock" aria-label="Đồng hồ">'
+          + ringHTML('Tạm dừng')
+          + '<div class="meter">' + pomoBars() + '<span class="meter__text">Pomodoro ' + pomo + ' / ' + CFG.cycles + '</span></div>'
+        + '</section>'
+        + tallyHTML()
+        + '<div class="controls">'
+          + '<button class="btn btn-resume" type="button" onclick="goState(\'running\')">'
+            + '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6,4 20,12 6,20"/></svg>'
+            + ' Tiếp tục'
+          + '</button>'
+          + '<button class="btn btn-secondary" type="button" onclick="endSession()">Kết thúc phiên học</button>'
+        + '</div>'
+      + '</div>';
+  }
+
+  else if (state === 'break') {
+    var isLong = (pomo % CFG.cycles === 0);
+    body.innerHTML =
+      '<div class="break-stage">'
+        + '<span class="break-badge">' + (isLong ? 'Nghỉ dài' : 'Nghỉ ngắn') + ' &middot; Pomodoro ' + pomo + ' / ' + CFG.cycles + '</span>'
+        + '<section class="clock" aria-label="Đồng hồ nghỉ giải lao">'
+          + ringHTML('Nghỉ')
+        + '</section>'
+        + '<p style="font-size:13px;color:var(--muted-foreground);text-align:center;max-width:40ch;">'
+          + 'Giải lao ' + (isLong ? CFG.longBreak : CFG.shortBreak) + ' phút. Khái niệm tiếp theo sẽ bắt đầu tự động sau khi hết giờ.'
+        + '</p>'
+        + tallyHTML()
+        + '<div class="controls">'
+          + '<button class="btn btn-resume" type="button" onclick="skipBreak()">'
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,4 15,12 5,20"/><line x1="19" y1="5" x2="19" y2="19"/></svg>'
+            + ' Bỏ qua nghỉ giải lao'
+          + '</button>'
+          + '<button class="btn btn-secondary" type="button" onclick="endSession()">Kết thúc phiên học</button>'
+        + '</div>'
+      + '</div>';
+  }
+
+  else if (state === 'done') {
+    var focusMin   = Math.floor(focusSecs / 60);
+    var focusSec2  = focusSecs % 60;
+    var focusFmt   = focusMin + ':' + (focusSec2 < 10 ? '0' : '') + focusSec2;
+    body.innerHTML =
+      '<div class="done-stage">'
+        + '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--mastery-strong)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>'
+        + '<h1 class="done-title">Phiên học hoàn tất!</h1>'
+        + '<div class="summary">'
+          + '<div class="summary__cell"><div class="summary__v">' + focusFmt + '</div><div class="summary__k">Tập trung</div></div>'
+          + '<div class="summary__cell"><div class="summary__v">' + (pomo - 1 || 1) + '</div><div class="summary__k">Pomodoro</div></div>'
+          + '<div class="summary__cell"><div class="summary__v">' + fmt(driftSecs) + '</div><div class="summary__k">Rời tab</div></div>'
+        + '</div>'
+        + '<p style="font-size:13px;color:var(--muted-foreground);max-width:42ch;text-align:center;text-wrap:pretty;">'
+          + 'Thời gian này đã được ghi nhận. Tiếp tục sang bài kiểm tra vấn đáp để chấm điểm khái niệm.'
+        + '</p>'
+        + '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">'
+          + '<a class="btn btn-primary" href="screen-interview.html">Bắt đầu kiểm tra vấn đáp &rarr;</a>'
+          + '<a class="btn btn-secondary" href="screen-dashboard.html">Về Dashboard</a>'
+        + '</div>'
+      + '</div>';
+  }
+}
+
+/* ---- goState ---- */
+function goState(s) {
+  var prev = state;
+  state = s;
+
+  if (s === 'break') {
+    if (prev !== 'break') {
+      if (prev === 'running' || prev === 'paused') savedWorkSecs = secsLeft;
+      secsLeft = (pomo % CFG.cycles === 0 ? CFG.longBreak : CFG.shortBreak) * 60;
+    }
+  } else if (s === 'running' || s === 'paused') {
+    if (prev === 'break' && savedWorkSecs !== null && savedWorkSecs > 0) {
+      secsLeft = savedWorkSecs;
+      savedWorkSecs = null;
+    }
+  } else {
+    savedWorkSecs = null;
+  }
+
+  /* Proto bar */
+  document.querySelectorAll('.pb-btn').forEach(function(b) { b.classList.remove('is-active'); });
+  var pb = document.getElementById('pb-' + s);
+  if (pb) pb.classList.add('is-active');
+
+  /* Clock */
+  if (s === 'running' || s === 'break') startClock();
+  else stopClock();
+
+  /* Overlays */
+  if (s === 'cancel') {
+    document.getElementById('overlay-cancel').classList.add('is-active');
+    state = prev; /* keep prev state active behind overlay */
+    return;
+  }
+  document.getElementById('overlay-cancel').classList.remove('is-active');
+
+  renderExitLabel();
+  renderTopRight();
+  renderBody();
+}
+
+/* ---- Actions ---- */
+function startSession() {
+  /* read config inputs */
+  ['work','shortBreak','longBreak','cycles'].forEach(function(k, i) {
+    var ids = ['cfg-work','cfg-short','cfg-long','cfg-cycles'];
+    var el = document.getElementById(ids[i]);
+    if (el) {
+      if (k === 'work')       CFG.work       = +el.value;
+      if (k === 'shortBreak') CFG.shortBreak = +el.value;
+      if (k === 'longBreak')  CFG.longBreak  = +el.value;
+      if (k === 'cycles')     CFG.cycles     = +el.value;
+    }
+  });
+  secsLeft   = CFG.work * 60;
+  focusSecs  = 0;
+  driftSecs  = 0;
+  driftCount = 0;
+  pomo       = 1;
+  goState('running');
+}
+
+function endSession() {
+  stopClock();
+  goState('done');
+}
+
+function skipBreak() {
+  pomo = (pomo >= CFG.cycles) ? 1 : (pomo + 1);
+  secsLeft = CFG.work * 60;
+  goState('running');
+}
+
+function onExit() {
+  if (state === 'config') {
+    window.location.href = 'screen-dashboard.html';
+  } else if (state === 'done') {
+    window.location.href = 'screen-dashboard.html';
+  } else {
+    goState('cancel');
+  }
+}
+
+function closeCancel() {
+  document.getElementById('overlay-cancel').classList.remove('is-active');
+}
+
+function toggleStrict() {
+  CFG.strict = !CFG.strict;
+  var sw = document.getElementById('strict-switch');
+  if (sw) sw.setAttribute('aria-checked', CFG.strict ? 'true' : 'false');
+}
+
+function docToggle(btn) {
+  btn.closest('.seg').querySelectorAll('button').forEach(function(b) {
+    b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+  });
+}
+
+/* ---- Notes (FS-05) ---- */
+function toggleNotes() {
+  notesOpen = !notesOpen;
+  document.getElementById('notes-overlay').classList.toggle('is-active', notesOpen);
+  var iconBtn = document.getElementById('btn-notes');
+  if (iconBtn) iconBtn.classList.toggle('is-active', notesOpen);
+}
+function closeNotes() {
+  notesOpen = false;
+  document.getElementById('notes-overlay').classList.remove('is-active');
+  var iconBtn = document.getElementById('btn-notes');
+  if (iconBtn) iconBtn.classList.remove('is-active');
+}
+function onNotesInput() {
+  document.getElementById('notes-saved').textContent = 'chưa lưu';
+}
+function saveNote() {
+  var ta = document.getElementById('notes-area');
+  if (!ta || !ta.value.trim()) return;
+  var list = document.getElementById('notes-list');
+  var li = document.createElement('li');
+  li.className = 'notes__item';
+  var now = new Date();
+  li.innerHTML = '<span class="notes__time">' + now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0') + '</span>' + ta.value.trim();
+  list.appendChild(li);
+  ta.value = '';
+  document.getElementById('notes-saved').textContent = 'đã lưu';
+}
+
+/* ---- Keyboard shortcuts ---- */
+document.addEventListener('keydown', function(e) {
+  /* Ignore when typing */
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (state === 'running') goState('paused');
+    else if (state === 'paused') goState('running');
+  }
+  if (e.key.toLowerCase() === 'n') toggleNotes();
+  if (e.key === 'Escape') closeNotes();
+});
+
+/* ---- Init ---- */
+goState('config');
+</script>
+</body>
+</html>

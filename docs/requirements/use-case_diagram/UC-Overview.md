@@ -1,15 +1,49 @@
 # Use-Case Overview - Recall AI
 
+> **SAD placement.** This file is the source for **Section 3 — Use-Case Model** of the Software
+> Architecture Document. The "Changes since PA3" note below fulfils the PA3-feedback item
+> requiring the SAD to state explicitly what changed in the use-case model since the PA3
+> submission (issue #111, PA4 mục a).
+
+---
+
+## 0. Changes since PA3
+
+The use-case **set is unchanged since PA3** (Use-Case Specification v2.0) — still **42 use
+cases across 5 modules** (AM, SP, FS, AE, DB); no use case has been added or removed. What
+changed between the PA3 submission and this revision:
+
+| Change                                                    | Detail                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **New actor: Admin** (documentation-only)                 | Added to §1 per decision **05/08/2026 (#249)**. No UC, table, endpoint, or screen — see the note under §1.                                                                                                                                                   |
+| **Sprint-label corrections** (chốt 2026-08-11)            | `FS-04`, `FS-05`: relabelled `Sprint 4-5` → **`Sprint 4`** (#227, #228, closed — done earlier than planned). `DB-09`: `Sprint 5` → **`Sprint 4`** (#233, closed).                                                                                            |
+| **`DB-07` (Deadline Calendar) moved to POST-MVP**         | Was labelled `Sprint 4-5`; decision #234 (phương án A, PR #313 merged) removed the dead "Xem lịch →" link instead of building the screen. No issue exists for it, so it now sits outside MVP scope; the `<<extend>>` relation in §3.3 is marked accordingly. |
+| **`generate_question` AI schema fixed** (chốt 2026-08-11) | Response shape dropped the redundant `concept_id` field (caller already knows which concept it asked about). Affects `AE-02`'s `<<include>>` AI Service call; UC text unchanged, only the underlying schema. See §5.1.                                       |
+| **New table `session_notes`** landed for `FS-05`          | Ghi chú nhanh trong phiên học now has its 4 endpoints and the `session_notes` table (§4.6 Database, §111 ER redraw) — was previously only a UC with no backing schema.                                                                                       |
+
+The three use cases added at PA3 itself (Dashboard Overview, Study Material Management, Session
+History — named in the SAD v1.1 §3 text, detailed in Use-Case Specification v2.0) remain
+unchanged in this revision; they are not re-listed here with IDs since that delta was already
+reported at PA3 and this file does not carry a PA3→ID cross-reference to verify exact mapping
+against the table in §2.
+
 ---
 
 ## 1. Danh sách Actors
 
-| #   | Actor                               | Loại                  | Mô tả                                                                                                            | UC tham gia                                     |
-| --- | ----------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 1   | **Student**                         | Primary Actor (Human) | Người dùng cuối duy nhất - sinh viên năm 1-2 ngành kỹ thuật/KHTN                                                 | Hầu hết 42 UC                                   |
-| 2   | **AI Service (Google Gemini)**      | External System Actor | LLM bên ngoài, **4 calls cố định**: `extract_concepts`, `generate_question`, `grade_answer`, `summarize_session` | SP-01, AE-02, AE-06, AE-09                      |
-| 3   | **Scheduling & Remediation Engine** | Internal System Actor | Module thuật toán tất định: priority queue (lập lịch) + BFS ngược (traceback) - unit-testable, không gọi AI      | SP-01, SP-07, FS-01, FS-06, AE-07, DB-01, DB-04 |
-| 4   | **Google OAuth**                    | External System Actor | Dịch vụ xác thực Google - dùng trong luồng thay thế đăng ký/đăng nhập                                            | AM-01, AM-02                                    |
+| #   | Actor                               | Loại                  | Mô tả                                                                                                                                                            | UC tham gia                                     |
+| --- | ----------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | **Student**                         | Primary Actor (Human) | Người dùng cuối duy nhất - sinh viên năm 1-2 ngành kỹ thuật/KHTN                                                                                                 | Hầu hết 42 UC                                   |
+| 2   | **AI Service (Google Gemini)**      | External System Actor | LLM bên ngoài, **4 calls cố định**: `extract_concepts`, `generate_question`, `grade_answer`, `summarize_session`                                                 | SP-01, AE-02, AE-06, AE-09                      |
+| 3   | **Scheduling & Remediation Engine** | Internal System Actor | Module thuật toán tất định: priority queue (lập lịch) + BFS ngược (traceback) - unit-testable, không gọi AI                                                      | SP-01, SP-07, FS-01, FS-06, AE-07, DB-01, DB-04 |
+| 4   | **Google OAuth**                    | External System Actor | Dịch vụ xác thực Google - dùng trong luồng thay thế đăng ký/đăng nhập                                                                                            | AM-01, AM-02                                    |
+| 5   | **Admin**                           | Primary Actor (Human) | Vai trò quản trị hệ thống, ghi nhận **chỉ ở mức tài liệu** theo quyết định 05/08/2026 (#249) — chưa có UC, bảng, endpoint, hay màn hình nào triển khai trong MVP | Không tham gia UC nào (chưa MVP)                |
+
+> **Ghi chú Admin actor (quyết định 05/08/2026, #249):** `Admin` được thêm vào danh sách actor cho
+> đầy đủ mô hình vai trò của hệ thống, nhưng phạm vi PA4 mục a **chỉ dừng ở tài liệu** — không có
+> use-case, bảng dữ liệu, endpoint, hay màn hình nào được xây cho vai trò này. Model `User` trong
+> `schema.prisma` hiện không có cột phân quyền (`role`); mọi user đều là `Student`. Khi Admin thực
+> sự được triển khai (ngoài phạm vi hiện tại), actor này cần được gắn với các UC quản trị cụ thể.
 
 ---
 

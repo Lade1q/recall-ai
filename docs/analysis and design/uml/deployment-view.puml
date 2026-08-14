@@ -1,0 +1,69 @@
+@startuml RecallAI-DeploymentView
+!pragma layout smetana
+' SAD Section 5 — Deployment View. Issue #111 / PA4 mục a.
+' No Docker/IaC config exists in this repo; topology below is the target
+' deployment inferred from src/server/.env.example, src/client/.env.example
+' and package.json (Express 5, @prisma/client + pg, @google/genai, React 19/Vite).
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam linetype ortho
+skinparam nodeStyle rectangle
+skinparam node {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Deployment View
+
+node "Client Device\n(desktop / mobile browser)" as ClientNode #F5F5FF {
+  [React SPA\n(Vite + TypeScript)] as SPA
+  note bottom of SPA
+    Presentation Tier component (§4.2).
+    VITE_API_BASE_URL points at the
+    App/Web Server's HTTP(S) origin.
+  end note
+}
+
+node "App/Web Server\n(Node.js + Express)" as AppNode #F5FFF5 {
+  [Express REST API\n(Routes -> Controllers -> Services)] as API
+  [Scheduling & Remediation\nEngine (SRE)] as SRE
+  [AI Examiner\n(state machine)] as AIExaminer
+  [Prisma Client] as PrismaClient
+  note bottom of AppNode
+    Application Tier components (§4.2-4.7)
+    all co-located on this node.
+    PORT (default 3001), JWT_SECRET,
+    JWT_REFRESH_SECRET configured here.
+  end note
+}
+
+node "DB Server\n(PostgreSQL)" as DBNode #FFF8F0 {
+  database "PostgreSQL\n(13 tables)" as DB
+  note bottom of DB
+    Data Tier (§4.6). Reached via
+    DATABASE_URL (postgresql://...).
+  end note
+}
+
+cloud "Google Gemini API\n(external, managed by Google)" as Gemini #FFF0F0 {
+  note bottom of Gemini
+    4 fixed-schema calls only:
+    extract_concepts, generate_question,
+    grade_answer, summarize_session (C4/C5).
+    Reached via GEMINI_API_KEY.
+  end note
+}
+
+ClientNode --> AppNode : HTTPS REST\n(JSON, JWT Bearer)
+API --> PrismaClient : in-process
+PrismaClient --> DBNode : SQL over TCP\n(Prisma, DATABASE_URL)
+AppNode --> Gemini : HTTPS REST\n(fixed JSON schema, GEMINI_API_KEY)
+
+legend right
+  |= Node |= Runs |= Protocol in |
+  | Client Device   | React SPA (static assets, served from App/Web Server or a CDN) | HTTPS to App/Web Server |
+  | App/Web Server   | Express API, Controllers/Services, SRE, AI Examiner, Prisma Client | HTTPS in from Client; SQL out to DB; HTTPS out to Gemini |
+  | DB Server        | PostgreSQL (13 tables, §4.6)                | SQL over TCP from App/Web Server |
+  | Google Gemini API (external) | Managed Gemini models, called only with fixed JSON schemas | HTTPS in from App/Web Server |
+endlegend
+
+@enduml

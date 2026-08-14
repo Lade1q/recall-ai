@@ -21,6 +21,8 @@ interface QueueState {
   items: ReviewQueueItem[];
   skippedItems: ReviewQueueItem[];
   message: string | null;
+  noScheduleNote: string | null;
+  hasActiveConcepts: boolean | undefined;
   totalEstimatedMinutes: number;
 }
 
@@ -31,6 +33,10 @@ function toQueueState(response: ReviewQueueListResponse): QueueState {
     // chỉ khác nhau ở tầng response thô, không phải ở tầng UI.
     skippedItems: response.skippedItems ?? [],
     message: response.message,
+    noScheduleNote: response.noScheduleNote,
+    // KHÔNG `?? false` (#345): vắng mặt nghĩa là *chưa đếm* (plan chưa `active`), không phải
+    // *không có khái niệm nào*. Gộp hai thứ đó lại là dựng đúng lỗi issue này đi sửa.
+    hasActiveConcepts: response.hasActiveConcepts,
     totalEstimatedMinutes: response.totalEstimatedMinutes,
   };
 }
@@ -51,6 +57,10 @@ export interface UseReviewQueueReturn {
   items: ReviewQueueItem[];
   skippedItems: ReviewQueueItem[];
   message: string | null;
+  /** #345 — xem `ReviewQueueListResponse.noScheduleNote`. */
+  noScheduleNote: string | null;
+  /** #345 — `undefined` nghĩa là chưa đếm (plan chưa `active`), không phải "không có khái niệm". */
+  hasActiveConcepts: boolean | undefined;
   totalEstimatedMinutes: number;
   /** Chỉ true cho lần tải đầu tiên — tránh tách biến `isLoading` rời khỏi state (set-state-in-effect). */
   isLoading: boolean;
@@ -260,6 +270,8 @@ export function useReviewQueue(planId: string): UseReviewQueueReturn {
     items: state?.items ?? [],
     skippedItems: state?.skippedItems ?? [],
     message: state?.message ?? null,
+    noScheduleNote: state?.noScheduleNote ?? null,
+    hasActiveConcepts: state?.hasActiveConcepts,
     totalEstimatedMinutes: state?.totalEstimatedMinutes ?? 0,
     isLoading: state === null && !hasError,
     hasError,

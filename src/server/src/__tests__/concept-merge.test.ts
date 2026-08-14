@@ -8,7 +8,9 @@ import type { ConceptExtract } from '../schemas/ai-extract.schema';
  */
 
 function extract(name: string, difficulty = 1): ConceptExtract {
-  return { name, difficulty, source_page: null, source_excerpt: null };
+  // `checkpoints` is what the concept will be graded against (#329), but the merge itself never
+  // looks at it — checkpoints are reconciled separately, per concept, by `planCheckpointMerge`.
+  return { name, difficulty, source_page: null, source_excerpt: null, checkpoints: [] };
 }
 
 function stored(

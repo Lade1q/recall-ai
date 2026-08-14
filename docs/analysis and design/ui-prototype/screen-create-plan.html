@@ -1,0 +1,1461 @@
+<!-- @dsCard group="Screens" subtitle="SP-01 — Tạo kế hoạch (bước kiểm chứng đồ thị)" -->
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Tạo kế hoạch ôn tập</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /* ── Đường dẫn & tiêu đề ───────────────────────────────────────────────*/
+    .crumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+      margin-bottom: 14px;
+    }
+
+    .crumb a {
+      color: var(--muted-foreground);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+
+    .crumb a:hover {
+      color: var(--foreground);
+      border-bottom-color: var(--border);
+    }
+
+    .crumb svg {
+      flex: none;
+      opacity: 0.5;
+    }
+
+    h1.page-title {
+      font-family: var(--font-heading);
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin: 0 0 8px;
+    }
+
+    .page-lede {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 28px;
+      max-width: 640px;
+      text-wrap: pretty;
+    }
+
+    /* ── Thanh 3 bước ──────────────────────────────────────────────────────
+       Bản cũ xếp biểu mẫu và kết quả phân tích lên CÙNG một trang, ngăn bởi
+       một dòng "Sau khi AI phân tích". Đó là hai màn hình khác nhau về thời
+       gian: giữa chúng là một lần gọi Gemini kéo dài hàng chục giây (SP-06).
+       Thanh bước làm ranh giới đó hiện rõ. */
+    .steps {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      list-style: none;
+      margin: 0 0 26px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.9);
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .steps li {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+      border-right: 1px solid var(--border);
+      min-width: 0;
+    }
+
+    .steps li:last-child {
+      border-right: 0;
+    }
+
+    .steps li[aria-current="step"] {
+      background: var(--accent);
+      color: var(--foreground);
+      font-weight: 600;
+    }
+
+    .steps__n {
+      flex: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--background);
+    }
+
+    .steps li[aria-current="step"] .steps__n {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .steps li.is-done .steps__n {
+      background: oklch(from var(--mastery-strong) l c h / 0.12);
+      border-color: oklch(from var(--mastery-strong) l c h / 0.4);
+      color: var(--mastery-strong);
+    }
+
+    .steps__label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Cảnh báo DAG tự sửa ───────────────────────────────────────────────*/
+    .fixnote {
+      display: flex;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: calc(var(--radius) * 0.85);
+      background: oklch(from var(--mastery-learning) l c h / 0.07);
+      border: 1px solid oklch(from var(--mastery-learning) l c h / 0.32);
+      margin-bottom: 20px;
+    }
+
+    .fixnote__icon {
+      flex: none;
+      color: var(--mastery-learning);
+      margin-top: 1px;
+    }
+
+    .fixnote__t {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 3px;
+    }
+
+    .fixnote__d {
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ── Khu kiểm chứng: canvas + thanh tra khái niệm ──────────────────────*/
+    .review {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.2);
+      background: var(--card);
+      overflow: hidden;
+    }
+
+    .canvas {
+      border-right: 1px solid var(--border);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas__bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .canvas__hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .canvas__plot {
+      position: relative;
+      height: 300px;
+      background: var(--muted);
+      background-image: radial-gradient(circle at 1px 1px, oklch(from var(--foreground) l c h / 0.06) 1px, transparent 0);
+      background-size: 22px 22px;
+    }
+
+    .node {
+      position: absolute;
+      cursor: default;
+    }
+
+    /* Node đang được chọn để kiểm chứng */
+    .node--sel .concept-node {
+      border-color: var(--foreground);
+      border-style: solid;
+      color: var(--foreground);
+      box-shadow: 0 0 0 3px oklch(from var(--foreground) l c h / 0.08);
+    }
+
+    /* Khái niệm AI không trả về neo nguồn — cần Sinh viên soi kỹ hơn */
+    .node--nosrc .concept-node {
+      border-style: dotted;
+    }
+
+    .node__flag {
+      position: absolute;
+      top: -7px;
+      right: -7px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid oklch(from var(--mastery-learning) l c h / 0.5);
+      color: var(--mastery-learning);
+      display: grid;
+      place-items: center;
+    }
+
+    .node__diff {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted-foreground);
+      text-align: center;
+      margin-top: 4px;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Thanh tra ─────────────────────────────────────────────────────────*/
+    .insp {
+      padding: 18px 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .insp__kicker {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted-foreground);
+      margin: 0 0 5px;
+    }
+
+    .insp__name {
+      font-family: var(--font-heading);
+      font-size: 19px;
+      letter-spacing: -0.015em;
+      line-height: 1.25;
+      margin: 0 0 8px;
+    }
+
+    .diffscale {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .diffscale__bars {
+      display: flex;
+      gap: 3px;
+    }
+
+    .diffscale__bars i {
+      width: 14px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+
+    .diffscale__bars i.on {
+      background: var(--muted-foreground);
+    }
+
+    .insp__rule {
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Neo nguồn — dữ liệu thật từ concept_sources (page_from/page_to, excerpt) */
+    .src__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .src__label {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .src__page {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+    }
+
+    .src__quote {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 0;
+      padding-left: 11px;
+      border-left: 2px solid oklch(from var(--ai-accent) l c h / 0.4);
+      text-wrap: pretty;
+    }
+
+    .src__actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .link {
+      font-size: 12.5px;
+      color: var(--foreground);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1px;
+    }
+
+    .link:hover {
+      border-bottom-color: var(--foreground);
+    }
+
+    .link--danger {
+      color: var(--mastery-weak);
+      border-bottom-color: oklch(from var(--mastery-weak) l c h / 0.35);
+    }
+
+    .link--danger:hover {
+      border-bottom-color: var(--mastery-weak);
+    }
+
+    .prereq {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .prereq__row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--background);
+    }
+
+    .prereq__x {
+      flex: none;
+      background: none;
+      border: 0;
+      padding: 2px;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      border-radius: 4px;
+      line-height: 0;
+    }
+
+    .prereq__x:hover {
+      color: var(--mastery-weak);
+      background: oklch(from var(--mastery-weak) l c h / 0.1);
+    }
+
+    /* ── Chân trang hành động ──────────────────────────────────────────────*/
+    .commit {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .commit__note {
+      flex: 1 1 320px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--muted-foreground);
+      margin: 0;
+      min-width: 0;
+      text-wrap: pretty;
+    }
+
+    /* ── Phụ lục trạng thái ────────────────────────────────────────────────*/
+    .gallery {
+      border-top: 1px solid var(--border);
+      background: var(--muted);
+      padding: 56px 32px 72px;
+    }
+
+    .gallery__wrap {
+      max-width: 1060px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 44px;
+    }
+
+    .gallery__lede {
+      max-width: 660px;
+    }
+
+    .gallery__lede h2 {
+      font-family: var(--font-heading);
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+    }
+
+    .gallery__lede p {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    .state__head {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .state__name {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 7px;
+      background: var(--card);
+    }
+
+    .state__desc {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      max-width: 740px;
+      text-wrap: pretty;
+    }
+
+    .state__demo {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--background);
+      overflow: hidden;
+      padding: 26px 28px;
+    }
+
+    /* ── Biểu mẫu bước 1 ───────────────────────────────────────────────────*/
+    .form {
+      max-width: 620px;
+    }
+
+    .field {
+      margin-bottom: 18px;
+    }
+
+    .field > label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      background: var(--card);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 14px;
+    }
+
+    .field input:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: 1px;
+    }
+
+    .field__row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .field__hint {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 6px;
+    }
+
+    /* A1 / A2 / A3 của UC-02: PDF, ảnh, DÁN TEXT. Bản cũ chỉ có một ô kéo thả
+       — nhánh dán text không có chỗ nào trên giao diện, dù analysis.service
+       đã xử lý được đầu vào text thuần. */
+    .srctabs {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.7);
+      overflow: hidden;
+      width: fit-content;
+      margin-bottom: 12px;
+      background: var(--card);
+    }
+
+    .srctabs button {
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 15px;
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted-foreground);
+      cursor: pointer;
+    }
+
+    .srctabs button:last-child {
+      border-right: 0;
+    }
+
+    .srctabs button[aria-selected="true"] {
+      background: var(--accent);
+      color: var(--foreground);
+    }
+
+    .drop {
+      border: 1px dashed var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      padding: 30px 24px;
+      text-align: center;
+      background: var(--card);
+    }
+
+    .drop__icon {
+      color: var(--muted-foreground);
+      margin-bottom: 8px;
+    }
+
+    .drop__t {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .drop__hint {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .drop--error {
+      border-color: oklch(from var(--mastery-weak) l c h / 0.55);
+      background: oklch(from var(--mastery-weak) l c h / 0.05);
+    }
+
+    .err {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--mastery-weak);
+      margin-top: 10px;
+    }
+
+    .err svg {
+      flex: none;
+      margin-top: 2px;
+    }
+
+    /* ── Bước 2: đang phân tích (SP-06) ────────────────────────────────────*/
+    .job {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-width: 620px;
+    }
+
+    .job__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .job__t {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .job__clock {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+
+    .track {
+      display: flex;
+      gap: 4px;
+    }
+
+    .track i {
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+      flex: 1;
+    }
+
+    .track i.on {
+      background: var(--ai-accent);
+    }
+
+    .phases {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .phase {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--muted-foreground);
+    }
+
+    .phase--now {
+      color: var(--foreground);
+      font-weight: 500;
+    }
+
+    .phase__i {
+      flex: none;
+      width: 15px;
+      height: 15px;
+      display: grid;
+      place-items: center;
+      color: var(--muted-foreground);
+    }
+
+    .phase--done .phase__i {
+      color: var(--mastery-strong);
+    }
+
+    .phase--now .phase__i {
+      color: var(--ai-accent);
+    }
+
+    .leaveable {
+      display: flex;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: calc(var(--radius) * 0.8);
+      background: oklch(from var(--ai-accent) l c h / 0.06);
+      border: 1px solid oklch(from var(--ai-accent) l c h / 0.28);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+    }
+
+    .leaveable svg {
+      flex: none;
+      color: var(--ai-accent);
+      margin-top: 2px;
+    }
+
+    .leaveable strong {
+      color: var(--foreground);
+      font-weight: 600;
+    }
+
+    /* ── Bước 2 thất bại ───────────────────────────────────────────────────*/
+    .fail {
+      max-width: 620px;
+    }
+
+    .fail__head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 8px;
+    }
+
+    .fail__t {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .fail__log {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.8;
+      color: var(--muted-foreground);
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      padding: 10px 12px;
+      margin: 12px 0 16px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .manual {
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.8);
+      background: var(--card);
+      padding: 14px 16px;
+    }
+
+    .manual__t {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+
+    .manual__d {
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: var(--muted-foreground);
+      margin: 0 0 12px;
+      text-wrap: pretty;
+    }
+
+    .manual__row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .manual__row input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 0.6);
+      background: var(--background);
+      color: var(--foreground);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      min-width: 0;
+    }
+
+    /* ── Hộp thoại hủy ─────────────────────────────────────────────────────*/
+    .dialog {
+      max-width: 460px;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) * 1.1);
+      background: var(--card);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .dialog__t {
+      font-family: var(--font-heading);
+      font-size: 18px;
+      letter-spacing: -0.015em;
+      margin: 0 0 8px;
+    }
+
+    .dialog__d {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-wrap: pretty;
+    }
+
+    .dialog__list {
+      font-size: 12.5px;
+      line-height: 1.8;
+      color: var(--muted-foreground);
+      margin: 0 0 16px;
+      padding-left: 18px;
+    }
+
+    .dialog__actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ── Ghi chú lệch spec / code ──────────────────────────────────────────*/
+    .gap {
+      display: flex;
+      gap: 12px;
+      padding: 14px 16px;
+      border-radius: calc(var(--radius) * 0.85);
+      background: oklch(from var(--mastery-weak) l c h / 0.05);
+      border: 1px solid oklch(from var(--mastery-weak) l c h / 0.3);
+      margin-top: 16px;
+    }
+
+    .gap__icon {
+      flex: none;
+      color: var(--mastery-weak);
+      margin-top: 1px;
+    }
+
+    .gap__t {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 3px;
+    }
+
+    .gap__d {
+      font-size: 12.5px;
+      line-height: 1.7;
+      color: var(--muted-foreground);
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    @media (max-width: 1080px) {
+      .review {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .canvas {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app-shell">
+    <!--
+      Sửa lỗi điều hướng: mục "Kế hoạch ôn tập" trước đây trỏ thẳng vào màn hình
+      TẠO MỚI. Mục menu đặt tên bằng danh từ số nhiều là một NƠI CHỐN (danh sách),
+      còn tạo mới là một HÀNH ĐỘNG. Trộn hai thứ khiến Sinh viên không còn đường
+      quay lại danh sách kế hoạch của mình. Nay mục này trỏ vào screen-plans.html
+      (SP-03), còn màn hình tạo mới nằm dưới nó theo breadcrumb.
+    -->
+    <nav class="app-sidebar" aria-label="Điều hướng chính">
+      <div class="app-sidebar__logo">Recall AI</div>
+      <a class="app-sidebar__link" href="screen-dashboard.html">Tổng quan</a>
+      <a class="app-sidebar__link app-sidebar__link--active" href="screen-plans.html"
+        aria-current="page">Kế hoạch ôn tập</a>
+      <a class="app-sidebar__link" href="screen-concept-graph.html">Đồ thị khái niệm</a>
+      <a class="app-sidebar__link" href="screen-focus-session.html">Focus Session</a>
+      <a class="app-sidebar__link" href="screen-history.html">Lịch sử &amp; Tiến độ</a>
+      <a class="app-sidebar__link" href="screen-profile.html">Hồ sơ</a>
+    </nav>
+
+    <main class="app-main">
+      <div class="crumb">
+        <a href="screen-plans.html">Kế hoạch ôn tập</a>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+        <span>Tạo mới · Mạng máy tính</span>
+      </div>
+
+      <h1 class="page-title">Kiểm chứng đồ thị khái niệm</h1>
+      <p class="page-lede">
+        AI đã đọc <strong>Bài giảng Mạng máy tính — Chương 3.pdf</strong> và đề xuất 5 khái niệm cùng
+        4 quan hệ tiên quyết. Đối chiếu từng khái niệm với trích đoạn gốc bên phải rồi mới xác nhận —
+        bước này bắt buộc, hệ thống không tự động tin kết quả AI.
+      </p>
+
+      <!--
+        Ba bước, không phải một trang. Ranh giới giữa bước 2 và 3 là một tiến
+        trình bất đồng bộ (analysis_jobs) chứ không phải một cú nhấn nút.
+      -->
+      <ol class="steps">
+        <li class="is-done">
+          <span class="steps__n" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12.5l5.2 5.2L20 7" />
+            </svg>
+          </span>
+          <span class="steps__label">Nhập thông tin &amp; tải tài liệu</span>
+        </li>
+        <li class="is-done">
+          <span class="steps__n" aria-hidden="true">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12.5l5.2 5.2L20 7" />
+            </svg>
+          </span>
+          <span class="steps__label">AI phân tích · 1 phút 12 giây</span>
+        </li>
+        <li aria-current="step">
+          <span class="steps__n" aria-hidden="true">3</span>
+          <span class="steps__label">Kiểm chứng &amp; xác nhận</span>
+        </li>
+      </ol>
+
+      <!--
+        SPEC_SP-01 Alt flow 3 / UC-02 [E2]: hệ thống tự gỡ cạnh gây chu trình và
+        GHI LẠI. Cột study_plans.dag_auto_fixed tồn tại đúng để phục vụ chỗ này.
+        Bản cũ chỉ in "đã kiểm tra không có chu trình (DAG hợp lệ)" — tức là chỉ
+        vẽ luồng thuận lợi, và giấu mất việc hệ thống đã sửa dữ liệu của AI.
+        Nêu đích danh cạnh bị gỡ thì Sinh viên mới kiểm tra lại được.
+      -->
+      <div class="fixnote" role="status">
+        <span class="fixnote__icon" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l9 16H3z" />
+            <path d="M12 9.5v4.5" />
+            <path d="M12 17h.01" />
+          </svg>
+        </span>
+        <div>
+          <p class="fixnote__t">Hệ thống đã gỡ 1 quan hệ để đồ thị không có chu trình</p>
+          <p class="fixnote__d">
+            AI đề xuất <strong>DNS → Giao thức TCP/IP</strong>, nhưng TCP/IP đã là tiên quyết của DNS
+            qua Địa chỉ IP &amp; Subnet — thành vòng lặp. Cạnh này bị loại, đánh dấu
+            <code>dag_auto_fixed = true</code>. Nếu bạn cho rằng chiều ngược lại mới đúng,
+            hãy xóa cạnh cũ trước rồi nối lại.
+          </p>
+        </div>
+      </div>
+
+      <section class="review" aria-label="Kiểm chứng đồ thị">
+        <div class="canvas">
+          <div class="canvas__bar">
+            <span class="canvas__hint">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2l-2 12h4l-2 8" />
+              </svg>
+              Kéo từ node này sang node kia để thêm quan hệ tiên quyết · nhấp vào cạnh để xóa
+            </span>
+            <span class="meta-mono">5 khái niệm · 4 cạnh</span>
+          </div>
+
+          <div class="canvas__plot">
+            <svg width="100%" height="300" style="position:absolute; inset:0;" aria-hidden="true">
+              <defs>
+                <marker id="ar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                  <path d="M0 0.6 L6.4 3.5 L0 6.4 z" fill="var(--mastery-untested)" />
+                </marker>
+              </defs>
+              <!-- OSI → TCP/IP -->
+              <line x1="152" y1="140" x2="196" y2="140" stroke="var(--mastery-untested)" stroke-width="1.5"
+                marker-end="url(#ar)" />
+              <!-- TCP/IP → IP&Subnet -->
+              <line x1="342" y1="132" x2="382" y2="78" stroke="var(--mastery-untested)" stroke-width="1.5"
+                marker-end="url(#ar)" />
+              <!-- TCP/IP → Định tuyến -->
+              <line x1="342" y1="150" x2="382" y2="208" stroke="var(--mastery-untested)" stroke-width="1.5"
+                marker-end="url(#ar)" />
+              <!-- IP&Subnet → DNS -->
+              <line x1="522" y1="70" x2="544" y2="70" stroke="var(--mastery-untested)" stroke-width="1.5"
+                marker-end="url(#ar)" />
+            </svg>
+
+            <div class="node" style="left:22px; top:120px;">
+              <div class="concept-node concept-node--untested" style="width:130px;">Mô hình OSI</div>
+              <div class="node__diff">độ khó 2/5</div>
+            </div>
+
+            <div class="node" style="left:200px; top:120px;">
+              <div class="concept-node concept-node--untested" style="width:142px;">Giao thức TCP/IP</div>
+              <div class="node__diff">độ khó 3/5</div>
+            </div>
+
+            <!-- Node đang chọn: nội dung của nó hiện ở thanh tra bên phải -->
+            <div class="node node--sel" style="left:386px; top:50px;">
+              <div class="concept-node concept-node--untested" style="width:136px;">Địa chỉ IP &amp; Subnet</div>
+              <div class="node__diff">độ khó 4/5</div>
+            </div>
+
+            <div class="node" style="left:386px; top:190px;">
+              <div class="concept-node concept-node--untested" style="width:136px;">Định tuyến</div>
+              <div class="node__diff">độ khó 4/5</div>
+            </div>
+
+            <!--
+              DNS: extract_concepts trả về source_page = null cho khái niệm này
+              (Zod cho phép nullish). Không có neo nguồn nghĩa là không kiểm chứng
+              được — đúng chỗ cần Sinh viên soi kỹ, nên đánh dấu ra chứ không im lặng.
+            -->
+            <div class="node node--nosrc" style="left:548px; top:50px;">
+              <div class="concept-node concept-node--untested" style="width:104px; position:relative;">
+                DNS
+                <span class="node__flag" title="Không có trích đoạn nguồn">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4"
+                    stroke-linecap="round">
+                    <path d="M12 6v8" />
+                    <path d="M12 18h.01" />
+                  </svg>
+                </span>
+              </div>
+              <div class="node__diff">chưa có nguồn</div>
+            </div>
+          </div>
+        </div>
+
+        <!--
+          Thanh tra khái niệm. Đây là phần khiến màn hình này khác một trình
+          upload tài liệu thông thường: mỗi khái niệm AI sinh ra đều kèm trang
+          và trích đoạn nguyên văn trong tài liệu gốc (bảng concept_sources:
+          page_from / page_to / excerpt, điền từ source_page + source_excerpt
+          của extract_concepts). Sinh viên kiểm chứng được ngay tại chỗ —
+          đó là ràng buộc C5 "AI không bịa" biến thành thao tác nhìn thấy được.
+        -->
+        <aside class="insp" aria-label="Chi tiết khái niệm đang chọn">
+          <div>
+            <p class="insp__kicker">Khái niệm đang chọn</p>
+            <h2 class="insp__name">Địa chỉ IP &amp; Subnet</h2>
+            <div class="diffscale">
+              <span class="diffscale__bars" aria-hidden="true">
+                <i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i>
+              </span>
+              <span>độ khó 4/5 — AI ước lượng</span>
+            </div>
+          </div>
+
+          <div class="insp__rule"></div>
+
+          <div>
+            <div class="src__head">
+              <span class="src__label">Trích từ tài liệu</span>
+              <span class="src__page">tr. 41–43</span>
+            </div>
+            <blockquote class="src__quote">
+              Subnet mask quyết định phần nào của địa chỉ IP là network prefix và phần nào là host.
+              Với /24, 24 bit đầu xác định mạng; 8 bit còn lại đánh số máy trong mạng đó.
+            </blockquote>
+            <div class="src__actions">
+              <a href="#" class="link">Mở tài liệu tại trang 41</a>
+              <a href="#" class="link link--danger">Sai — bỏ khái niệm</a>
+            </div>
+          </div>
+
+          <div class="insp__rule"></div>
+
+          <div>
+            <div class="src__head">
+              <span class="src__label">Tiên quyết</span>
+              <span class="src__page">1 quan hệ</span>
+            </div>
+            <div class="prereq">
+              <div class="prereq__row">
+                <span>Giao thức TCP/IP</span>
+                <button class="prereq__x" type="button" aria-label="Xóa quan hệ tiên quyết Giao thức TCP/IP">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                    stroke-linecap="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <div class="commit">
+        <button class="btn btn-primary" type="button">Xác nhận &amp; tạo lịch ôn tập</button>
+        <a href="#huy" class="link">Hủy</a>
+        <p class="commit__note">
+          Khi xác nhận: kế hoạch chuyển <code>draft → active</code>,
+          SRE dựng lịch từ đồ thị và deadline. Toàn bộ khái niệm giữ
+          <code>mastery_score = null</code> —
+          điểm thành thạo chỉ ghi sau phiên AI Examiner đầu tiên, không phải ở đây.
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       Phụ lục: các trạng thái còn lại của SP-01
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="gallery" aria-label="Các trạng thái khác">
+    <div class="gallery__wrap">
+      <div class="gallery__lede">
+        <h2>Các trạng thái còn lại</h2>
+        <p>
+          Màn hình chính ở trên là bước 3. Dưới đây là bước 1, bước 2 và các nhánh
+          thay thế/ngoại lệ của SPEC_SP-01 — phần mà bản mockup trước bỏ trống hoàn toàn.
+        </p>
+      </div>
+
+      <!-- ── 1 · Bước 1: biểu mẫu, ba nguồn đầu vào ──────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Bước 1 · Nhập thông tin &amp; nguồn tài liệu</span>
+          <span class="tag">SP-01 · bước 2–3</span>
+          <span class="tag">UC-02 · A1/A2/A3</span>
+        </div>
+        <p class="state__desc">
+          UC-02 cho ba dạng đầu vào: PDF, ảnh chụp, và <strong>dán text thẳng</strong>. Bản cũ chỉ vẽ
+          một ô kéo thả, làm mất nhánh A3 — trong khi backend đã đọc được text thuần
+          (<code>.txt</code> đi thẳng vào
+          <code>extractConcepts({ kind: 'text' })</code>).
+          Deadline không còn là ô chữ trống: nó là tham số SRE dùng để dựng cả lịch, nên hiển thị luôn
+          quãng thời gian còn lại.
+        </p>
+        <div class="state__demo">
+          <div class="form">
+            <div class="field">
+              <label for="f-name">Tên kế hoạch</label>
+              <input id="f-name" type="text" value="Mạng máy tính" />
+            </div>
+
+            <div class="field">
+              <label for="f-deadline">Hạn ôn xong</label>
+              <div class="field__row">
+                <input id="f-deadline" type="text" value="20/08/2026" style="max-width:180px;" />
+                <span class="meta-mono" style="font-size:12px; color:var(--muted-foreground);">còn 24 ngày</span>
+              </div>
+              <!-- Không gọi tên SRE ở đây: đây là chữ người dùng đọc, không phải chú thích dev. -->
+              <p class="field__hint">Hệ thống dùng mốc này để rải khái niệm theo độ khó và quan hệ tiên quyết.</p>
+            </div>
+
+            <div class="field">
+              <label id="src-label">Tài liệu ôn tập</label>
+              <div class="srctabs" role="tablist" aria-labelledby="src-label">
+                <button type="button" role="tab" aria-selected="true">Tệp PDF</button>
+                <button type="button" role="tab" aria-selected="false">Ảnh chụp</button>
+                <button type="button" role="tab" aria-selected="false">Dán text</button>
+              </div>
+              <div class="drop">
+                <div class="drop__icon" aria-hidden="true">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 16V4" />
+                    <path d="M7.5 8.5L12 4l4.5 4.5" />
+                    <path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15" />
+                  </svg>
+                </div>
+                <div class="drop__t">Kéo thả tệp vào đây, hoặc bấm để chọn</div>
+                <div class="drop__hint">PDF · tối đa 10 MB</div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:22px;">
+              <button class="btn btn-primary" type="button">Phân tích tài liệu</button>
+              <button class="btn btn-ghost" type="button">Hủy</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 2 · Tệp không hợp lệ ────────────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Bước 1 · Tệp không hợp lệ</span>
+          <span class="tag">SP-01 · Alt flow 1</span>
+          <span class="tag">UC-02 · E3</span>
+        </div>
+        <p class="state__desc">
+          Lỗi hiện ngay tại ô đã gây ra nó và nói rõ hai con số thật (dung lượng tệp, giới hạn), thay vì
+          một câu chung chung. Nút "Phân tích" bị vô hiệu cho tới khi chọn lại tệp — không để người dùng
+          bấm rồi mới biết hỏng.
+        </p>
+        <div class="state__demo">
+          <div class="form">
+            <div class="field" style="margin-bottom:0;">
+              <label id="src-label-2">Tài liệu ôn tập</label>
+              <div class="srctabs" role="tablist" aria-labelledby="src-label-2">
+                <button type="button" role="tab" aria-selected="true">Tệp PDF</button>
+                <button type="button" role="tab" aria-selected="false">Ảnh chụp</button>
+                <button type="button" role="tab" aria-selected="false">Dán text</button>
+              </div>
+              <div class="drop drop--error">
+                <div class="drop__icon" aria-hidden="true" style="color:var(--mastery-weak);">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3v5h5" />
+                    <path d="M9.5 12.5l5 5M14.5 12.5l-5 5" />
+                  </svg>
+                </div>
+                <div class="drop__t">Slide-Mang-May-Tinh-full.pdf</div>
+                <div class="drop__hint">24.7 MB · vượt giới hạn 10 MB</div>
+              </div>
+              <p class="err">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                  stroke-linecap="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.5h.01" />
+                </svg>
+                <span>Tệp nặng 24.7 MB, vượt giới hạn 10 MB. Hãy tách theo chương, hoặc dán phần
+                  text cần ôn qua tab "Dán text".</span>
+              </p>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:22px;">
+              <button class="btn btn-primary" type="button" disabled
+                style="opacity:0.45; cursor:not-allowed;">Phân tích tài liệu</button>
+              <button class="btn btn-secondary" type="button">Chọn tệp khác</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 3 · Bước 2: đang phân tích ──────────────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Bước 2 · AI đang phân tích</span>
+          <span class="tag">SP-06</span>
+          <span class="tag">analysis_jobs.status</span>
+        </div>
+        <p class="state__desc">
+          Trạng thái mà bản mockup cũ không có, dù SP-06 là use case ưu tiên <strong>High</strong> và
+          bảng <code>analysis_jobs</code> sinh ra
+          chỉ để phục vụ nó. Một tệp PDF 42 trang mất hàng chục giây: nếu giao diện chỉ có một vòng xoay
+          vô định, người dùng sẽ tưởng treo và tải lại trang. Ở đây tiến trình bám đúng bốn giá trị thật
+          của enum (<code>pending →
+            processing → done | failed</code>), và nói thẳng rằng rời trang cũng không mất kết quả —
+          vì kế hoạch đã nằm trong DB ở trạng thái draft ngay trước khi gọi AI.
+        </p>
+        <div class="state__demo">
+          <div class="job">
+            <div class="job__head">
+              <span class="job__t">Đang phân tích “Bài giảng Mạng máy tính — Chương 3.pdf”</span>
+              <span class="job__clock">42 trang · 0:47</span>
+            </div>
+            <div class="track" aria-hidden="true">
+              <i class="on"></i><i class="on"></i><i class="on"></i><i></i>
+            </div>
+            <div class="phases">
+              <div class="phase phase--done">
+                <span class="phase__i" aria-hidden="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 12.5l5.2 5.2L20 7" />
+                  </svg>
+                </span>
+                Tải tệp lên kho lưu trữ · lưu bản ghi documents (42 trang)
+              </div>
+              <div class="phase phase--done">
+                <span class="phase__i" aria-hidden="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 12.5l5.2 5.2L20 7" />
+                  </svg>
+                </span>
+                Gửi tài liệu tới AI Service
+              </div>
+              <div class="phase phase--now">
+                <span class="phase__i" aria-hidden="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                    stroke-linecap="round">
+                    <circle cx="12" cy="12" r="9" opacity="0.3" />
+                    <path d="M21 12a9 9 0 0 0-9-9" />
+                  </svg>
+                </span>
+                Trích xuất khái niệm, độ khó và quan hệ tiên quyết
+              </div>
+              <div class="phase">
+                <span class="phase__i" aria-hidden="true">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                    <circle cx="12" cy="12" r="3.4" />
+                  </svg>
+                </span>
+                Kiểm tra chu trình (DAG) và dựng đồ thị
+              </div>
+            </div>
+            <div class="leaveable">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.6v5l3 1.7" />
+              </svg>
+              <span>
+                <strong>Bạn có thể rời trang.</strong> Kế hoạch đã được lưu ở trạng thái nháp; phân tích
+                chạy nền và sẽ hiện trong danh sách kế hoạch khi xong. Không cần mở trang này.
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 4 · Bước 2 thất bại → nhập thủ công ─────────────────────────── -->
+      <section>
+        <div class="state__head">
+          <span class="state__name">Bước 2 · Phân tích thất bại</span>
+          <span class="tag">SP-01 · Alt flow 2 &amp; 4</span>
+          <span class="tag">UC-02 · E1/E4</span>
+        </div>
+        <p class="state__desc">
+          Sau <code>MAX_ATTEMPTS = 3</code> lần
+          gọi thất bại, job chuyển sang <code>failed</code>. Alt flow 2 nói rõ:
+          không dừng ở đó mà <strong>cho Sinh viên tự nhập khái niệm</strong> rồi đi tiếp bước 8 —
+          đường thoát này chưa từng được vẽ. Hiển thị luôn số lần thử để lỗi trông giống một sự việc
+          có thể lần lại, không phải một câu xin lỗi.
+        </p>
+        <div class="state__demo">
+          <div class="fail">
+            <div class="fail__head">
+              <span style="color:var(--mastery-weak); line-height:0;" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                  stroke-linecap="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7.5v5.5" />
+                  <path d="M12 16.5h.01" />
+                </svg>
+              </span>
+              <span class="fail__t">Không trích xuất được khái niệm sau 3 lần thử</span>
+            </div>
+            <p class="state__desc" style="margin:0;">
+              AI Service trả về JSON sai cấu trúc ở cả ba lần. Tài liệu và kế hoạch nháp vẫn còn nguyên —
+              bạn có thể thử lại, hoặc tự nhập khái niệm và bắt đầu ngay.
+            </p>
+            <pre class="fail__log">lần 1  14:02:11  schema_error   thiếu trường "edges"
+lần 2  14:02:14  schema_error   difficulty = "trung bình" (không phải 1–5)
+lần 3  14:02:20  schema_error   thiếu trường "edges"</pre>
+
+            <div style="display:flex; gap:10px; margin-bottom:16px;">
+              <button class="btn btn-secondary" type="button">Thử lại</button>
+              <button class="btn btn-ghost" type="button">Đổi tài liệu khác</button>
+            </div>
+
+            <div class="manual">
+              <p class="manual__t">Hoặc tự nhập khái niệm</p>
+              <p class="manual__d">
+                Nhập tên từng khái niệm, sau đó nối quan hệ tiên quyết trên đồ thị ở bước 3 như bình thường.
+                Khái niệm nhập tay được ghi <code>source = manual</code>.
+              </p>
+              <div class="manual__row">
+                <input type="text" placeholder="Ví dụ: Mô hình OSI" />
+                <button class="btn btn-secondary" type="button">Thêm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 5 · Hủy giữa chừng ──────────────────────────────────────────── -->
+      <section id="huy">
+        <div class="state__head">
+          <span class="state__name">Hủy giữa chừng</span>
+          <span class="tag">SP-01 · Alt flow 5</span>
+          <span class="tag">UC-02 · E5</span>
+        </div>
+        <p class="state__desc">
+          Rời trang ở bước 3 không phải là "không có gì xảy ra": kế hoạch nháp, bản ghi tài liệu và
+          tệp đã tải đều đang nằm trong hệ thống. Hộp thoại liệt kê đúng những thứ sẽ bị xóa thay vì
+          hỏi "Bạn có chắc không?".
+        </p>
+        <div class="state__demo" style="background:var(--muted);">
+          <div class="dialog" role="alertdialog" aria-labelledby="dlg-t">
+            <h3 class="dialog__t" id="dlg-t">Hủy kế hoạch “Mạng máy tính”?</h3>
+            <p class="dialog__d">Những thứ sau sẽ bị xóa và không khôi phục được:</p>
+            <ul class="dialog__list">
+              <li>Kế hoạch nháp cùng 5 khái niệm AI vừa trích xuất</li>
+              <li>Tệp Bài giảng Mạng máy tính — Chương 3.pdf (42 trang) đã tải lên</li>
+            </ul>
+            <div class="dialog__actions">
+              <button class="btn btn-ghost" type="button">Quay lại kiểm chứng</button>
+              <button class="btn btn-primary" type="button"
+                style="background:var(--mastery-weak); color:var(--mastery-weak-fg);">Xóa kế hoạch nháp</button>
+            </div>
+          </div>
+
+          <!--
+            Lệch tài liệu ↔ mã nguồn phát hiện khi dựng màn hình này. Ghi lại thay
+            vì lặng lẽ vẽ theo mã, vì đây là thứ cần sửa ở tài liệu chứ không phải ở UI.
+          -->
+          <div class="gap">
+            <span class="gap__icon" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7.5v5.5" />
+                <path d="M12 16.5h.01" />
+              </svg>
+            </span>
+            <div>
+              <p class="gap__t">Lệch giữa UC-02 [E5] và mã nguồn</p>
+              <p class="gap__d">
+                UC-02 [E5] viết: rời trang trước bước 8 thì “không lưu bất kỳ dữ liệu nào vào DB
+                (toàn bộ là transient state)”. Nhưng <code>plan.controller.ts</code> tạo
+                <code>study_plans</code> (draft) + <code>documents</code> + <code>analysis_jobs</code>
+                <em>trước</em> khi gọi AI — và phải như vậy thì SP-06 mới chạy nền được. Bản mô tả cần
+                sửa theo mã: dữ liệu nháp <em>có</em> được lưu, và bị dọn khi Sinh viên hủy.
+                SPEC_SP-01 Alt flow 5 (“xóa các dữ liệu tạm thời chưa lưu”) đã đúng, chỉ UC-02 còn cũ.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </section>
+
+<style>
+
+.gallery { display: none !important; }
+
+</style>
+<script>
+(function(){
+
+var d = document;
+
+/* Wire "Xác nhận & tạo lịch ôn tập" → plans */
+d.querySelectorAll('button.btn-primary, a.btn-primary').forEach(function(btn) {
+  var txt = btn.textContent.trim();
+  if (txt.includes('Xác nhận') || txt.includes('tạo lịch') || txt.includes('Tạo kế hoạch')) {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      location.href = 'screen-plans.html';
+    });
+  }
+});
+
+/* "Hủy" or "Quay lại" → plans */
+d.querySelectorAll('button, a').forEach(function(el) {
+  var txt = el.textContent.trim();
+  if (txt === 'Hủy' || txt === 'Quay lại' || txt === 'Hủy bỏ') {
+    el.addEventListener('click', function(e) {
+      e.preventDefault();
+      location.href = 'screen-plans.html';
+    });
+  }
+});
+
+})();
+</script>
+</body>
+
+</html>

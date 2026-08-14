@@ -64,6 +64,10 @@ interface FakePlan {
 }
 
 let queueRows: FakeQueueRow[] = [];
+/** Cái mà một truy vấn `{ planId, status: 'active' }` sẽ trả về — nguồn DUY NHẤT cho cả
+ *  `concept.findMany` (fallback A3) lẫn `concept.count` (#345 `hasActiveConcepts`). Hai mock đọc
+ *  chung một mảng để không thể lệch nhau: production hỏi cùng một vị từ cho cả hai. */
+let planConcepts: FakeConcept[] = [];
 let concepts: FakeConcept[] = [];
 let plans: FakePlan[] = [];
 
@@ -111,7 +115,7 @@ jest.mock('../config/prisma', () => ({
       findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
-    concept: { findMany: jest.fn() },
+    concept: { findMany: jest.fn(), count: jest.fn() },
     interviewSession: { findMany: jest.fn() },
     studyPlan: { findUnique: jest.fn(), findMany: jest.fn() },
   },
@@ -124,7 +128,7 @@ const mockedPrisma = prisma as unknown as {
     findUnique: jest.Mock;
     updateMany: jest.Mock;
   };
-  concept: { findMany: jest.Mock };
+  concept: { findMany: jest.Mock; count: jest.Mock };
   interviewSession: { findMany: jest.Mock };
   studyPlan: { findUnique: jest.Mock; findMany: jest.Mock };
 };
@@ -192,7 +196,9 @@ beforeEach(() => {
   );
 
   // Only ever called for the A3 fallback (plan with zero rows) and for source-concept names.
-  mockedPrisma.concept.findMany.mockResolvedValue([]);
+  planConcepts = [];
+  mockedPrisma.concept.findMany.mockImplementation(() => Promise.resolve(planConcepts));
+  mockedPrisma.concept.count.mockImplementation(() => Promise.resolve(planConcepts.length));
   mockedPrisma.interviewSession.findMany.mockResolvedValue([]);
   // Plans honour their `where` too — a draft plan sitting next to the active one is exactly
   // the case #265 introduces, and a canned array would hide it.
@@ -399,9 +405,7 @@ describe('the empty queue says something different on each surface', () => {
 
   it('a plan that was never interviewed gets suggestions, not a congratulation (A3)', async () => {
     queueRows = [];
-    mockedPrisma.concept.findMany.mockResolvedValue([
-      { id: 'concept-dfs', name: 'Duyệt đồ thị DFS', masteryScore: null },
-    ]);
+    planConcepts = [{ id: 'concept-dfs', name: 'Duyệt đồ thị DFS', masteryScore: null }];
 
     const queue = await getReviewQueueForPlan(PLAN_ID, USER_ID);
 
@@ -456,9 +460,7 @@ describe('/review-queue/today drops the A3 fallback (#273)', () => {
   it('a never-interviewed plan contributes nothing to /today, but still suggests on its own queue', async () => {
     // PLAN_ID has no queue rows at all → the A3 fallback path.
     queueRows = [];
-    mockedPrisma.concept.findMany.mockResolvedValue([
-      { id: 'concept-new', name: 'Con trỏ', masteryScore: null },
-    ]);
+    planConcepts = [{ id: 'concept-new', name: 'Con trỏ', masteryScore: null }];
 
     const today = await getTodayReviewQueue(USER_ID);
     const ownQueue = await getReviewQueueForPlan(PLAN_ID, USER_ID);
@@ -481,9 +483,7 @@ describe('/review-queue/today drops the A3 fallback (#273)', () => {
     // null-mastery concept would score a higher fallback priority than the real item and, before
     // #273, take its slot on /today.
     queueRows = [row({ id: 'item-real', conceptId: 'concept-avl', planId: SECOND_PLAN_ID })];
-    mockedPrisma.concept.findMany.mockResolvedValue([
-      { id: 'concept-new', name: 'Con trỏ', masteryScore: null },
-    ]);
+    planConcepts = [{ id: 'concept-new', name: 'Con trỏ', masteryScore: null }];
 
     const today = await getTodayReviewQueue(USER_ID);
 
@@ -494,9 +494,7 @@ describe('/review-queue/today drops the A3 fallback (#273)', () => {
   it('returns an empty list, not the fallback, when every active plan is new', async () => {
     // The only active plan (PLAN_ID) has no rows; DRAFT_PLAN_ID is filtered out by status.
     queueRows = [];
-    mockedPrisma.concept.findMany.mockResolvedValue([
-      { id: 'concept-new', name: 'Con trỏ', masteryScore: null },
-    ]);
+    planConcepts = [{ id: 'concept-new', name: 'Con trỏ', masteryScore: null }];
 
     const today = await getTodayReviewQueue(USER_ID);
 
@@ -557,9 +555,7 @@ describe('every item carries its plan (#232)', () => {
 
   it('names the plan on an A3-fallback suggestion too — it belongs to one just as much', async () => {
     queueRows = [];
-    mockedPrisma.concept.findMany.mockResolvedValue([
-      { id: 'concept-dfs', name: 'Duyệt đồ thị DFS', masteryScore: null },
-    ]);
+    planConcepts = [{ id: 'concept-dfs', name: 'Duyệt đồ thị DFS', masteryScore: null }];
 
     const queue = await getReviewQueueForPlan(PLAN_ID, USER_ID);
 

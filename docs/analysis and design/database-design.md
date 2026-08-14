@@ -2,24 +2,33 @@
 
 > **SAD placement.** This is the content for the **Database** component of the Software
 > Architecture Document (§4 _Logical View_ → _Component: Database_). It fulfils issue
-> **#86 / I5.3** and feeds the full SAD assembly (**#84 / I5.1**).
+> **#86 / I5.3**, redrawn for **PA4 (#111)** to the current 13-table schema, and feeds the full
+> SAD assembly (**#84 / I5.1**).
 >
 > **Authoritative source:** [`src/server/prisma/schema.prisma`](../../src/server/prisma/schema.prisma),
-> as of `main` after PR **#138** (Sprint 4 schema).
+> as of `main` (includes the Sprint-5 `session_notes` table and the `documents`/`concept_sources`
+> source-anchor tables).
 >
-> **Submission image (the actual PA3 deliverable):**
-> [`pa/pa3/ER Model/ER-01_DatabaseModel.png`](../../pa/pa3/ER%20Model/ER-01_DatabaseModel.png) —
+> **Submission image (the PA4 deliverable):**
+> [`pa/pa4/ER Model/ER-01_DatabaseModel.png`](../../pa/pa4/ER%20Model/ER-01_DatabaseModel.png) —
 > crow's-foot ER diagram, rendered from [`uml/er-model.puml`](uml/er-model.puml) via PlantUML
 > (`java -jar plantuml.jar -tpng -Sdpi=200 er-model.puml`). This is the image to drop into the
 > Word SAD, the same way `pa/pa2/Use-case model/*.png` are used for the use-case diagrams — the
 > Mermaid diagram below is the GitHub-readable working copy for the team, not the submission
 > artifact. An alternative source, [`db/recall-ai.dbml`](db/recall-ai.dbml) (paste into
-> [dbdiagram.io](https://dbdiagram.io)), is kept as a backup/editable format.
+> [dbdiagram.io](https://dbdiagram.io)), is kept as a backup/editable format. The PA3 image
+> (`pa/pa3/ER Model/ER-01_DatabaseModel.png`, 10 tables) is left untouched as the historical PA3
+> record.
 
 ## 1. Overview & Conventions
 
 Recall AI persists all state in a single **PostgreSQL** database accessed through the **Prisma
 ORM**. The physical model below is generated 1:1 from the Prisma schema.
+
+> **Scope cut-off.** This model reflects the **#111 (PA4)** deliverable scope — the 13 tables
+> listed below. It does **not** include tables added for Sprint 5 / Interview v2, which was still
+> in development at the time of this revision: `concept_checkpoints` (#329) and the upcoming
+> `InterviewEvidence` (#330 / PR #338). Those land in a later SAD revision, not this one.
 
 | Convention            | Rule                                                                                                                         |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -64,6 +73,9 @@ erDiagram
 
     interview_sessions ||--o{ interview_turns : "has"
 
+    focus_sessions ||--o{ session_notes : "has"
+    concepts ||--o{ session_notes : "annotated by"
+
     users {
         uuid id PK
         varchar email UK
@@ -81,6 +93,7 @@ erDiagram
         study_plan_status status
         bool dag_auto_fixed
         bool traceback_enabled
+        varchar language_detected "nullable"
         timestamp created_at
         timestamp updated_at
     }
@@ -107,6 +120,8 @@ erDiagram
         uuid plan_draft_id "soft ref, no FK"
         text file_key "nullable"
         analysis_job_status status
+        analysis_job_phase phase "nullable"
+        text error_message "nullable"
         int retry_count
         timestamp created_at
         timestamp completed_at "nullable"
@@ -146,6 +161,9 @@ erDiagram
         text feedback "nullable"
         turn_verdict verdict "nullable"
         turn_source source
+        uuid source_document_id "soft ref, no FK, nullable"
+        int source_page_from "nullable"
+        int source_page_to "nullable"
         timestamp asked_at
         timestamp answered_at "nullable"
     }
@@ -156,8 +174,20 @@ erDiagram
         jsonb concept_ids
         focus_session_status status
         int duration_minutes
+        int focused_seconds
+        int away_count
+        int pomodoros_completed
+        bool strict_mode
         timestamp started_at
         timestamp ended_at "nullable"
+    }
+    session_notes {
+        uuid id PK
+        uuid session_id FK
+        uuid concept_id FK
+        text body
+        timestamp created_at
+        timestamp updated_at
     }
     review_queue_items {
         uuid id PK
@@ -181,6 +211,7 @@ erDiagram
         int page_count "nullable"
         int byte_size "nullable"
         timestamp created_at
+        timestamp updated_at
     }
     concept_sources {
         uuid id PK
@@ -195,7 +226,7 @@ erDiagram
 
 ## 3. Entity Catalog
 
-Twelve tables. `PK` = primary key, `FK` = foreign key, `U` = participates in a unique constraint,
+Thirteen tables. `PK` = primary key, `FK` = foreign key, `U` = participates in a unique constraint,
 `○` = nullable.
 
 ### 3.1 `users` — Student account
@@ -398,7 +429,24 @@ population work is a follow-up, this migration only lands the columns.
 | `created_at`  | timestamp | not null                        | Created at                                           |
 | _Indexes_     |           | `(concept_id)`, `(document_id)` |                                                      |
 
+### 3.13 `session_notes` — Quick note during a Focus Session (FS-05)
+
+Anchored to the **concept**, not only the session: `concept_id` is not-null so a multi-concept
+Focus Session still knows which concept each note belongs to. `updated_at` supports auto-save
+(the client `PATCH`es the same note repeatedly while the student keeps typing).
+
+| Column                      | Type      | Key / Constraint         | Description               |
+| --------------------------- | --------- | ------------------------ | ------------------------- |
+| `id`                        | uuid      | PK                       | Identifier                |
+| `session_id`                | uuid      | FK → `focus_sessions.id` | Parent focus session      |
+| `concept_id`                | uuid      | FK → `concepts.id`       | Concept the note is about |
+| `body`                      | text      | not null                 | Note content              |
+| `created_at` / `updated_at` | timestamp | not null                 | Audit timestamps          |
+| _Index_                     |           | `(session_id)`           |                           |
+
 ## 4. Enumerations
+
+Thirteen enums — **not tables**, do not draw them into the ER diagram.
 
 | Enum                       | Values                                                  |
 | -------------------------- | ------------------------------------------------------- |
@@ -406,6 +454,7 @@ population work is a follow-up, this migration only lands the columns.
 | `concept_source`           | ai_generated, manual, imported                          |
 | `concept_status`           | active, deprecated                                      |
 | `analysis_job_status`      | pending, processing, done, failed                       |
+| `analysis_job_phase`       | sending_to_ai, extracting, validating                   |
 | `interview_session_status` | active, paused, completed, abandoned                    |
 | `turn_verdict`             | deep, shallow, wrong                                    |
 | `question_type`            | recall, application, why                                |
@@ -438,6 +487,8 @@ population work is a follow-up, this migration only lands the columns.
 | `study_plans`        | `documents`            | 1 : N       | `documents.plan_id`                 |
 | `documents`          | `concept_sources`      | 1 : N       | `concept_sources.document_id`       |
 | `interview_sessions` | `interview_turns`      | 1 : N       | `interview_turns.session_id`        |
+| `concepts`           | `session_notes`        | 1 : N       | `session_notes.concept_id`          |
+| `focus_sessions`     | `session_notes`        | 1 : N       | `session_notes.session_id`          |
 
 **Derived N:M:** `concepts` ↔ `concepts` (prerequisite graph) is a many-to-many self-relation
 resolved through `concept_edges`; `concepts` ↔ `documents` (which passage grounds which concept)
@@ -445,11 +496,12 @@ is resolved through `concept_sources`.
 
 ### 5.2 Soft references (logical, **no FK constraint**)
 
-| From                                   | To                      | Why no FK                                                  |
-| -------------------------------------- | ----------------------- | ---------------------------------------------------------- |
-| `analysis_jobs.plan_draft_id`          | `study_plans.id`        | Draft may not exist yet (async job precedes plan creation) |
-| `review_queue_items.source_concept_id` | `concepts.id`           | Provenance only; must survive independent lifecycle        |
-| `review_queue_items.source_session_id` | `interview_sessions.id` | Provenance only; de-dup key, not an ownership edge         |
+| From                                   | To                      | Why no FK                                                                                                                                                 |
+| -------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `analysis_jobs.plan_draft_id`          | `study_plans.id`        | Draft may not exist yet (async job precedes plan creation)                                                                                                |
+| `review_queue_items.source_concept_id` | `concepts.id`           | Provenance only; must survive independent lifecycle                                                                                                       |
+| `review_queue_items.source_session_id` | `interview_sessions.id` | Provenance only; de-dup key, not an ownership edge                                                                                                        |
+| `interview_turns.source_document_id`   | `documents.id`          | Citation snapshot at ask-time; must survive the source document being replaced/deleted later (C5 anchor should not silently re-point to a different file) |
 
 ## 6. Design Decisions
 
@@ -489,7 +541,7 @@ which superseded two of those placeholders:
 | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `User`, `StudyPlan`, `Concept`, `ConceptEdge`, `AnalysisJob`, `QuestionCache` | Present (unchanged intent)                                                                                                                                                                             |
 | `Session`                                                                     | **Split** into `interview_sessions`, `focus_sessions`, and `interview_turns` (Sprint 4 refined the single "Session" placeholder into the AI-Examiner and Pomodoro session types plus per-turn records) |
-| `SessionNote`                                                                 | **Deferred to Sprint 5** (FS-05 quick notes) — not yet in the schema; documented here as a known gap                                                                                                   |
+| `SessionNote`                                                                 | **Landed** (§3.13, table `session_notes`) — see below                                                                                                                                                  |
 
 **New in Sprint 4 (not in #86's list):** `review_queue_items` — the Scheduling & Remediation
 Engine's output queue (AE-07 / DB-04 / FS-06).
@@ -498,5 +550,10 @@ Engine's output queue (AE-07 / DB-04 / FS-06).
 anchor that grounds concepts in the uploaded file (FS-04 excerpt view, AE-02 citations, C5
 verification). Migration `20260727102941_add_documents_concept_sources`.
 
-> When `SessionNote` (and `GradingFeedback`, AE-10) land in Sprint 5, add them here and to
-> [`db/recall-ai.dbml`](db/recall-ai.dbml), then re-export the diagram.
+**Added in Sprint 5 (PA4, #111):** `session_notes` (§3.13) — FS-05 quick notes, closing the gap
+this section used to flag. `GradingFeedback` (AE-10) remains deferred; there is no table for it
+yet.
+
+**13 tables total** as of this revision: `users`, `study_plans`, `concepts`, `concept_edges`,
+`analysis_jobs`, `question_cache`, `interview_sessions`, `interview_turns`, `focus_sessions`,
+`review_queue_items`, `documents`, `concept_sources`, `session_notes`.

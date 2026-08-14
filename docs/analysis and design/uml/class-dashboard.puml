@@ -1,0 +1,79 @@
+@startuml RecallAI-ClassDiagram-Dashboard
+!pragma layout smetana
+' SAD Section 4.9 — Component: Dashboard & Visualization (DB module). Issue #111 (PA4).
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam class {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Dashboard & Visualization Component (aggregation layer)
+
+package "Server" {
+  class DashboardController <<controller>> {
+    +getDashboardStatsController(req, res)
+  }
+  class DashboardService <<service>> {
+    +getDashboardStats(userId) DashboardStatsResponse
+  }
+  class DashboardStatsUtil <<util>> {
+    +computeStreakDays(activeDateKeys, now) number
+    +getStreakLookbackStartUtc(now) Date
+    +getVnWeekStartUtc(now) Date
+    +toVnDateKey(date) string
+  }
+  class PrismaClient <<external>>
+}
+
+package "Client · features/dashboard" {
+  class useAsyncResource <<hook>> {
+    +data : T | null
+    +loading : boolean
+    +error : boolean
+    +reload()
+  }
+  class dashboardApi <<module>> {
+    +getStats() DashboardStats
+  }
+  class StatStrip <<component>> {
+    +render()
+  }
+  class MiniConceptGraph <<component>> {
+    +render()
+  }
+  class TodayNudge <<component>> {
+    +render()
+  }
+  class DeadlinePanel <<component>> {
+    +render()
+  }
+}
+
+package "Composed from other §4 components (not owned by Dashboard)" #FFF8F0 {
+  class ConceptGraph <<component>> {
+    <<from §4.5 Study-Plan & Concept-Graph>>
+  }
+  class planApi <<module>> {
+    <<from §4.5 Study-Plan & Concept-Graph>>
+  }
+  class reviewQueueApi <<module>> {
+    <<from Scheduling & Remediation Engine>>
+    +getToday(limit) ReviewQueueListResponse
+    +updateReviewQueueItem(itemId, status)
+    +snoozeReviewQueueItem(itemId)
+  }
+}
+
+DashboardController ..> DashboardService : delegates
+DashboardService ..> DashboardStatsUtil : streak / week-boundary (pure, R05)
+DashboardService ..> PrismaClient
+
+StatStrip ..> useAsyncResource
+StatStrip ..> dashboardApi
+MiniConceptGraph ..> ConceptGraph : reuses
+MiniConceptGraph ..> planApi
+TodayNudge ..> reviewQueueApi
+DeadlinePanel ..> reviewQueueApi
+dashboardApi ..> DashboardController : HTTP\nGET /dashboard/stats
+
+@enduml

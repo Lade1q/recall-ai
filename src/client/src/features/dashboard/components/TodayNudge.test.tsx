@@ -41,6 +41,7 @@ function makeResponse(overrides: Partial<ReviewQueueListResponse> = {}): ReviewQ
   return {
     items: [makeItem()],
     message: null,
+    noScheduleNote: null,
     totalEstimatedMinutes: 14,
     ...overrides,
   };

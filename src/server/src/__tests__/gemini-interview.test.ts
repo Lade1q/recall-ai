@@ -42,8 +42,23 @@ const GRADE_PARAMS = {
 
 const okQuestion = { question_text: 'What is a stack?', question_type: 'recall' };
 
+const okExtract = {
+  concepts: [{ name: 'Stack', difficulty: 1 }],
+  edges: [],
+  language_detected: 'en',
+};
+
 function reply(payload: unknown) {
   return { output_text: JSON.stringify(payload) };
+}
+
+/** Sets an env var, or deletes it when `value` is undefined — `= undefined` stringifies. */
+function restoreEnv(key: string, value: string | undefined) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
 }
 
 describe('AI Examiner Gemini calls', () => {
@@ -293,6 +308,67 @@ describe('AI Examiner Gemini calls', () => {
       } finally {
         jest.useRealTimers();
       }
+    });
+  });
+
+  // Both model IDs are read once at module load, so the fallback is only ever exercised by an
+  // env that never set them — production, not the dev .env which pins both. A retired ID there
+  // makes every call fail HTTP 404 rather than degrade, and the two defaults drifted apart once
+  // already (extract kept the original pinned `gemini-2.5-flash`, since retired). So pin the
+  // rule the README states — a rolling `-latest` alias, shared by both calls — not a literal.
+  describe('model defaults', () => {
+    const ORIGINAL_EXTRACT = process.env.GEMINI_MODEL_EXTRACT;
+    const ORIGINAL_INTERVIEW = process.env.GEMINI_MODEL_INTERVIEW;
+
+    afterEach(() => {
+      restoreEnv('GEMINI_MODEL_EXTRACT', ORIGINAL_EXTRACT);
+      restoreEnv('GEMINI_MODEL_INTERVIEW', ORIGINAL_INTERVIEW);
+    });
+
+    /** Re-imports the service with both model vars forced to `value` (unset when undefined). */
+    async function loadServiceWithModelEnv(value: string | undefined) {
+      restoreEnv('GEMINI_MODEL_EXTRACT', value);
+      restoreEnv('GEMINI_MODEL_INTERVIEW', value);
+
+      let service!: typeof import('../services/gemini.service');
+      await jest.isolateModulesAsync(async () => {
+        service = await import('../services/gemini.service');
+      });
+      return service;
+    }
+
+    /** The model each call actually sent, read off the SDK spy. */
+    async function modelsSentBy(service: typeof import('../services/gemini.service')) {
+      mockCreate.mockResolvedValue(reply(okExtract));
+      await service.extractConcepts(MATERIAL);
+      mockCreate.mockResolvedValue(reply(okQuestion));
+      await service.generateQuestion(QUESTION_PARAMS);
+
+      const [extract, interview] = mockCreate.mock.calls.map((call) => call[0].model);
+      return { extract, interview };
+    }
+
+    it('falls back to one rolling -latest alias for both calls when neither var is set', async () => {
+      const { extract, interview } = await modelsSentBy(await loadServiceWithModelEnv(undefined));
+
+      expect(extract).toMatch(/-latest$/);
+      expect(interview).toBe(extract);
+    });
+
+    it('treats a blank env value as unset instead of sending an empty model', async () => {
+      const { extract, interview } = await modelsSentBy(await loadServiceWithModelEnv('   '));
+
+      expect(extract).toMatch(/-latest$/);
+      expect(interview).toBe(extract);
+    });
+
+    it('still honours an explicit override', async () => {
+      const { extract, interview } = await modelsSentBy(
+        await loadServiceWithModelEnv('gemini-3.5-flash')
+      );
+
+      expect(extract).toBe('gemini-3.5-flash');
+      expect(interview).toBe('gemini-3.5-flash');
     });
   });
 });

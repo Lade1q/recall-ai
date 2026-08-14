@@ -120,7 +120,8 @@ describe('FocusPage — entry branches', () => {
     vi.mocked(reviewQueueApi.getToday).mockResolvedValue({
       items: [makeItem({ name: 'Array' })],
       message: null,
-      totalEstimatedMinutes: 6,
+      noScheduleNote: null,
+      totalEstimatedMinutes: 0,
     });
 
     render(<FocusPage />, { ...LOGGED_IN });
@@ -133,6 +134,7 @@ describe('FocusPage — entry branches', () => {
     vi.mocked(reviewQueueApi.getToday).mockResolvedValue({
       items: [],
       message: null,
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     });
 
@@ -187,6 +189,7 @@ describe('FocusPage — interrupted-session resume (owner guard)', () => {
     vi.mocked(reviewQueueApi.getToday).mockResolvedValue({
       items: [],
       message: null,
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     });
 
@@ -218,6 +221,7 @@ describe('FocusPage — interrupted-session resume (owner guard)', () => {
     vi.mocked(reviewQueueApi.getToday).mockResolvedValue({
       items: [],
       message: null,
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     });
 
@@ -262,6 +266,7 @@ describe('FocusPage — orphan cleanup for sessions too short to offer (#311)', 
     vi.mocked(reviewQueueApi.getToday).mockResolvedValue({
       items: [],
       message: null,
+      noScheduleNote: null,
       totalEstimatedMinutes: 0,
     });
   });

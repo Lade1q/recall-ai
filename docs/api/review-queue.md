@@ -200,6 +200,55 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   `screen-plan-review-queue.html` (§3) — vì đây không phải đã ôn xong, và vẽ chung màn "đã ôn
   hết" sẽ chôn luôn đường đưa lại. Nhóm đã gỡ mở sẵn trong trạng thái này.
 
+- **Đã vấn đáp nhưng khái niệm trong lịch cũ đã bị gỡ (#345):** kế hoạch từng có kết quả chấm, rồi
+  SP-05 phân tích lại gỡ hết những khái niệm đang nằm trong lịch. Sau #344 hàng đợi không còn hiện
+  chúng nữa, nên endpoint trả về **danh sách gợi ý A3** — tức `items` **khác rỗng** và `message`
+  theo định nghĩa là `null`. Câu giải thích đi bằng field riêng **`noScheduleNote`**:
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [{ "id": null, "conceptId": "…", "…": "…" }],
+      "message": null,
+      "noScheduleNote": "Kế hoạch này đã được phân tích lại, nên những khái niệm trong lịch ôn trước đó không còn trong nội dung hiện tại. Làm một phiên với nội dung mới để có lịch thật.",
+      "totalEstimatedMinutes": 21
+    }
+  }
+  ```
+
+  `noScheduleNote` là `null` ở **mọi** ca khác — kể cả ca "chưa vấn đáp bao giờ", vốn cũng hiện
+  gợi ý A3 nhưng dùng câu **của client** (ngoại lệ #273/#124). Chính vì thế nó phải là field
+  riêng chứ không phải một câu thứ hai nhét vào `message`: `noScheduleNote !== null` **là** dấu
+  hiệu phân biệt hai ca, khỏi bắt FE dò chuỗi.
+
+- **Kế hoạch `active` mà đồ thị rỗng (#345):** không còn khái niệm `status: 'active'` nào (phân
+  tích lại gỡ hết, hoặc `PUT /graph` với `concepts: []`). `items` rỗng, và envelope mang thêm
+  **`hasActiveConcepts: false`**:
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "items": [],
+      "message": "Kế hoạch này hiện không có khái niệm nào, nên chưa có gì để ôn. Thêm khái niệm vào đồ thị hoặc phân tích lại tài liệu để bắt đầu.",
+      "noScheduleNote": null,
+      "hasActiveConcepts": false,
+      "totalEstimatedMinutes": 0
+    }
+  }
+  ```
+
+  ⚠️ **`hasActiveConcepts` là dữ kiện, không phải câu chữ** — FE chọn **khung** trạng thái rỗng
+  (icon/tiêu đề/nút) từ nó, đúng như đang chọn theo `plan.status`. Chọn khung bằng cách dò chuỗi
+  trong `message` là thứ field này sinh ra để khỏi phải làm.
+  ⚠️ **Vắng mặt hẳn** (không phải `false`) khi plan chưa `active`: response đó trả về trước khi
+  đếm bất cứ thứ gì, và plan `draft` thì **vẫn có** khái niệm (đang chờ xác nhận) nên `false` sẽ
+  là nói dối chứ không phải giá trị mặc định. Cùng quy ước với `skippedItems`.
+  ⚠️ **Câu này còn là body của `409 NO_CONCEPTS_TO_REVIEW`** khi sinh viên bấm mở phiên trên đúng
+  kế hoạch đó (`POST /interviews` đọc `queue.message` của chính endpoint này). Sửa câu là sửa cả
+  lý do từ chối — có assertion ghim trong test.
+
 - **Plan chưa ở trạng thái `active` (HTTP 200 OK, không phải lỗi):** câu trả về **rẽ theo
   `status`** (#232, sau #265). Guard là `status !== 'active'` nên nó bắt cả `draft` lẫn
   `archived` — hai việc khác hẳn nhau, không dùng chung một câu được:
@@ -304,11 +353,42 @@ tóm tắt phiên không được vẽ nút Đồng ý / Bỏ qua nữa.
   — tức đã từng vấn đáp và giờ không còn mục đến hạn.
 
 - **Có plan `active` nhưng chưa mục nào đến hạn, và chưa plan nào từng vấn đáp (HTTP 200 OK):**
-  trạng thái rỗng **mới** do #273 mở ra khi bỏ fallback khỏi `/today`. `hasHistory=false` nên
-  `resolveEmptyMessage` trả `null` → `{ items: [], message: null, totalEstimatedMinutes: 0 }`.
+  trạng thái rỗng **mới** do #273 mở ra khi bỏ fallback khỏi `/today`. Không plan nào có lịch sử
+  nên `message` là `null` → `{ items: [], message: null, totalEstimatedMinutes: 0 }`.
   #273 **cố ý không** tự chế câu cho ca này — câu chữ + UI (mời tạo phiên vấn đáp / học mới)
   thuộc **#231** (design trạng thái Dashboard) và **#232 phần 4** (chọn câu rỗng). Không được
   dùng câu 🎉 ở đây: chưa ôn gì thì không phải "đã hoàn thành".
+
+#### Chọn câu khi `items` rỗng — bảng 5 nhánh (#345)
+
+Gọi nhánh bằng **tên**, đừng bằng số: ba session soạn phần này đánh số khác nhau và suýt lẫn hai
+nhánh. `L` = **có** plan còn dòng sống · `g` = plan từng được chấm · `C` = plan còn khái niệm active.
+
+| tên            | điều kiện         | `message`                                                                                                                                          |
+| -------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DUE-DONE`     | `some(L)`         | `"Bạn đã hoàn thành kế hoạch hôm nay 🎉"`                                                                                                          |
+| `EMPTY-GRAPH`  | `!L`, `every(!C)` | `"Hôm nay không có gì đến hạn. Kế hoạch của bạn hiện không có khái niệm nào — thêm khái niệm vào đồ thị hoặc phân tích lại tài liệu để bắt đầu."`  |
+| `CHANGED`      | `!L`, `every(g)`  | `"Hôm nay không có gì đến hạn. Nội dung kế hoạch đã thay đổi nên lịch ôn cũ không còn hiệu lực — làm một phiên với nội dung mới để có lịch thật."` |
+| `INVITE`       | `!L`, `every(!g)` | `null` → FE giữ lời mời của riêng nó                                                                                                               |
+| `INVITE-MIXED` | `!L`, `g` lẫn lộn | `null` → **cùng lời mời, mượn CÓ CHỦ ĐÍCH**                                                                                                        |
+
+⚠️ **Ba cờ dùng ba lượng từ khác nhau, và đó là chủ đích.** Lời mời chỉ cần **một** plan thật sự
+sẵn sàng cho phiên đầu là đủ giữ (`some`); còn **chẩn đoán** thì phải đúng với **mọi** plan nó
+đang nói về (`every`). "Thống nhất" ba cờ về cùng một lượng từ là dựng lại đúng bug: bản nháp
+dùng `some` bắn câu "nội dung đã đổi" vào sinh viên mà plan kia chỉ đơn giản là mới, đồng thời
+nuốt mất lời mời duy nhất họ hành động được.
+
+⚠️ `EMPTY-GRAPH` xét **trước** `CHANGED` vì một đồ thị bị xoá sạch thoả **cả hai**; "kế hoạch
+không có khái niệm nào" là chẩn đoán cụ thể hơn và hành động được, còn `CHANGED` sẽ mời họ đi xem
+một đồ thị rỗng.
+
+⚠️ **Câu của `/today` KHÔNG dùng lại câu của mục 1** dù cùng ca: `/today` gộp nhiều kế hoạch nên
+không được nói "Kế hoạch **này**".
+
+⚠️ **Vế cuối nêu VIỆC NGƯỜI DÙNG LÀM, không nêu NƠI NGƯỜI DÙNG TỚI** — nút đã nói nơi rồi. Vì thế
+vế hành động của `CHANGED` **trùng nguyên văn** với câu `noScheduleNote` ở mục 1, và của
+`EMPTY-GRAPH` trùng nguyên văn với câu ca "đồ thị rỗng": bốn câu, hai cặp, không cặp nào lệch chữ
+ở phần việc-phải-làm. Nếu sửa một câu mà cặp của nó lệch theo thì một trong hai đang sai.
 
 - **Không có `includeSkipped` ở endpoint này:** nhóm "đã gỡ" là chuyện của một kế hoạch cụ thể
   (màn Kế hoạch ôn tập), không phải của danh sách gợi ý gộp nhiều plan.

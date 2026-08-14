@@ -18,12 +18,16 @@ import { AnswerInput } from '@/features/interview/components/AnswerInput';
 import { TurnHistory } from '@/features/interview/components/TurnHistory';
 import { VerdictBadge } from '@/features/interview/components/VerdictBadge';
 import { FallbackBanner } from '@/features/interview/components/FallbackBanner';
+import { SessionSummary } from '@/features/interview/components/SessionSummary';
+import { masteryColor } from '@/features/interview/utils/summary-display';
+import { TURN_WEIGHTS } from '@/features/interview/utils/turn-weights';
 import { useInterviewSession } from '@/features/interview/hooks/useInterviewSession';
+import { interviewApi } from '@/features/interview/api/interview.api';
 import type {
   InterviewProgress,
   InterviewTurnResponse,
   SelfGrade,
-  SubmitAnswerResponse,
+  SessionSummaryResponse,
 } from '@/features/interview/types/interview.types';
 
 /**
@@ -49,15 +53,6 @@ import type {
  */
 const NO_CACHED_QUESTIONS_MESSAGE =
   'AI hiện chưa khả dụng và khái niệm này chưa có câu hỏi lưu sẵn. Hãy thử lại sau.';
-
-/**
- * Trọng số mỗi lượt trong công thức trung bình có trọng số của `mastery_score` (UC-Overview
- * §5.4) — khớp `TURN_WEIGHTS` (`src/server/src/utils/mastery.ts:19`). Đây là hằng số cố định
- * của cả hệ thống (định nghĩa luôn C6: `MAX_TURNS_PER_CONCEPT = TURN_WEIGHTS.length`), không
- * phải dữ liệu riêng của phiên — hiện ra không phải bịa, cùng cách `MAX_TURNS_PER_CONCEPT` đã
- * được hardcode phía client. Chỉ áp dụng khi phiên dùng đúng trần mặc định (xem nơi dùng).
- */
-const TURN_WEIGHTS = [0.2, 0.3, 0.5] as const;
 
 /**
  * Ba mức tự chấm của chế độ flashcard (AE-05). Con số chỉ để sinh viên biết mình đang gán
@@ -91,19 +86,17 @@ export default function InterviewSessionPage() {
     [navigate]
   );
 
-  const handleCompleted = useCallback(
-    (result: SubmitAnswerResponse): void => {
-      exitToDashboard(() => {
-        if (result.fallback?.reason === 'no_cached_questions') {
-          toast.warning(NO_CACHED_QUESTIONS_MESSAGE);
-        } else {
-          toast.success('Bạn đã hoàn thành phiên kiểm tra.');
-        }
-      });
-    },
-    [exitToDashboard]
-  );
-
+  /**
+   * Phiên vừa chốt xong. Đường thuận KHÔNG rời trang nữa: AE-09 là trạng thái cuối của chính
+   * màn này (#119 AC1 — "không điều hướng, không mất ngữ cảnh phiên"), và #118 cũng đã ghi
+   * "hết khái niệm → chuyển sang màn kết quả (I6.7)". Redirect về Dashboard trước đây là bản
+   * tạm dựng lúc I6.7 chưa tồn tại. Không toast "đã hoàn thành" nữa — màn kết quả hiện ra
+   * ngay bên dưới đã nói đúng điều đó, rõ hơn một dòng toast biến mất sau vài giây.
+   *
+   * Không cần `onCompleted` nữa: mọi nhánh của một phiên `completed` — kể cả E1 — đều được
+   * quyết ở effect bên dưới, nơi đọc được cả transcript. Hai đường rẽ song song cho cùng một
+   * sự kiện là cách chắc chắn để chúng lệch nhau về sau.
+   */
   const {
     session,
     currentQuestion,
@@ -116,28 +109,68 @@ export default function InterviewSessionPage() {
     submitSelfGrade,
     pause,
     refetch,
-  } = useInterviewSession(sessionId, { onCompleted: handleCompleted });
+  } = useInterviewSession(sessionId);
 
-  // BUG-2: mở URL của một phiên đã ở trạng thái kết thúc (completed/abandoned) — ví dụ
-  // reload sau khi xong, hoặc phiên bị bỏ dở. `onCompleted` chỉ bắn sau khi gửi nên
-  // không phủ trường hợp này; ở đây phát hiện lúc load rồi đưa người dùng ra ngoài
-  // (màn kết quả I6.7 là issue riêng, toast + redirect là mức xử lý tối thiểu đúng).
+  // Phiên đã ở trạng thái kết thúc lúc mở URL (reload sau khi xong, hoặc phiên bị bỏ dở).
+  // `onCompleted` chỉ bắn sau khi gửi nên không phủ trường hợp này — phát hiện lúc load rồi
+  // rẽ nhánh ở đây. Một `completed` bình thường thì TẢI TỔNG KẾT và ở lại (I6.7); reload màn
+  // kết quả phải ra đúng màn kết quả, không đá người dùng đi đâu cả.
   //
-  // Không phải mọi phiên kết thúc đều là "làm xong": GET có thể vừa chạy nhánh E1 (AI hỏng
-  // + khái niệm không có câu hỏi cache) và tự đóng phiên. Nói "Phiên đã kết thúc" ở đó là
-  // để người dùng tưởng mình đã hoàn thành bài kiểm tra.
+  // Hai ngoại lệ vẫn đi ra ngoài, vì không phải phiên kết thúc nào cũng là "làm xong":
+  //  - `abandoned`: phiên bỏ dở, phần tổng kết một phần thuộc màn Lịch sử DB-03 (#245/#246).
+  //  - nhánh E1 (AI hỏng + khái niệm không có câu hỏi cache) mà CHƯA chấm được lượt nào: không
+  //    có gì để tổng kết, hiện màn kết quả rỗng còn tệ hơn một dòng thông báo.
   const sessionStatus = session?.status;
   const fallbackReason = fallback?.reason;
+
+  // Cờ "phiên này có kết quả thật hay không" phải đọc từ verdict của CHÍNH phiên này. Không
+  // được suy từ `concept.masteryScore`: điểm đó có thể còn sót lại từ một phiên trước, và một
+  // phiên rỗng sẽ bị nhận nhầm là đã có điểm.
+  const hasGradedTurn = turns.some((turn) => turn.verdict !== null);
+  const endedEarlyByAiOutage = fallbackReason === 'no_cached_questions';
+  const isEmptyAiOutage = endedEarlyByAiOutage && !hasGradedTurn;
+
+  const [summaryData, setSummaryData] = useState<SessionSummaryResponse | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  // TODO(@reviewer): Chỗ lấy lại summary khi thất bại đang dùng cách tăng biến đếm để trigger lại useEffect. Lần tới đụng vào file này mình sẽ refactor tách hàm fetch riêng ra cho chuẩn React pattern hơn.
+  // Tăng lên để chạy lại effect tải tổng kết. Lần gọi đầu của một phiên chưa cache phải chờ
+  // AI, và AI có thể hỏng hoặc quá tải — không có đường thử lại thì màn kết quả của cả một
+  // phiên 30 phút mất trắng chỉ vì một lời gọi.
+  const [summaryAttempt, setSummaryAttempt] = useState(0);
+
   useEffect(() => {
-    if (sessionStatus !== 'completed' && sessionStatus !== 'abandoned') return;
-    exitToDashboard(() => {
-      if (fallbackReason === 'no_cached_questions') {
-        toast.warning(NO_CACHED_QUESTIONS_MESSAGE);
-      } else {
-        toast.info('Phiên đã kết thúc.');
+    if (sessionStatus === 'abandoned') {
+      exitToDashboard(() => {
+        toast.info('Phiên đã bị huỷ bỏ.');
+      });
+      return;
+    }
+
+    if (sessionStatus === 'completed') {
+      if (isEmptyAiOutage) {
+        exitToDashboard(() => toast.warning(NO_CACHED_QUESTIONS_MESSAGE));
+        return;
       }
-    });
-  }, [sessionStatus, fallbackReason, exitToDashboard]);
+
+      let isMounted = true;
+      if (sessionId) {
+        interviewApi
+          .getSummary(sessionId)
+          .then((data) => {
+            if (isMounted) setSummaryData(data);
+          })
+          .catch((err) => {
+            if (isMounted) {
+              console.error('Failed to load summary:', err);
+              setSummaryError('Không thể lấy kết quả tổng hợp. Hãy thử lại sau.');
+            }
+          });
+      }
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [sessionStatus, isEmptyAiOutage, exitToDashboard, sessionId, summaryAttempt]);
 
   // Lượt đang chờ đã mang câu trả lời (echo lạc quan lúc gửi, hoặc một câu trả lời đã lưu mà
   // lượt chấm bị hỏng) thì chính TurnHistory vẽ cặp câu hỏi + câu trả lời: bỏ lọc lượt đó và
@@ -226,6 +259,84 @@ export default function InterviewSessionPage() {
           <Button variant="outline" onClick={() => void refetch()}>
             Thử lại
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // AE-09 — trạng thái cuối của CHÍNH màn này, không phải route riêng (#119, epic #220).
+  // Giữ nguyên chrome `.ex-top` của phiên để không mất ngữ cảnh; chỉ phần thân đổi nội dung.
+  if (session && session.status === 'completed' && !isEmptyAiOutage) {
+    if (summaryError) {
+      return (
+        <div className="flex h-full items-center justify-center p-4">
+          <div className="border-border bg-card w-full max-w-lg rounded-xl border px-7 py-6 text-center">
+            <p className="text-muted-foreground mb-5 text-[13.5px] leading-[1.7]">{summaryError}</p>
+            <div className="flex justify-center gap-2.5">
+              <Button
+                onClick={() => {
+                  // Xoá lỗi ngay tại chỗ bấm (không trong effect): trang quay lại trạng thái
+                  // "đang tổng hợp kết quả…" nên người dùng thấy việc thử lại đang chạy thật.
+                  setSummaryError(null);
+                  setSummaryAttempt((attempt) => attempt + 1);
+                }}
+              >
+                Thử lại
+              </Button>
+              <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                Về Dashboard
+              </Button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!summaryData) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="text-muted-foreground size-6 animate-spin" />
+            <p className="text-muted-foreground text-[14px]">Đang tổng hợp kết quả…</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-background grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+        <header className="border-border bg-card grid grid-cols-[1fr_auto_1fr] items-center gap-5 border-b px-6 py-3">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <Button variant="outline" size="sm" onClick={() => navigate('/dashboard')}>
+              <ArrowLeft />
+              Về Dashboard
+            </Button>
+            <h1 className="truncate text-sm font-semibold">Kết quả kiểm tra</h1>
+          </div>
+
+          {/* `.ex-top__mid` của mockup ở trạng thái cuối: mét tiến độ giữ nguyên chỗ cũ nhưng
+              giờ tô theo điểm thật của từng khái niệm, không còn ba trạng thái trung tính. */}
+          <ResultMeter concepts={summaryData.concepts} className="hidden md:flex" />
+
+          <div className="flex items-center justify-end gap-3">
+            <span
+              className="text-muted-foreground font-mono text-[13px] tabular-nums"
+              title="Thời lượng phiên"
+            >
+              {summaryData.durationMinutes} phút
+            </span>
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-8 lg:px-8">
+          <SessionSummary
+            summary={summaryData}
+            turns={turns}
+            planId={session.planId}
+            endedEarlyByAiOutage={endedEarlyByAiOutage}
+            startedAt={session.startedAt}
+            endedAt={session.endedAt}
+          />
         </div>
       </div>
     );
@@ -598,6 +709,35 @@ function SessionClock({ startedAt }: { startedAt: string }) {
     >
       {text}
     </span>
+  );
+}
+
+/**
+ * Mét tiến độ của trạng thái cuối: cùng chỗ, cùng hình với `ConceptMeter` lúc đang chạy, nhưng
+ * tô theo `mastery_score` thật vì lúc này mọi khái niệm đều đã chốt điểm.
+ */
+function ResultMeter({
+  concepts,
+  className,
+}: {
+  concepts: SessionSummaryResponse['concepts'];
+  className?: string;
+}) {
+  return (
+    <div className={cn('flex items-center gap-2.5', className)}>
+      <div className="flex items-center gap-1" aria-hidden="true">
+        {concepts.map((concept) => (
+          <span
+            key={concept.conceptId}
+            className="h-1 w-6 rounded-full"
+            style={{ backgroundColor: masteryColor(concept.masteryScore) }}
+          />
+        ))}
+      </div>
+      <MetaMono className="text-muted-foreground whitespace-nowrap text-xs">
+        {concepts.length} / {concepts.length} khái niệm
+      </MetaMono>
+    </div>
   );
 }
 

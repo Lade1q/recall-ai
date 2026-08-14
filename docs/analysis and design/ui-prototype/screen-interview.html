@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recall AI — Phiên kiểm tra vấn đáp [Prototype]</title>
+  <link rel="stylesheet" href="tokens.css" />
+  <style>
+    /*
+      ui-prototype/screen-interview.html
+      Interactive prototype -- state machine JS, single file.
+      KHONG sua claude-design/screen-interview.html.
+      CSS tai su dung ten class từ spec sheet de de so sanh.
+    */
+    body { --recording: var(--destructive); }
+
+    .sr-only {
+      position:absolute; width:1px; height:1px; padding:0;
+      margin:-1px; overflow:hidden; clip:rect(0 0 0 0);
+      white-space:nowrap; border:0;
+    }
+    a.btn { text-decoration:none; }
+    .btn:focus-visible, textarea:focus-visible {
+      outline:2px solid var(--ring); outline-offset:2px;
+    }
+    code {
+      font-family:var(--font-mono); font-size:11.5px;
+      background:var(--muted); border:1px solid var(--border);
+      padding:1px 5px; border-radius:4px;
+    }
+    kbd {
+      font-family:var(--font-mono); font-size:11px;
+      border:1px solid var(--border); border-radius:3px;
+      padding:1px 5px; background:var(--muted);
+    }
+
+    /* ===== Proto state bar (bottom-right, hidden on print) ===== */
+    .proto-bar {
+      position:fixed; bottom:16px; right:16px; z-index:200;
+      display:flex; align-items:center; gap:4px;
+      background:var(--card); border:1px solid var(--border);
+      border-radius:9999px; padding:5px 10px;
+      box-shadow:0 2px 12px oklch(0 0 0 / 0.1);
+    }
+    .proto-bar__label {
+      color:var(--muted-foreground); font-family:var(--font-mono);
+      font-size:11px; padding:0 4px; white-space:nowrap;
+    }
+    .pb-btn {
+      background:none; border:1px solid transparent; border-radius:9999px;
+      padding:3px 9px; font-family:var(--font-sans); font-size:11px;
+      color:var(--muted-foreground); cursor:pointer; white-space:nowrap;
+      transition:all var(--duration-fast);
+    }
+    .pb-btn.is-active { background:var(--foreground); color:var(--background); }
+    .pb-btn:not(.is-active):hover { background:var(--muted); color:var(--foreground); }
+    @media print { .proto-bar { display:none; } }
+
+    /* ===== Layout shell ===== */
+    .ex-shell {
+      display:grid;
+      grid-template-rows:auto minmax(0,1fr);
+      height:100dvh; min-height:560px; overflow:hidden;
+    }
+
+    /* ===== Top bar ===== */
+    .ex-top {
+      display:grid; grid-template-columns:1fr auto 1fr;
+      align-items:center; gap:20px;
+      padding:12px 24px; border-bottom:1px solid var(--border);
+      background:var(--card);
+    }
+    .ex-top__lead { display:flex; align-items:center; gap:14px; min-width:0; }
+    .ex-top__id   { display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .ex-top__title { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ex-top__plan  { font-size:12px; color:var(--muted-foreground); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ex-top__mid   { display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .ex-top__right { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
+    .clock { font-family:var(--font-mono); font-size:13px; font-variant-numeric:tabular-nums; color:var(--muted-foreground); }
+
+    .exit {
+      display:inline-flex; align-items:center; gap:7px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.6);
+      background:var(--card); color:var(--foreground);
+      font-family:var(--font-sans); font-size:13px; font-weight:500;
+      padding:7px 12px 7px 10px; cursor:pointer;
+      transition:background var(--duration-fast);
+    }
+    .exit:hover { background:var(--muted); }
+
+    /* Meter bar (concept progress) */
+    .meter { display:flex; gap:3px; }
+    .meter__seg { width:28px; height:5px; border-radius:2px; background:var(--muted); }
+    .meter__seg--strong   { background:var(--mastery-strong); }
+    .meter__seg--learning { background:var(--mastery-learning); }
+    .meter__seg--weak     { background:var(--mastery-weak); }
+    .meter__seg--now      { background:var(--foreground); }
+    .meter__text { font-size:11px; color:var(--muted-foreground); font-family:var(--font-mono); }
+
+    /* Mode toggle seg */
+    .seg {
+      display:inline-flex; align-items:center; gap:2px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.7);
+      background:var(--muted); padding:2px;
+    }
+    .seg button {
+      display:inline-flex; align-items:center; gap:5px;
+      border:none; border-radius:calc(var(--radius)*0.55);
+      background:none; font-family:var(--font-sans); font-size:12px;
+      color:var(--muted-foreground); padding:5px 10px; cursor:pointer;
+    }
+    .seg button[aria-pressed="true"] {
+      background:var(--card); color:var(--foreground); font-weight:500;
+      box-shadow:0 1px 3px oklch(0 0 0 / 0.08);
+    }
+
+    /* ===== Body (rail + conv) ===== */
+    .ex-body {
+      display:grid; grid-template-columns:240px minmax(0,1fr); overflow:hidden;
+    }
+
+    /* ===== Rail ===== */
+    .rail {
+      display:flex; flex-direction:column; gap:20px;
+      border-right:1px solid var(--border); padding:18px 14px;
+      overflow-y:auto; background:var(--sidebar);
+    }
+    .rail__label {
+      font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+      color:var(--muted-foreground); margin:0 0 8px;
+    }
+
+    /* Queue items */
+    .qitem {
+      display:flex; align-items:baseline; gap:8px;
+      padding:8px 10px; border-radius:calc(var(--radius)*0.7);
+      font-size:13px; border:1px solid transparent;
+    }
+    .qitem--done { background:var(--muted); color:var(--muted-foreground); }
+    .qitem--now  { background:var(--accent); border-color:var(--border); font-weight:600; }
+    .qitem--wait { color:var(--muted-foreground); }
+    .qitem__no    { font-family:var(--font-mono); font-size:11px; color:var(--muted-foreground); flex:none; }
+    .qitem__score { margin-left:auto; font-family:var(--font-mono); font-size:12px; flex:none; }
+
+    /* Turn rows */
+    .turnbox { display:flex; flex-direction:column; gap:2px; }
+    .turnrow {
+      display:flex; align-items:center; gap:8px;
+      padding:6px 8px; border-radius:calc(var(--radius)*0.55); font-size:12.5px;
+    }
+    .turnrow--now    { background:var(--accent); font-weight:600; }
+    .turnrow--locked { color:var(--muted-foreground); }
+    .turnrow__n { font-family:var(--font-mono); font-size:11px; color:var(--muted-foreground); flex:none; }
+    .turnrow__w { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--muted-foreground); }
+
+    /* ===== Conv wrap ===== */
+    .conv-wrap {
+      display:grid; grid-template-rows:auto minmax(0,1fr) auto; overflow:hidden;
+    }
+
+    /* Concept bar */
+    .cbar {
+      display:flex; align-items:center; gap:16px;
+      padding:12px 24px; border-bottom:1px solid var(--border);
+      background:var(--background);
+    }
+    .cbar__id   { flex:1; min-width:0; }
+    .cbar__concept { font-family:var(--font-heading); font-size:18px; letter-spacing:-.02em; margin:0; line-height:1.2; }
+    .cbar__pos  { font-size:12px; color:var(--muted-foreground); }
+    .pips { display:inline-flex; gap:4px; margin-right:6px; }
+    .pip { width:7px; height:7px; border-radius:9999px; background:var(--muted); display:inline-block; }
+    .pip--done { background:var(--mastery-strong); }
+    .pip--now  { background:var(--foreground); }
+    .cbar__turn { font-size:13px; color:var(--muted-foreground); margin:2px 0 0; white-space:nowrap; }
+    .linkish {
+      background:none; border:0; font-family:var(--font-sans); font-size:13px;
+      color:var(--muted-foreground); cursor:pointer; text-decoration:underline;
+      text-underline-offset:2px; padding:0;
+    }
+    .linkish:hover { color:var(--foreground); }
+
+    /* Chat log */
+    .conv { overflow-y:auto; padding:20px 24px; }
+    .conv__inner { display:flex; flex-direction:column; gap:16px; max-width:680px; }
+
+    .turn        { display:flex; flex-direction:column; gap:10px; }
+    .turn__label {
+      display:flex; justify-content:space-between;
+      font-size:11px; font-family:var(--font-mono);
+      text-transform:uppercase; letter-spacing:.06em;
+      color:var(--muted-foreground); margin:0 0 2px;
+    }
+
+    .chat-bubble-ai {
+      background:oklch(from var(--ai-accent) l c h / 0.08);
+      border:1px solid oklch(from var(--ai-accent) l c h / 0.3);
+      border-radius:calc(var(--radius)*1.35) calc(var(--radius)*1.35) calc(var(--radius)*1.35) 2px;
+      padding:14px 18px; font-size:14px; line-height:1.65;
+    }
+    .chat-bubble-user {
+      background:var(--secondary); border:1px solid var(--border);
+      border-radius:calc(var(--radius)*1.35) calc(var(--radius)*1.35) 2px calc(var(--radius)*1.35);
+      padding:14px 18px; font-size:14px; line-height:1.65; align-self:flex-end;
+      max-width:90%;
+    }
+    .cite {
+      display:flex; align-items:center; gap:6px;
+      margin-top:8px; font-size:11.5px; color:var(--muted-foreground);
+    }
+    .cite a { color:var(--muted-foreground); }
+
+    /* Grade block */
+    .grade {
+      border-radius:calc(var(--radius)*0.8); padding:12px 14px;
+      border:1px solid var(--border); background:var(--card);
+    }
+    .grade--deep    { border-left:3px solid var(--mastery-strong); }
+    .grade--shallow { border-left:3px solid var(--mastery-learning); }
+    .grade--wrong   { border-left:3px solid var(--mastery-weak); }
+    .grade__head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .grade__score  { font-family:var(--font-mono); font-size:15px; font-variant-numeric:tabular-nums; }
+    .grade__weight { font-size:12px; color:var(--muted-foreground); margin-left:auto; }
+    .grade__text   { font-size:13px; line-height:1.65; margin:0; }
+    .grade__foot   { margin-top:8px; }
+
+    /* Badge */
+    .badge {
+      display:inline-flex; align-items:center; gap:4px;
+      font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+      padding:2px 8px; border-radius:9999px;
+    }
+
+    /* System log */
+    .sys {
+      font-size:12px; color:var(--muted-foreground);
+      padding:6px 0; display:flex; gap:8px; align-items:baseline;
+    }
+    .sys__tag {
+      font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
+      letter-spacing:.06em; background:var(--muted); border-radius:4px;
+      padding:1px 6px; flex:none;
+    }
+
+    /* Skeleton loading */
+    .skel {
+      display:flex; flex-direction:column; gap:9px; padding:14px 18px;
+      background:oklch(from var(--ai-accent) l c h / 0.05);
+      border:1px solid oklch(from var(--ai-accent) l c h / 0.2);
+      border-radius:calc(var(--radius)*1.35) calc(var(--radius)*1.35) calc(var(--radius)*1.35) 2px;
+    }
+    .skel__line {
+      height:11px; border-radius:3px;
+      background:oklch(from var(--ai-accent) l c h / 0.2);
+      animation:skel-fade 1.5s ease infinite;
+    }
+    .skel__line:nth-child(2) { width:80%; animation-delay:160ms; }
+    .skel__line:nth-child(3) { width:55%; animation-delay:320ms; }
+    @keyframes skel-fade { 0%,100%{opacity:.4} 50%{opacity:1} }
+    .thinking {
+      display:flex; align-items:center; gap:8px;
+      font-size:12px; color:var(--muted-foreground); margin-top:8px;
+    }
+
+    /* Self-grade flashcard */
+    .flash-card {
+      background:oklch(from var(--ai-accent) l c h / 0.06);
+      border:1px solid oklch(from var(--ai-accent) l c h / 0.25);
+      border-radius:calc(var(--radius)*1.1); padding:18px 20px;
+    }
+    .flash-card__q    { font-size:12.5px; color:var(--muted-foreground); margin:0 0 6px; }
+    .flash-card__body {
+      font-family:var(--font-heading); font-size:17px;
+      letter-spacing:-.01em; line-height:1.55; margin:0 0 16px;
+    }
+    .flash-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .self-grade {
+      display:inline-flex; align-items:center; gap:7px;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.7);
+      background:var(--background); padding:9px 16px;
+      font-family:var(--font-sans); font-size:13px; font-weight:500; cursor:pointer;
+    }
+    .self-grade:hover { border-color:var(--muted-foreground); }
+    .self-grade__val { font-family:var(--font-mono); font-size:11px; color:var(--muted-foreground); }
+    .fallback-note {
+      font-size:12px; color:var(--muted-foreground); line-height:1.55;
+      margin:12px 0 0; padding:10px 14px; background:var(--muted);
+      border-radius:calc(var(--radius)*0.7);
+    }
+
+    /* Paused confirm panel */
+    .confirm {
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.9);
+      background:var(--card); padding:20px 22px;
+    }
+    .confirm__title  { font-size:15px; font-weight:600; margin:0 0 8px; }
+    .confirm__body   { font-size:13px; line-height:1.62; color:var(--muted-foreground); margin:0 0 16px; }
+    .confirm__actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+    /* Answer dock */
+    .dock { border-top:1px solid var(--border); background:var(--card); padding:14px 24px 16px; }
+    .composer { display:flex; flex-direction:column; gap:10px; }
+    textarea#answer {
+      width:100%; min-height:72px; max-height:160px; resize:vertical;
+      border:1px solid var(--border); border-radius:calc(var(--radius)*0.8);
+      padding:12px 14px; font-family:var(--font-sans); font-size:14px; line-height:1.6;
+      color:var(--foreground); background:var(--background);
+      transition:border-color var(--duration-fast);
+    }
+    textarea#answer:focus { border-color:var(--ring); outline:2px solid oklch(from var(--ring) l c h / 0.15); }
+    .dock__bar {
+      display:flex; align-items:center; gap:14px;
+      font-size:12px; color:var(--muted-foreground);
+    }
+    .dock__count { margin-left:auto; font-size:11px; font-family:var(--font-mono); }
+
+    /* Overlay (paused / fallback) */
+    .overlay {
+      display:none; position:fixed; inset:0; z-index:100;
+      background:oklch(0 0 0 / 0.5); align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .overlay.is-active { display:flex; }
+    .overlay-box { max-width:520px; width:100%; }
+
+    /* Responsive */
+    @media (max-width:1080px) {
+      .ex-body { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
+      .rail { flex-direction:row; padding:10px 20px; border-right:0; border-bottom:1px solid var(--border); overflow-x:auto; overflow-y:hidden; }
+      .rail__label, .rail__turns, .rail__note { display:none; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *, *::before, *::after { animation-duration:0.01ms !important; transition-duration:0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Prototype state switcher (bottom-right pill) ══ -->
+<nav class="proto-bar" aria-label="Chuyển trạng thái prototype">
+  <span class="proto-bar__label">State:</span>
+  <button class="pb-btn" id="pb-asking"   onclick="goState('asking')">Đang hỏi</button>
+  <button class="pb-btn" id="pb-loading"  onclick="goState('loading')">Loading AI</button>
+  <button class="pb-btn" id="pb-graded"   onclick="goState('graded')">Đã chấm</button>
+  <button class="pb-btn" id="pb-paused"   onclick="goState('paused')">Tạm dừng</button>
+  <button class="pb-btn" id="pb-fallback" onclick="goState('fallback')">Flashcard (AE-05)</button>
+  <button class="pb-btn" id="pb-done"     onclick="goState('done')">Kết thúc phiên</button>
+</nav>
+
+<!-- ══ MAIN INTERVIEW SHELL ══ -->
+<div class="ex-shell">
+
+  <!-- Top bar (always visible during live states) -->
+  <header class="ex-top">
+    <div class="ex-top__lead">
+      <!-- AE-02 Alt: Tạm dừng & thoat -->
+      <button class="exit" type="button" onclick="goState('paused')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M19 12H5M11 18l-6-6 6-6"/>
+        </svg>
+        Tạm dừng &amp; thoát
+      </button>
+      <div class="ex-top__id">
+        <span class="ex-top__title">Kiểm tra vấn đáp</span>
+        <span class="ex-top__plan">Cấu trúc dữ liệu &amp; Giải thuật</span>
+      </div>
+    </div>
+
+    <div class="ex-top__mid">
+      <div class="meter" aria-hidden="true">
+        <span class="meter__seg meter__seg--strong"></span>
+        <span class="meter__seg meter__seg--learning"></span>
+        <span class="meter__seg meter__seg--now"></span>
+        <span class="meter__seg"></span>
+        <span class="meter__seg"></span>
+      </div>
+      <span class="meter__text" id="header-meter-text">Khái niệm 3 / 5</span>
+    </div>
+
+    <div class="ex-top__right">
+      <span class="clock" id="clock-display">00:00</span>
+      <div class="seg" role="group" aria-label="Chế độ trả lời">
+        <button type="button" aria-pressed="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 7V5h16v2"/><path d="M9 19h6"/><path d="M12 5v14"/>
+          </svg>
+          Gõ
+        </button>
+        <button type="button" aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3"/>
+            <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>
+          </svg>
+          Giọng nói
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Body (rail + conv) -->
+  <div class="ex-body">
+
+    <!-- Left rail -->
+    <aside class="rail" aria-label="Phạm vi bài kiểm tra">
+      <section>
+        <h2 class="rail__label">Hàng đợi khái niệm</h2>
+        <div style="display:flex;flex-direction:column;gap:4px;" id="queue-list">
+          <!-- rendered by JS -->
+        </div>
+      </section>
+      <section class="rail__turns">
+        <h2 class="rail__label">Lượt hỏi &mdash; Ngăn xếp</h2>
+        <div class="turnbox" id="turnbox"></div>
+        <p style="font-size:12px;color:var(--muted-foreground);margin-top:8px;line-height:1.55;">
+          Trọng số tăng dần: lượt sau quyết định nhiều hơn.
+          Kết thúc sớm thì trọng số được chuẩn hóa lại.
+        </p>
+      </section>
+    </aside>
+
+    <!-- Right: concept bar + conv + dock -->
+    <div class="conv-wrap">
+
+      <div class="cbar">
+        <div class="cbar__id">
+          <h1 class="cbar__concept" id="concept-name">Ngăn xếp</h1>
+          <span class="cbar__pos">khái niệm 3 / 5</span>
+        </div>
+        <p class="cbar__turn">
+          <span class="pips" aria-hidden="true" id="pips"></span>
+          Lượt <strong id="turn-display">1</strong> / 3
+          &middot; trọng số <span id="weight-display">0.2</span>
+        </p>
+        <button class="linkish" type="button">Bỏ qua khái niệm</button>
+      </div>
+
+      <main class="conv" id="conv" role="log" aria-live="polite" aria-label="Hội thoại vấn đáp">
+        <div class="conv__inner" id="conv-inner"></div>
+      </main>
+
+      <footer class="dock" id="dock-area"></footer>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAUSED overlay (AE-02 Alt flow 2) ══ -->
+<div class="overlay" id="overlay-paused" role="dialog" aria-labelledby="paused-title">
+  <div class="overlay-box">
+    <div class="confirm">
+      <h2 class="confirm__title" id="paused-title">Tạm dừng phiên?</h2>
+      <p class="confirm__body">
+        Tiến độ được lưu lại. Lượt hiện tại (<strong id="paused-turn">1</strong>&thinsp;/&thinsp;3)
+        chưa được chấm &mdash; khi quay lại bạn tiếp tục từ lượt này.
+      </p>
+      <div class="confirm__actions">
+        <button class="btn btn-primary" type="button" onclick="resumeFromPause()">
+          Tiếp tục phiên
+        </button>
+        <a class="btn btn-secondary" href="screen-session-result.html">
+          Kết thúc &amp; xem kết quả phần đã làm
+        </a>
+        <a class="btn btn-ghost" href="screen-dashboard.html"
+          style="margin-left:auto;">
+          Về Dashboard
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ FLASHCARD fallback overlay (AE-05) ══ -->
+<div class="overlay" id="overlay-fallback" role="dialog" aria-labelledby="fallback-title">
+  <div class="overlay-box" style="max-width:540px;">
+    <div class="confirm">
+      <h2 class="confirm__title" id="fallback-title">AI không phản hồi (AE-05)</h2>
+      <p class="confirm__body">
+        Hệ thống chuyển sang flashcard có sẵn. Bạn tự chấm
+        &mdash; Kết quả ít tin cậy hơn nhưng phiên vẫn tiếp tục được.
+      </p>
+      <div class="flash-card">
+        <p class="flash-card__q">Câu hỏi (từ cache):</p>
+        <p class="flash-card__body">
+          Nếu push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?
+          Giải thích dựa trên nguyên tắc LIFO.
+        </p>
+        <div class="flash-actions">
+          <button class="self-grade" type="button" onclick="selfGrade('deep')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+            Đúng
+            <span class="self-grade__val">0.90</span>
+          </button>
+          <button class="self-grade" type="button" onclick="selfGrade('shallow')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 12l3 3 5-5"/>
+            </svg>
+            Một phần
+            <span class="self-grade__val">0.60</span>
+          </button>
+          <button class="self-grade" type="button" onclick="selfGrade('wrong')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6L6 18M6 6l12 12"/>
+            </svg>
+            Sai
+            <span class="self-grade__val">0.30</span>
+          </button>
+        </div>
+        <p class="fallback-note">
+          <code>turn_source = cache_fallback</code> &middot;
+          Điểm được lưu vào cùng cột với điểm AI chấm,
+          schema phân biệt qua trường này.
+        </p>
+      </div>
+      <div style="margin-top:14px;">
+        <button class="btn btn-ghost" type="button" onclick="closeFallback()">
+          Hủy &mdash; thử lại AI
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   Interview Prototype State Machine
+   States: asking | loading | graded | paused | fallback | done
+   ===================================================================== */
+
+/* ---- Data ---- */
+var TURNS = [
+  { weight: '0.2', done: false, score: null },
+  { weight: '0.3', done: false, score: null },
+  { weight: '0.5', done: false, score: null }
+];
+
+var QUESTIONS = [
+  'Bạn vừa nói ngăn xếp hoạt động theo nguyên tắc LIFO. Vậy nếu push lần lượt 3, 5, 7 rồi pop hai lần, phần tử còn lại trên đỉnh là gì?',
+  'Khi một hàm đệ quy không có điều kiện dừng, điều gì xảy ra với ngăn xếp lời gọi hàm? Mô tả giúp mình cái gì được đẩy vào mỗi lần gọi và vì sao chương trình dừng lại ở dạng lỗi tràn.',
+  'Nếu thay cả cấu trúc đó bằng hàng đợi thì thuật toán trở thành gì? Tại sao danh sách kề thường dùng ngăn xếp trong DFS?'
+];
+
+var GRADE_VERDICTS = [
+  { cls: 'deep',    label: 'Hiểu sâu',      score: '0.90', color: 'var(--mastery-strong)'   },
+  { cls: 'shallow', label: 'Hiểu một phần', score: '0.74', color: 'var(--mastery-learning)' },
+  { cls: 'wrong',   label: 'Chưa chính xác', score: '0.32', color: 'var(--mastery-weak)'  }
+];
+
+var QUEUE = [
+  { no: '01', name: 'Mảng &amp; Con trỏ',   score: '0.86', color: 'var(--mastery-strong)', state: 'done' },
+  { no: '02', name: 'Đệ quy',               score: '0.71', color: 'var(--mastery-learning)', state: 'done' },
+  { no: '03', name: 'Ngăn xếp',             score: null,   color: null,   state: 'now'  },
+  { no: '04', name: 'Hàng đợi',             score: null,   color: null,   state: 'wait' },
+  { no: '05', name: 'Duyệt đồ thị DFS',     score: null,   color: null,   state: 'wait' }
+];
+
+var state       = 'asking';
+var currentTurn = 0;       /* 0-indexed */
+var tick        = 0;
+var clockHandle = null;
+var lastGradeIdx = 0;      /* which GRADE_VERDICTS to show */
+
+/* ---- Clock ---- */
+function startClock() {
+  if (clockHandle) return;
+  clockHandle = setInterval(function() {
+    tick++;
+    var m = Math.floor(tick / 60), s = tick % 60;
+    document.getElementById('clock-display').textContent =
+      (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }, 1000);
+}
+function stopClock() {
+  if (clockHandle) { clearInterval(clockHandle); clockHandle = null; }
+}
+
+/* ---- Rail: queue list ---- */
+function renderQueue() {
+  document.getElementById('queue-list').innerHTML = QUEUE.map(function(q) {
+    var cls = 'qitem qitem--' + q.state;
+    var scoreHtml = q.score
+      ? '<span class="qitem__score" style="color:' + q.color + ';">' + q.score + '</span>'
+      : '<span class="qitem__score" style="color:var(--muted-foreground);">&mdash;</span>';
+    return '<div class="' + cls + '">'
+      + '<span class="qitem__no">' + q.no + '</span>'
+      + '<span>' + q.name + '</span>'
+      + scoreHtml
+      + '</div>';
+  }).join('');
+}
+
+/* ---- Rail: turnbox ---- */
+function renderTurnbox() {
+  document.getElementById('turnbox').innerHTML = TURNS.map(function(t, i) {
+    var cls = 'turnrow';
+    if (i === currentTurn && !t.done) cls += ' turnrow--now';
+    else if (i > currentTurn)         cls += ' turnrow--locked';
+
+    var inner = '<span class="turnrow__n">' + (i + 1) + '</span>';
+    if (t.done && t.score) {
+      var v = t.score >= 0.75 ? 0 : t.score >= 0.5 ? 1 : 2;
+      var gv = GRADE_VERDICTS[v];
+      inner += '<span style="display:flex;align-items:center;gap:6px;">'
+        + '<span class="badge" style="background:oklch(from ' + gv.color + ' l c h / 0.14);color:' + gv.color + ';">' + gv.label + '</span>'
+        + '<span style="font-family:var(--font-mono);font-size:12px;">' + t.score.toFixed(2) + '</span>'
+        + '</span>';
+    } else if (i === currentTurn) {
+      inner += '<span>Đang trả lời</span>';
+    } else {
+      inner += '<span>Chưa mở</span>';
+    }
+    inner += '<span class="turnrow__w">&times;' + t.weight + '</span>';
+    return '<div class="' + cls + '">' + inner + '</div>';
+  }).join('');
+}
+
+/* ---- Pips ---- */
+function renderPips() {
+  var pips = '';
+  for (var i = 0; i < 3; i++) {
+    if (i < currentTurn)       pips += '<span class="pip pip--done"></span>';
+    else if (i === currentTurn) pips += '<span class="pip pip--now"></span>';
+    else                       pips += '<span class="pip"></span>';
+  }
+  document.getElementById('pips').innerHTML = pips;
+  document.getElementById('turn-display').textContent = currentTurn + 1;
+  document.getElementById('weight-display').textContent = TURNS[currentTurn].weight;
+}
+
+/* ---- Build previous turns (history) ---- */
+function historyHTML() {
+  var html = '';
+  for (var i = 0; i < currentTurn; i++) {
+    var t = TURNS[i];
+    var gv = t.score >= 0.75 ? GRADE_VERDICTS[0] : t.score >= 0.5 ? GRADE_VERDICTS[1] : GRADE_VERDICTS[2];
+    var nextLabel = i < 2
+      ? 'Kết quả <strong>' + gv.label + '</strong> &rarr; yêu cầu AI ra câu hỏi sâu hơn. Chuyển sang lượt ' + (i + 2) + '.'
+      : 'Kết quả <strong>' + gv.label + '</strong> &rarr; đã xong 3 lượt, chốt điểm khái niệm.';
+    html += '<div class="turn">'
+      + '<div class="turn__label">'
+        + '<span>Lượt ' + (i + 1) + ' &mdash; đã chấm</span>'
+        + '<span>&times;' + t.weight + '</span>'
+      + '</div>'
+      + '<article class="chat-bubble-ai">' + QUESTIONS[i]
+        + '<div class="cite"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Chương 3, tr. ' + (4 + i) + '</div>'
+      + '</article>'
+      + '<p class="chat-bubble-user">Câu trả lời mẫu cho lượt ' + (i + 1) + '...</p>'
+      + '<div class="grade grade--' + gv.cls + '">'
+        + '<div class="grade__head">'
+          + '<span class="badge" style="background:oklch(from ' + gv.color + ' l c h / 0.14);color:' + gv.color + ';">' + gv.label + '</span>'
+          + '<span class="grade__score">' + t.score.toFixed(2) + '</span>'
+          + '<span class="grade__weight">lượt ' + (i + 1) + ' &middot; &times;' + t.weight + '</span>'
+        + '</div>'
+        + '<p class="grade__text">Phản hồi từ AI cho lượt ' + (i + 1) + ': câu trả lời chính xác, có giải thích rõ ràng.</p>'
+      + '</div>'
+      + '<div class="sys"><span class="sys__tag">Hệ thống</span><span>' + nextLabel + '</span></div>'
+      + '</div>';
+  }
+  return html;
+}
+
+/* ---- Conv + dock rendering ---- */
+function renderConv() {
+  var inner = document.getElementById('conv-inner');
+  var dock  = document.getElementById('dock-area');
+
+  /* Close overlays first */
+  document.getElementById('overlay-paused').classList.remove('is-active');
+  document.getElementById('overlay-fallback').classList.remove('is-active');
+
+  var history = historyHTML();
+
+  if (state === 'asking') {
+    inner.innerHTML = history
+      + '<div class="turn">'
+        + '<div class="turn__label">'
+          + '<span>Lượt ' + (currentTurn + 1) + ' &mdash; đang trả lời</span>'
+          + '<span>&times;' + TURNS[currentTurn].weight + '</span>'
+        + '</div>'
+        + '<article class="chat-bubble-ai">' + QUESTIONS[currentTurn]
+          + '<div class="cite"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>Chương 3, mục 3.' + (currentTurn + 1) + '</div>'
+        + '</article>'
+      + '</div>';
+
+    dock.innerHTML =
+      '<form class="composer" onsubmit="submitAnswer();return false;">'
+      + '<label class="sr-only" for="answer">Câu trả lời của bạn cho lượt ' + (currentTurn + 1) + '</label>'
+      + '<textarea id="answer" spellcheck="false" placeholder="Nhập câu trả lời của bạn..." oninput="updateCount()"></textarea>'
+      + '<div class="dock__bar">'
+        + '<span><kbd>Ctrl</kbd>&thinsp;+&thinsp;<kbd>Enter</kbd> để gửi</span>'
+        + '<button class="btn btn-ghost" type="button" onclick="goState(\'fallback\')">AI lỗi? Dùng flashcard</button>'
+        + '<span class="dock__count" id="word-count">0 từ</span>'
+        + '<button class="btn btn-primary" type="submit">Gửi câu trả lời</button>'
+      + '</div>'
+      + '</form>';
+
+    setTimeout(function() {
+      var ta = document.getElementById('answer');
+      if (ta) {
+        ta.focus();
+        ta.addEventListener('keydown', function(e) {
+          if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); submitAnswer(); }
+        });
+      }
+    }, 0);
+  }
+
+  else if (state === 'loading') {
+    inner.innerHTML = history
+      + '<div class="turn">'
+        + '<div class="turn__label">'
+          + '<span>Lượt ' + (currentTurn + 1) + ' &mdash; đang chấm</span>'
+          + '<span>&times;' + TURNS[currentTurn].weight + '</span>'
+        + '</div>'
+        + '<article class="chat-bubble-ai">' + QUESTIONS[currentTurn] + '</article>'
+        + '<p class="chat-bubble-user">Mỗi lần gọi hàm sẽ đẩy thêm một khung vào ngăn xếp lời gọi hàm...</p>'
+        + '<div class="skel"><div class="skel__line"></div><div class="skel__line"></div><div class="skel__line"></div></div>'
+        + '<div class="thinking"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>grade_answer đang xử lý...</div>'
+      + '</div>';
+    dock.innerHTML = '<div style="padding:12px 0;font-size:13px;color:var(--muted-foreground);">Đang chờ AI chấm điểm...</div>';
+  }
+
+  else if (state === 'graded') {
+    var gv = GRADE_VERDICTS[lastGradeIdx];
+    var sysMsg = (currentTurn < 2)
+      ? 'Kết quả <strong>' + gv.label + '</strong> &rarr; yêu cầu AI ra câu hỏi đào sâu hơn. Chuyển sang lượt ' + (currentTurn + 2) + ' / 3.'
+      : 'Lượt cuối đã chấm. Chốt điểm khái niệm Ngăn xếp. Bắt đầu truy ngược nếu cần.';
+
+    inner.innerHTML = history
+      + '<div class="turn">'
+        + '<div class="turn__label">'
+          + '<span>Lượt ' + (currentTurn + 1) + ' &mdash; đã chấm</span>'
+          + '<span>&times;' + TURNS[currentTurn].weight + '</span>'
+        + '</div>'
+        + '<article class="chat-bubble-ai">' + QUESTIONS[currentTurn] + '</article>'
+        + '<p class="chat-bubble-user">Mỗi lần gọi hàm sẽ đẩy thêm một khung (stack frame) vào ngăn xếp lời gọi, gồm tham số và địa chỉ quay về. Không có điều kiện dừng, ngăn xếp tăng cho đến khi tràn (stack overflow).</p>'
+        + '<div class="grade grade--' + gv.cls + '">'
+          + '<div class="grade__head">'
+            + '<span class="badge" style="background:oklch(from ' + gv.color + ' l c h / 0.14);color:' + gv.color + ';">' + gv.label + '</span>'
+            + '<span class="grade__score">' + gv.score + '</span>'
+            + '<span class="grade__weight">lượt ' + (currentTurn + 1) + ' &middot; &times;' + TURNS[currentTurn].weight + '</span>'
+          + '</div>'
+          + '<p class="grade__text">Bạn mô tả đúng cơ chế: mỗi stack frame chứa tham số và địa chỉ quay về. Thêm được vì sao dừng ở dạng lỗi tràn (stack overflow exception) thì sẽ đầy đủ hơn.</p>'
+          + '<div class="grade__foot"><button class="linkish" type="button">Không đồng ý với điểm này</button></div>'
+        + '</div>'
+        + '<div class="sys"><span class="sys__tag">Hệ thống</span><span>' + sysMsg + '</span></div>'
+      + '</div>';
+
+    if (currentTurn < 2) {
+      dock.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+        + '<button class="btn btn-primary" type="button" onclick="nextTurn()">Câu tiếp theo &rarr;</button>'
+        + '<button class="btn btn-secondary" type="button" onclick="goState(\'paused\')">Tạm dừng phiên</button>'
+        + '</div>';
+    } else {
+      /* Last turn — end session */
+      dock.innerHTML =
+        '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+        + '<a class="btn btn-primary" href="screen-session-result.html">Kết thúc phiên &rarr; Xem kết quả</a>'
+        + '<button class="btn btn-secondary" type="button" onclick="goNextConcept()">Khái niệm tiếp theo</button>'
+        + '</div>';
+    }
+  }
+
+  else if (state === 'done') {
+    inner.innerHTML = history
+      + '<div class="turn">'
+        + '<div class="turn__label"><span>Phiên hoàn tất</span></div>'
+        + '<div class="sys"><span class="sys__tag">Hệ thống</span><span>Đã chấm xong cả 3 lượt. Chốt điểm khái niệm: <strong>0.77</strong>. Kết thúc phiên.</span></div>'
+      + '</div>';
+    dock.innerHTML =
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      + '<a class="btn btn-primary" href="screen-session-result.html">Xem kết quả phiên &rarr;</a>'
+      + '<button class="btn btn-ghost" type="button" onclick="resetSession()">Làm lại từ đầu (demo)</button>'
+      + '</div>';
+  }
+
+  /* Scroll to bottom */
+  var conv = document.getElementById('conv');
+  if (conv) setTimeout(function() { conv.scrollTop = conv.scrollHeight; }, 60);
+}
+
+/* ---- goState ---- */
+function goState(s) {
+  state = s;
+
+  /* Proto bar */
+  document.querySelectorAll('.pb-btn').forEach(function(b) { b.classList.remove('is-active'); });
+  var pb = document.getElementById('pb-' + s);
+  if (pb) pb.classList.add('is-active');
+
+  /* Clock */
+  if (s === 'paused' || s === 'done') stopClock();
+  else startClock();
+
+  /* Overlays */
+  if (s === 'paused') {
+    document.getElementById('paused-turn').textContent = currentTurn + 1;
+    document.getElementById('overlay-paused').classList.add('is-active');
+  } else if (s === 'fallback') {
+    document.getElementById('overlay-fallback').classList.add('is-active');
+  } else {
+    renderConv();
+  }
+
+  renderQueue();
+  renderTurnbox();
+  renderPips();
+}
+
+/* ---- Actions ---- */
+function submitAnswer() {
+  goState('loading');
+  /* After 1.8s simulate AI response */
+  setTimeout(function() {
+    lastGradeIdx = 0; /* always show "Hiểu sâu" in demo */
+    goState('graded');
+  }, 1800);
+}
+
+function nextTurn() {
+  /* Mark current turn done */
+  TURNS[currentTurn].done  = true;
+  TURNS[currentTurn].score = parseFloat(GRADE_VERDICTS[lastGradeIdx].score);
+  currentTurn++;
+  goState('asking');
+}
+
+function goNextConcept() {
+  /* Simulate moving to concept 4 */
+  TURNS[currentTurn].done  = true;
+  TURNS[currentTurn].score = parseFloat(GRADE_VERDICTS[lastGradeIdx].score);
+  /* Reset turn counter for next concept */
+  currentTurn = 0;
+  TURNS.forEach(function(t) { t.done = false; t.score = null; });
+  document.getElementById('concept-name').textContent = 'Hàng đợi';
+  goState('asking');
+}
+
+function selfGrade(verdict) {
+  lastGradeIdx = verdict === 'deep' ? 0 : verdict === 'shallow' ? 1 : 2;
+  TURNS[currentTurn].done  = true;
+  TURNS[currentTurn].score = parseFloat(GRADE_VERDICTS[lastGradeIdx].score);
+  document.getElementById('overlay-fallback').classList.remove('is-active');
+  state = 'graded';
+  renderConv();
+  renderQueue();
+  renderTurnbox();
+  renderPips();
+  document.querySelectorAll('.pb-btn').forEach(function(b) { b.classList.remove('is-active'); });
+  var pb = document.getElementById('pb-graded');
+  if (pb) pb.classList.add('is-active');
+}
+
+function closeFallback() {
+  document.getElementById('overlay-fallback').classList.remove('is-active');
+}
+
+function resumeFromPause() {
+  document.getElementById('overlay-paused').classList.remove('is-active');
+  goState('asking');
+}
+
+function resetSession() {
+  currentTurn = 0; tick = 0; lastGradeIdx = 0;
+  TURNS.forEach(function(t) { t.done = false; t.score = null; });
+  document.getElementById('clock-display').textContent = '00:00';
+  document.getElementById('concept-name').textContent = 'Ngăn xếp';
+  goState('asking');
+}
+
+function updateCount() {
+  var ta = document.getElementById('answer');
+  var el = document.getElementById('word-count');
+  if (ta && el) {
+    var w = ta.value.trim().split(/\s+/).filter(Boolean).length;
+    el.textContent = w + ' từ';
+  }
+}
+
+/* ---- Init ---- */
+goState('asking');
+startClock();
+</script>
+</body>
+</html>

@@ -1,0 +1,357 @@
+/* Recall AI Design System v3 — shared tokens for static preview HTML.
+   Mirrors src/client/src/global.css. Plain CSS custom properties
+   (no Tailwind) so these previews render standalone in Claude Design. */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:wght@400;500;600;700&display=swap');
+
+:root {
+  --font-sans: 'Geist', 'Helvetica Neue', sans-serif;
+  --font-heading: 'Noto Serif', 'Newsreader', serif;
+  --font-mono: 'Geist Mono', 'SF Mono', monospace;
+
+  --background: oklch(0.984 0.004 262);
+  --foreground: oklch(0.24 0.008 262);
+  --card: oklch(0.995 0.002 262);
+  --card-foreground: oklch(0.24 0.008 262);
+  --primary: oklch(0.5 0.16 262);
+  --primary-foreground: oklch(0.985 0.012 262);
+  --secondary: oklch(0.95 0.006 262);
+  --secondary-foreground: oklch(0.24 0.008 262);
+  --muted: oklch(0.955 0.006 262);
+  --muted-foreground: oklch(0.55 0.012 262);
+  --accent: oklch(0.95 0.006 262);
+  --accent-foreground: oklch(0.24 0.008 262);
+  --destructive: oklch(0.5 0.15 25);
+  --border: oklch(0.9 0.005 262);
+  --ring: oklch(0.5 0.16 262);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.97 0.005 262);
+  --shadow-soft: 0 2px 8px oklch(0 0 0 / 0.04);
+
+  --ai-accent: oklch(0.5 0.1 235);
+  --ai-accent-fg: oklch(0.99 0.002 262);
+  --focus-session: oklch(0.55 0.11 85);
+  --focus-session-foreground: oklch(0.99 0.002 262);
+  --mastery-strong: oklch(0.5 0.08 155);
+  --mastery-strong-fg: oklch(0.99 0.002 262);
+  --mastery-learning: oklch(0.5 0.1 85);
+  --mastery-learning-fg: oklch(0.99 0.002 262);
+  --mastery-weak: oklch(0.5 0.15 25);
+  --mastery-weak-fg: oklch(0.99 0.002 262);
+  --mastery-untested: oklch(0.75 0.008 262);
+  --mastery-untested-fg: oklch(0.4 0.01 262);
+  --remediate: oklch(0.55 0.13 55);
+  --remediate-foreground: oklch(0.99 0.002 262);
+
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-reveal: 600ms;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark {
+  --background: oklch(0.17 0.006 262);
+  --foreground: oklch(0.93 0.005 262);
+  --card: oklch(0.21 0.007 262);
+  --card-foreground: oklch(0.93 0.005 262);
+  --primary: oklch(0.62 0.17 262);
+  --primary-foreground: oklch(0.98 0.012 262);
+  --secondary: oklch(0.27 0.008 262);
+  --secondary-foreground: oklch(0.93 0.005 262);
+  --muted: oklch(0.25 0.008 262);
+  --muted-foreground: oklch(0.68 0.012 262);
+  --accent: oklch(0.27 0.008 262);
+  --accent-foreground: oklch(0.93 0.005 262);
+  --destructive: oklch(0.68 0.16 25);
+  --border: oklch(1 0 0 / 8%);
+  --ring: oklch(0.62 0.17 262);
+  --sidebar: oklch(0.19 0.007 262);
+  --shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22);
+
+  --ai-accent: oklch(0.72 0.1 235);
+  --ai-accent-fg: oklch(0.17 0.006 262);
+  --focus-session: oklch(0.75 0.12 85);
+  --focus-session-foreground: oklch(0.17 0.006 262);
+  --mastery-strong: oklch(0.72 0.1 155);
+  --mastery-strong-fg: oklch(0.17 0.006 262);
+  --mastery-learning: oklch(0.75 0.12 85);
+  --mastery-learning-fg: oklch(0.17 0.006 262);
+  --mastery-weak: oklch(0.68 0.16 25);
+  --mastery-weak-fg: oklch(0.17 0.006 262);
+  --mastery-untested: oklch(0.4 0.01 262);
+  --mastery-untested-fg: oklch(0.68 0.012 262);
+  --remediate: oklch(0.72 0.13 55);
+  --remediate-foreground: oklch(0.17 0.006 262);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.meta-mono {
+  font-family: var(--font-mono);
+}
+
+/* --- Reveal-on-scroll (disabled inside .focus-session-active, see below) --- */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--duration-reveal) var(--ease-reveal),
+    transform var(--duration-reveal) var(--ease-reveal);
+}
+
+.reveal-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- FOCUS SESSION HARD CONSTRAINT: animation = 0 --- */
+.focus-session-active,
+.focus-session-active * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* --- Primitives shared across screens --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: calc(var(--radius) * 0.8);
+  border: 1px solid transparent;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard), transform var(--duration-fast) var(--ease-standard);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border-color: var(--border);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--foreground);
+}
+
+.btn-ghost:hover {
+  background: var(--accent);
+}
+
+/* Outline: viền thật, nền = card (khớp Button variant="outline" của shadcn) */
+.btn-outline {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.btn-outline:hover {
+  background: var(--muted);
+}
+
+.btn-primary:hover {
+  background: oklch(from var(--primary) calc(l - 0.04) c h);
+}
+
+.btn-secondary:hover {
+  background: var(--muted);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.35);
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-soft);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+kbd,
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 0.55);
+  background: var(--muted);
+  padding: 2px 6px;
+}
+
+/* --- Concept graph node --- */
+.concept-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: calc(var(--radius) * 0.8);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 120px;
+  justify-content: center;
+  transition: box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.concept-node:hover {
+  box-shadow: var(--shadow-soft);
+}
+
+.concept-node--strong {
+  background: oklch(from var(--mastery-strong) l c h / 0.1);
+  border-color: oklch(from var(--mastery-strong) l c h / 0.4);
+  color: var(--mastery-strong);
+}
+
+.concept-node--learning {
+  background: oklch(from var(--mastery-learning) l c h / 0.1);
+  border-color: oklch(from var(--mastery-learning) l c h / 0.4);
+  color: var(--mastery-learning);
+}
+
+.concept-node--weak {
+  background: oklch(from var(--mastery-weak) l c h / 0.1);
+  border-color: oklch(from var(--mastery-weak) l c h / 0.4);
+  color: var(--mastery-weak);
+}
+
+/* Nền dùng --card chứ không phải --muted: canvas đồ thị chính là --muted,
+   nếu node cũng --muted thì node "chưa kiểm tra" biến mất hẳn khỏi nền. */
+.concept-node--untested {
+  background: var(--card);
+  border-color: var(--mastery-untested);
+  color: var(--muted-foreground);
+  border-style: dashed;
+}
+
+.concept-node--remediating {
+  background: oklch(from var(--remediate) l c h / 0.1);
+  border-color: var(--remediate);
+  color: var(--remediate);
+  animation: pulse-remediate 2s var(--ease-standard) infinite;
+}
+
+@keyframes pulse-remediate {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(from var(--remediate) l c h / 0.25);
+  }
+
+  50% {
+    box-shadow: 0 0 0 5px oklch(from var(--remediate) l c h / 0);
+  }
+}
+
+/* --- Chat bubbles --- */
+.chat-bubble-ai {
+  background: oklch(from var(--ai-accent) l c h / 0.08);
+  border: 1px solid oklch(from var(--ai-accent) l c h / 0.3);
+  border-radius: calc(var(--radius) * 1.35) calc(var(--radius) * 1.35) calc(var(--radius) * 1.35) 2px;
+  color: var(--foreground);
+  padding: 14px 18px;
+  max-width: 68%;
+}
+
+.chat-bubble-user {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) * 1.35) calc(var(--radius) * 1.35) 2px calc(var(--radius) * 1.35);
+  color: var(--foreground);
+  padding: 14px 18px;
+  max-width: 68%;
+}
+
+/* --- Sidebar shell (shared by app screens) --- */
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+  background: var(--background);
+}
+
+.app-sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-sidebar__logo {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  padding: 0 8px 24px;
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: calc(var(--radius) * 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.app-sidebar__link--active {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.app-main {
+  padding: 40px 48px;
+  max-width: 1100px;
+}

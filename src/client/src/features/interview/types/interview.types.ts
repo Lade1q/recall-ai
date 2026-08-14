@@ -154,3 +154,59 @@ export interface AbandonInterviewResponse {
   session: InterviewSessionState;
   conceptCompleted: ConceptCompletedResponse | null;
 }
+
+/** One graded turn of a concept, stripped to what the summary screen charts. */
+export interface SessionSummaryTurnResponse {
+  turnIndex: number;
+  score: number | null;
+  verdict: TurnVerdict | null;
+}
+
+/** One concept's full result for the session, oldest turn first. */
+export interface SessionSummaryConceptResponse {
+  conceptId: string;
+  name: string;
+  /**
+   * Điểm của riêng phiên này (không phải `Concept.masteryScore` live hôm nay vì các phiên sau có thể đã ghi đè).
+   * `null` khi hàng đợi đạt `completed` trước khi khái niệm được hỏi, hoặc mọi lượt hỏi về khái niệm đều chấm hỏng
+   * (khác `0` là đã chấm và trả lời sai hoàn toàn).
+   */
+  masteryScore: number | null;
+  turns: SessionSummaryTurnResponse[];
+}
+
+export interface SessionSummaryReviewItemResponse {
+  /** `ReviewQueueItem.id` — the `itemId` of `PATCH /review-queue/:itemId` (#310). */
+  id: string;
+  conceptId: string;
+  name: string;
+  reason: 'traceback' | 'spaced_repetition' | 'deadline_priority' | 'manual';
+  depth: number | null;
+  /**
+   * Group the Traceback block by this, not by `sourceConceptName` — the name collides when two
+   * concepts share it. `null` for `spaced_repetition`; non-null with a `null` name means the
+   * source concept was deleted since (soft reference, no FK).
+   */
+  sourceConceptId: string | null;
+  sourceConceptName: string | null;
+  status: 'pending' | 'skipped';
+  scheduledFor: string | null;
+}
+
+export interface SessionSummaryReport {
+  text: string | null;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations: string[];
+  generatedByAi: boolean;
+  message: string | null;
+}
+
+export interface SessionSummaryResponse {
+  sessionId: string;
+  status: InterviewSessionStatus;
+  durationMinutes: number;
+  concepts: SessionSummaryConceptResponse[];
+  summary: SessionSummaryReport;
+  reviewSchedule: SessionSummaryReviewItemResponse[];
+}

@@ -45,7 +45,7 @@ export function SessionDocumentSegment({ document }: { document: SessionDocument
             aria-disabled={isLocked || undefined}
             title={isLocked ? lockedTooltip : undefined}
             onClick={() => setLevel(level)}
-            className={`focus-visible:outline-ring px-[13px] py-[7px] text-[13px] font-medium outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 ${
+            className={`focus-visible:outline-ring px-[13px] py-[7px] text-[13px] font-medium [outline-style:none] focus-visible:outline-2 focus-visible:-outline-offset-2 ${
               selectedLevel === level
                 ? 'bg-card text-foreground shadow-[var(--shadow-soft)]'
                 : 'text-muted-foreground hover:text-foreground'

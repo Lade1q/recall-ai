@@ -37,6 +37,10 @@ const storage = multer.diskStorage({
 export const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE + 1 },
+  // Busboy decodes non-extended Content-Disposition filename params (i.e. `filename=`,
+  // as modern browsers send it) as latin1 by default, mangling UTF-8 filenames like
+  // "ngăn-xếp.txt" into mojibake before it ever reaches the controller.
+  defParamCharset: 'utf8',
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIMES.includes(file.mimetype)) {
       cb(null, true);

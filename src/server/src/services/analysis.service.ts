@@ -1,17 +1,18 @@
 import fs from 'fs';
 import path from 'path';
-import { AnalysisJobPhase } from '@prisma/client';
+import { AnalysisJobPhase, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
 import { extractConcepts, uploadFile } from './gemini.service';
 
 import { validateAndFixDag } from '../utils/dag';
 import { buildConceptSourceRows } from '../utils/concept-source';
+import { planCheckpointMerge, readExtractedCheckpoints } from '../utils/checkpoint';
 import { planConceptMerge, normalizeConceptKey } from '../utils/concept-merge';
 import { toSafeErrorMessage } from '../utils/error-message';
 import { UPLOAD_DIR, resolveMaterialSource } from '../utils/material';
 import { validateDAG } from './graph.service';
 import { pregenerateForPlan } from './question-cache.service';
-import { AiExtractResponse } from '../schemas/ai-extract.schema';
+import { AiExtractResponse, ConceptExtract } from '../schemas/ai-extract.schema';
 
 const MAX_ATTEMPTS = 3; // 1 initial call + 2 retries, per I3.2 acceptance criteria
 const BACKOFF_BASE_MS = 2000;
@@ -54,6 +55,93 @@ async function callAiWithRetry(fileKey: string, onPhase: OnPhase): Promise<AiExt
     }
   }
   throw lastError;
+}
+
+/**
+ * Commits every extracted concept's checkpoints — the ruler Interview v2 grades against (#329).
+ *
+ * This is the ONLY place checkpoints are written, and it runs at analysis time inside the
+ * extraction transaction (INV-1): an interview may read the list but never add to it, so the
+ * examiner can't mint the marks it then measures the student by (C4 at the micro scale).
+ *
+ * Merged onto the stored rows rather than replaced, so a checkpoint that survives a re-analysis
+ * keeps its id and the evidence recorded against it stays attached. The three statements run in
+ * the order delete → update → create, and that order is load-bearing: the `(concept_id, text)`
+ * unique index rejects a row created or renamed onto text a not-yet-deleted duplicate still
+ * holds. `process-analysis-job.test.ts` pins the order, because the mocked client has no unique
+ * index to fail on and would happily let a reordering look green.
+ *
+ * Concepts the extraction dropped are untouched — `planConceptMerge` deprecated rather than
+ * deleted them, and a concept revived by a later re-analysis should find its checkpoints where
+ * it left them.
+ */
+async function persistCheckpoints(
+  tx: Prisma.TransactionClient,
+  extracted: readonly ConceptExtract[],
+  conceptIdByKey: ReadonlyMap<string, string>
+): Promise<void> {
+  // Keyed by id, not by name: two spellings of one concept collapse onto a single row upstream,
+  // and merging that row twice would let the second pass delete what the first just committed.
+  // First occurrence wins, matching `planConceptMerge`.
+  const checkpointsByConceptId = new Map<string, string[]>();
+  const seenConceptIds = new Set<string>();
+  for (const concept of extracted) {
+    const conceptId = conceptIdByKey.get(normalizeConceptKey(concept.name));
+    if (!conceptId || seenConceptIds.has(conceptId)) continue;
+    seenConceptIds.add(conceptId);
+
+    // A concept whose checkpoints came back unreadable is left exactly as it was. Merging it
+    // would read a model failure as "this concept has no checkpoints" and delete the whole
+    // ruler — a re-analysis that hiccups once must not cost a concept its stored checkpoints
+    // (and, from #330 on, the evidence recorded against their ids). Warned rather than failed:
+    // the extraction itself is fine, and the stored checkpoints remain valid.
+    const commitment = readExtractedCheckpoints(concept.checkpoints);
+    if (commitment.status === 'degraded') {
+      console.warn(
+        `[analysis] concept ${conceptId} ("${concept.name}"): unreadable checkpoints in this extraction, keeping the stored ones`
+      );
+      continue;
+    }
+    checkpointsByConceptId.set(conceptId, commitment.texts);
+  }
+  if (checkpointsByConceptId.size === 0) return;
+
+  const stored = await tx.conceptCheckpoint.findMany({
+    where: { conceptId: { in: [...checkpointsByConceptId.keys()] } },
+    select: { id: true, conceptId: true, text: true, orderIndex: true },
+  });
+  const storedByConceptId = new Map<string, { id: string; text: string }[]>();
+  const storedById = new Map<string, { text: string; orderIndex: number }>();
+  for (const row of stored) {
+    const rows = storedByConceptId.get(row.conceptId) ?? [];
+    rows.push({ id: row.id, text: row.text });
+    storedByConceptId.set(row.conceptId, rows);
+    storedById.set(row.id, { text: row.text, orderIndex: row.orderIndex });
+  }
+
+  for (const [conceptId, checkpoints] of checkpointsByConceptId) {
+    const plan = planCheckpointMerge(storedByConceptId.get(conceptId) ?? [], checkpoints);
+
+    if (plan.toDelete.length > 0) {
+      await tx.conceptCheckpoint.deleteMany({ where: { id: { in: plan.toDelete } } });
+    }
+    for (const kept of plan.toKeep) {
+      // Re-analysing an unchanged document matches every checkpoint, so writing each one back
+      // would be a transaction full of no-op updates — and would bump `updatedAt` on rows that
+      // did not change, costing the column the only thing it is good for.
+      const before = storedById.get(kept.id);
+      if (before?.text === kept.text && before.orderIndex === kept.orderIndex) continue;
+      await tx.conceptCheckpoint.update({
+        where: { id: kept.id },
+        data: { text: kept.text, orderIndex: kept.orderIndex },
+      });
+    }
+    if (plan.toCreate.length > 0) {
+      await tx.conceptCheckpoint.createMany({
+        data: plan.toCreate.map((c) => ({ conceptId, text: c.text, orderIndex: c.orderIndex })),
+      });
+    }
+  }
 }
 
 /**
@@ -194,6 +282,9 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
           data: { status: 'deprecated' },
         });
       }
+
+      // The ruler each concept will be graded against, committed here and nowhere else (INV-1).
+      await persistCheckpoints(tx, extracted.concepts, conceptIdByKey);
 
       // Edges are rebuilt wholesale: the new extraction is the whole truth about structure,
       // and an edge carries no student data worth preserving. No-op on a first analysis.
