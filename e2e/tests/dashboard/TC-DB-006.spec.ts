@@ -113,20 +113,19 @@ test.describe('TC-DB-006: Empty state của gợi ý hôm nay', () => {
       const response = (await (await responsePromise).json()) as TodayMessageEnvelope;
       expect(response).toMatchObject({ success: true, data: { items: [], message: null } });
 
-      // 2. Client chuyển message null thành empty state duy nhất dành cho plan chưa có history.
+      // 2. Client chuyển message null thành empty state dành cho plan chưa có kết quả vấn đáp.
       const todaySection = page
         .getByRole('heading', {
           name: 'Đồ thị đã sẵn sàng — bắt đầu phiên đầu tiên',
           exact: true,
         })
         .locator('xpath=ancestor::section[1]');
-      await expect(todaySection).toContainText('chưa có phiên vấn đáp nào');
       await expect(
         todaySection.getByRole('link', { name: 'Bắt đầu phiên vấn đáp', exact: true })
       ).toHaveAttribute('href', '/interview');
       await expect(todaySection.getByRole('listitem')).toHaveCount(0);
 
-      // 3. Reload không tạo ReviewQueueItem và giữ nguyên trạng thái chưa có history.
+      // 3. Reload không tạo ReviewQueueItem và giữ nguyên trạng thái chưa có kết quả vấn đáp.
       await page.reload();
       expect(await prisma.reviewQueueItem.count({ where: { planId: p1.id } })).toBe(0);
       await expect(

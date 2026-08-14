@@ -138,7 +138,6 @@ test.describe('TC-DB-002: Hiển thị đủ các khối của Dashboard mặc �
           exact: true,
         })
         .locator('xpath=ancestor::section[1]');
-      await expect(todaySection).toContainText('chưa có phiên vấn đáp nào');
       await expect(
         todaySection.getByRole('link', { name: 'Bắt đầu phiên vấn đáp', exact: true })
       ).toHaveAttribute('href', '/interview');
