@@ -92,6 +92,7 @@ export const MOCK_EXTRACT_RESULT_CYCLE: AiExtractResponse = {
     {
       name: 'Variable',
       difficulty: 1,
+      checkpoints: [],
       description: 'Basic variables and data types',
       source_page: 1,
       source_excerpt: 'A variable is a named location.',
@@ -99,6 +100,7 @@ export const MOCK_EXTRACT_RESULT_CYCLE: AiExtractResponse = {
     {
       name: 'Loop',
       difficulty: 2,
+      checkpoints: [],
       description: 'for/while loops',
       source_page: 3,
       source_excerpt: 'A loop repeatedly executes.',
@@ -106,6 +108,7 @@ export const MOCK_EXTRACT_RESULT_CYCLE: AiExtractResponse = {
     {
       name: 'Array',
       difficulty: 2,
+      checkpoints: [],
       description: 'Arrays and indexing',
       source_page: 5,
       source_excerpt: 'An array stores elements.',
