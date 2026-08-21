@@ -1125,6 +1125,11 @@ export async function submitAnswer(
   // could come back in a different order and map every row to the wrong checkpoint — silently.
   const checkpoints = evidenceIsRequested() ? await listConceptCheckpoints(concept.id) : [];
 
+  // Same snapshot `askQuestion` reads for generate_question, minus the turn being graded right
+  // now: `view` was loaded before the claim above, so it still carries `pending` itself with a
+  // null answer/verdict — left in, turn N would cite itself as "(no answer given)" (#391).
+  const previousTurns = toPreviousTurns(view.conceptTurns.filter((turn) => turn.id !== pending.id));
+
   let graded;
   try {
     graded = await gradeAnswer({
@@ -1134,6 +1139,7 @@ export async function submitAnswer(
       answerText,
       language: session.plan.languageDetected ?? undefined,
       checkpoints,
+      previousTurns,
     });
   } catch (error) {
     if (!isAiFailure(error)) throw error;

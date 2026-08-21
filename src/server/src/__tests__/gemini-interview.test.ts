@@ -222,6 +222,19 @@ describe('AI Examiner Gemini calls', () => {
       expect(system_instruction).toContain('Never a title, never an id');
     });
 
+    it('includes earlier turns so a second/third grade is not blind to the first answer (#391)', async () => {
+      mockCreate.mockResolvedValueOnce(
+        reply({ score: 0.5, feedback: 'ok', verdict: 'shallow', evidence: [] })
+      );
+
+      await gradeAnswer({
+        ...GRADE_PARAMS,
+        previousTurns: [{ questionText: 'What is a stack?', answerText: 'LIFO', verdict: 'deep' }],
+      });
+
+      expect(mockCreate.mock.calls[0][0].input).toContain('LIFO');
+    });
+
     it('returns score, feedback and verdict when they already agree', async () => {
       mockCreate.mockResolvedValueOnce(reply({ score: 0.9, feedback: 'Good.', verdict: 'deep' }));
 
