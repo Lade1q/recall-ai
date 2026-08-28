@@ -764,13 +764,23 @@ kbd,
   4/7 node nó thò ra chạm vào Gấu Trúc. Chữ nhật đó cũng nói sai: nó khoanh cả
   phần chữ trong khi thứ đang được chọn chỉ là cái node.
 
-  Vẫn phải tắt outline mặc định của trình duyệt, nếu không có hai vòng.
+  Tắt outline mặc định ở `:focus` chứ KHÔNG phải `:focus-visible`.
+
+  Bấm chuột vào một `<g tabindex=0>` thì nó vào `:focus` mà không vào
+  `:focus-visible`. Bản trước chỉ tắt ở `:focus-visible`, nên đúng trường hợp
+  bấm chuột là luật tắt không với tới — và Chrome tự vẽ `outline: auto` dày 5px
+  quanh HỘP BAO CẢ NHÓM, tức là cái khung sáng trùm lên cả nhãn lẫn con Gấu.
+  Tắt ở `:focus` thì phủ cả hai trường hợp.
+
+  Bỏ outline mà không thay gì là làm hỏng khả năng tiếp cận — ở đây có thay:
+  `.lp-focus-ring` bên dưới lo đúng trường hợp bàn phím. Còn bấm chuột thì
+  không cần chỉ báo tiêu điểm, và node vừa chọn đã tự to lên và đổi màu rồi.
 */
 .lp-focus-ring {
   opacity: 0;
 }
 
-.lp-node:focus-visible {
+.lp-node:focus {
   outline: none;
 }
 
