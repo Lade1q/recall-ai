@@ -217,6 +217,20 @@
   --mastery-untested: oklch(0.75 0.008 262);
   --mastery-untested-fg: oklch(0.4 0.01 262);
 
+  /*
+    Bộ lông Gấu Trúc. Là token vì nó PHẢI đổi theo theme.
+
+    Sprite chỉ có hai tông, nên theme nào cũng có một tông đứng sát nền: đo ra
+    ở theme sáng lông trắng chỉ 1,11:1 so với nền (hình vẫn đọc được vì lông
+    đen gánh 15,86:1), còn ở theme tối thì ngược lại — lông đen tụt xuống
+    1,16:1, tai và tay chân tan vào nền, chỉ còn trơ một khối trắng.
+  */
+  --panda-ink: oklch(0.24 0.012 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  /* Bóng đổ: tối hơn nền, đúng như bóng thật. */
+  --panda-shadow: oklch(0.24 0.012 40);
+
   /* REMEDIATE: muted orange — Hệ thống tự chèn prerequisite vào lịch.
 
      L 0.55 -> 0.50: đây là accent DUY NHẤT không nằm ở L 0.5 như bốn accent còn
@@ -353,6 +367,31 @@
 
   --mastery-untested: oklch(0.4 0.01 262);
   --mastery-untested-fg: oklch(0.68 0.012 262);
+
+  /*
+    Lông đen phải SÁNG LÊN ở theme tối, nếu không con vật mất viền ngoài.
+
+    Đây là đánh đổi có ý thức, không phải con số tối ưu: muốn chạm 3:1 thì phải
+    đẩy tới L=0.52, lúc đó nó là xám trung và con gấu TRÚC hết còn là gấu trúc.
+    L=0.46 cho ~2,7:1 — tai và tay chân hiện rõ, mà vẫn đọc ra là lông sẫm.
+
+    Bóng đổ thì KHÔNG cứu được, và cũng không nên cố cứu. Nền tối đã ở 0.17,
+    gần đáy thang, nên một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù dùng đen
+    tuyệt đối với alpha bao nhiêu — đã đo năm tổ hợp. Nghĩa là ở theme tối con
+    vật KHÔNG CÓ dấu chạm đất, và câu đúng phải là thừa nhận điều đó.
+
+    Bản trước lật nó thành một vệt SÁNG hơn nền để "vẫn neo được nhân vật".
+    Đo thì đẹp — 1,03 lên 1,88 — nhưng nhìn thì đó là một gạch trắng nằm dưới
+    đít con gấu, không ai đọc ra là mặt đất. Đó là sửa cho phép đo vừa mắt chứ
+    không phải sửa cho trang vừa mắt.
+
+    Nên nó ở lại là bóng thật, tối hơn nền, và chấp nhận gần như không thấy.
+    Vô hình thì vô hại; một vệt sáng sai chỗ thì không.
+  */
+  --panda-ink: oklch(0.46 0.014 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  --panda-shadow: oklch(0.1 0.006 262);
 
   --remediate: oklch(0.72 0.13 55);
   --remediate-foreground: oklch(0.17 0.006 262);
@@ -626,6 +665,155 @@ kbd,
 }
 
 /*
+  LANDING (#388) — hoạt hoạ của trang công khai `/`.
+
+  Tiền tố `lp-` cho MỌI lớp ở đây: `.node` đã bị khối mockup phía dưới chiếm,
+  và landing cũng có node đồ thị của riêng nó.
+
+  Phần lớn kịch bản (Gấu khiêng khái niệm, quăng cạnh, đi dọc đường truy
+  ngược) do React điều khiển trong `features/landing`, không phải bằng
+  @keyframes: nhịp nằm trong hàm thuần test được, còn CSS ở đây chỉ lo phần
+  nội suy giữa hai trạng thái. Ngoại lệ duy nhất là cú chạy qua lại ở hero —
+  nó không mang trạng thái nào nên keyframe là chỗ đúng của nó.
+*/
+/*
+  Quãng chạy đo bằng `left` theo phần trăm, KHÔNG bằng `translateX(100vw - …)`.
+
+  Bản trước tính quãng chạy theo bề rộng KHUNG NHÌN, trong khi đường chạy nằm
+  trong `<main class="max-w-[1280px]">`. Trên màn rộng hơn 1280px hai con số đó
+  rời nhau, và Gấu chạy quá đà đúng bằng phần chênh:
+
+    · từ ~1434px  — Gấu lọt ra ngoài cột nội dung
+    · từ ~1700px  — Gấu vượt hẳn mép phải khung nhìn và ĐẺ RA THANH CUỘN NGANG
+                    (đo ở 1920px: mép phải Gấu ở 2030px, tràn 110px, và không
+                    tổ tiên nào có `overflow-x` để chặn)
+
+  Phần trăm của `left` lấy mốc là khối chứa — chính là đường chạy — nên quãng
+  chạy khớp cột nội dung ở MỌI bề rộng, không cần biết khung nhìn rộng bao
+  nhiêu. `--lp-runner-w` do `LandingHero` truyền xuống, ngay cạnh chỗ đặt cỡ
+  sprite, để hai con số không thể lệch nhau.
+*/
+.lp-runner {
+  left: 0;
+  transform-origin: center bottom;
+  animation: lp-run 24s linear infinite;
+}
+
+@keyframes lp-run {
+  0% {
+    left: 0;
+    transform: scaleX(1);
+  }
+
+  45%,
+  47% {
+    left: calc(100% - var(--lp-runner-w, 150px));
+    transform: scaleX(1);
+  }
+
+  50% {
+    left: calc(100% - var(--lp-runner-w, 150px));
+    transform: scaleX(-1);
+  }
+
+  95%,
+  97% {
+    left: 0;
+    transform: scaleX(-1);
+  }
+
+  100% {
+    left: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* Gấu đi giữa trang tài liệu và đồ thị ở cảnh 1. React đổi `left`, CSS lo
+   phần trượt — 900ms ngắn hơn nhịp 1000ms một chút để có một nhịp dừng rất
+   ngắn ở mỗi đầu, đọc ra thành "đặt xuống rồi mới quay đi".
+
+   `bottom` chuyển chậm hơn và đi kèm nhịp nảy nhẹ: đó là lúc nó trèo thang,
+   mà trèo thì phải thấy được từng nấc chứ không trượt thẳng lên như thang máy. */
+.lp-carrier {
+  transition:
+    left 1800ms var(--ease-standard),
+    bottom 1700ms steps(9, end);
+}
+
+/* Thang dựng lên / cất đi cùng nhịp với hồi nối cạnh. */
+.lp-ladder {
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+/* Mỗi chặng của đường truy ngược ở cảnh 2. 520ms so với 560ms giữa hai bước:
+   khoảng hở đó là thứ làm nó đọc ra thành "bước qua từng nút" thay vì trôi
+   một mạch tới đích. */
+.lp-walker {
+  transition: transform 520ms cubic-bezier(0.4, 0, 0.55, 1);
+}
+
+.lp-node {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.lp-node:hover {
+  transform: scale(1.16);
+}
+
+/*
+  Vòng tiêu điểm là một <circle> vẽ sẵn trong mỗi node, không phải `outline`.
+
+  `outline` trên nhóm SVG bám theo hộp bao của cả nhóm, mà nhóm gồm nhãn ở
+  trên và điểm số ở dưới — thành ra một chữ nhật cao gấp ba lần cái chấm, và ở
+  4/7 node nó thò ra chạm vào Gấu Trúc. Chữ nhật đó cũng nói sai: nó khoanh cả
+  phần chữ trong khi thứ đang được chọn chỉ là cái node.
+
+  Tắt outline mặc định ở `:focus` chứ KHÔNG phải `:focus-visible`.
+
+  Bấm chuột vào một `<g tabindex=0>` thì nó vào `:focus` mà không vào
+  `:focus-visible`. Bản trước chỉ tắt ở `:focus-visible`, nên đúng trường hợp
+  bấm chuột là luật tắt không với tới — và Chrome tự vẽ `outline: auto` dày 5px
+  quanh HỘP BAO CẢ NHÓM, tức là cái khung sáng trùm lên cả nhãn lẫn con Gấu.
+  Tắt ở `:focus` thì phủ cả hai trường hợp.
+
+  Bỏ outline mà không thay gì là làm hỏng khả năng tiếp cận — ở đây có thay:
+  `.lp-focus-ring` bên dưới lo đúng trường hợp bàn phím. Còn bấm chuột thì
+  không cần chỉ báo tiêu điểm, và node vừa chọn đã tự to lên và đổi màu rồi.
+*/
+.lp-focus-ring {
+  opacity: 0;
+}
+
+.lp-node:focus {
+  outline: none;
+}
+
+.lp-node:focus-visible .lp-focus-ring {
+  opacity: 1;
+}
+
+/* Xung chạy dọc cạnh đang thuộc đường truy ngược. */
+.lp-edge-live {
+  stroke-dasharray: 7 6;
+  animation: lp-flow 700ms linear infinite;
+}
+
+@keyframes lp-flow {
+  to {
+    stroke-dashoffset: -13;
+  }
+}
+
+.lp-chip {
+  transition:
+    opacity var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-spring);
+}
+
+/*
   ACCESSIBILITY — prefers-reduced-motion
   Tắt tất cả animation khi user yêu cầu, bao gồm reveal-on-scroll.
 */
@@ -634,7 +822,14 @@ kbd,
   .is-remediating,
   .reveal-on-scroll,
   .concept-node,
-  .react-flow__node {
+  .react-flow__node,
+  .lp-runner,
+  .lp-carrier,
+  .lp-ladder,
+  .lp-walker,
+  .lp-node,
+  .lp-edge-live,
+  .lp-chip {
     animation: none !important;
     transition: none !important;
   }

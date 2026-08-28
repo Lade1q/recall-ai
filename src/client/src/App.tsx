@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { Toaster } from '@/components/ui/sonner';
 
@@ -11,6 +11,9 @@ import { MainLayout } from '@/components/shared/layouts/MainLayout';
 // Pages — Auth
 import LoginPage from '@/pages/auth/LoginPage';
 import RegisterPage from '@/pages/auth/RegisterPage';
+
+// Pages — Public
+import LandingPage from '@/pages/landing/LandingPage';
 
 // Pages — App
 import DashboardPage from '@/pages/dashboard/DashboardPage';
@@ -28,14 +31,37 @@ import ProfilePage from '@/pages/profile/ProfilePage';
 // Fallback
 import NotFoundPage from '@/pages/NotFoundPage';
 
+/**
+ * Route công khai `/` (issue #388) — không bọc `ProtectedRoute`/layout nào, độc
+ * lập như `NotFoundPage`. Trong lúc chưa xác định phiên đăng nhập, dùng lại
+ * đúng loading UI của `ProtectedRoute` để không nháy landing rồi mới redirect.
+ */
+function RootRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <LandingPage />;
+}
+
 function App() {
   return (
     <AuthProvider>
       <Toaster />
       <BrowserRouter>
         <Routes>
-          {/* Root redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Root — landing công khai, redirect /dashboard nếu đã đăng nhập */}
+          <Route path="/" element={<RootRoute />} />
 
           {/* Auth routes — wrapped by AuthLayout (Outlet) */}
           <Route element={<AuthLayout />}>
