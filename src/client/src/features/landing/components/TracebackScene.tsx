@@ -219,16 +219,28 @@ export function TracebackScene() {
                 const isProbed = id === probed;
                 const isRoot = id === result.rootId;
                 const band = masteryBand(c.score);
-                const color = isProbed
-                  ? BAND_COLOR.weak
-                  : isRoot
-                    ? 'var(--remediate)'
-                    : BAND_COLOR[band];
-                const mauChu = isProbed
-                  ? BAND_TEXT.weak
-                  : isRoot
-                    ? 'var(--remediate)'
-                    : BAND_TEXT[band];
+                /*
+                 * Khái niệm ĐANG XÉT giữ nguyên màu band của chính nó.
+                 *
+                 * Bản trước tô nó bằng `BAND_COLOR.weak` — tức màu mà chú giải
+                 * ngay dưới đồ thị ghi là "Còn yếu" — chỉ vì bảng bên phải nói
+                 * "BẠN SAI Ở". Nhưng sai một câu không có nghĩa khái niệm đó
+                 * yếu: bấm "Quan hệ" (0.88, vững) thì nó hoá đỏ, và con số 0.88
+                 * cũng đỏ theo. Trang tự cãi chú giải của mình và nói sai về
+                 * đúng dữ liệu nó đang hiện.
+                 *
+                 * Việc làm nổi bật đã có thứ khác lo: bán kính 16 thay vì 11,
+                 * nét dày 2.5, nhãn đậm cỡ 14 — và bảng bên phải gọi thẳng tên.
+                 * Màu ở đây chỉ nói MỘT điều, là mức thành thạo.
+                 *
+                 * Riêng khái niệm NỀN vẫn dùng `--remediate`: nó không đè lên
+                 * band nào cả, vì truy ngược chỉ trả về nền dưới ngưỡng hoặc
+                 * chưa kiểm. Và đó là token hệ thống dành riêng cho truy ngược,
+                 * cùng màu với các cạnh đang sáng — nó nói "chỗ cần chữa", chứ
+                 * không nói mức thành thạo.
+                 */
+                const color = isRoot ? 'var(--remediate)' : BAND_COLOR[band];
+                const mauChu = isRoot ? 'var(--remediate)' : BAND_TEXT[band];
                 const banKinh = isProbed ? 16 : isRoot ? 15 : 11;
                 return (
                   <g
@@ -328,12 +340,9 @@ export function TracebackScene() {
                     <span
                       className="size-2.5 shrink-0 rounded-full"
                       style={{
-                        background:
-                          i === 0
-                            ? BAND_COLOR.weak
-                            : isLast
-                              ? 'var(--remediate)'
-                              : BAND_COLOR[masteryBand(c.score)],
+                        /* Cùng luật với đồ thị: chấm nói mức thành thạo,
+                           không nói "đây là câu bạn sai". */
+                        background: isLast ? 'var(--remediate)' : BAND_COLOR[masteryBand(c.score)],
                       }}
                     />
                     <span
