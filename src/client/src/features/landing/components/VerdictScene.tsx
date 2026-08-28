@@ -47,14 +47,15 @@ export function VerdictScene() {
             gian. Hầu hết các hệ thống ghi nhận đó là điểm thấp. Recall AI không vội đánh dấu sai,
             chỉ ghi nhận rằng mình{' '}
             <strong className="text-foreground">chưa đủ căn cứ để kết luận</strong> bạn đã hiểu hay
-            chưa. Khái niệm sẽ được đưa về trạng thái chưa kiểm tra để bạn có thể thử lại sau.
+            chưa. Điểm cũ của khái niệm được giữ nguyên, và nó được xếp lại vào lịch ôn để bạn thử
+            lại sau.
           </p>
 
           <div className="border-border bg-card flex flex-col gap-4 rounded-xl border p-6">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-[15px] font-medium">Chuẩn hoá 3NF</span>
               <span
-                className={`font-mono text-[13px] ${stalled ? 'text-mastery-untested' : 'text-muted-foreground'}`}
+                className={`font-mono text-[13px] ${stalled ? 'text-mastery-untested-fg' : 'text-muted-foreground'}`}
               >
                 {stalled ? 'chưa đủ để kết luận' : 'đang chấm…'}
               </span>
@@ -65,9 +66,22 @@ export function VerdictScene() {
                 style={{ width: phase === 0 ? '0%' : '47%' }}
               />
             </div>
-            <div className="text-muted-foreground flex items-center justify-between font-mono text-[11px]">
-              <span>2/5 checkpoint có bằng chứng</span>
-              <span className="text-mastery-untested">null ≠ 0.0</span>
+            {/*
+              Chỉ còn ĐÚNG bất biến, không còn con số nào.
+
+              Chỗ này từng in "2/5 checkpoint có bằng chứng" — đó là từ vựng của
+              cơ chế chấm theo coverage (`MIN_COVERAGE = 0.7`), và 2/5 = 0,4 <
+              0,7 chính là công thức cho ra `null`. Nghe rất thuyết phục, chỉ có
+              điều `finalizeConceptCoverage` KHÔNG ĐƯỢC AI GỌI trong sản phẩm:
+              nó chỉ xuất hiện trong test của chính nó, và
+              `interview-evidence.service.ts:19` tự ghi "still has no caller".
+              Đường sống thật là trung bình có trọng số của các lượt trả lời.
+
+              Trang này tồn tại để KHÔNG hứa thứ chưa có, nên nó không được đi
+              khoe một cơ chế đang ngủ — dù cơ chế đó có thật trong repo.
+            */}
+            <div className="font-mono text-[11px]">
+              <span className="text-mastery-untested-fg">null ≠ 0.0</span>
             </div>
           </div>
         </div>
