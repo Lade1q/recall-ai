@@ -63,9 +63,19 @@ export function LandingHero() {
         <span className="text-muted-foreground font-mono text-[12px]">Hoàn toàn miễn phí</span>
       </div>
 
-      {/* Đường chạy — chỉ trên màn rộng. Không kẻ vạch mặt đất: bóng đổ dưới
-          chân đã đủ neo nhân vật, mà một đường ngang hết bề rộng thì đọc thành
-          vạch chia section chứ không phải mặt đất. */}
+      {/*
+        Đường chạy — chỉ trên màn rộng.
+
+        Không kẻ vạch mặt đất: một đường ngang hết bề rộng thì đọc thành vạch
+        chia section chứ không phải mặt đất, nên vệt dưới chân phải tự làm việc
+        neo nhân vật.
+
+        Vệt đó là `--panda-shadow`, và nó KHÔNG cùng một thứ ở hai theme. Theme
+        sáng thì đúng là bóng, tối hơn nền. Theme tối thì không bóng nào tồn tại
+        được — nền đã ở 0.17, một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù có
+        dùng đen tuyệt đối, đã đo — nên nó lật thành vũng sáng dưới chân. Cùng
+        một vai trò, hai cách đạt tới.
+      */}
       <div className="relative mt-8 hidden h-[190px] w-full md:block">
         <div
           className="lp-runner absolute bottom-0"

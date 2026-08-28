@@ -4,25 +4,30 @@
  * Mỗi tư thế là một mảng 16 chuỗi, mỗi chuỗi 16 ký tự. Sửa một ô = sửa một
  * ký tự, không cần mở phần mềm vẽ và không thêm tệp ảnh nào vào bundle.
  *
- * Bảng màu chỉ 4 ký tự, và cả 4 đều lấy từ hệ thống chứ không bịa mới:
- * lông đen là than ẤM (không phải đen tuyệt đối) và lông trắng là ngà ấm,
- * theo đúng luật "never pure black/white" của design system; khăn quàng
- * dùng thẳng `--remediate` — màu hệ thống đã dành riêng cho truy ngược, nên
- * linh vật luôn ăn màu với chip "TRUY NGƯỢC · TẦNG N" trong app.
+ * Bảng màu chỉ 4 ký tự, và cả 4 đều là TOKEN của hệ thống chứ không phải giá
+ * trị cứng — đó là điều kiện để con vật đổi theo theme. Lông đen là than ẤM
+ * (không phải đen tuyệt đối) và lông trắng là ngà ấm, theo đúng luật "never
+ * pure black/white"; khăn quàng dùng thẳng `--remediate`, màu hệ thống đã dành
+ * riêng cho truy ngược, nên linh vật luôn ăn màu với chip "TRUY NGƯỢC · TẦNG N"
+ * trong app.
+ *
+ * Trước đây bốn màu này là hằng số oklch viết cứng, nên sprite giữ nguyên một
+ * bộ lông ở cả hai theme: đo ra thì theme tối lông đen chỉ còn 1,16:1 so với
+ * nền, tai và tay chân biến mất. Giá trị theo theme nằm ở `global.css`.
  */
 
 /** Ký tự dùng trong bản đồ tư thế. `.` là ô trống. */
 type PixelKey = 'K' | 'W' | 'E' | 'O';
 
 const PALETTE: Record<PixelKey, string> = {
-  K: 'oklch(0.24 0.012 40)', // lông đen — than ấm
-  W: 'oklch(0.95 0.008 65)', // lông trắng — ngà ấm
-  E: 'oklch(0.99 0.004 65)', // đốm sáng trong mắt
+  K: 'var(--panda-ink)', // lông đen — than ấm, sáng lên ở theme tối
+  W: 'var(--panda-fur)', // lông trắng — ngà ấm
+  E: 'var(--panda-eye)', // đốm sáng trong mắt
   O: 'var(--remediate)', // khăn quàng
 };
 
 /**
- * Màu bóng đổ dưới chân — lấy thẳng tông lông đen của chính con vật.
+ * Màu bóng đổ dưới chân.
  *
  * Design system cấm đen/trắng tuyệt đối, và bảng màu ở trên đã theo luật đó.
  * Nhưng cái bóng lại nằm NGOÀI bảng, nên nó lọt qua với `oklch(0 0 0)` — đúng
@@ -30,7 +35,7 @@ const PALETTE: Record<PixelKey, string> = {
  * rằng cả bốn màu đều tuân thủ. Dùng lại `PALETTE.K` thì bóng không thể lệch
  * tông khỏi con vật, và luật chỉ còn phải giữ ở đúng một chỗ.
  */
-export const SHADOW_FILL = PALETTE.K;
+export const SHADOW_FILL = 'var(--panda-shadow)';
 
 export type PandaPose =
   | 'idle'

@@ -217,6 +217,20 @@
   --mastery-untested: oklch(0.75 0.008 262);
   --mastery-untested-fg: oklch(0.4 0.01 262);
 
+  /*
+    Bộ lông Gấu Trúc. Là token vì nó PHẢI đổi theo theme.
+
+    Sprite chỉ có hai tông, nên theme nào cũng có một tông đứng sát nền: đo ra
+    ở theme sáng lông trắng chỉ 1,11:1 so với nền (hình vẫn đọc được vì lông
+    đen gánh 15,86:1), còn ở theme tối thì ngược lại — lông đen tụt xuống
+    1,16:1, tai và tay chân tan vào nền, chỉ còn trơ một khối trắng.
+  */
+  --panda-ink: oklch(0.24 0.012 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  /* Bóng đổ: tối hơn nền, đúng như bóng thật. */
+  --panda-shadow: oklch(0.24 0.012 40);
+
   /* REMEDIATE: muted orange — Hệ thống tự chèn prerequisite vào lịch.
 
      L 0.55 -> 0.50: đây là accent DUY NHẤT không nằm ở L 0.5 như bốn accent còn
@@ -353,6 +367,24 @@
 
   --mastery-untested: oklch(0.4 0.01 262);
   --mastery-untested-fg: oklch(0.68 0.012 262);
+
+  /*
+    Lông đen phải SÁNG LÊN ở theme tối, nếu không con vật mất viền ngoài.
+
+    Đây là đánh đổi có ý thức, không phải con số tối ưu: muốn chạm 3:1 thì phải
+    đẩy tới L=0.52, lúc đó nó là xám trung và con gấu TRÚC hết còn là gấu trúc.
+    L=0.46 cho ~2,7:1 — tai và tay chân hiện rõ, mà vẫn đọc ra là lông sẫm.
+
+    Bóng đổ thì KHÔNG cứu được bằng màu. Nền tối đã ở 0.17, gần đáy thang, nên
+    một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù đen tuyệt đối và alpha bao
+    nhiêu cũng vậy — đã đo. Ở đây nó lật thành một vệt SÁNG hơn nền, tức là
+    vũng sáng dưới chân chứ không phải bóng; đó là thứ duy nhất còn neo được
+    nhân vật xuống mặt đất khi không có vạch đất.
+  */
+  --panda-ink: oklch(0.46 0.014 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  --panda-shadow: oklch(0.78 0.01 65);
 
   --remediate: oklch(0.72 0.13 55);
   --remediate-foreground: oklch(0.17 0.006 262);
