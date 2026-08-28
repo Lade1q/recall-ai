@@ -15,11 +15,26 @@ import {
 const STEP_MS = 560;
 const SURPRISE_MS = 800;
 
+/** Màu ĐỔ NỀN: chấm chú giải, vòng tròn node. */
 const BAND_COLOR: Record<MasteryBand, string> = {
   strong: 'var(--mastery-strong)',
   learning: 'var(--mastery-learning)',
   weak: 'var(--mastery-weak)',
   untested: 'var(--mastery-untested)',
+};
+
+/**
+ * Màu dùng cho CHỮ. Chỉ `untested` lệch khỏi `BAND_COLOR`.
+ *
+ * `--mastery-untested` là màu để TÔ, không phải để viết: đo trên nền thẻ nó ra
+ * 2,19:1 ở theme sáng và 1,93:1 ở theme tối, trong khi AA đòi 4,5 — mà nó lại
+ * đang gánh chữ cỡ 10,5px. Hệ thống đã có sẵn `--mastery-untested-fg` đúng cho
+ * vai này (9,04 và 6,13). Ba band còn lại dùng làm chữ vẫn qua AA thoải mái
+ * (5,66–7,95) nên giữ nguyên, không đổi cho đều.
+ */
+const BAND_TEXT: Record<MasteryBand, string> = {
+  ...BAND_COLOR,
+  untested: 'var(--mastery-untested-fg)',
 };
 
 type WalkState = 'walking' | 'arrived' | 'digging';
@@ -203,11 +218,17 @@ export function TracebackScene() {
                 const c = DEMO_GRAPH[id];
                 const isProbed = id === probed;
                 const isRoot = id === result.rootId;
+                const band = masteryBand(c.score);
                 const color = isProbed
                   ? BAND_COLOR.weak
                   : isRoot
                     ? 'var(--remediate)'
-                    : BAND_COLOR[masteryBand(c.score)];
+                    : BAND_COLOR[band];
+                const mauChu = isProbed
+                  ? BAND_TEXT.weak
+                  : isRoot
+                    ? 'var(--remediate)'
+                    : BAND_TEXT[band];
                 return (
                   <g
                     key={id}
@@ -246,7 +267,7 @@ export function TracebackScene() {
                       x={c.x}
                       y={c.y + (isProbed ? 33 : 29)}
                       textAnchor="middle"
-                      fill={color}
+                      fill={mauChu}
                       fontSize={10.5}
                       fontFamily="var(--font-mono)"
                     >
