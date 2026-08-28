@@ -229,6 +229,7 @@ export function TracebackScene() {
                   : isRoot
                     ? 'var(--remediate)'
                     : BAND_TEXT[band];
+                const banKinh = isProbed ? 16 : isRoot ? 15 : 11;
                 return (
                   <g
                     key={id}
@@ -244,10 +245,28 @@ export function TracebackScene() {
                       }
                     }}
                   >
+                    {/*
+                      Vòng tiêu điểm VẼ RA, không dùng `outline`.
+
+                      `outline` bám theo hộp bao của CẢ NHÓM — gồm nhãn ở trên
+                      và điểm số ở dưới — nên nó là một chữ nhật cao gấp ba lần
+                      cái chấm, và ở 4/7 node nó thò sang chạm vào Gấu. Vẽ hẳn
+                      một vòng tròn thì nó ôm đúng node, tròn theo node, và
+                      không dính gì tới bề rộng của nhãn.
+                    */}
+                    <circle
+                      className="lp-focus-ring"
+                      cx={c.x}
+                      cy={c.y}
+                      r={banKinh + 6}
+                      fill="none"
+                      stroke="var(--ring)"
+                      strokeWidth={2}
+                    />
                     <circle
                       cx={c.x}
                       cy={c.y}
-                      r={isProbed ? 16 : isRoot ? 15 : 11}
+                      r={banKinh}
                       fill={color}
                       fillOpacity={0.2}
                       stroke={color}

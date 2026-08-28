@@ -756,10 +756,26 @@ kbd,
   transform: scale(1.16);
 }
 
+/*
+  Vòng tiêu điểm là một <circle> vẽ sẵn trong mỗi node, không phải `outline`.
+
+  `outline` trên nhóm SVG bám theo hộp bao của cả nhóm, mà nhóm gồm nhãn ở
+  trên và điểm số ở dưới — thành ra một chữ nhật cao gấp ba lần cái chấm, và ở
+  4/7 node nó thò ra chạm vào Gấu Trúc. Chữ nhật đó cũng nói sai: nó khoanh cả
+  phần chữ trong khi thứ đang được chọn chỉ là cái node.
+
+  Vẫn phải tắt outline mặc định của trình duyệt, nếu không có hai vòng.
+*/
+.lp-focus-ring {
+  opacity: 0;
+}
+
 .lp-node:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.lp-node:focus-visible .lp-focus-ring {
+  opacity: 1;
 }
 
 /* Xung chạy dọc cạnh đang thuộc đường truy ngược. */

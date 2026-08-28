@@ -32,9 +32,14 @@ export interface DemoConcept {
    * ba node lại nằm sát rìa khung 640×400 — quét toàn bộ lưới vị trí thì mỗi
    * node riêng lẻ có hàng nghìn chỗ sạch, nhưng GIAO của bảy tập đó rỗng.
    *
-   * Bốn node giữa dùng chung `(-52, 24)`; ba node còn lại lệch đi vì hết chỗ.
-   * Con số chọn bằng cách đo bbox thật của mọi nhãn rồi tìm ô trống gần dáng
-   * đứng ưa thích nhất, chừa thêm 6 đơn vị cho thoáng.
+   * Bốn node giữa dùng chung `(-60, 24)`; ba node còn lại lệch đi vì hết chỗ.
+   * Con số chọn bằng cách đo bbox thật của MỌI vật cản rồi tìm ô trống gần dáng
+   * đứng ưa thích nhất, chừa thêm 4 đơn vị cho thoáng.
+   *
+   * "Mọi vật cản" gồm cả VÒNG TIÊU ĐIỂM, không chỉ nhãn. Vòng focus chỉ hiện
+   * khi node được chọn bằng bàn phím, nhưng nó hiện ở node ĐANG CHỌN trong khi
+   * Gấu còn đứng ở node TRƯỚC — nên hai thứ gặp nhau thật. Bản đầu chỉ đo theo
+   * nhãn và bỏ sót chuyện này.
    *
    * ⚠️ Dời `x`/`y` của node, đổi nhãn dài hơn, hay đổi cỡ sprite thì phải đo
    * lại chỗ này — không có test nào bắt được, vì bề rộng chữ chỉ có thật trong
@@ -51,7 +56,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 214,
     score: 0.88,
     prereqs: [],
-    walker: { dx: -46, dy: 74 },
+    walker: { dx: -52, dy: 62 },
   },
   'khoa-chinh': {
     id: 'khoa-chinh',
@@ -60,7 +65,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 100,
     score: 0.81,
     prereqs: ['quan-he'],
-    walker: { dx: -52, dy: 24 },
+    walker: { dx: -60, dy: 24 },
   },
   'phu-thuoc-ham': {
     id: 'phu-thuoc-ham',
@@ -69,7 +74,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 322,
     score: 0.42,
     prereqs: ['quan-he'],
-    walker: { dx: -52, dy: 24 },
+    walker: { dx: -60, dy: 24 },
   },
   nf1: {
     id: 'nf1',
@@ -78,7 +83,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 88,
     score: 0.79,
     prereqs: ['khoa-chinh'],
-    walker: { dx: -52, dy: 24 },
+    walker: { dx: -60, dy: 24 },
   },
   nf2: {
     id: 'nf2',
@@ -87,7 +92,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 216,
     score: 0.68,
     prereqs: ['nf1', 'phu-thuoc-ham'],
-    walker: { dx: -52, dy: 24 },
+    walker: { dx: -60, dy: 24 },
   },
   nf3: {
     id: 'nf3',
@@ -96,7 +101,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 148,
     score: null,
     prereqs: ['nf2'],
-    walker: { dx: -90, dy: -8 },
+    walker: { dx: -52, dy: 76 },
   },
   bcnf: {
     id: 'bcnf',
@@ -105,7 +110,7 @@ export const DEMO_GRAPH: Record<string, DemoConcept> = {
     y: 306,
     score: null,
     prereqs: ['nf3'],
-    walker: { dx: -68, dy: 18 },
+    walker: { dx: -66, dy: 24 },
   },
 };
 
