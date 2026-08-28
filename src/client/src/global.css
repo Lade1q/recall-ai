@@ -375,16 +375,23 @@
     đẩy tới L=0.52, lúc đó nó là xám trung và con gấu TRÚC hết còn là gấu trúc.
     L=0.46 cho ~2,7:1 — tai và tay chân hiện rõ, mà vẫn đọc ra là lông sẫm.
 
-    Bóng đổ thì KHÔNG cứu được bằng màu. Nền tối đã ở 0.17, gần đáy thang, nên
-    một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù đen tuyệt đối và alpha bao
-    nhiêu cũng vậy — đã đo. Ở đây nó lật thành một vệt SÁNG hơn nền, tức là
-    vũng sáng dưới chân chứ không phải bóng; đó là thứ duy nhất còn neo được
-    nhân vật xuống mặt đất khi không có vạch đất.
+    Bóng đổ thì KHÔNG cứu được, và cũng không nên cố cứu. Nền tối đã ở 0.17,
+    gần đáy thang, nên một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù dùng đen
+    tuyệt đối với alpha bao nhiêu — đã đo năm tổ hợp. Nghĩa là ở theme tối con
+    vật KHÔNG CÓ dấu chạm đất, và câu đúng phải là thừa nhận điều đó.
+
+    Bản trước lật nó thành một vệt SÁNG hơn nền để "vẫn neo được nhân vật".
+    Đo thì đẹp — 1,03 lên 1,88 — nhưng nhìn thì đó là một gạch trắng nằm dưới
+    đít con gấu, không ai đọc ra là mặt đất. Đó là sửa cho phép đo vừa mắt chứ
+    không phải sửa cho trang vừa mắt.
+
+    Nên nó ở lại là bóng thật, tối hơn nền, và chấp nhận gần như không thấy.
+    Vô hình thì vô hại; một vệt sáng sai chỗ thì không.
   */
   --panda-ink: oklch(0.46 0.014 40);
   --panda-fur: oklch(0.95 0.008 65);
   --panda-eye: oklch(0.99 0.004 65);
-  --panda-shadow: oklch(0.78 0.01 65);
+  --panda-shadow: oklch(0.1 0.006 262);
 
   --remediate: oklch(0.72 0.13 55);
   --remediate-foreground: oklch(0.17 0.006 262);

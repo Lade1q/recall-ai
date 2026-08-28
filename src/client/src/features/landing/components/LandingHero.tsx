@@ -70,11 +70,14 @@ export function LandingHero() {
         chia section chứ không phải mặt đất, nên vệt dưới chân phải tự làm việc
         neo nhân vật.
 
-        Vệt đó là `--panda-shadow`, và nó KHÔNG cùng một thứ ở hai theme. Theme
-        sáng thì đúng là bóng, tối hơn nền. Theme tối thì không bóng nào tồn tại
-        được — nền đã ở 0.17, một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù có
-        dùng đen tuyệt đối, đã đo — nên nó lật thành vũng sáng dưới chân. Cùng
-        một vai trò, hai cách đạt tới.
+        Chỉ có điều ở THEME TỐI thì nó không neo được gì cả: nền đã ở 0.17, một
+        vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù dùng đen tuyệt đối — đã đo.
+        Nên câu "bóng đổ đã đủ neo" chỉ đúng ở theme sáng.
+
+        Đừng đi vá bằng cách cho cái bóng sáng hơn nền: đã thử, và nó thành một
+        gạch trắng dưới chân, không ai đọc ra mặt đất. Ở theme tối nhân vật
+        đứng không có dấu chạm đất, và như thế vẫn đọc được — nó nằm giữa, ngay
+        dưới khối chữ.
       */}
       <div className="relative mt-8 hidden h-[190px] w-full md:block">
         <div
