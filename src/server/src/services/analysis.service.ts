@@ -47,6 +47,33 @@ async function callAi(fileKey: string, onPhase: OnPhase): Promise<AiExtractRespo
   return extractConcepts({ kind: source.kind, uri: uploaded.uri, mimeType: uploaded.mimeType });
 }
 
+/**
+ * Review #425 (Quân) — `buildConceptSourceRows`'s `sectionTitle` guard needs the plan's raw text
+ * to verify against. `.txt` is the only material kind this server ever decodes locally (PDF/image
+ * go to Gemini's File API by URI, and this codebase has no local PDF/image text extraction), so
+ * every other kind — and mock mode, where `fileKey` names nothing real on disk — answers `null`:
+ * "cannot verify" rather than risk a wrong read.
+ *
+ * A second, small read of the same `.txt` file `callAi` already read: kept separate rather than
+ * threading the string back out of `callAiWithRetry`'s return type, since this only matters to
+ * one caller and the file is small.
+ *
+ * Round 2 (Quân) — this call sits AFTER `callAiWithRetry` succeeds and OUTSIDE its retry loop,
+ * with no `try/catch` of its own, so an uncaught throw here falls into `processAnalysisJob`'s
+ * catch-all and marks the WHOLE job `failed` — discarding an extraction that already succeeded
+ * (money and ~30s spent, thrown away by a decorative field) if the file happens to have vanished
+ * from disk between upload and this read (this repo has precedent for files going missing under
+ * `uploads/`, #411). `.catch(() => null)` makes a read failure degrade to the same "cannot
+ * verify" `null` the guard already treats as a first-class, correct answer — fail-closed on the
+ * guard's own terms, not error-swallowing.
+ */
+export async function resolveMaterialText(fileKey: string): Promise<string | null> {
+  if (process.env.USE_MOCK_AI === 'true') return null;
+  const source = resolveMaterialSource(fileKey);
+  if (source.kind !== 'text') return null;
+  return fs.promises.readFile(path.join(UPLOAD_DIR, fileKey), 'utf-8').catch(() => null);
+}
+
 async function callAiWithRetry(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
@@ -241,6 +268,7 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
     };
 
     const extracted = await callAiWithRetry(job.fileKey, setPhase);
+    const materialText = await resolveMaterialText(job.fileKey);
     await setPhase('validating');
     // Concepts aren't persisted yet, so the graph is keyed by concept name here.
     const { edges, autoFixed } = validateAndFixDag(
@@ -326,7 +354,12 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
             return id ? [[c.name, id] as [string, string]] : [];
           })
         );
-        const anchors = buildConceptSourceRows(extracted.concepts, conceptIdByName, document.id);
+        const anchors = buildConceptSourceRows(
+          extracted.concepts,
+          conceptIdByName,
+          document.id,
+          materialText
+        );
         if (anchors.length > 0) {
           await tx.conceptSourceRef.createMany({ data: anchors });
         }

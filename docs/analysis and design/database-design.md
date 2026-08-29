@@ -222,7 +222,9 @@ erDiagram
         uuid document_id FK
         int page_from "nullable"
         int page_to "nullable"
+        text section_title "nullable"
         text excerpt "nullable"
+        text context "nullable"
         timestamp created_at
     }
 ```
@@ -415,22 +417,29 @@ The anchor that ties a concept to the passage it was extracted from — the asso
 resolving the **N:M** relation between `concepts` and `documents`. Storing `excerpt` inline lets
 the Focus Session excerpt view render and constraint **C5** ("AI stays grounded in the source")
 be verified **without re-parsing the PDF at read time**. Populated by `extract_concepts` once the
-AI schema returns a per-concept anchor — still 4 fixed calls (C4), just richer output; that
-population work is a follow-up, this migration only lands the columns.
+AI schema returns a per-concept anchor — still 4 fixed calls (C4), just richer output.
+
+`section_title`/`context` (#296) enrich FS-04 state 6 with the document's own section heading
+and the paragraph surrounding `excerpt` — both nullable and best-effort, same as `page_from`/
+`excerpt`; rows anchored before #296 have both `null`, and the client falls back to the pre-#296
+rendering rather than show an empty heading. `context` is **not** used for `<mark>`/C5
+verification — that stays `excerpt`, the short verbatim quote.
 
 > The Prisma model is named `ConceptSourceRef` to avoid clashing with the `concept_source`
 > enum (a concept's provenance); the table is `concept_sources`.
 
-| Column        | Type      | Key / Constraint                | Description                                          |
-| ------------- | --------- | ------------------------------- | ---------------------------------------------------- |
-| `id`          | uuid      | PK                              | Identifier                                           |
-| `concept_id`  | uuid      | FK → `concepts.id`              | Anchored concept                                     |
-| `document_id` | uuid      | FK → `documents.id`             | Source document                                      |
-| `page_from`   | integer   | ○                               | Start page; null for non-paginated documents         |
-| `page_to`     | integer   | ○                               | End page                                             |
-| `excerpt`     | text      | ○                               | Source passage — renders/verifies without re-parsing |
-| `created_at`  | timestamp | not null                        | Created at                                           |
-| _Indexes_     |           | `(concept_id)`, `(document_id)` |                                                      |
+| Column          | Type      | Key / Constraint                | Description                                               |
+| --------------- | --------- | ------------------------------- | --------------------------------------------------------- |
+| `id`            | uuid      | PK                              | Identifier                                                |
+| `concept_id`    | uuid      | FK → `concepts.id`              | Anchored concept                                          |
+| `document_id`   | uuid      | FK → `documents.id`             | Source document                                           |
+| `page_from`     | integer   | ○                               | Start page; null for non-paginated documents              |
+| `page_to`       | integer   | ○                               | End page                                                  |
+| `section_title` | text      | ○                               | Document section heading containing the concept (#296)    |
+| `excerpt`       | text      | ○                               | Source passage — renders/verifies without re-parsing      |
+| `context`       | text      | ○                               | Paragraph surrounding `excerpt`, for FS-04 state 6 (#296) |
+| `created_at`    | timestamp | not null                        | Created at                                                |
+| _Indexes_       |           | `(concept_id)`, `(document_id)` |                                                           |
 
 ### 3.13 `session_notes` — Quick note during a Focus Session (FS-05)
 

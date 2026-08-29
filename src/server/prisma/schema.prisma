@@ -533,15 +533,19 @@ model Document {
 /// của concept; bảng vẫn là `concept_sources`.)
 /// Mở khóa: citation của AI Examiner, trích đoạn FS-04, và kiểm chứng ràng buộc C5.
 /// Lưu ý: cột populate bởi extract_concepts (schema AI cần trả thêm anchor mỗi concept) —
-/// vẫn là 4 lệnh gọi cố định (C4), chỉ là output phong phú hơn. Việc populate ở PR/issue sau.
+/// vẫn là 4 lệnh gọi cố định (C4), chỉ là output phong phú hơn.
+/// `sectionTitle`/`context` (#296) làm giàu FS-04 state 6 (tiêu đề mục + ngữ cảnh quanh câu
+/// định nghĩa) — nullable: bản ghi cũ (trước #296) để null, FE fallback về #227 hiện tại.
 model ConceptSourceRef {
-  id         String   @id @default(uuid()) @db.Uuid
-  conceptId  String   @map("concept_id") @db.Uuid
-  documentId String   @map("document_id") @db.Uuid
-  pageFrom   Int?     @map("page_from") // null nếu tài liệu không phân trang
-  pageTo     Int?     @map("page_to")
-  excerpt    String? // đoạn văn bản gốc — cho render FS-04 / kiểm chứng C5 mà không cần parse lại tệp
-  createdAt  DateTime @default(now()) @map("created_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  conceptId    String   @map("concept_id") @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  pageFrom     Int?     @map("page_from") // null nếu tài liệu không phân trang
+  pageTo       Int?     @map("page_to")
+  sectionTitle String?  @map("section_title") // tiêu đề mục tài liệu chứa khái niệm, vd "4.2 Ngăn xếp"
+  excerpt      String? // đoạn văn bản gốc — cho render FS-04 / kiểm chứng C5 mà không cần parse lại tệp
+  context      String? // đoạn văn bao quanh excerpt — KHÔNG dùng cho <mark>/đối chiếu C5 (đó vẫn là excerpt)
+  createdAt    DateTime @default(now()) @map("created_at")
 
   concept  Concept  @relation(fields: [conceptId], references: [id], onDelete: Cascade)
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
