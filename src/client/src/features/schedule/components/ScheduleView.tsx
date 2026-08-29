@@ -20,6 +20,14 @@ export interface ScheduleViewProps {
    * `items`) và banner đếm kế hoạch `draft`. Giai đoạn 0 chưa dùng tới.
    */
   plans: readonly PlanSummary[];
+  /**
+   * #405: banner "N kế hoạch chưa xác nhận đồ thị" → view Kế hoạch + tab Chưa xác nhận.
+   *
+   * Optional vì #404 chỉ **nối dây**, chưa có người gọi: banner là của #405. Hai state đổi cùng
+   * lúc (view tab và `activeTab`) và cả hai sống trong `PlansPage`, nên việc này không thể làm từ
+   * dưới lên — chữ ký chốt sẵn ở đây để hai luồng không đẻ ra hai cái tên.
+   */
+  onShowDraftPlans?: () => void;
 }
 
 /**
@@ -40,7 +48,7 @@ export interface ScheduleViewProps {
  * tháng rác và không tự sửa khi dữ liệu về. Vỏ ngoài không mount phần trong cho tới khi
  * `todayDateKey` có thật.
  */
-export function ScheduleView({ plans }: ScheduleViewProps) {
+export function ScheduleView({ plans, onShowDraftPlans }: ScheduleViewProps) {
   const { todayDateKey, items, isLoading, hasError, reload } = useSchedule();
 
   if (isLoading) {
@@ -59,7 +67,14 @@ export function ScheduleView({ plans }: ScheduleViewProps) {
     return <ScheduleLoadError onRetry={() => void reload().catch(() => undefined)} />;
   }
 
-  return <ScheduleBoard plans={plans} todayDateKey={todayDateKey} items={items} />;
+  return (
+    <ScheduleBoard
+      plans={plans}
+      onShowDraftPlans={onShowDraftPlans}
+      todayDateKey={todayDateKey}
+      items={items}
+    />
+  );
 }
 
 /** Trạng thái lỗi tối thiểu. #405 sở hữu bộ trạng thái đầy đủ của màn này. */
@@ -82,7 +97,12 @@ interface ScheduleBoardProps extends ScheduleViewProps {
 }
 
 /** Chủ sở hữu state — chỉ mount khi đã có `todayDateKey` thật. */
-function ScheduleBoard({ plans: _plans, todayDateKey, items }: ScheduleBoardProps) {
+function ScheduleBoard({
+  plans: _plans,
+  onShowDraftPlans: _onShowDraftPlans,
+  todayDateKey,
+  items,
+}: ScheduleBoardProps) {
   const state = useScheduleViewState(todayDateKey);
 
   const visibleItems = useMemo(

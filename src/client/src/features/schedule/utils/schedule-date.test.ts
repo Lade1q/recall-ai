@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { SCHEDULE_SAMPLE } from '../__fixtures__/schedule-sample';
 import type { ScheduleItem } from '../types/schedule.types';
 import {
+  buildMonthCells,
   formatDayLabel,
+  formatMonthLabel,
   groupByDateKey,
   monthCursorFromDateKey,
   monthsBetween,
@@ -115,5 +117,101 @@ describe('groupByDateKey', () => {
     expect(count((k) => k < SCHEDULE_SAMPLE.todayDateKey)).toBe(3);
     expect(count((k) => k === SCHEDULE_SAMPLE.todayDateKey)).toBe(2);
     expect(count((k) => k > SCHEDULE_SAMPLE.todayDateKey)).toBe(5);
+  });
+});
+
+describe('formatMonthLabel', () => {
+  it('keeps the year — the grid can be paged past December', () => {
+    expect(formatMonthLabel({ year: 2026, month: 8 })).toBe('Tháng 8 2026');
+  });
+});
+
+describe('buildMonthCells', () => {
+  /** `dateKey` → thứ trong tuần theo UTC (0 = Chủ nhật). Không đổi múi giờ, chỉ đọc lại chuỗi. */
+  const weekday = (dateKey: string): number => new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+
+  const dateKeys = (year: number, month: number): string[] =>
+    buildMonthCells({ year, month }).map((cell) => cell.dateKey);
+
+  const inMonthCount = (year: number, month: number): number =>
+    buildMonthCells({ year, month }).filter((cell) => cell.inMonth).length;
+
+  it('always returns 6×7 cells', () => {
+    expect(buildMonthCells({ year: 2026, month: 8 })).toHaveLength(42);
+  });
+
+  it('always starts on a Monday', () => {
+    // Bốn tháng có ngày-1 rơi vào bốn thứ khác nhau — một tháng không phân biệt được phép xoay
+    // `(getUTCDay() + 6) % 7` với một hằng số may mắn.
+    for (const [year, month] of [
+      [2026, 8], // ngày 1 là thứ Bảy
+      [2026, 11], // ngày 1 là Chủ nhật — ca lệch nhiều nhất, 6 ô đầu thuộc tháng trước
+      [2027, 1], // ngày 1 là thứ Sáu
+      [2028, 2], // ngày 1 là thứ Ba
+    ] as const) {
+      expect(weekday(dateKeys(year, month)[0])).toBe(1);
+    }
+  });
+
+  it('walks one calendar day at a time, with no gap and no repeat', () => {
+    // Ghim rằng 42 ô là một DẢI LIÊN TỤC. Một lỗi lệch múi giờ trong `Date.UTC` sẽ lộ ra ở đây
+    // dưới dạng hai ô cùng ngày (hoặc nhảy cóc), chứ không lộ ở phép đếm 42.
+    const keys = dateKeys(2026, 11);
+    for (let index = 1; index < keys.length; index += 1) {
+      const previous = new Date(`${keys[index - 1]}T00:00:00Z`).getTime();
+      expect(new Date(`${keys[index]}T00:00:00Z`).getTime() - previous).toBe(86_400_000);
+    }
+  });
+
+  it('agrees with its own dayOfMonth field on every cell', () => {
+    for (const cell of buildMonthCells({ year: 2026, month: 8 })) {
+      expect(cell.dayOfMonth).toBe(new Date(`${cell.dateKey}T00:00:00Z`).getUTCDate());
+    }
+  });
+
+  it('marks exactly the days of the month, including a leap February', () => {
+    expect(inMonthCount(2026, 8)).toBe(31);
+    expect(inMonthCount(2026, 11)).toBe(30);
+    expect(inMonthCount(2026, 2)).toBe(28);
+    expect(inMonthCount(2028, 2)).toBe(29); // 2028 nhuận
+  });
+
+  it('starts a Saturday month with 5 leading cells from the previous month', () => {
+    const cells = buildMonthCells({ year: 2026, month: 8 });
+    expect(cells[0]).toEqual({ dateKey: '2026-07-27', dayOfMonth: 27, inMonth: false });
+    expect(cells[5]).toEqual({ dateKey: '2026-08-01', dayOfMonth: 1, inMonth: true });
+  });
+
+  it('still fits a 30-day month that starts on Sunday — the worst case for 42 cells', () => {
+    // 6 ô dẫn + 30 ngày = 36 ≤ 42. Ca này là lý do lưới có 6 hàng chứ không phải 5.
+    const cells = buildMonthCells({ year: 2026, month: 11 });
+    expect(cells[6]).toMatchObject({ dateKey: '2026-11-01', inMonth: true });
+    expect(cells[35]).toMatchObject({ dateKey: '2026-11-30', inMonth: true });
+    expect(cells[36]).toMatchObject({ dateKey: '2026-12-01', inMonth: false });
+  });
+
+  it('rolls the year in both directions on the overflow cells', () => {
+    expect(dateKeys(2027, 1)[0]).toBe('2026-12-28');
+    expect(dateKeys(2026, 12)[41]).toBe('2027-01-10');
+  });
+
+  /**
+   * Bất biến mà docstring của hàm viện dẫn: ô tràn mang `dateKey` THẬT của tháng bên cạnh.
+   *
+   * Hệ quả nếu để lọt: lưới tra mục theo `dateKey`, nên một ô tràn mang chuỗi rỗng / `dateKey` của
+   * tháng đang xem sẽ làm **mục ngày 01 tháng sau biến mất** ở hàng cuối — không có gì đỏ, chỉ là
+   * một buổi ôn không ai nhìn thấy.
+   */
+  it('gives overflow cells the real neighbouring dateKey, not a blank', () => {
+    const cells = buildMonthCells({ year: 2026, month: 8 });
+    const trailing = cells.filter((cell) => !cell.inMonth && cell.dateKey > '2026-08-31');
+    expect(trailing.map((cell) => cell.dateKey)).toEqual([
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-03',
+      '2026-09-04',
+      '2026-09-05',
+      '2026-09-06',
+    ]);
   });
 });
