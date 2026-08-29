@@ -2,8 +2,10 @@ import { Badge } from '@/components/ui/badge';
 import { masteryBand, masteryLabel } from '@/components/ui/concept-node';
 import type { ReviewQueueItem } from '../types/review-queue.types';
 
-/** Nút hành động dạng "link-chữ" dùng chung cho mọi dòng trong màn này (mockup `.linkish`). */
-const LINKISH_BUTTON_CLASS =
+/** Nút hành động dạng "link-chữ" dùng chung cho mọi dòng trong màn này (mockup `.linkish`).
+ *  Xuất ra cho panel ngày của màn Lịch (#405): hai màn dùng chung một hình thức "hành động phụ",
+ *  và một bản chép sang tệp khác là chỗ để hai hình thức đó trôi khỏi nhau. */
+export const LINKISH_BUTTON_CLASS =
   'border-border text-muted-foreground hover:text-foreground hover:border-foreground shrink-0 cursor-pointer border-0 border-b bg-none p-0 font-sans text-[12.5px] whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50';
 
 /**
@@ -21,9 +23,24 @@ const MASTERY_DOT_CLASS: Record<ReturnType<typeof masteryBand>, string> = {
   untested: 'bg-mastery-untested',
 };
 
+/**
+ * Chip `TRUY NGƯỢC · TẦNG N`, hoặc `null` cho mọi lý do khác.
+ *
+ * Truy ngược là loại mục duy nhất mang chip riêng — tái dùng đúng `<Badge tone="remediate">` của
+ * #285 để nhất quán với màn tổng hợp cuối phiên, không tự vẽ chip mới. Là component (không phải
+ * hàm trả chuỗi) để cả điều kiện hiện chip lẫn `tone` chỉ tồn tại một chỗ: panel ngày của màn
+ * Lịch (#405) hiện chip này trong một layout khác hẳn, và một hàm trả chuỗi sẽ để nơi gọi thứ hai
+ * tự chọn `tone`.
+ */
+export function TracebackChip({ item }: { item: Pick<ReviewQueueItem, 'reason' | 'depth'> }) {
+  if (item.reason !== 'traceback' || item.depth === null) return null;
+  return <Badge tone="remediate">Truy ngược · tầng {item.depth}</Badge>;
+}
+
 /** Chấm màu 8x8 + nhãn chữ thường + điểm 2 chữ số thập phân khi có (mockup `.mast`). Ba dải
- *  0.6/0.8 của `masteryBand()` là nguồn sự thật duy nhất — không tự đặt ngưỡng khác ở đây. */
-function MasteryCell({ score, className }: { score: number | null; className?: string }) {
+ *  0.6/0.8 của `masteryBand()` là nguồn sự thật duy nhất — không tự đặt ngưỡng khác ở đây.
+ *  Xuất ra cho panel ngày của màn Lịch (#405) — xem `TracebackChip`. */
+export function MasteryCell({ score, className }: { score: number | null; className?: string }) {
   const band = masteryBand(score);
   return (
     <span
@@ -66,11 +83,6 @@ export function ReviewQueueItemRow({
   onRestore,
   onUndo,
 }: ReviewQueueItemRowProps) {
-  // Truy ngược là loại mục duy nhất mang chip riêng — tái dùng đúng `<Badge tone="remediate">`
-  // của #285 để nhất quán với màn tổng hợp cuối phiên, không tự vẽ chip mới.
-  const chip =
-    item.reason === 'traceback' && item.depth !== null ? `Truy ngược · tầng ${item.depth}` : null;
-
   if (variant === 'gone') {
     return (
       <li
@@ -102,7 +114,7 @@ export function ReviewQueueItemRow({
       <li className="border-border py-3.25 grid grid-cols-1 items-baseline gap-y-1.5 border-b last:border-b-0 min-[721px]:grid-cols-[minmax(0,1fr)_auto_auto] min-[721px]:gap-x-4 min-[721px]:gap-y-0">
         <div>
           <div className="text-muted-foreground flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-[15px] leading-[1.35]">
-            {chip && <Badge tone="remediate">{chip}</Badge>}
+            <TracebackChip item={item} />
             {item.name}
           </div>
           <div className="text-muted-foreground mt-0.75 text-pretty text-[13px]">
@@ -135,7 +147,7 @@ export function ReviewQueueItemRow({
       </span>
       <div>
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 text-[15px] font-medium leading-[1.35]">
-          {chip && <Badge tone="remediate">{chip}</Badge>}
+          <TracebackChip item={item} />
           {item.name}
         </div>
         <div className="text-muted-foreground mt-0.75 text-pretty text-[13px]">
