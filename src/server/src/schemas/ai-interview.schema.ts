@@ -91,8 +91,12 @@ export type Verdict = GradeAnswerResponse['verdict'];
 /**
  * How the next question relates to the previous turn. The caller (I6.3) picks the mode;
  * Gemini is never asked whether to continue — that would violate C4.
+ *
+ * `hint` (#392, phương án B): the answer to the current question was `wrong`, and turns remain —
+ * narrow THAT SAME question one notch instead of ending the concept. Distinct from `probe`, which
+ * follows a `shallow` (not wrong) answer and stays open-ended about what to press on.
  */
-export type QuestionMode = 'initial' | 'deeper' | 'probe';
+export type QuestionMode = 'initial' | 'deeper' | 'probe' | 'hint';
 
 /**
  * `summarize_session` (I6.5 / AE-09) — the fourth and final AI call. Takes only the scores

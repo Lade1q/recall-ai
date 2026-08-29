@@ -89,9 +89,10 @@ async function upsertReviewItem(tx: Prisma.TransactionClient, draft: ReviewItemD
  * answered well must stay on the calendar instead of dropping out of the plan entirely.
  * Traceback is the *extra* step for a weak score, never a replacement for that row.
  *
- * Traceback fires on the final mastery score, not on a single `wrong` verdict (audit A5): the
- * state machine ends a concept early on `wrong`, but whether that concept needs remediation is
- * decided here, from everything the student answered about it.
+ * Traceback fires on the final mastery score, not on a single `wrong` verdict (audit A5): even
+ * though a `wrong` answer can still end a concept — out of hints, or the C6 ceiling (#392) —
+ * whether that concept needs remediation is decided here, from everything the student answered
+ * about it, never from that one verdict alone.
  *
  * ⚠️ The three writes below are gated DIFFERENTLY, and getting that wrong is how the `null` case
  * quietly disappears:

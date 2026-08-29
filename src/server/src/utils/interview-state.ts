@@ -17,7 +17,8 @@ import { TURN_WEIGHTS } from './mastery';
  */
 
 /** What the session does next. Ordered as the decision table in #115 reads. */
-export type NextStep = 'ask_deeper' | 'ask_probe' | 'finish_concept' | 'finish_session';
+export type NextStep =
+  'ask_deeper' | 'ask_probe' | 'ask_hint' | 'finish_concept' | 'finish_session';
 
 /**
  * Deliberately **no** `finish_concept_with_traceback` (audit A5): whether a finished concept
@@ -61,19 +62,31 @@ export const MAX_CONCEPTS_PER_SESSION = 5;
 export const DEFAULT_CONCEPTS_PER_SESSION = 3;
 
 /**
- * Decides the next step after a turn is graded (#115's decision table, UC-11):
+ * Decides the next step after a turn is graded (#115's decision table, UC-11; revised by #392
+ * phương án B — see AE-02 step 9):
  *
- * | verdict   | turns left | step                            |
- * | --------- | ---------- | ------------------------------- |
- * | `deep`    | yes        | `ask_deeper` — same concept     |
- * | `shallow` | yes        | `ask_probe` — same concept      |
- * | `wrong`   | –          | end the concept immediately     |
- * | any       | no         | end the concept (C6 hard limit) |
+ * | verdict   | turns left | step                             |
+ * | --------- | ---------- | -------------------------------- |
+ * | `deep`    | yes        | `ask_deeper` — same concept      |
+ * | `shallow` | yes        | `ask_probe` — same concept       |
+ * | `wrong`   | yes        | `ask_hint` — narrow THIS question|
+ * | any       | no         | end the concept (C6 hard limit)  |
  *
  * Ending a concept is reported as `finish_concept` while the queue still holds another one and
  * as `finish_session` on the last, but both mean "finalise this concept first": the caller runs
  * `finalizeConceptResult()` on either, so every concept gets its mastery score and its
  * spaced-repetition row even when the student answered it perfectly (audit A4).
+ *
+ * #392: `wrong` no longer ends the concept on the spot — one answer must not get to decide a
+ * concept's fate by itself (spike S0's R-A, independently reached by Quân and by #394's
+ * examiner-design essay). It gets exactly the same "turns left?" treatment `deep`/`shallow`
+ * already had, just routed to `ask_hint` instead of `ask_deeper`/`ask_probe`. This is also why no
+ * separate "hint count" parameter exists here: `hasTurnsLeft` already IS that count, since a hint
+ * consumes a turn the same as any other question. A run of `wrong`s can only ever produce up to
+ * `maxTurns - 1` hints before the C6 ceiling below closes the concept — for the default
+ * `maxTurns = 3` that is exactly the 2-hint cap #392 specifies, with no separate limit to keep in
+ * sync. `decideNextStep` still does not know or care *why* a turn was a hint; that only matters to
+ * `questionModeForStep` and the prompt it feeds.
  */
 export function decideNextStep({
   verdict,
@@ -86,10 +99,8 @@ export function decideNextStep({
   // lowered mid-flight still stops instead of running away.
   const hasTurnsLeft = turnIndex < maxTurns;
 
-  // `wrong` ends the concept even with turns to spare: AE-02 step 9 says the feedback explains
-  // the mistake and the concept stops there, rather than spending two more questions on
-  // material the student has just shown they do not have.
-  if (verdict !== 'wrong' && hasTurnsLeft) {
+  if (hasTurnsLeft) {
+    if (verdict === 'wrong') return 'ask_hint';
     return verdict === 'deep' ? 'ask_deeper' : 'ask_probe';
   }
 
@@ -100,6 +111,7 @@ export function decideNextStep({
 const MODE_BY_STEP: Partial<Record<NextStep, QuestionMode>> = {
   ask_deeper: 'deeper',
   ask_probe: 'probe',
+  ask_hint: 'hint',
 };
 
 /** `null` for the two terminal steps — they end a concept instead of asking anything. */
@@ -142,13 +154,16 @@ export interface FallbackStateInput {
   maxTurns: number;
   /**
    * Verdict of the last graded turn for this concept, if any. When `'wrong'`, the concept ends
-   * immediately — same rule as `decideNextStep`'s AI-mode path (AE-02 step 9). A `wrong` answer
-   * means the student does not have this material, so spending more questions on it is waste;
-   * `finalizeConceptResult` (I7.2) will run traceback if the concept has prerequisites.
+   * immediately — no hint ladder here (#392's hint mode is an AI-mode-only feature: fallback has
+   * no live Gemini call to narrow a question with, only a fixed set of pre-generated flashcards).
+   * A `wrong` self-grade means the student does not have this material, so spending more
+   * questions on it is waste; `finalizeConceptResult` (I7.2) will run traceback if the concept
+   * has prerequisites.
    *
    * Added to fix CF-03/CF-04: fallback mode previously ignored the verdict and kept serving
-   * cached questions after a `wrong` self-grade, contradicting UC-11's state machine
-   * ("verdict == wrong → kết thúc khái niệm", UC-04_AIExaminer.md) and AE-02 basic flow step 9.
+   * cached questions after a `wrong` self-grade, contradicting AE-02 basic flow step 9 as it
+   * stood at the time (UC-04_AIExaminer.md). #392 later gave AI mode its own hint ladder on
+   * `wrong`; fallback's immediate-stop rule did not follow it — see `resolveFallbackStep` below.
    */
   lastVerdict: Verdict | null;
 }
@@ -156,9 +171,10 @@ export interface FallbackStateInput {
 /**
  * AE-05's flashcard-fallback stepping (UC-12): linear and deterministic. Mostly ignores
  * `deep`/`shallow` verdicts — a concept in fallback mode asks every cached question it has
- * left, in order, then finishes — but honours the same `wrong`-means-stop rule as
- * `decideNextStep` (AE-02 step 9, CF-03/CF-04): a student who self-graded `wrong` has shown
- * they do not have this material, and spending more questions on it is waste.
+ * left, in order, then finishes — and, since #392, also diverges from `decideNextStep` on
+ * `wrong`: AI mode now narrows the question instead of stopping, but fallback still stops
+ * immediately (CF-03/CF-04), because there is no live AI call in fallback to generate a
+ * narrower question from — only a fixed, pre-generated set.
  *
  * `cachedTurnsServed` doubles as the 0-based index into the concept's cached rows (ordered by
  * `generatedAt`) — same "re-derive from what's stored" philosophy as `decideNextStep`, so a
@@ -171,9 +187,10 @@ export function resolveFallbackStep({
   maxTurns,
   lastVerdict,
 }: FallbackStateInput): FallbackStep {
-  // CF-03/CF-04: a `wrong` verdict ends the concept immediately, same as AI mode. The concept
-  // must have had at least one turn served (the one that scored `wrong`), so `finish_concept`
-  // is safe — `finalizeConceptResult` will have scores to average.
+  // CF-03/CF-04: a `wrong` verdict ends the concept immediately — fallback has no hint ladder
+  // (#392 is AI-mode only). The concept must have had at least one turn served (the one that
+  // scored `wrong`), so `finish_concept` is safe — `finalizeConceptResult` will have scores to
+  // average.
   if (lastVerdict === 'wrong' && totalTurnsServed > 0) {
     return { type: 'finish_concept' };
   }

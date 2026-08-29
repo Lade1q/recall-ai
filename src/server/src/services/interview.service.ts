@@ -731,8 +731,10 @@ async function advanceToNextQuestion(
  * `advanceToNextQuestion`'s fallback-mode counterpart (AE-05 / I6.4): serves the concept's
  * pre-generated cache instead of calling Gemini. Unlike AI mode, `deep`/`shallow` verdicts do
  * not steer question selection — a flashcard concept asks every cached question it has, in
- * order, then finishes. But a `wrong` verdict still ends the concept immediately (CF-03/CF-04),
- * same rule as `decideNextStep`: the student does not have this material.
+ * order, then finishes. A `wrong` verdict still ends the concept immediately (CF-03/CF-04) —
+ * this is now a DELIBERATE divergence from `decideNextStep` (#392 gave AI mode a hint ladder
+ * instead), not the same rule: fallback has no live AI call to narrow a question with, only a
+ * fixed set of pre-generated flashcards, so there is nothing to serve as a "hint" here.
  */
 async function advanceFallback(
   view: SessionView,
