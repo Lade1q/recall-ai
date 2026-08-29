@@ -462,7 +462,7 @@ describe('updateReviewQueueItemController — scheduledFor branch (#403)', () =>
   it('propagates the traceback-guard rejection from the service untouched', async () => {
     const locked = new AppError(
       "Không thể dời ngày: Nền tảng của 'Đệ quy' mà bạn còn yếu, nên lịch của mục này do hệ thống giữ nguyên.",
-      400,
+      409,
       'TRACEBACK_REPRESENTATIVE_LOCKED'
     );
     mockedSetScheduledFor.mockRejectedValue(locked);

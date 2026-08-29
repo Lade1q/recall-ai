@@ -91,6 +91,10 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'still represented by a weak-traceback row (#403). Not reachable yet: the calendar screen ' +
     'that calls this endpoint (#404/#405) has not shipped, and review-queue.api.ts has no error ' +
     'mapper of its own to add a case to.',
+  ITEM_NOT_ON_SCHEDULE:
+    'scheduling.service.ts — PATCH {scheduledFor} guard rejecting a reschedule pointed at a row ' +
+    'that is itself skipped/done (#426). Same unreachable surface as ' +
+    'TRACEBACK_REPRESENTATIVE_LOCKED above: no calendar screen yet, no mapper to add a case to.',
 };
 
 /** `getInterviewErrorMessage` handles every Gemini failure by prefix, not case-by-case. */
