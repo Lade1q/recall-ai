@@ -5,6 +5,7 @@ import type {
   CreateFocusSessionResponse,
   EndFocusSessionInput,
   EndFocusSessionResponse,
+  FocusSessionListItem,
   PomodoroConfig,
 } from '../types/focus.types';
 
@@ -84,6 +85,31 @@ export const focusSessionApi = {
     const response = await apiClient.patch<ApiEnvelope<EndFocusSessionResponse>>(
       ENDPOINTS.FOCUS_SESSIONS.DETAIL(id),
       input
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Lịch sử phiên học (FS-03), mới nhất trước.
+   *
+   * `data` là một **mảng trần** — không `total`, không `hasMore`, không header phân trang, y
+   * hệt `GET /interviews`. Cách duy nhất biết đã hết là so số phần tử nhận được với `limit` đã
+   * xin (xem `useFocusSessionList`). ⇒ Không suy ra được TỔNG số phiên; đừng hứa một con số
+   * tổng ở đâu trên UI.
+   *
+   * `limit > 50` bị **từ chối 400**, không phải kẹp im lặng (`listFocusSessionsQuerySchema`
+   * dùng `.max(50)` của Zod) — khác chỗ `history.api.ts` mô tả cho `/interviews`.
+   */
+  list: async ({
+    limit,
+    offset,
+  }: {
+    limit: number;
+    offset: number;
+  }): Promise<FocusSessionListItem[]> => {
+    const response = await apiClient.get<ApiEnvelope<FocusSessionListItem[]>>(
+      ENDPOINTS.FOCUS_SESSIONS.BASE,
+      { params: { limit, offset } }
     );
     return response.data.data;
   },
