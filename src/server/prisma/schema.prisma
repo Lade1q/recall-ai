@@ -470,6 +470,11 @@ model FocusSession {
   plan  StudyPlan?    @relation(fields: [planId], references: [id], onDelete: Cascade)
   notes SessionNote[]
 
+  // #328: có thêm 1 partial unique index `focus_sessions_one_running_per_user` ở DB
+  // (`ON (user_id) WHERE status = 'running'`), viết tay bằng raw SQL trong migration
+  // 20260821181401 - Prisma không khai báo được unique constraint có điều kiện `WHERE` qua
+  // `@@unique`. KHÔNG xoá index này khi `prisma migrate dev`/`db push` phát hiện "drift"; nó
+  // không nằm trong model vì không thể nằm trong model, không phải vì thiếu.
   @@index([userId])
   @@map("focus_sessions")
 }
