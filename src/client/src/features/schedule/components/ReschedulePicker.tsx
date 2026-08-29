@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { dateKeyToLocalDate, localDateToDateKey } from '../utils/picker-date';
 
 interface ReschedulePickerProps {
   /** Ngày mục đang đứng, để lịch mở đúng tháng và tô sẵn ô đang chọn. */
@@ -12,29 +13,6 @@ interface ReschedulePickerProps {
   onPick: (dateKey: string) => void;
   /** Cho `aria-label` nói ra đang dời cái gì: trong panel có nhiều nút cùng nhãn. */
   conceptName: string;
-}
-
-/**
- * `'2026-08-25'` → `Date` lúc 00:00 giờ **địa phương** (không phải UTC).
- *
- * `react-day-picker` làm việc trọn vẹn trong không gian giờ địa phương — nó đọc `getFullYear()`/
- * `getMonth()`/`getDate()`. Dựng `new Date('2026-08-25')` sẽ ra 00:00 **UTC**, và ở mọi múi giờ âm
- * thì ngày địa phương của nó là 24/08: lịch tô sai ô, người dùng bấm "đúng ngày đang thấy" và dời
- * lệch một ngày. Cặp hàm này là cây cầu duy nhất giữa `dateKey` và `Date` trong feature.
- */
-function dateKeyToLocalDate(dateKey: string): Date {
-  return new Date(
-    Number(dateKey.slice(0, 4)),
-    Number(dateKey.slice(5, 7)) - 1,
-    Number(dateKey.slice(8, 10))
-  );
-}
-
-/** Nghịch đảo của hàm trên. ⛔ KHÔNG dùng `toISOString()` — nó đổi sang UTC. */
-function localDateToDateKey(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 /**

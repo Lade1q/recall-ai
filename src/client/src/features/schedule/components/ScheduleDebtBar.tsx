@@ -37,6 +37,12 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
   }
 
   const totalMinutes = debtItems.reduce((sum, item) => sum + item.estimatedMinutes, 0);
+  // Đếm theo KHÁI NIỆM, không theo số dòng: nhãn nói "khái niệm", nên con số phải là số khái
+  // niệm. Hôm nay hai phép đếm cho cùng kết quả — nhưng chỉ vì `getReviewSchedule` đã fold mỗi
+  // cụm `(planId, conceptId)` về một mục. Đó là **bất biến của server**, và `debtItems.length` là
+  // client âm thầm mượn nó: ngày nào server ngừng fold (hoặc một đường đọc khác cấp dữ liệu vào
+  // đây), thanh này bắt đầu đếm mỗi khái niệm nhiều lần mà không có gì đỏ. Tự đếm thì không mượn.
+  const conceptCount = new Set(debtItems.map((item) => item.conceptId)).size;
 
   return (
     <button
@@ -46,7 +52,7 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
     >
       <span className="font-heading text-[15px] font-semibold">Còn nợ</span>
       <span className="text-mastery-weak font-mono text-[13px] font-semibold">
-        {debtItems.length} khái niệm · ≈ {totalMinutes} phút
+        {conceptCount} khái niệm · ≈ {totalMinutes} phút
       </span>
       <span className="text-muted-foreground ml-auto text-[12px] max-[680px]:w-full max-[680px]:text-[11px]">
         quá hạn — không thuộc tháng nào · bấm để xem
