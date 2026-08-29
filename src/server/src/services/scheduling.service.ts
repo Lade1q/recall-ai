@@ -370,7 +370,9 @@ export function buildReasonText(
 ): string {
   switch (reason) {
     case 'traceback':
-      return `Nền tảng của '${context.sourceConceptName ?? ''}' mà bạn còn yếu`;
+      return context.sourceConceptName
+        ? `Nền tảng của '${context.sourceConceptName}' mà bạn còn yếu`
+        : 'Một khái niệm nền tảng của mục này mà bạn còn yếu';
     case 'spaced_repetition':
       return context.masteryScore === null
         ? NOT_TESTED_REASON_TEXT

@@ -104,6 +104,31 @@ describe('buildReasonText', () => {
     ).toBe("Nền tảng của 'Đạo hàm riêng' mà bạn còn yếu");
   });
 
+  it('falls back to a nameless sentence when the source concept has been hard-deleted (#431)', () => {
+    const text = buildReasonText('traceback', {
+      masteryScore: null,
+      sourceConceptName: null,
+    });
+    expect(text).not.toContain("''");
+    expect(text).not.toContain('null');
+    expect(text.length).toBeGreaterThan(0);
+    expect(text).toBe('Một khái niệm nền tảng của mục này mà bạn còn yếu');
+  });
+
+  it('produces two different sentences so the test distinguishes the two branches (#431)', () => {
+    const withName = buildReasonText('traceback', {
+      masteryScore: null,
+      sourceConceptName: 'Stack',
+    });
+    const withoutName = buildReasonText('traceback', {
+      masteryScore: null,
+      sourceConceptName: null,
+    });
+    expect(withName).not.toBe(withoutName);
+    expect(withName).toContain('Stack');
+    expect(withoutName).not.toContain('Stack');
+  });
+
   it('marks a never-tested spaced-repetition concept distinctly (A3 fallback wording)', () => {
     expect(
       buildReasonText('spaced_repetition', { masteryScore: null, sourceConceptName: null })
