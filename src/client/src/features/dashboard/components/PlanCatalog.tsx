@@ -45,9 +45,13 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
  * A1 chỉ có MỘT thẻ, không phải hai thẻ nói cùng một điều bằng hai giọng khác nhau (#389).
  *
  * `message` là `NO_PLAN_MESSAGE` server trả về nguyên văn (cùng nguồn dữ liệu `TodayNudge` từng
- * dùng để tự render thẻ thứ hai) — không phải copy tự viết ở client (#273/#278 cấm việc đó cho
- * mọi ca rỗng trừ A2b). `null` khi `/review-queue/today` chưa tải xong hoặc lỗi: chỉ ẩn đoạn thân
- * bài, không thay bằng chữ bịa ra.
+ * dùng để tự render thẻ thứ hai) — không phải copy tự viết ở client. Quy tắc nằm ở mockup
+ * (`docs/analysis and design/ui-prototype/screen-dashboard.html:1065`): trong bảy trạng thái của
+ * `TodayNudge`, A2b là ca DUY NHẤT client tự đặt chữ, bốn ca kia render nguyên văn `message`.
+ *
+ * `null` khi `/review-queue/today` chưa tải xong hoặc lỗi: chỉ ẩn đoạn thân bài, không thay bằng
+ * chữ bịa ra. Ca lỗi không vì thế mà câm — `DashboardPage` giữ `BlockError` + "Thử lại" ngay
+ * phía trên (`todayFailed`), nên chuyện hỏng đã được nói đúng một lần, ở đúng khối của nó.
  */
 function CatalogOnboarding({ message }: { message: string | null }) {
   return (
@@ -77,6 +81,8 @@ function CatalogOnboarding({ message }: { message: string | null }) {
         <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
           Bắt đầu kế hoạch ôn tập đầu tiên
         </h2>
+        {/* `min-h` giữ chỗ đúng một dòng cho ca `message === null`, để tiêu đề và CTA không giật
+            lên khi câu chữ của server về sau. */}
         <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
           {message}
         </p>

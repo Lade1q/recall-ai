@@ -35,6 +35,20 @@ export default function DashboardPage() {
   // `plans` chưa tải xong: chưa biết ca nào thì không được đoán.
   const isBrandNewAccount = plans.data !== null && plans.data.length === 0;
 
+  // Ngoại lệ DUY NHẤT của việc ẩn khối gợi ý ở ca A1: khi khối đó đang có LỖI để báo. Không có
+  // vế này thì `BlockError` + "Thử lại" bị ẩn theo, và tài khoản 0 kế hoạch gặp
+  // `/review-queue/today` hỏng sẽ còn đúng một thẻ câm — không báo lỗi, không nút nào, không
+  // đường phục hồi ngoài F5 (hồi quy bắt được ở review PR #408). Đó cũng là lúc bất biến
+  // ba-nguồn-độc-lập ở đầu file bị phá: khối của nguồn `/plans` im lặng nuốt lỗi của nguồn
+  // `/review-queue/today`.
+  //
+  // Viết TRÙNG KHÍT điều kiện của nhánh `BlockError` bên trong `<section>` ngay dưới — cổng và
+  // nội dung khoá vào nhau, không ai sửa một bên mà quên bên kia. Cố ý KHÔNG dùng
+  // `today.data !== null`: `useAsyncResource` khởi tạo `data: null`, nên điều kiện đó gộp cả ca
+  // ĐANG TẢI vào, làm skeleton gợi ý nhấp nháy rồi tan ở mọi tài khoản trống — đúng thứ mockup
+  // A1 cấm.
+  const todayFailed = today.error && today.data === null;
+
   // A1 (DB-01 [E1]) — tài khoản hoàn toàn trống: mọi chỉ số bằng 0. Ẩn hẳn dải chỉ số thay vì
   // hiện ba số 0 cạnh khối gợi ý rỗng ("trông như app hỏng", mockup A1). Chỉ ẩn khi đã tải xong
   // và thật sự toàn 0 — plan `active` bất kỳ đều làm `conceptsTotal > 0`.
@@ -50,8 +64,15 @@ export default function DashboardPage() {
 
       {/* (2) Gợi ý hôm nay (DB-04) — đứng đầu vì là điểm vào vòng lặp học tập (FS-01/AE-01).
           Ẩn hẳn ở tài khoản 0-kế-hoạch: mockup A1 chỉ có MỘT thẻ, và thẻ đó là onboarding của
-          danh mục kế hoạch bên dưới — không phải khối này (#389). */}
-      {!isBrandNewAccount && (
+          danh mục kế hoạch bên dưới — không phải khối này (#389). Trừ khi khối đang LỖI, xem
+          `todayFailed`.
+
+          ⚠️ `!isBrandNewAccount` cũng đang là thứ DUY NHẤT chặn nhánh `NO_PLAN_MESSAGE` của
+          `TodayNudge` (`TodayNudge.tsx:255`). Nhánh đó vẫn còn nguyên CTA `/plans`, mà `/plans`
+          với người mới lại là một màn trống nữa (#383 mục 1) — nên bỏ điều kiện này mà không sửa
+          CTA kia sẽ làm lỗi #389 vừa đóng sống lại một cách lặng lẽ. `todayFailed` thì an toàn:
+          ca lỗi không bao giờ đi tới nhánh đó, nó dừng ở `BlockError`. */}
+      {(!isBrandNewAccount || todayFailed) && (
         <section className="mb-5">
           {today.loading && today.data === null ? (
             <TodayNudgeSkeleton />
