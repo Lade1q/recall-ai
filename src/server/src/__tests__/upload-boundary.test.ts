@@ -79,6 +79,10 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
     expect(after).toEqual([]);
   });
 
+  // #375: đỏ ngẫu nhiên trong full suite (không phải khi chạy riêng) — nạp 20MB buffer thật
+  // thỉnh thoảng không kịp timeout mặc định 5s dưới tải CPU (ts-jest biên dịch nguội, nhiều
+  // suite chạy song song). Nâng timeout riêng ca này, KHÔNG đụng testTimeout toàn cục — nới lỏng
+  // cổng cho mọi test khác là đúng hướng ngược lại với thứ cần.
   it('từ chối file lớn hơn hẳn giới hạn', async () => {
     const buffer = Buffer.alloc(MAX_FILE_SIZE * 2, 'a');
     const res = await request(app)
@@ -87,7 +91,7 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('FILE_TOO_LARGE');
-  });
+  }, 20_000);
 });
 
 // Busboy defaults to decoding non-extended Content-Disposition filename params as latin1,
