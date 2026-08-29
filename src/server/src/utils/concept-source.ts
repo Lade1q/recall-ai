@@ -14,7 +14,10 @@ export interface ConceptSourceRow {
   pageFrom: number | null;
   pageTo: number | null;
   /** Tiêu đề mục tài liệu chứa khái niệm, vd "4.2 Ngăn xếp" (#296) — đã qua guard đối chiếu
-   *  `materialText`, xem `verifiedSectionTitle`. */
+   *  `materialText`, xem `verifiedSectionTitle`. `materialText` chỉ tồn tại cho tài liệu `.txt`
+   *  (repo không đọc text PDF/ảnh cục bộ) — với PDF/ảnh, trường này **luôn null (100%)**, không
+   *  phải "phần lớn null" như `context`. Client (FS-04, #227) phải coi đây là nhánh THƯỜNG cho
+   *  3/4 định dạng tài liệu được chấp nhận, không phải nhánh hiếm/lỗi. */
   sectionTitle: string | null;
   excerpt: string | null;
   /** Đoạn văn bao quanh `excerpt`, cho FS-04 state 6 (#296) — KHÔNG dùng cho `<mark>`/C5. Đã qua

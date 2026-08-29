@@ -210,6 +210,19 @@ describe('conceptExtractSchema — source_section / source_context (#296)', () =
    * cap was the ONLY thing stopping the model from stuffing a whole paragraph into the field FS-04
    * renders as an `<h3>`. These pin the boundary directly at both constants.
    */
+  // Review #425 round 2 (Quân) — these two originally pinned the RELATION between the boundary
+  // strings and the constant ('x'.repeat(CONST + 1)), not the constant's actual value, so an edit
+  // to the constant itself silently dragged the test along with it. Confirmed live: renaming
+  // SOURCE_CONTEXT_MAX_LENGTH 2000→200 and SOURCE_SECTION_MAX_LENGTH 200→20000 both still passed
+  // 926/926. Pinning the absolute value is what makes an accidental edit to the constant fail.
+  it('SOURCE_SECTION_MAX_LENGTH is 200 — a heading, not a paragraph', () => {
+    expect(SOURCE_SECTION_MAX_LENGTH).toBe(200);
+  });
+
+  it('SOURCE_CONTEXT_MAX_LENGTH is 2000 — wide enough for a real paragraph, capped so the model cannot stuff a whole chapter in', () => {
+    expect(SOURCE_CONTEXT_MAX_LENGTH).toBe(2000);
+  });
+
   it('accepts source_section at exactly SOURCE_SECTION_MAX_LENGTH, degrades one char over', () => {
     const atMax = 'x'.repeat(SOURCE_SECTION_MAX_LENGTH);
     const overMax = 'x'.repeat(SOURCE_SECTION_MAX_LENGTH + 1);

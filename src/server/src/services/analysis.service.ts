@@ -57,12 +57,21 @@ async function callAi(fileKey: string, onPhase: OnPhase): Promise<AiExtractRespo
  * A second, small read of the same `.txt` file `callAi` already read: kept separate rather than
  * threading the string back out of `callAiWithRetry`'s return type, since this only matters to
  * one caller and the file is small.
+ *
+ * Round 2 (Quân) — this call sits AFTER `callAiWithRetry` succeeds and OUTSIDE its retry loop,
+ * with no `try/catch` of its own, so an uncaught throw here falls into `processAnalysisJob`'s
+ * catch-all and marks the WHOLE job `failed` — discarding an extraction that already succeeded
+ * (money and ~30s spent, thrown away by a decorative field) if the file happens to have vanished
+ * from disk between upload and this read (this repo has precedent for files going missing under
+ * `uploads/`, #411). `.catch(() => null)` makes a read failure degrade to the same "cannot
+ * verify" `null` the guard already treats as a first-class, correct answer — fail-closed on the
+ * guard's own terms, not error-swallowing.
  */
-async function resolveMaterialText(fileKey: string): Promise<string | null> {
+export async function resolveMaterialText(fileKey: string): Promise<string | null> {
   if (process.env.USE_MOCK_AI === 'true') return null;
   const source = resolveMaterialSource(fileKey);
   if (source.kind !== 'text') return null;
-  return fs.promises.readFile(path.join(UPLOAD_DIR, fileKey), 'utf-8');
+  return fs.promises.readFile(path.join(UPLOAD_DIR, fileKey), 'utf-8').catch(() => null);
 }
 
 async function callAiWithRetry(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
