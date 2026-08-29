@@ -1,5 +1,17 @@
-import type { ScheduleDay } from '../types/schedule.types';
-import type { MonthCursor } from '../utils/schedule-date';
+import { memo, useMemo } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
+import {
+  buildMonthCells,
+  formatDayLabel,
+  formatMonthLabel,
+  monthCursorFromDateKey,
+  monthsBetween,
+  type MonthCell,
+  type MonthCursor,
+} from '../utils/schedule-date';
 
 export interface MonthGridProps {
   monthCursor: MonthCursor;
@@ -20,14 +32,301 @@ export interface MonthGridProps {
   onShiftMonth: (delta: number) => void;
 }
 
+/** Đầu cột, tuần bắt đầu **thứ Hai** — phải khớp phép xoay trong `buildMonthCells`. */
+const WEEKDAY_HEADS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
+
+/** Tối đa 3 chip chữ trong một ô; phần dôi gộp thành "+n mục nữa". */
+const MAX_CHIPS = 3;
+
+/** Tối đa 4 chấm mật độ ở bề ngang hẹp, rồi "+n". */
+const MAX_DOTS = 4;
+
 /**
- * Lưới tháng — **khung rỗng của Giai đoạn 0 (#401)**. Nội dung thật là việc của #404.
+ * Dưới 680px một ô rộng ~43,8px — **không cõng nổi một chữ nào**, nên chip chữ tắt hẳn và ô chỉ
+ * còn số ngày + chấm mật độ. Viết đúng mốc của mockup thay vì làm tròn về `sm`/`md`; repo đã có
+ * tiền lệ mốc không tròn (`min-[721px]:` trong `ReviewQueueItemRow`).
  *
- * Chữ ký trên là **giao kèo** giữa hai luồng frontend, không phải gợi ý: #404 dựng lưới, #405 dựng
- * panel, hai người không gặp nhau cho tới lúc ghép. Đổi chữ ký thì báo trước khi sửa.
+ * Cái giá phải nói thẳng: **ở mobile lưới không còn đọc được NỘI DUNG, chỉ đọc được MẬT ĐỘ.** Đó
+ * là đánh đổi đã biết của hướng lưới tháng, và là lý do `aria-label` của ô phải tự đủ nghĩa —
+ * `display:none` gỡ chip khỏi cả cây trợ năng, nên ở bề ngang hẹp nhãn đó là thứ DUY NHẤT trình
+ * đọc màn hình còn đọc được.
+ */
+const NARROW = 'max-[680px]:';
+
+/**
+ * Lưới tháng của màn Lịch (#404) — 42 ô + thanh điều hướng tháng.
+ *
+ * Chữ ký `MonthGridProps` là **giao kèo** giữa hai luồng frontend (#404 lưới · #405 panel), không
+ * phải gợi ý. Đổi chữ ký thì báo trước khi sửa.
  *
  * Không giữ state nào — mọi state của màn Lịch nằm ở `ScheduleView`.
+ *
+ * ⚠️ Lưới **không lọc `days` theo `monthCursor`**. Con trỏ tháng chỉ quyết định 42 ô nào được vẽ;
+ * ô tràn của tháng bên cạnh vẫn tra đúng `dateKey` của nó và vẫn hiện mục. Giữ tính chất này thì
+ * đổi lưới-tháng sang một hình khác (dải ngày, danh sách tuần) chỉ phải sửa **hàm render này** —
+ * đó là bảo hiểm lịch trình của epic, không phải sở thích kiến trúc.
  */
-export function MonthGrid(_props: MonthGridProps) {
-  return null;
+export function MonthGrid({
+  monthCursor,
+  todayDateKey,
+  selectedDateKey,
+  days,
+  onSelectDay,
+  onShiftMonth,
+}: MonthGridProps) {
+  const cells = useMemo(() => buildMonthCells(monthCursor), [monthCursor]);
+  const dayByDateKey = useMemo(() => new Map(days.map((day) => [day.dateKey, day])), [days]);
+
+  // Hỏi "tháng này có gì không" bằng CHÍNH 42 ô đang vẽ, không dựng lại tiền tố `YYYY-MM` để lọc
+  // `days`: một tiền tố tháng ở đây là lời mời cắt dữ liệu theo tháng, đúng thứ #401 đã gỡ đi.
+  // Cách này còn không thể lệch khỏi thứ đang hiển thị, vì nó đọc đúng mảng đã render.
+  const hasSessionThisMonth = cells.some((cell) => cell.inMonth && dayByDateKey.has(cell.dateKey));
+
+  // "Còn nợ" độc lập tháng — đếm trên TRỌN mảng. Dùng `isOverdue` mà `groupByDateKey` đã tính để
+  // luật "quá hạn" chỉ nằm một chỗ; lưới và thanh Còn nợ (#405) không thể nói hai con số khác nhau.
+  const overdueItemCount = days.reduce(
+    (sum, day) => (day.isOverdue ? sum + day.items.length : sum),
+    0
+  );
+
+  const deltaToToday = monthsBetween(monthCursor, monthCursorFromDateKey(todayDateKey));
+
+  return (
+    <div className="flex min-w-0 flex-col">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          // Công thức duy nhất — số học tháng sống trong `shiftMonthCursor`/`monthsBetween`, không
+          // ở đây. Tắt khi delta = 0 vì `onShiftMonth(0)` vẫn sinh một `MonthCursor` MỚI: lưới
+          // render lại toàn bộ 42 ô cho một cú bấm không đi đâu cả.
+          disabled={deltaToToday === 0}
+          onClick={() => onShiftMonth(deltaToToday)}
+        >
+          Hôm nay
+        </Button>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Tháng trước"
+          onClick={() => onShiftMonth(-1)}
+        >
+          <ChevronLeft />
+        </Button>
+        {/* `aria-live` để người dùng trình đọc màn hình nghe được tháng đã đổi: hai nút ‹ › giữ
+            nguyên nhãn sau khi bấm, nên không có gì khác báo rằng có chuyện gì vừa xảy ra. */}
+        <span
+          aria-live="polite"
+          className={`font-heading min-w-[130px] text-[17px] tracking-[-0.02em] ${NARROW}min-w-0 ${NARROW}flex-1 ${NARROW}text-[15px]`}
+        >
+          {formatMonthLabel(monthCursor)}
+        </span>
+        <Button
+          variant="outline"
+          size="icon-sm"
+          aria-label="Tháng sau"
+          onClick={() => onShiftMonth(1)}
+        >
+          <ChevronRight />
+        </Button>
+      </div>
+
+      <div className="border-border bg-card flex min-w-0 flex-col overflow-hidden rounded-xl border">
+        <div className="border-border grid grid-cols-7 border-b">
+          {WEEKDAY_HEADS.map((head) => (
+            <div
+              key={head}
+              className={`border-border text-muted-foreground border-r px-2.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] last:border-r-0 ${NARROW}px-1 ${NARROW}py-1.5 ${NARROW}text-[9.5px]`}
+            >
+              {head}
+            </div>
+          ))}
+        </div>
+
+        <div className="relative grid flex-1 auto-rows-fr grid-cols-7">
+          {cells.map((cell) => (
+            <DayCell
+              key={cell.dateKey}
+              cell={cell}
+              day={dayByDateKey.get(cell.dateKey)}
+              isToday={cell.dateKey === todayDateKey}
+              isSelected={cell.dateKey === selectedDateKey}
+              onSelectDay={onSelectDay}
+            />
+          ))}
+          {!hasSessionThisMonth && (
+            <EmptyMonthCard
+              monthLabel={formatMonthLabel(monthCursor)}
+              overdueItemCount={overdueItemCount}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DayCellProps {
+  cell: MonthCell;
+  /** `undefined` = ngày không có mục nào. Không có `ScheduleDay` rỗng trong `days`. */
+  day: ScheduleDay | undefined;
+  isToday: boolean;
+  isSelected: boolean;
+  onSelectDay: (dateKey: string) => void;
+}
+
+/**
+ * Một ô ngày. Nhận `onSelectDay` (identity ổn định từ `useScheduleViewState`) và tự đóng gói
+ * `dateKey` khi gọi — truyền một closure `() => onSelect(dateKey)` từ trên xuống sẽ tạo hàm mới
+ * mỗi render và biến `memo` này thành no-op trên cả 42 ô.
+ */
+const DayCell = memo(function DayCell({
+  cell,
+  day,
+  isToday,
+  isSelected,
+  onSelectDay,
+}: DayCellProps) {
+  const items = day?.items ?? [];
+  // `day` chỉ tồn tại khi ngày có mục, nên "quá hạn" ở đây luôn hàm ý "quá hạn VÀ còn việc" —
+  // đúng thứ đáng tô nền. Một ngày trống đã trôi qua không nợ ai cái gì.
+  const isOverdue = day?.isOverdue === true;
+  const chips = items.slice(0, MAX_CHIPS);
+  const hiddenChipCount = items.length - chips.length;
+
+  return (
+    <button
+      type="button"
+      disabled={!cell.inMonth}
+      onClick={() => onSelectDay(cell.dateKey)}
+      aria-current={isToday ? 'date' : undefined}
+      aria-pressed={cell.inMonth ? isSelected : undefined}
+      aria-label={cellLabel(cell, items.length, isOverdue)}
+      className={cn(
+        'border-border relative flex min-h-[104px] flex-col gap-[3px] border-b border-r px-1.5 py-[5px] text-left [&:nth-child(7n)]:border-r-0',
+        `${NARROW}min-h-[58px] ${NARROW}p-1`,
+        cell.inMonth ? 'hover:bg-muted/55 cursor-pointer' : 'bg-muted/35 cursor-default',
+        // Tint /7, KHÔNG phải /10 hay /14: chữ `--muted-foreground` 10–12px nằm ngay trên nền này,
+        // và ở light mode /10 chỉ đạt 4,31 — dưới ngưỡng AA 4.5. Đặt sau nhánh `bg-muted/35` để
+        // twMerge cho nó thắng, giống thứ tự CSS của mockup (ô tràn mà quá hạn vẫn tô đỏ).
+        isOverdue && 'bg-mastery-weak/7',
+        isSelected && 'outline-primary z-[2] outline-2 -outline-offset-2'
+      )}
+    >
+      <span className="flex items-center justify-between gap-1">
+        <span
+          className={cn(
+            'text-muted-foreground font-mono text-xs',
+            isToday &&
+              'bg-primary text-primary-foreground grid size-[21px] place-items-center rounded-full text-[11.5px] font-semibold',
+            !cell.inMonth && 'opacity-30'
+          )}
+        >
+          {String(cell.dayOfMonth).padStart(2, '0')}
+        </span>
+        {day !== undefined && (
+          <span
+            className={`text-muted-foreground font-mono text-[10px] ${NARROW}hidden`}
+            // Số phút chỉ đáng tin ở mức "ngày này nặng hơn ngày kia" (`estimatedMinutes` đổi theo
+            // phiên nguồn) — nên nó là một con số, không phải thanh mật độ hay phần trăm.
+          >
+            ≈{day.totalMinutes}ʹ
+          </span>
+        )}
+      </span>
+
+      {chips.map((item) => (
+        <span
+          key={item.id}
+          className={cn(
+            'bg-muted overflow-hidden text-ellipsis whitespace-nowrap rounded-[4px] border-l-2 px-[5px] py-[3px] text-[11px] leading-[1.35]',
+            accentClass(item, isOverdue, 'border-l'),
+            `${NARROW}hidden`
+          )}
+        >
+          {item.name}
+        </span>
+      ))}
+
+      {hiddenChipCount > 0 && (
+        <span className={`text-muted-foreground pl-[5px] text-[10px] ${NARROW}hidden`}>
+          +{hiddenChipCount} mục nữa
+        </span>
+      )}
+
+      {items.length > 0 && (
+        <span aria-hidden="true" className={`mt-0.5 hidden items-center gap-[3px] ${NARROW}flex`}>
+          {items.slice(0, MAX_DOTS).map((item) => (
+            <i
+              key={item.id}
+              className={cn('block size-[5px] rounded-full', accentClass(item, isOverdue, 'bg'))}
+            />
+          ))}
+          {items.length > MAX_DOTS && (
+            <b className="text-muted-foreground font-mono text-[10px] font-semibold">
+              +{items.length - MAX_DOTS}
+            </b>
+          )}
+        </span>
+      )}
+    </button>
+  );
+});
+
+/**
+ * Màu của chip / chấm, theo đúng thứ tự ưu tiên của mockup: **truy ngược thắng quá hạn**.
+ *
+ * Lý do thứ tự đó chứ không phải ngược lại: quá hạn đã được nói bằng nền của cả ô, còn "đây là
+ * nền tảng đang vỡ" thì không có chỗ nào khác nói. Nhận `prefix` để một luật màu phục vụ cả viền
+ * trái lẫn nền chấm — hai chỗ lệch nhau là hai câu chuyện khác nhau trên cùng một ô.
+ */
+function accentClass(item: ScheduleItem, isOverdue: boolean, prefix: 'border-l' | 'bg'): string {
+  if (item.reason === 'traceback') return `${prefix}-remediate`;
+  return isOverdue ? `${prefix}-mastery-weak` : `${prefix}-mastery-untested`;
+}
+
+/** Nhãn trợ năng của ô — ở bề ngang hẹp đây là thứ duy nhất còn đọc được (xem `NARROW`). */
+function cellLabel(cell: MonthCell, itemCount: number, isOverdue: boolean): string {
+  const day = formatDayLabel(cell.dateKey);
+  if (itemCount === 0) return `${day} — không có gì được xếp`;
+  return `${day} — ${itemCount} khái niệm${isOverdue ? ', quá hạn' : ''}`;
+}
+
+/**
+ * Thẻ phủ lên lưới khi tháng đang xem không có buổi ôn nào — **không phải một lưới câm**.
+ *
+ * Là ca **thường**, không phải ca biên: engine chỉ xếp ngày sau mỗi phiên kiểm tra, nên phần lớn
+ * tháng tương lai rỗng 100%. `pointer-events-none` để các ô bên dưới vẫn bấm được.
+ *
+ * Cố ý KHÔNG dùng lại khung của `EmptyQueueMessage`: khung đó là trạng thái rỗng cấp-màn
+ * (`max-w-130`, heading 20px) còn đây là thẻ phủ cấp-khối (heading 16px, body 12,5px). Ép chung
+ * một khung sẽ buộc một trong hai đổi thang chữ.
+ */
+function EmptyMonthCard({
+  monthLabel,
+  overdueItemCount,
+}: {
+  monthLabel: string;
+  overdueItemCount: number;
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
+      <div className="border-border bg-card px-5.5 py-4.5 max-w-[46ch] rounded-xl border text-center">
+        <p className="font-heading mb-1.5 text-[16px] tracking-[-0.02em]">
+          {monthLabel} chưa có buổi ôn nào
+        </p>
+        <p className="text-muted-foreground text-[12.5px] leading-[1.5]">
+          {overdueItemCount > 0 ? (
+            <>
+              Engine chỉ xếp ngày sau mỗi phiên kiểm tra. Bạn còn{' '}
+              <b className="text-foreground font-medium">{overdueItemCount} khái niệm quá hạn</b> —
+              xong chúng thì lịch phía trước sẽ đầy lên.
+            </>
+          ) : (
+            'Engine chỉ xếp ngày ôn sau mỗi phiên kiểm tra. Làm một phiên để có lịch.'
+          )}
+        </p>
+      </div>
+    </div>
+  );
 }
