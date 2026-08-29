@@ -36,10 +36,14 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Weighted average of the turn scores of one concept, in `[0, 1]` rounded to two decimals.
  *
- * Fewer than three turns is normal — a `wrong` verdict ends the concept early (AE-02), and a
- * concept can be skipped — so the weights are **renormalised** over the turns that happened
- * rather than applied as-is: two turns use `[0.2, 0.3] / 0.5 = [0.4, 0.6]`, one turn uses
- * `[1.0]`. Dividing by the full `1.0` instead would silently punish an early finish.
+ * Fewer than three turns is still possible — a concept can be skipped, or a session can be
+ * configured with a `maxTurnsPerConcept` below the C6 ceiling — so the weights are
+ * **renormalised** over the turns that happened rather than applied as-is: two turns use
+ * `[0.2, 0.3] / 0.5 = [0.4, 0.6]`, one turn uses `[1.0]`. Dividing by the full `1.0` instead
+ * would silently punish an early finish. (#392: a `wrong` verdict on its own no longer ends a
+ * concept early — it spends a hint turn instead, up to the same C6 ceiling — so under the
+ * default 3-turn session every concept now runs the full ladder; renormalisation still matters
+ * for the cases above.)
  *
  * Returns `null` for no turns at all, which is not the same as `0`: `0` means "answered and
  * got it completely wrong", `null` means "never assessed". The caller must not collapse the

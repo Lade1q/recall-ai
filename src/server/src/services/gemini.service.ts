@@ -254,6 +254,11 @@ const MODE_INSTRUCTION: Record<QuestionMode, string> = {
   probe:
     'The student answered the previous question superficially. Ask a question that forces them to ' +
     'explain the specific point they glossed over. Do not move on to a different concept.',
+  hint:
+    'The student answered the most recent question incorrectly. Narrow THAT SAME question one ' +
+    'notch — make it more specific or scope it down to one sub-case, so it becomes easier to ' +
+    'answer without changing what it is actually asking about. Do NOT reveal or imply the answer, ' +
+    'and do NOT ask a new question about a different aspect of the concept.',
 };
 
 /** 1 initial call + 1 retry, per AE-02 exception flows E2 (API error) and E3 (bad JSON). */

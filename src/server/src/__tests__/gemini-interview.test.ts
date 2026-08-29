@@ -164,6 +164,28 @@ describe('AI Examiner Gemini calls', () => {
       expect(mockCreate.mock.calls[0][0].input).toContain('LIFO');
     });
 
+    /**
+     * #392 phương án B: a `wrong` answer with turns left asks a `hint` question — narrower, not a
+     * different question, and never carrying the answer.
+     */
+    it("narrows the same question on 'hint' mode, without revealing the answer (#392)", async () => {
+      mockCreate.mockResolvedValueOnce(reply(okQuestion));
+
+      await generateQuestion({
+        ...QUESTION_PARAMS,
+        turnIndex: 2,
+        mode: 'hint',
+        previousTurns: [
+          { questionText: 'What is a stack?', answerText: 'A queue, FIFO', verdict: 'wrong' },
+        ],
+      });
+
+      const { input } = mockCreate.mock.calls[0][0];
+      expect(input).toContain('Narrow THAT SAME question');
+      expect(input).toContain('Do NOT reveal or imply the answer');
+      expect(input).toContain('FIFO');
+    });
+
     it('short-circuits to the mock without calling Gemini', async () => {
       process.env.USE_MOCK_AI = 'true';
 
