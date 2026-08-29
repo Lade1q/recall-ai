@@ -3,7 +3,8 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 import { daysUntil } from '../utils/mastery';
-import { getVnTomorrowStartUtc } from '../utils/dashboard-stats';
+import { getVnDateInstant, getVnTomorrowStartUtc, toVnDateKey } from '../utils/dashboard-stats';
+import { isWeakTraceback, pickRepresentative } from '../utils/schedule-representative';
 
 /**
  * Review Queue API (Scheduling & Remediation Engine output, I7.3 / #124).
@@ -1059,4 +1060,91 @@ export async function updateReviewQueueItemStatus(
   });
 
   return { ...item, status };
+}
+
+/** Kết quả của "dời ngày" (#403): cùng hình dạng với `ReviewQueueItemSnooze`, mốc do NGƯỜI DÙNG chọn. */
+export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
+  scheduledFor: Date | null;
+}
+
+/**
+ * PATCH /review-queue/:itemId với `{ scheduledFor: 'YYYY-MM-DD' }` — "dời ngày theo cụm" trên màn
+ * Lịch của epic #400 (#403).
+ *
+ * Không dựng bảng override riêng (xem ghi chú của #403): ghi thẳng `scheduledFor` là **một nguồn
+ * sự thật** cho mọi đường đọc (`/today`, hàng đợi, lịch) — không cần `resolvePlanQueue` biết thêm
+ * gì để hai màn hình khỏi bất đồng về "đến hạn khi nào".
+ *
+ * `updateMany` theo CỤM `(planId, conceptId)`, cùng cơ chế `snoozeReviewQueueItem`: một khái niệm
+ * gộp nhiều hàng thành một mục trên màn hình (#232), nên dời một hàng để hàng anh em kéo mục đó
+ * về ngày cũ ở lần đọc sau — nút bấm trông như không làm gì.
+ *
+ * 🔴 Guard: khi cụm đang được MỘT hàng traceback tier-0 đại diện (`pickRepresentative` +
+ * `isWeakTraceback`, cùng luật đại diện #400 dùng cho màn Lịch), từ chối dời — nền tảng còn yếu
+ * thì lịch phải do hệ thống giữ, không phải người dùng kéo đi đâu tuỳ ý. Guard đọc CỤM đã lọc
+ * `ON_SCHEDULE_WHERE`, đúng tập hợp mà `getReviewSchedule` fold để chọn đại diện, nên "mục đang
+ * đại diện" ở đây và trên màn Lịch không bao giờ lệch nhau.
+ *
+ * Ngày quá khứ (theo lịch VN) bị từ chối bằng `VALIDATION_ERROR` đã có sẵn — engine không bao giờ
+ * xếp lịch vào quá khứ, và mã này không cần mapper client riêng (đã có case ở nơi khác).
+ *
+ * `scheduledFor` trả về được **đọc lại từ DB**, cùng lý do `snoozeReviewQueueItem`: một lệnh hợp
+ * lệ trên hàng không thuộc cụm (đã lọc `ON_SCHEDULE_WHERE`) sẽ không dời gì cả.
+ */
+export async function setReviewQueueItemScheduledFor(
+  itemId: string,
+  userId: string,
+  dateKey: string,
+  now: Date
+): Promise<ReviewQueueItemReschedule> {
+  const item = await findOwnedQueueItem(itemId, userId);
+
+  if (dateKey < toVnDateKey(now)) {
+    throw new AppError(
+      'scheduledFor không được là một ngày trong quá khứ',
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+
+  const clusterRows = await prisma.reviewQueueItem.findMany({
+    where: { planId: item.planId, conceptId: item.conceptId, ...ON_SCHEDULE_WHERE },
+    select: {
+      reason: true,
+      createdAt: true,
+      sourceConceptId: true,
+      concept: { select: { masteryScore: true } },
+    },
+  });
+  const representative = pickRepresentative(clusterRows);
+
+  if (representative && isWeakTraceback(representative)) {
+    const sourceConcept = representative.sourceConceptId
+      ? await prisma.concept.findUnique({
+          where: { id: representative.sourceConceptId },
+          select: { name: true },
+        })
+      : null;
+
+    throw new AppError(
+      `Không thể dời ngày: ${buildReasonText('traceback', {
+        masteryScore: null,
+        sourceConceptName: sourceConcept?.name ?? null,
+      })}, nên lịch của mục này do hệ thống giữ nguyên.`,
+      400,
+      'TRACEBACK_REPRESENTATIVE_LOCKED'
+    );
+  }
+
+  await prisma.reviewQueueItem.updateMany({
+    where: { planId: item.planId, conceptId: item.conceptId, ...ON_SCHEDULE_WHERE },
+    data: { scheduledFor: getVnDateInstant(dateKey) },
+  });
+
+  const updated = await prisma.reviewQueueItem.findUniqueOrThrow({
+    where: { id: item.id },
+    select: { status: true, scheduledFor: true },
+  });
+
+  return { ...item, status: updated.status, scheduledFor: updated.scheduledFor };
 }
