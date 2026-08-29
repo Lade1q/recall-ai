@@ -53,9 +53,11 @@ async function renderPage() {
 }
 
 describe('PlansPage — bộ chuyển view', () => {
-  it('opens on the plan list while the calendar default is deferred', async () => {
+  it('opens on the calendar — the epic default, unblocked once #405 shipped the draft banner', async () => {
     await renderPage();
-    expect(screen.getByRole('tab', { name: 'Kế hoạch' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Kế hoạch' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.queryByText(/chưa xác nhận/)).toBeNull();
   });
 
   /**
@@ -106,13 +108,19 @@ describe('PlansPage — tab Lịch giữ mount', () => {
     const user = userEvent.setup();
     await renderPage();
 
-    const panel = document.querySelector('[data-slot="tabs-content"][data-state="inactive"]');
+    // Lịch nay là view mặc định, nên phải RỜI khỏi nó mới có ca "đã mount mà không được chọn" —
+    // đúng ca mà `forceMount` tạo ra và class kia phải dọn.
+    const calendarPanelId = screen.getByRole('tabpanel').id;
+    await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
+
+    const panel = document.getElementById(calendarPanelId);
     expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute('data-state', 'inactive');
     expect(panel?.className).toContain('data-[state=inactive]:hidden');
 
     // Đối chứng dương: chính panel đó khi được chọn thì KHÔNG còn `inactive` để class kia bám vào.
     await user.click(screen.getByRole('tab', { name: 'Lịch' }));
-    expect(document.getElementById(panel!.id)).toHaveAttribute('data-state', 'active');
+    expect(document.getElementById(calendarPanelId)).toHaveAttribute('data-state', 'active');
   });
 
   /**
@@ -132,5 +140,46 @@ describe('PlansPage — tab Lịch giữ mount', () => {
     await user.click(screen.getByRole('tab', { name: 'Lịch' }));
 
     expect(screen.getByText('Tháng 9 2026')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Ca đã đẻ ra hồi quy PR #409, và là điều kiện DUY NHẤT còn lại chặn `DEFAULT_VIEW = 'schedule'`.
+ *
+ * Tài khoản chỉ có kế hoạch `draft`: `hasNoPlansAtAll` là `false` nên `<Tabs>` render, nhưng
+ * `/review-queue/schedule` lọc `plan.status === 'active'` ⇒ lịch rỗng **theo định nghĩa**. Trước
+ * #405, mở thẳng vào Lịch là người dùng mất bằng chứng duy nhất trên màn rằng họ CÓ kế hoạch —
+ * badge `Chưa xác nhận 1` nằm trong panel kia.
+ *
+ * Bài test này ghim đúng thứ chữa nó: banner phải **có mặt** và phải **đi tiếp được**. Nếu ai gỡ
+ * banner mà quên trả `DEFAULT_VIEW` về `'plans'`, đây là chỗ đỏ.
+ */
+describe('PlansPage — tài khoản chỉ có kế hoạch draft', () => {
+  beforeEach(() => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([
+      makePlan({ id: 'plan-draft', name: '[CNPM] chap1', status: 'draft' }),
+    ]);
+  });
+
+  it('mở vào Lịch rỗng nhưng vẫn nói ra là có kế hoạch chưa xác nhận', async () => {
+    await renderPage();
+
+    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
+  });
+
+  it('banner đưa sang view Kế hoạch VÀ tab Chưa xác nhận, không chỉ một trong hai', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /Xem & xác nhận/ }));
+
+    expect(screen.getByRole('tab', { name: 'Kế hoạch' })).toHaveAttribute('aria-selected', 'true');
+    // Dải tab trạng thái là `role="tab"` viết tay trong `PlansPage`, không phải Radix.
+    expect(screen.getByRole('tab', { name: /Chưa xác nhận/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('[CNPM] chap1')).toBeInTheDocument();
   });
 });

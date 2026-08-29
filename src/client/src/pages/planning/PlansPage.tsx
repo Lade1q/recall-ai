@@ -57,21 +57,22 @@ function isViewValue(value: string): value is ViewValue {
 }
 
 /**
- * Lịch là view mặc định **của epic**, nhưng vẫn chưa phải hôm nay — và lý do đã ĐỔI kể từ #401.
+ * Lịch là view mặc định — quyết định của epic #400, và tới #405 mới **an toàn** để bật.
  *
- * Lý do cũ (lưới còn rỗng) đã hết: #404 đổ nội dung vào lưới. Lý do còn lại là ca **tài khoản chỉ
- * có kế hoạch `draft`**: `hasNoPlansAtAll` là `false` nên `<Tabs>` vẫn render, nhưng
- * `review-schedule.service.ts` lọc `plan.status === 'active'` ⇒ kế hoạch `draft` góp 0 mục ⇒ lịch
- * rỗng theo định nghĩa, còn badge `Chưa xác nhận 1` thì nằm trong `TabsContent value="plans"` nên
- * không nhìn thấy. Bật cờ ở đây là **tái tạo đúng hồi quy đã đo ở PR #409**.
+ * Hai lý do hoãn trước đây đều đã hết, theo thứ tự:
+ * - #401 hoãn vì lưới còn rỗng ⇒ mở thẳng vào Lịch là màn trắng. #404 đổ nội dung vào lưới.
+ * - #404 hoãn vì ca **tài khoản chỉ có kế hoạch `draft`**: `hasNoPlansAtAll` là `false` nên
+ *   `<Tabs>` vẫn render, nhưng `review-schedule.service.ts` lọc `plan.status === 'active'` ⇒ kế
+ *   hoạch `draft` góp 0 mục ⇒ lịch rỗng **theo định nghĩa**, còn badge `Chưa xác nhận 1` thì nằm
+ *   trong `TabsContent value="plans"` nên không nhìn thấy. Bật cờ lúc đó là tái tạo đúng hồi quy
+ *   đã đo ở PR #409: người dùng mất bằng chứng duy nhất trên màn rằng họ CÓ kế hoạch.
  *
- * Thứ chữa được ca đó là banner "N kế hoạch chưa xác nhận đồ thị" của #405 (`onShowDraftPlans`
- * ngay dưới đây là nửa đường dây đã nối sẵn).
- *
- * ⇒ **Dòng này đổi về `'schedule'` trong PR nào merge SAU giữa #404 và #405**, kèm phép kiểm
- * chính ca đó. Không huỷ — "Lịch là mặc định" vẫn là quyết định của epic #400.
+ * #405 chữa đúng ca đó bằng banner "N kế hoạch chưa xác nhận đồ thị" — nó đếm `plans` (chứ không
+ * đếm mục lịch, vốn bằng 0 ở đây) và `onShowDraftPlans` đưa thẳng sang tab "Chưa xác nhận". Nên
+ * điều kiện để bật cờ không phải "lưới đã có nội dung" mà là "lịch rỗng vẫn nói được vì sao nó
+ * rỗng và cho đi tiếp" — và đó là thứ ghim ở `PlansPage.test.tsx`, không phải ở dòng này.
  */
-const DEFAULT_VIEW: ViewValue = 'plans';
+const DEFAULT_VIEW: ViewValue = 'schedule';
 
 const POLL_INTERVAL_MS = 2500;
 const CLOCK_INTERVAL_MS = 1000;

@@ -4,6 +4,11 @@ import type { ScheduleResponse } from '../types/schedule.types';
  * Payload thật của `GET /api/v1/review-queue/schedule`, sinh từ DB dev sau khi seed dữ liệu demo
  * (18/08/2026): 10 mục · 3 quá hạn · 2 hôm nay · 5 sắp tới, trải 3 kế hoạch.
  *
+ * ⚠️ DB dev đã được neo lại ngày từ đó (29/08/2026: **8 mục · 3 quá hạn · 2 hôm nay · 3 sắp
+ * tới**), nên hai con số KHÔNG còn khớp nhau. Fixture cố ý **không** chạy theo: mọi test đọc nó
+ * đều tính tương đối với `todayDateKey` của chính nó, nên nó vẫn đúng như một payload — thứ lỗi
+ * thời là câu mô tả DB, không phải dữ liệu. Sinh lại chỉ khi cần thêm hình dạng mới.
+ *
  * Đây là nguồn dữ liệu chung của hai luồng frontend (#404 lưới tháng · #405 panel + bộ lọc) trong
  * lúc `GET /schedule` (#402) chưa có: cả hai dựng trên cùng một mảng nên không thể lệch nhau ở
  * chỗ ghép.
