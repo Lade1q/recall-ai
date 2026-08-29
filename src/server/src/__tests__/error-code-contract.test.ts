@@ -83,6 +83,14 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'DEBT: plan.service.ts — archive/unarchive from a status that ' +
     'forbids it. The UI hides the control in exactly those statuses.',
   WRONG_PASSWORD: 'DEBT: user.service.ts — the change-password form has no mapper yet.',
+
+  // --- Calendar screen (#400 epic), not built yet. No mapper file exists for review-queue.api.ts
+  // at all, so there is nothing to branch this into until #404/#405 land.
+  TRACEBACK_REPRESENTATIVE_LOCKED:
+    'scheduling.service.ts — PATCH {scheduledFor} guard rejecting a reschedule on a cluster ' +
+    'still represented by a weak-traceback row (#403). Not reachable yet: the calendar screen ' +
+    'that calls this endpoint (#404/#405) has not shipped, and review-queue.api.ts has no error ' +
+    'mapper of its own to add a case to.',
 };
 
 /** `getInterviewErrorMessage` handles every Gemini failure by prefix, not case-by-case. */
