@@ -11,11 +11,31 @@ import {
   PLAN_AWAITING_CONFIRMATION_MESSAGE,
 } from '../services/scheduling.service';
 
-/** Simule lỗi vi phạm `focus_sessions_one_running_per_user` (migration 20260821181401). */
-function uniqueViolationError(): Prisma.PrismaClientKnownRequestError {
+/**
+ * Simule lỗi vi phạm `focus_sessions_one_running_per_user` (migration 20260821181401). `meta`
+ * đúng hình dạng **đo LIVE** qua driver adapter Prisma 7 thật (script tạm, DB Postgres cô lập,
+ * 29/08) — không phải đoán theo docs Prisma <7 (`meta.target`, field không tồn tại ở đây):
+ * `{ driverAdapterError: { cause: { originalMessage: 'duplicate key value violates unique
+ * constraint "..."', constraint: { fields: [...] } } } }`.
+ */
+function uniqueViolationError(
+  constraintName = 'focus_sessions_one_running_per_user'
+): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
     code: 'P2002',
     clientVersion: 'test',
+    meta: {
+      modelName: 'FocusSession',
+      driverAdapterError: {
+        name: 'DriverAdapterError',
+        cause: {
+          originalCode: '23505',
+          originalMessage: `duplicate key value violates unique constraint "${constraintName}"`,
+          kind: 'UniqueConstraintViolation',
+          constraint: { fields: ['user_id'] },
+        },
+      },
+    },
   });
 }
 
@@ -395,6 +415,20 @@ describe('createFocusSession', () => {
       const error = await createFocusSession(USER_ID, { conceptIds: [CONCEPT_ID] }).catch((e) => e);
 
       expect(error).toBe(otherError);
+    });
+
+    // Review #421 (Quân) — `code === 'P2002'` một mình không phân biệt được constraint nào vi
+    // phạm. Một `@@unique` khác trên `focus_sessions` (giả định, chưa tồn tại hôm nay) không được
+    // đi qua nhánh #328 và trả về một 409 "bạn đã có phiên đang chạy" sai lệch.
+    it('ném lại lỗi P2002 gốc khi vi phạm một unique constraint KHÁC trên focus_sessions', async () => {
+      mockedPrisma.focusSession.findFirst.mockResolvedValueOnce(null);
+      const otherConstraintError = uniqueViolationError('some_other_future_constraint');
+      mockedPrisma.focusSession.create.mockRejectedValue(otherConstraintError);
+
+      const error = await createFocusSession(USER_ID, { conceptIds: [CONCEPT_ID] }).catch((e) => e);
+
+      expect(error).toBe(otherConstraintError);
+      expect(mockedPrisma.focusSession.findFirst).toHaveBeenCalledTimes(1);
     });
   });
 });

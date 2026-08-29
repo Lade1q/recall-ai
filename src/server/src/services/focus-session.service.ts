@@ -22,9 +22,34 @@ function toConceptIds(value: Prisma.JsonValue): string[] {
  * Ràng buộc duy nhất `focus_sessions_one_running_per_user` (partial index, migration
  * 20260821181401) - Prisma báo lỗi này qua `P2002` giống mọi unique constraint khác, dù
  * constraint không nằm trong `schema.prisma`. Cùng cách kiểm tra với `interview.service.ts`.
+ *
+ * Review #421 (Quân) — `error.code === 'P2002'` một mình không phân biệt được constraint nào vi
+ * phạm. Hôm nay không nuốt nhầm được (khoá duy nhất khác của `FocusSession` chỉ là `id`, va uuid
+ * không xảy ra), nhưng là rủi ro hồi quy: thêm `@@unique` khác lên `focus_sessions` sau này sẽ
+ * khiến nhánh này báo "bạn đã có phiên đang chạy" cho một vi phạm hoàn toàn khác.
+ *
+ * Siết bằng cách đọc tên constraint từ thông điệp lỗi gốc của driver — **đo LIVE** (không đoán
+ * theo docs Prisma <7 `error.meta?.target`, thứ **không tồn tại** với driver adapter của Prisma 7
+ * đang dùng ở đây): `error.meta` thật trông như
+ * `{ driverAdapterError: { cause: { originalMessage: 'duplicate key value violates unique
+ * constraint "focus_sessions_one_running_per_user"', constraint: { fields: ['user_id'] } } } }`.
+ * Không có field nào chỉ chứa mỗi tên constraint, nên so trong `originalMessage` là tín hiệu
+ * chính xác nhất hiện có — `constraint.fields` một mình (`['user_id']`) không đủ, đúng lo ngại
+ * ban đầu của review.
+ *
+ * Hình dạng này thuộc nội bộ driver adapter, có thể đổi giữa các bản Prisma. Khi không đọc được
+ * `originalMessage` (hình dạng đã đổi), mặc định coi là vi phạm CỦA CONSTRAINT NÀY — giữ hành vi
+ * cũ trước review, đúng mức rủi ro "nhẹ" mà review xếp loại, thay vì lặng lẽ nuốt một lỗi.
  */
-function isUniqueViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+function isFocusSessionRaceViolation(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+  const meta = error.meta as
+    { driverAdapterError?: { cause?: { originalMessage?: unknown } } } | undefined;
+  const originalMessage = meta?.driverAdapterError?.cause?.originalMessage;
+  if (typeof originalMessage !== 'string') return true;
+  return originalMessage.includes('focus_sessions_one_running_per_user');
 }
 
 /**
@@ -175,7 +200,7 @@ export async function createFocusSession(
       },
     });
   } catch (error) {
-    if (!isUniqueViolation(error)) throw error;
+    if (!isFocusSessionRaceViolation(error)) throw error;
 
     // #328: N request thực sự đồng thời (cùng round-trip DB, vd. Promise.all) có thể cùng
     // vượt qua findFirst ở trên rồi cùng INSERT - reap-findFirst-create không nằm trong 1
