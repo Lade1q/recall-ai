@@ -1,5 +1,7 @@
 import {
   CHECKPOINT_MAX_LENGTH,
+  SOURCE_CONTEXT_MAX_LENGTH,
+  SOURCE_SECTION_MAX_LENGTH,
   aiExtractJsonSchema,
   aiExtractResponseSchema,
 } from '../schemas/ai-extract.schema';
@@ -200,5 +202,27 @@ describe('conceptExtractSchema — source_section / source_context (#296)', () =
       expect(anyOf).toContainEqual(expect.objectContaining({ type: 'null' }));
       expect(anyOf).toContainEqual(expect.objectContaining({ type: 'string' }));
     }
+  });
+
+  /**
+   * Review #425 (Quân) — two mutations survived 916/916 unnoticed: `SOURCE_CONTEXT_MAX_LENGTH`
+   * 2000→200 and `SOURCE_SECTION_MAX_LENGTH` 200→20000. `SOURCE_SECTION_MAX_LENGTH`'s 200-char
+   * cap was the ONLY thing stopping the model from stuffing a whole paragraph into the field FS-04
+   * renders as an `<h3>`. These pin the boundary directly at both constants.
+   */
+  it('accepts source_section at exactly SOURCE_SECTION_MAX_LENGTH, degrades one char over', () => {
+    const atMax = 'x'.repeat(SOURCE_SECTION_MAX_LENGTH);
+    const overMax = 'x'.repeat(SOURCE_SECTION_MAX_LENGTH + 1);
+
+    expect(parseWith({ source_section: atMax }).data?.concepts[0]?.source_section).toBe(atMax);
+    expect(parseWith({ source_section: overMax }).data?.concepts[0]?.source_section).toBeNull();
+  });
+
+  it('accepts source_context at exactly SOURCE_CONTEXT_MAX_LENGTH, degrades one char over', () => {
+    const atMax = 'x'.repeat(SOURCE_CONTEXT_MAX_LENGTH);
+    const overMax = 'x'.repeat(SOURCE_CONTEXT_MAX_LENGTH + 1);
+
+    expect(parseWith({ source_context: atMax }).data?.concepts[0]?.source_context).toBe(atMax);
+    expect(parseWith({ source_context: overMax }).data?.concepts[0]?.source_context).toBeNull();
   });
 });
