@@ -40,6 +40,12 @@ function toConceptIds(value: Prisma.JsonValue): string[] {
  * Hình dạng này thuộc nội bộ driver adapter, có thể đổi giữa các bản Prisma. Khi không đọc được
  * `originalMessage` (hình dạng đã đổi), mặc định coi là vi phạm CỦA CONSTRAINT NÀY — giữ hành vi
  * cũ trước review, đúng mức rủi ro "nhẹ" mà review xếp loại, thay vì lặng lẽ nuốt một lỗi.
+ *
+ * Review #421 round 2 (Quân) — nhánh fallback này không có test nào giữ, và đảo `return true`
+ * thành `return false` vẫn xanh 912/912: một lần nâng Prisma đổi hình dạng lỗi sẽ khiến việc
+ * siết này tắt lặng lẽ (mọi `P2002` rơi vào nhánh fallback), mock trong test vẫn giữ hình dạng cũ
+ * nên CI không phát hiện được. `console.warn` ở đây là để production ít nhất CÒN KÊU khi guard
+ * tự tắt — "đã siết" và "siết đã hỏng" phải phân biệt được ở log, không chỉ ở code.
  */
 function isFocusSessionRaceViolation(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
@@ -48,7 +54,14 @@ function isFocusSessionRaceViolation(error: unknown): boolean {
   const meta = error.meta as
     { driverAdapterError?: { cause?: { originalMessage?: unknown } } } | undefined;
   const originalMessage = meta?.driverAdapterError?.cause?.originalMessage;
-  if (typeof originalMessage !== 'string') return true;
+  if (typeof originalMessage !== 'string') {
+    console.warn(
+      '[focus-session] P2002 without a readable driver error message — cannot confirm this is ' +
+        'the focus_sessions_one_running_per_user race; treating it as one (fallback, see ' +
+        'isFocusSessionRaceViolation docstring). Prisma internals may have changed shape.'
+    );
+    return true;
+  }
   return originalMessage.includes('focus_sessions_one_running_per_user');
 }
 

@@ -430,6 +430,45 @@ describe('createFocusSession', () => {
       expect(error).toBe(otherConstraintError);
       expect(mockedPrisma.focusSession.findFirst).toHaveBeenCalledTimes(1);
     });
+
+    // Review #421 round 2 (Quân) — nhánh fallback (`typeof originalMessage !== 'string'`) không
+    // có test nào giữ trước đây; đảo `return true` → `return false` vẫn xanh toàn bộ suite.
+    // Khoá cả hành vi (giữ nguyên #328 khi không đọc được hình dạng lỗi) lẫn tiếng kêu khi guard
+    // rơi vào nhánh không xác minh được.
+    it('P2002 không đọc được hình dạng lỗi driver (meta thiếu/lạ): vẫn coi là race #328 và cảnh báo', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+      mockedPrisma.studyPlan.findUnique.mockResolvedValue({
+        id: PLAN_ID,
+        userId: USER_ID,
+        status: 'active',
+      });
+      mockedPrisma.concept.count.mockResolvedValue(1);
+      mockedPrisma.focusSession.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+        id: SESSION_ID,
+        userId: USER_ID,
+        planId: PLAN_ID,
+        conceptIds: [CONCEPT_ID],
+        status: 'running',
+        strictMode: false,
+        startedAt: new Date(),
+      });
+      // Không có `meta` — hình dạng driver adapter đã đổi, hoặc một Prisma version khác.
+      const shapelessError = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+      });
+      mockedPrisma.focusSession.create.mockRejectedValue(shapelessError);
+
+      const result = await createFocusSession(USER_ID, {
+        planId: PLAN_ID,
+        conceptIds: [CONCEPT_ID],
+      });
+
+      expect(result).toMatchObject({ created: false, id: SESSION_ID });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('P2002'));
+
+      warnSpy.mockRestore();
+    });
   });
 });
 

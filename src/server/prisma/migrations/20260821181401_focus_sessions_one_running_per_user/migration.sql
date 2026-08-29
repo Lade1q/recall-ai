@@ -5,13 +5,35 @@
 -- lệnh mà `migrate deploy` không bao giờ tự chạy). Cửa sổ này không nhỏ: `reapStaleSessions` chỉ
 -- chạy trong request của chính user đó, không có cron/job nào quét toàn bảng lúc boot.
 --
--- Dọn TRƯỚC khi tạo index, trong CÙNG file migration — Prisma bọc mỗi file migration trong một
--- transaction, nên dọn dữ liệu và tạo index là MỘT bước nguyên tử, không có khe hở ở giữa. Giữ
--- lại hàng `started_at` mới nhất mỗi user (tie-break bằng `id` cho hai hàng cùng mốc), hạ phần
--- còn lại xuống `cancelled` đúng cách `reapStaleSessions()` (`focus-session.service.ts`) đang làm
--- cho một phiên bỏ dở: `status = 'cancelled'`, `duration_minutes = 0`, `ended_at` được ghi (ở đây
--- là lúc chạy migration, không phải `started_at + 8h` — đây không phải phiên "stale", chỉ là bản
--- sao thừa mà #328 sinh ra trước khi có index chặn).
+-- Dọn TRƯỚC khi tạo index, trong CÙNG file migration. Giữ lại hàng `started_at` mới nhất mỗi
+-- user (tie-break bằng `id` cho hai hàng cùng mốc), hạ phần còn lại xuống `cancelled` đúng cách
+-- `reapStaleSessions()` (`focus-session.service.ts`) đang làm cho một phiên bỏ dở:
+-- `status = 'cancelled'`, `duration_minutes = 0`, `ended_at` được ghi (ở đây là lúc chạy
+-- migration, không phải `started_at + 8h` — đây không phải phiên "stale", chỉ là bản sao thừa
+-- mà #328 sinh ra trước khi có index chặn).
+--
+-- Review #421 round 2 (Quân) — bản trước ghi "Prisma bọc mỗi file migration trong một
+-- transaction, nên dọn dữ liệu và tạo index là MỘT bước nguyên tử". Đo LIVE: SAI trên Postgres.
+-- Theo docs Prisma (mục transactional DDL): SQL Server tự bọc transaction; **Postgres phải tự
+-- thêm `BEGIN`/`COMMIT`, mặc định KHÔNG bọc**. `grep` tệp gốc ra 0 dòng `BEGIN`/`COMMIT`. Ép
+-- `CREATE UNIQUE INDEX` hỏng sau khi `UPDATE` đã chạy (đo bằng cách tạo sẵn index trùng tên) cho
+-- thấy `UPDATE` COMMIT thật — phiên bị huỷ ở lại `cancelled`, index không tồn tại,
+-- `_prisma_migrations` còn một hàng `unfinished`.
+--
+-- `BEGIN`/`COMMIT` dưới đây là bước Prisma docs chỉ định cho Postgres. Riêng `BEGIN`/`COMMIT`
+-- không đủ đóng cửa sổ đua: `UPDATE` chỉ giữ `ROW EXCLUSIVE`, một `INSERT` (`createFocusSession`)
+-- vẫn chen vào và commit được GIỮA `UPDATE` và `CREATE INDEX`, khiến `CREATE UNIQUE INDEX` lại
+-- thấy 2 hàng `running`. `LOCK TABLE ... IN SHARE ROW EXCLUSIVE MODE` xung đột với `ROW EXCLUSIVE`
+-- mà `INSERT` cần, nên đặt NGAY SAU `BEGIN` chặn mọi writer đồng thời tại chính câu `INSERT` cho
+-- tới `COMMIT` — ai đã commit TRƯỚC lock thì nằm sẵn trong tập `UPDATE` dọn, không còn khe hở.
+-- Không chặn đọc (khác `ACCESS EXCLUSIVE`); bảng nhỏ nên lock chỉ giữ vài chục mili-giây. Kiểm
+-- chứng LIVE (Postgres tạm qua Docker): `LOCK TABLE` ngoài transaction ném lỗi ngay
+-- ("LOCK TABLE can only be used in transaction blocks") — đúng PostgreSQL docs (`sql-lock.html`),
+-- nên bộ ba `BEGIN`/`LOCK TABLE`/`COMMIT` phải đi cùng nhau, không tách được.
+BEGIN;
+
+LOCK TABLE "focus_sessions" IN SHARE ROW EXCLUSIVE MODE;
+
 UPDATE "focus_sessions"
 SET "status" = 'cancelled', "duration_minutes" = 0, "ended_at" = now()
 WHERE "id" IN (
@@ -40,3 +62,5 @@ WHERE "id" IN (
 CREATE UNIQUE INDEX "focus_sessions_one_running_per_user"
   ON "focus_sessions" ("user_id")
   WHERE "status" = 'running';
+
+COMMIT;
