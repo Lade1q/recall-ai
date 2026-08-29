@@ -23,7 +23,15 @@ describe('buildConceptSourceRows', () => {
     const rows = buildConceptSourceRows(concepts, idByName, DOC);
 
     expect(rows).toEqual([
-      { conceptId: 'c-stack', documentId: DOC, pageFrom: 4, pageTo: 4, excerpt: 'LIFO order.' },
+      {
+        conceptId: 'c-stack',
+        documentId: DOC,
+        pageFrom: 4,
+        pageTo: 4,
+        sectionTitle: null,
+        excerpt: 'LIFO order.',
+        context: null,
+      },
     ]);
   });
 
@@ -36,6 +44,55 @@ describe('buildConceptSourceRows', () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ pageFrom: null, pageTo: null, excerpt: 'LIFO order.' });
+  });
+
+  // #296 — sectionTitle/context ride along with the row whenever the AI gave them.
+  it('carries sectionTitle and context through when the AI gave them', () => {
+    const concepts = [
+      {
+        name: 'Stack',
+        difficulty: 2,
+        source_page: 4,
+        source_section: '4.2 Ngăn xếp',
+        source_excerpt: 'LIFO order.',
+        source_context: 'A stack follows LIFO order. Push and pop both happen at the top.',
+      },
+    ] as Concepts;
+
+    const rows = buildConceptSourceRows(concepts, idByName, DOC);
+
+    expect(rows[0]).toMatchObject({
+      sectionTitle: '4.2 Ngăn xếp',
+      context: 'A stack follows LIFO order. Push and pop both happen at the top.',
+    });
+  });
+
+  // sectionTitle rides on the page/excerpt gate, but is independent of which of the two
+  // actually anchored the row — a concept anchored on page alone can still have a section title.
+  it('carries sectionTitle even when the concept anchored on page alone (no excerpt)', () => {
+    const concepts = [
+      {
+        name: 'Stack',
+        difficulty: 2,
+        source_page: 4,
+        source_section: '4.2 Ngăn xếp',
+        source_excerpt: null,
+      },
+    ] as Concepts;
+
+    const rows = buildConceptSourceRows(concepts, idByName, DOC);
+
+    expect(rows[0]).toMatchObject({ sectionTitle: '4.2 Ngăn xếp', excerpt: null, context: null });
+  });
+
+  it('defaults sectionTitle and context to null when the AI did not give them', () => {
+    const concepts = [
+      { name: 'Stack', difficulty: 2, source_page: 4, source_excerpt: 'LIFO order.' },
+    ] as Concepts;
+
+    const rows = buildConceptSourceRows(concepts, idByName, DOC);
+
+    expect(rows[0]).toMatchObject({ sectionTitle: null, context: null });
   });
 
   it('skips a concept with neither page nor excerpt', () => {

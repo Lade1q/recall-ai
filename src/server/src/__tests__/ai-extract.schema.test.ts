@@ -145,3 +145,60 @@ describe('conceptExtractSchema — checkpoints', () => {
     expect(item.required ?? []).not.toContain('source_excerpt');
   });
 });
+
+/**
+ * #296 — `source_section`/`source_context` enrich FS-04 state 6 with a section heading and the
+ * paragraph around the excerpt. Same shape as `source_excerpt` above: best-effort, nullable, and
+ * must not become required — the model has no section structure to report for plain text/images.
+ */
+describe('conceptExtractSchema — source_section / source_context (#296)', () => {
+  function parseWith(overrides: Record<string, unknown>) {
+    return aiExtractResponseSchema.safeParse({
+      concepts: [{ ...CONCEPT, ...overrides }],
+      edges: [],
+      language_detected: 'vi',
+    });
+  }
+
+  it('keeps a well-formed section title and context', () => {
+    const result = parseWith({
+      source_section: '4.2 Ngăn xếp',
+      source_context: 'A stack follows LIFO order. Push and pop both happen at the top.',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.concepts[0]?.source_section).toBe('4.2 Ngăn xếp');
+    expect(result.data?.concepts[0]?.source_context).toBe(
+      'A stack follows LIFO order. Push and pop both happen at the top.'
+    );
+  });
+
+  it('degrades a null or malformed value to null rather than failing the concept', () => {
+    // Same `.nullish().catch(null)` shape as `source_page`/`source_excerpt`: an absent key parses
+    // as `undefined` (nothing to catch — no error occurred), while an explicit bad value is caught
+    // to `null`. Both read as "no section/context" downstream; the distinction is not load-bearing
+    // here the way `checkpoints`' `null` vs `[]` is.
+    expect(parseWith({}).data?.concepts[0]?.source_section).toBeUndefined();
+    expect(parseWith({ source_section: null }).data?.concepts[0]?.source_section).toBeNull();
+    // Empty string fails `.min(1)` — degrade, don't reject the whole extraction.
+    expect(parseWith({ source_section: '' }).data?.concepts[0]?.source_section).toBeNull();
+    expect(parseWith({ source_context: 42 }).data?.concepts[0]?.source_context).toBeNull();
+  });
+
+  it('does not require either field in the wire schema — both are best-effort', () => {
+    const item = (aiExtractJsonSchema as unknown as JsonSchemaShape).properties.concepts.items;
+
+    expect(item.required ?? []).not.toContain('source_section');
+    expect(item.required ?? []).not.toContain('source_context');
+  });
+
+  it('still lets the model answer null for both, same as source_excerpt', () => {
+    const item = (aiExtractJsonSchema as unknown as JsonSchemaShape).properties.concepts.items;
+
+    for (const field of ['source_section', 'source_context']) {
+      const { anyOf } = item.properties[field] as { anyOf: Record<string, unknown>[] };
+      expect(anyOf).toContainEqual(expect.objectContaining({ type: 'null' }));
+      expect(anyOf).toContainEqual(expect.objectContaining({ type: 'string' }));
+    }
+  });
+});

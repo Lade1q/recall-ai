@@ -63,6 +63,13 @@ Rules:
   "source_page" if you know where the mention appears.
 - "source_page": the 1-based page number where that excerpt appears. For PDFs give the real page;
   for plain text or images with no page structure, use null.
+- "source_section": the title of the section/heading the material files this concept under (e.g.
+  "4.2 Stacks"), copied or lightly normalized from a real heading in the material — never invented.
+  Null if the material has no clear section structure around this concept.
+- "source_context": the paragraph surrounding "source_excerpt" — copied verbatim from the material,
+  same rule as "source_excerpt", just wider (the sentence/two of "source_excerpt" plus the
+  sentences around it, enough for a reader to see it in context). Do not paraphrase or summarize.
+  Null when "source_excerpt" is null — there is no excerpt to surround.
 - "checkpoints": the specific things a student must demonstrate to be counted as understanding
   this concept. One short statement each, written in the language of the material, each one
   checkable on its own. Take them from the material only — never from outside knowledge.
