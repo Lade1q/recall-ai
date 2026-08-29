@@ -342,7 +342,11 @@ async function callStructured<T>(
   throw new AppError(`AI call failed: ${detail}`, 502, 'AI_UNAVAILABLE');
 }
 
-/** Renders prior turns so 'deeper'/'probe' can reference what was actually said. */
+/**
+ * Renders prior turns so 'deeper'/'probe' and grading can reference what was actually said.
+ * Data only — no "don't repeat the question" instruction, since that only makes sense when the
+ * call is generating a new question (see `formatPreviousTurnsForQuestion`), not when grading one.
+ */
 function formatPreviousTurns(previousTurns: PreviousTurn[]): string {
   if (previousTurns.length === 0) return '';
 
@@ -352,7 +356,13 @@ function formatPreviousTurns(previousTurns: PreviousTurn[]): string {
     return `Turn ${index + 1}:\nQ: ${turn.questionText}\nA: ${answer}${verdict}`;
   });
 
-  return `\n\nEarlier in this session:\n${lines.join('\n\n')}\n\nDo not repeat a question already asked above.`;
+  return `\n\nEarlier in this session:\n${lines.join('\n\n')}`;
+}
+
+/** Same history block, plus the no-repeat instruction that only applies when generating a question. */
+function formatPreviousTurnsForQuestion(previousTurns: PreviousTurn[]): string {
+  if (previousTurns.length === 0) return '';
+  return `${formatPreviousTurns(previousTurns)}\n\nDo not repeat a question already asked above.`;
 }
 
 export interface GenerateQuestionParams {
@@ -380,7 +390,7 @@ export async function generateQuestion(
     `Concept under examination: "${conceptName}".\n` +
     `This is question number ${turnIndex} for this concept.\n` +
     `${MODE_INSTRUCTION[mode]}${languageLine}` +
-    formatPreviousTurns(previousTurns);
+    formatPreviousTurnsForQuestion(previousTurns);
 
   return callStructured(
     QUESTION_SYSTEM_INSTRUCTION,
@@ -406,6 +416,12 @@ export interface GradeAnswerParams {
    * response schema is unchanged either way, since `grade_answer` is one fixed schema, not two.
    */
   checkpoints?: readonly { text: string }[];
+  /**
+   * Turns already asked/answered for this concept (#391), so a turn 2/3 grade isn't blind to
+   * turn 1 — mirrors `GenerateQuestionParams.previousTurns` above. Optional and defaulting to
+   * empty so an existing caller sees no behavior change; the response schema is unchanged (C4).
+   */
+  previousTurns?: PreviousTurn[];
 }
 
 /**
@@ -428,7 +444,15 @@ function formatCheckpoints(checkpoints: readonly { text: string }[]): string {
  * must not turn a good grade into `AI_BAD_FORMAT`. The caller runs it through `mapGradeEvidence`.
  */
 export async function gradeAnswer(params: GradeAnswerParams): Promise<GradeAnswerResponse> {
-  const { conceptName, material, questionText, answerText, language, checkpoints = [] } = params;
+  const {
+    conceptName,
+    material,
+    questionText,
+    answerText,
+    language,
+    checkpoints = [],
+    previousTurns = [],
+  } = params;
 
   if (process.env.USE_MOCK_AI === 'true') {
     return mockGradeAnswer(answerText);
@@ -440,7 +464,8 @@ export async function gradeAnswer(params: GradeAnswerParams): Promise<GradeAnswe
     `Question asked:\n${questionText}\n\n` +
     `The student answered:\n${answerText}\n\n` +
     `Grade this answer against the material.${languageLine}` +
-    formatCheckpoints(checkpoints);
+    formatCheckpoints(checkpoints) +
+    formatPreviousTurns(previousTurns);
 
   const graded = await callStructured(
     GRADE_SYSTEM_INSTRUCTION,

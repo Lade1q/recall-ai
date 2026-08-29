@@ -366,6 +366,57 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
+   * #391 regression: `submitAnswer` must pass the concept's prior turns into `gradeAnswer`, and
+   * must exclude the turn currently being graded from that history. A caller that drops the
+   * `previousTurns:` argument, or drops the `.filter((turn) => turn.id !== pending.id)` before it,
+   * still passes the whole suite elsewhere (nothing else asserts on `gradeAnswer`'s call args) —
+   * this is the one test that would catch either regression.
+   */
+  it('submitAnswer passes turn 1 as history when grading turn 2, and only turn 1', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    // Turn 1 must not be graded `wrong` — that ends the concept immediately (#115's decision
+    // table) and there would be no turn 2 to grade.
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.75,
+      feedback: 'turn 1 feedback',
+      verdict: 'shallow',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 question',
+      question_type: 'recall',
+    });
+
+    const first = await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời lượt 1');
+    expect(mockedGradeAnswer.mock.calls[0][0].previousTurns).toEqual([]);
+    expect(first.nextQuestion).not.toBeNull();
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.9,
+      feedback: 'turn 2 feedback',
+      verdict: 'deep',
+    });
+    // 'deep' with a turn still left (2 < maxTurnsPerConcept 3) asks a turn 3 — irrelevant to this
+    // test, but `advanceToNextQuestion` still generates it before `submitAnswer` returns.
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 3 question',
+      question_type: 'recall',
+    });
+
+    await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời lượt 2');
+
+    expect(mockedGradeAnswer).toHaveBeenCalledTimes(2);
+    const { previousTurns } = mockedGradeAnswer.mock.calls[1][0];
+    expect(previousTurns).toHaveLength(1);
+    expect(previousTurns[0]).toMatchObject({
+      questionText: 'Existing question',
+      answerText: 'câu trả lời lượt 1',
+      verdict: 'shallow',
+    });
+  });
+
+  /**
    * #288 regression: the grade write is bound to the exact claim the request took
    * (`updateMany where { id, answeredAt: <claim mark> }`). A request whose slow Gemini call
    * outlasted ANSWER_CLAIM_STALE_MS loses its claim to a stale-reclaim; it must NOT overwrite
