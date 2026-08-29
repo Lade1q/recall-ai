@@ -233,3 +233,86 @@ describe('MonthGrid — tháng chưa có buổi ôn nào', () => {
     expect(screen.getByText('Tháng 8 2026 chưa có buổi ôn nào')).toBeInTheDocument();
   });
 });
+
+describe('MonthGrid — bề ngang hẹp (<680px)', () => {
+  /**
+   * Nhánh hẹp được khoá làm HAI TẦNG, vì một tầng không đủ.
+   *
+   * jsdom không nạp stylesheet nào và `matchMedia` trả `matches: false`, nên **không assertion nào
+   * ở tầng này phân biệt được một utility SỐNG với một utility CHẾT**. Đo được: render bản có lỗi
+   * ghép class động (`${NARROW}hidden`) và bản đã vá cho ra `outerHTML` **trùng nhau từng byte**
+   * (1642/1642), trong khi một đột biến đổi nội dung thì lệch ngay — tức phép so có khả năng thấy
+   * khác biệt, và nó không thấy.
+   *
+   * ⇒ Tầng 1 (dưới đây): **hành vi render** — số chấm, màu chấm, có hay không có hàng chấm. Đây là
+   *   logic thuần, assert được đầy đủ.
+   * ⇒ Tầng 2: các mốc `max-[680px]:` chỉ khoá được bằng **assertion soi gương tên class**, cùng
+   *   loại với khối tint `/7` ở trên. Nó khoá CHUỖI, không khoá hiệu lực CSS — phép kiểm thật của
+   *   chúng là lượt đo browser ở 320px, và bản vá này ra đời từ đúng lượt đo đó.
+   */
+  const dotsIn = (name: RegExp | string) => [
+    ...cell(name).querySelectorAll('span[aria-hidden="true"] i'),
+  ];
+
+  it('shows one density dot per item, up to four, then a "+n" tail', () => {
+    renderGrid({
+      days: [
+        day(
+          '2026-08-20',
+          ['A', 'B', 'C', 'D', 'E', 'F'].map((n) => item(n))
+        ),
+      ],
+    });
+    expect(dotsIn(/T5, 20\/08/)).toHaveLength(4);
+    expect(within(cell(/T5, 20\/08/)).getByText('+2')).toBeInTheDocument();
+  });
+
+  it('does not add a tail at exactly four items', () => {
+    renderGrid({
+      days: [
+        day(
+          '2026-08-20',
+          ['A', 'B', 'C', 'D'].map((n) => item(n))
+        ),
+      ],
+    });
+    const dotRow = cell(/T5, 20\/08/).querySelector('span[aria-hidden="true"]');
+    expect(dotRow?.querySelectorAll('i')).toHaveLength(4);
+    // Hỏi ĐÚNG hàng chấm, không hỏi cả ô: ở 4 mục thì hàng chip bên trên đang có "+1 mục nữa",
+    // nên một phép tìm ở cấp ô sẽ bắt nhầm nó và test đỏ vì lý do không liên quan (đã đo).
+    expect(dotRow?.querySelector('b')).toBeNull();
+  });
+
+  it('renders no dot row at all for a day with nothing on it', () => {
+    renderGrid({ days: [] });
+    expect(dotsIn(/T5, 20\/08/)).toHaveLength(0);
+  });
+
+  it('colours each dot by the same rule as its chip — truy ngược vẫn thắng quá hạn', () => {
+    renderGrid({
+      days: [
+        day('2026-08-20', [item('Truy ngược', { reason: 'traceback' }), item('Thường')]),
+        day('2026-09-02', [item('Tương lai')]),
+      ],
+    });
+    expect(dotsIn(/T5, 20\/08/).map((d) => d.className)).toEqual([
+      expect.stringContaining('bg-remediate'),
+      expect.stringContaining('bg-mastery-weak'),
+    ]);
+    expect(dotsIn(/T4, 02\/09/)[0].className).toContain('bg-mastery-untested');
+  });
+
+  it('carries every 680px breakpoint the narrow layout depends on', () => {
+    // Soi gương có chủ đích (xem ghi chú đầu describe). Bốn chuỗi này là toàn bộ khác biệt giữa
+    // "ô đọc được nội dung" và "ô chỉ đọc được mật độ"; mất một chuỗi là mất một nửa bố cục, và
+    // không có gì khác trong repo bắt được.
+    renderGrid({ days: [day('2026-08-20', [item('A')])] });
+    const target = cell(/T5, 20\/08/);
+    expect(target.className).toContain('max-[680px]:min-h-[58px]');
+    expect(within(target).getByText('A').className).toContain('max-[680px]:hidden');
+    expect(within(target).getByText('≈9ʹ').className).toContain('max-[680px]:hidden');
+    expect(target.querySelector('span[aria-hidden="true"]')?.className).toContain(
+      'max-[680px]:flex'
+    );
+  });
+});
