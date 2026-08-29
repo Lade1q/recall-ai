@@ -57,6 +57,7 @@ describe('PlansPage — bộ chuyển view', () => {
     await renderPage();
     expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Kế hoạch' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.queryByText(/chưa xác nhận/)).toBeNull();
   });
 
   /**
