@@ -57,8 +57,12 @@ describe('ScheduleDebtBar — đếm theo khái niệm', () => {
     expect(screen.getByText(/khái niệm ·/).textContent).toBe('2 khái niệm · ≈ 12 phút');
   });
 
-  it('cùng khái niệm nhưng KHÁC kế hoạch vẫn là hai mục lịch — không gộp mất một cái', () => {
-    // Cụm khoá theo `(planId, conceptId)`, nên đây là hai cái hẹn thật sự khác nhau.
+  it('cùng conceptId ở hai planId vẫn đếm là MỘT — ghim luật gộp, không phải ghim dữ liệu', () => {
+    // ⚠️ Đầu vào này KHÔNG tồn tại trong dữ liệu thật: `model Concept` có cột `planId` với khoá
+    // ngoại, nên một `conceptId` thuộc đúng một kế hoạch — `conceptId` một mình đã hàm ý `planId`.
+    // Giữ ca lại vì nó ghim **luật gộp**, không ghim dữ liệu: đổi khoá đếm sang
+    // `` `${planId}:${conceptId}` `` làm test này đỏ. Tức nếu sau này ai refactor sang khoá cụm
+    // đầy đủ, họ phải nói ra là mình đang đổi hành vi gộp, thay vì nó trôi đi im lặng.
     renderBar([
       makeItem({ id: 'a', planId: 'plan-1', estimatedMinutes: 3 }),
       makeItem({ id: 'b', planId: 'plan-2', estimatedMinutes: 9 }),

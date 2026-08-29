@@ -100,9 +100,15 @@ const MONTH_GRID_CELL_COUNT = 42;
 /**
  * 42 ô của `cursor`, tuần bắt đầu **thứ Hai**.
  *
- * Đây là chỗ DUY NHẤT trong feature dựng `Date`, và dựng bằng `Date.UTC` — `dateKey` vốn đã là
- * ngày VN do server cắt, nên mọi phép đổi múi giờ ở đây chỉ có thể làm lệch một ngày. Ra khỏi hàm
+ * Đây là chỗ DUY NHẤT trong feature dựng `Date` **trong không gian UTC**, và dựng bằng `Date.UTC`
+ * — `dateKey` vốn đã là ngày VN do server cắt, nên mọi phép đổi múi giờ ở đây chỉ có thể làm lệch
+ * một ngày. Đọc lại cũng bằng `getUTC*`/`toISOString()`, nên hàm này độc lập múi giờ. Ra khỏi hàm
  * là quay lại chuỗi `YYYY-MM-DD`.
+ *
+ * ⚠️ Có một chỗ thứ hai dựng `Date`, ở **không gian địa phương**: `utils/picker-date.ts`, cây cầu
+ * cho `react-day-picker` (thư viện đó chỉ đọc `getFullYear`/`getMonth`/`getDate`). Ở bên đó
+ * `toISOString()` **sai một ngày** với người dùng UTC+7. Hai tệp không mâu thuẫn — chúng làm việc
+ * ở hai không gian; đừng bê cách làm của tệp này sang đó.
  *
  * Trả về ô cho TẤT CẢ 42 vị trí thay vì chỉ ngày trong tháng: lưới không được lọc dữ liệu theo
  * tháng (#400), nó chỉ tra `dateKey` — nên ô tràn phải mang `dateKey` thật thì mục ngày 01 của
