@@ -1,4 +1,5 @@
 import { PackageOpen } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { ReviewQueueItem } from '../types/review-queue.types';
 import { RemovedGroup } from './RemovedGroup';
 
@@ -21,18 +22,17 @@ export function AllRemovedState({
 }: AllRemovedStateProps) {
   return (
     <div>
-      <div className="max-w-130 mt-8.5 mx-auto mb-2 text-center">
-        <div className="text-muted-foreground mb-4 flex justify-center opacity-55">
-          <PackageOpen aria-hidden="true" className="size-10" strokeWidth={1.3} />
-        </div>
-        <h3 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
-          Bạn đã gỡ tất cả khái niệm khỏi lịch
-        </h3>
-        <p className="text-muted-foreground text-pretty text-[13.5px] leading-[1.7]">
-          Kế hoạch này sẽ không xuất hiện trong phiên học nào cho tới khi bạn đưa lại ít nhất một
-          khái niệm. Không có gì bị xoá — cả {skippedItems.length} vẫn ở dưới đây.
-        </p>
-      </div>
+      <EmptyState
+        className="mt-8.5 mb-2"
+        icon={PackageOpen}
+        heading="Bạn đã gỡ tất cả khái niệm khỏi lịch"
+        body={
+          <>
+            Kế hoạch này sẽ không xuất hiện trong phiên học nào cho tới khi bạn đưa lại ít nhất một
+            khái niệm. Không có gì bị xoá — cả {skippedItems.length} vẫn ở dưới đây.
+          </>
+        }
+      />
 
       <RemovedGroup
         items={skippedItems}

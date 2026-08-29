@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Archive, CircleCheck, ClipboardCheck, Network } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { PlanStatus } from '@/features/study-planner/types/concept';
 
 interface EmptyQueueMessageProps {
@@ -88,28 +89,25 @@ export function EmptyQueueMessage({
   const { Icon, heading, action } = resolveFrame(planId, planStatus, hasActiveConcepts);
 
   return (
-    <div className="max-w-130 mb-6.5 mt-8.5 mx-auto text-center">
-      <div className="text-muted-foreground mb-4 flex justify-center opacity-55">
-        <Icon aria-hidden="true" className="size-10" strokeWidth={1.3} />
-      </div>
-      <h3 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">{heading}</h3>
-      {/* Chỉ render khi có câu chữ. Từ #345, ca "plan active 0 khái niệm" ĐÃ có câu server, nên
-          `message = ''` ở đây không còn là ca thường nữa — nó chỉ còn tới được qua một **straddle**
-          hiếm: `concept.count` chạy TRƯỚC một reanalyze còn `buildFallbackItems` chạy SAU, nên cờ
-          nói "còn khái niệm" trong khi danh sách đã rỗng (READ COMMITTED lấy snapshot theo từng
-          câu lệnh; đảo thứ tự hai truy vấn chỉ đổi chiều lệch chứ không đóng được). Hệ quả là một
-          lần render thiếu câu, tự khỏi khi tải lại — cố ý không sửa, và cố ý KHÔNG nới vị từ nào
-          để "chữa" nó. Xem #345. */}
-      {message && (
-        <p className="text-muted-foreground mb-4.5 text-pretty text-[13.5px] leading-[1.7]">
-          {message}
-        </p>
-      )}
-      {action && (
-        <Button variant="outline" asChild>
-          <Link to={action.to}>{action.label}</Link>
-        </Button>
-      )}
-    </div>
+    <EmptyState
+      className="mb-6.5 mt-8.5"
+      icon={Icon}
+      heading={heading}
+      /* Chỉ render khi có câu chữ. Từ #345, ca "plan active 0 khái niệm" ĐÃ có câu server, nên
+         `message = ''` ở đây không còn là ca thường nữa — nó chỉ còn tới được qua một **straddle**
+         hiếm: `concept.count` chạy TRƯỚC một reanalyze còn `buildFallbackItems` chạy SAU, nên cờ
+         nói "còn khái niệm" trong khi danh sách đã rỗng (READ COMMITTED lấy snapshot theo từng
+         câu lệnh; đảo thứ tự hai truy vấn chỉ đổi chiều lệch chứ không đóng được). Hệ quả là một
+         lần render thiếu câu, tự khỏi khi tải lại — cố ý không sửa, và cố ý KHÔNG nới vị từ nào
+         để "chữa" nó. Xem #345. */
+      body={message || undefined}
+      action={
+        action && (
+          <Button variant="outline" asChild>
+            <Link to={action.to}>{action.label}</Link>
+          </Button>
+        )
+      }
+    />
   );
 }
