@@ -27,6 +27,22 @@ function listStagingFiles(): string[] {
   return fs.readdirSync(STAGING_DIR);
 }
 
+// multer's cleanup of a rejected file's partial write is asynchronous: the response can land
+// before `unlink` finishes, so a rejected file is briefly still visible in staging (#427 —
+// measured window 16–243ms under full-suite load). An immediate read races that window and
+// flakes ~5.6% of the time even though the file always ends up removed. Poll instead of
+// asserting instantly; 2s is ~8x the longest observed window, so a real leak still fails fast.
+async function waitForNoNewStagingFiles(before: Set<string>, timeoutMs = 2000): Promise<string[]> {
+  const deadline = Date.now() + timeoutMs;
+  let after: string[];
+  do {
+    after = listStagingFiles().filter((f) => !before.has(f));
+    if (after.length === 0) return after;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  } while (Date.now() < deadline);
+  return after;
+}
+
 describe('upload boundary — giới hạn 10MB inclusive', () => {
   const app = buildTestApp();
   // File được chấp nhận sẽ nằm lại trong .staging (route thật do StorageService dọn).
@@ -70,12 +86,12 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
       .post('/upload')
       .attach('file', buffer, { filename: 'test.txt', contentType: 'text/plain' });
 
-    // busboy abort ngay tại mốc limit → MulterError LIMIT_FILE_SIZE, và multer tự
-    // xoá file đã ghi dở, nên staging không phát sinh file mới.
+    // busboy abort ngay tại mốc limit → MulterError LIMIT_FILE_SIZE, và multer tự xoá file đã
+    // ghi dở — nhưng dọn bất đồng bộ (`unlink`), luôn dọn xong, quan sát được trong ~250ms (#427).
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('FILE_TOO_LARGE');
 
-    const after = listStagingFiles().filter((f) => !before.has(f));
+    const after = await waitForNoNewStagingFiles(before);
     expect(after).toEqual([]);
   });
 
