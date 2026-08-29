@@ -42,8 +42,15 @@ const MAX_CHIPS = 3;
 const MAX_DOTS = 4;
 
 /**
- * Dưới 680px một ô rộng ~43,8px — **không cõng nổi một chữ nào**, nên chip chữ tắt hẳn và ô chỉ
- * còn số ngày + chấm mật độ. Viết đúng mốc của mockup thay vì làm tròn về `sm`/`md`; repo đã có
+ * 🔴 MỌI tên class trong tệp này phải là **literal viết thẳng**, không ghép từ biến.
+ *
+ * Tailwind quét **văn bản nguồn tĩnh**, nó không chạy code: một hằng `NARROW = 'max-[680px]:'` rồi
+ * `` `${NARROW}hidden` `` sinh đúng class lúc chạy nhưng **rule CSS không bao giờ được tạo** — DOM
+ * có class, không luật nào bám vào, và không gì đỏ. Bản đầu của tệp này viết đúng như thế và
+ * **344 test vẫn xanh**; chỉ browser thật ở 320px mới lộ (chip vẫn hiện, chấm không bao giờ).
+ *
+ * Mốc 680px: dưới nó một ô rộng ~38–44px, **không cõng nổi một chữ nào**, nên chip chữ tắt hẳn và
+ * ô chỉ còn số ngày + chấm mật độ. Viết đúng mốc mockup thay vì làm tròn về `sm`/`md` — repo có
  * tiền lệ mốc không tròn (`min-[721px]:` trong `ReviewQueueItemRow`).
  *
  * Cái giá phải nói thẳng: **ở mobile lưới không còn đọc được NỘI DUNG, chỉ đọc được MẬT ĐỘ.** Đó
@@ -51,7 +58,6 @@ const MAX_DOTS = 4;
  * `display:none` gỡ chip khỏi cả cây trợ năng, nên ở bề ngang hẹp nhãn đó là thứ DUY NHẤT trình
  * đọc màn hình còn đọc được.
  */
-const NARROW = 'max-[680px]:';
 
 /**
  * Lưới tháng của màn Lịch (#404) — 42 ô + thanh điều hướng tháng.
@@ -117,7 +123,7 @@ export function MonthGrid({
             nguyên nhãn sau khi bấm, nên không có gì khác báo rằng có chuyện gì vừa xảy ra. */}
         <span
           aria-live="polite"
-          className={`font-heading min-w-[130px] text-[17px] tracking-[-0.02em] ${NARROW}min-w-0 ${NARROW}flex-1 ${NARROW}text-[15px]`}
+          className="font-heading min-w-[130px] text-[17px] tracking-[-0.02em] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]"
         >
           {formatMonthLabel(monthCursor)}
         </span>
@@ -136,7 +142,7 @@ export function MonthGrid({
           {WEEKDAY_HEADS.map((head) => (
             <div
               key={head}
-              className={`border-border text-muted-foreground border-r px-2.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] last:border-r-0 ${NARROW}px-1 ${NARROW}py-1.5 ${NARROW}text-[9.5px]`}
+              className="border-border text-muted-foreground border-r px-2.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] last:border-r-0 max-[680px]:px-1 max-[680px]:py-1.5 max-[680px]:text-[9.5px]"
             >
               {head}
             </div>
@@ -204,7 +210,7 @@ const DayCell = memo(function DayCell({
       aria-label={cellLabel(cell, items.length, isOverdue)}
       className={cn(
         'border-border relative flex min-h-[104px] flex-col gap-[3px] border-b border-r px-1.5 py-[5px] text-left [&:nth-child(7n)]:border-r-0',
-        `${NARROW}min-h-[58px] ${NARROW}p-1`,
+        'max-[680px]:min-h-[58px] max-[680px]:p-1',
         cell.inMonth ? 'hover:bg-muted/55 cursor-pointer' : 'bg-muted/35 cursor-default',
         // Tint /7, KHÔNG phải /10 hay /14: chữ `--muted-foreground` 10–12px nằm ngay trên nền này,
         // và ở light mode /10 chỉ đạt 4,31 — dưới ngưỡng AA 4.5. Đặt sau nhánh `bg-muted/35` để
@@ -226,7 +232,7 @@ const DayCell = memo(function DayCell({
         </span>
         {day !== undefined && (
           <span
-            className={`text-muted-foreground font-mono text-[10px] ${NARROW}hidden`}
+            className="text-muted-foreground font-mono text-[10px] max-[680px]:hidden"
             // Số phút chỉ đáng tin ở mức "ngày này nặng hơn ngày kia" (`estimatedMinutes` đổi theo
             // phiên nguồn) — nên nó là một con số, không phải thanh mật độ hay phần trăm.
           >
@@ -240,8 +246,8 @@ const DayCell = memo(function DayCell({
           key={item.id}
           className={cn(
             'bg-muted overflow-hidden text-ellipsis whitespace-nowrap rounded-[4px] border-l-2 px-[5px] py-[3px] text-[11px] leading-[1.35]',
-            accentClass(item, isOverdue, 'border-l'),
-            `${NARROW}hidden`
+            CHIP_ACCENT[accentOf(item, isOverdue)],
+            'max-[680px]:hidden'
           )}
         >
           {item.name}
@@ -249,17 +255,17 @@ const DayCell = memo(function DayCell({
       ))}
 
       {hiddenChipCount > 0 && (
-        <span className={`text-muted-foreground pl-[5px] text-[10px] ${NARROW}hidden`}>
+        <span className="text-muted-foreground pl-[5px] text-[10px] max-[680px]:hidden">
           +{hiddenChipCount} mục nữa
         </span>
       )}
 
       {items.length > 0 && (
-        <span aria-hidden="true" className={`mt-0.5 hidden items-center gap-[3px] ${NARROW}flex`}>
+        <span aria-hidden="true" className="mt-0.5 hidden items-center gap-[3px] max-[680px]:flex">
           {items.slice(0, MAX_DOTS).map((item) => (
             <i
               key={item.id}
-              className={cn('block size-[5px] rounded-full', accentClass(item, isOverdue, 'bg'))}
+              className={cn('block size-[5px] rounded-full', DOT_ACCENT[accentOf(item, isOverdue)])}
             />
           ))}
           {items.length > MAX_DOTS && (
@@ -274,18 +280,36 @@ const DayCell = memo(function DayCell({
 });
 
 /**
- * Màu của chip / chấm, theo đúng thứ tự ưu tiên của mockup: **truy ngược thắng quá hạn**.
- *
- * Lý do thứ tự đó chứ không phải ngược lại: quá hạn đã được nói bằng nền của cả ô, còn "đây là
- * nền tảng đang vỡ" thì không có chỗ nào khác nói. Nhận `prefix` để một luật màu phục vụ cả viền
- * trái lẫn nền chấm — hai chỗ lệch nhau là hai câu chuyện khác nhau trên cùng một ô.
+ * Ba sắc thái một mục có thể mang trên ô ngày. Luật ưu tiên ở `accentOf`, tên class ở hai bảng
+ * dưới — **cố ý tách**: tên class phải là literal thì Tailwind mới quét thấy (xem ghi chú đầu
+ * tệp). Một hàm `` `${prefix}-remediate` `` gọn hơn, và không sinh ra luật CSS nào.
  */
-function accentClass(item: ScheduleItem, isOverdue: boolean, prefix: 'border-l' | 'bg'): string {
-  if (item.reason === 'traceback') return `${prefix}-remediate`;
-  return isOverdue ? `${prefix}-mastery-weak` : `${prefix}-mastery-untested`;
+type Accent = 'traceback' | 'overdue' | 'normal';
+
+const CHIP_ACCENT: Record<Accent, string> = {
+  traceback: 'border-l-remediate',
+  overdue: 'border-l-mastery-weak',
+  normal: 'border-l-mastery-untested',
+};
+
+const DOT_ACCENT: Record<Accent, string> = {
+  traceback: 'bg-remediate',
+  overdue: 'bg-mastery-weak',
+  normal: 'bg-mastery-untested',
+};
+
+/**
+ * Thứ tự ưu tiên của mockup: **truy ngược thắng quá hạn**.
+ *
+ * Lý do theo hướng đó chứ không phải ngược lại: quá hạn đã được nói bằng nền của cả ô, còn "đây
+ * là nền tảng đang vỡ" thì không có chỗ nào khác nói.
+ */
+function accentOf(item: ScheduleItem, isOverdue: boolean): Accent {
+  if (item.reason === 'traceback') return 'traceback';
+  return isOverdue ? 'overdue' : 'normal';
 }
 
-/** Nhãn trợ năng của ô — ở bề ngang hẹp đây là thứ duy nhất còn đọc được (xem `NARROW`). */
+/** Nhãn trợ năng của ô — ở bề ngang hẹp đây là thứ duy nhất còn đọc được (xem ghi chú 680px). */
 function cellLabel(cell: MonthCell, itemCount: number, isOverdue: boolean): string {
   const day = formatDayLabel(cell.dateKey);
   if (itemCount === 0) return `${day} — không có gì được xếp`;
@@ -311,7 +335,7 @@ function EmptyMonthCard({
 }) {
   return (
     <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-      <div className="border-border bg-card px-5.5 py-4.5 max-w-[46ch] rounded-xl border text-center">
+      <div className="border-border bg-card px-5.5 py-4.5 shadow-(--shadow-soft) max-w-[46ch] rounded-xl border text-center">
         <p className="font-heading mb-1.5 text-[16px] tracking-[-0.02em]">
           {monthLabel} chưa có buổi ôn nào
         </p>
