@@ -387,6 +387,32 @@ describe('setReviewQueueItemScheduledFor (#403)', () => {
     expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
   });
 
+  it('locks the cluster even when the weak traceback row is not first', async () => {
+    // Cùng cụm concept-avl (masteryScore 0.31), nhưng hàng traceback đứng SAU. Guard fold theo TIER
+    // nên vị trí trong mảng không được đổi kết quả — bài này ghim đúng tính chất đó.
+    // Không có nó, thay `pickRepresentative(clusterRows)` bằng `clusterRows[0]` vẫn xanh cả suite:
+    // mọi ca traceback hiện có đều tình cờ đặt hàng traceback ở vị trí 0.
+    queueRows = [
+      row({ id: 'item-spaced', conceptId: 'concept-avl' }),
+      row({
+        id: 'item-traceback',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+      }),
+    ];
+
+    const error = await setReviewQueueItemScheduledFor(
+      'item-spaced',
+      USER_ID,
+      '2026-08-25',
+      NOW
+    ).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 409, code: 'TRACEBACK_REPRESENTATIVE_LOCKED' });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+  });
+
   it('allows the move once a newer, non-weak row represents the cluster', async () => {
     // concept-recursion: masteryScore 0.68 — at/above the bar, so a newer plain row now
     // represents the cluster and the old traceback row no longer locks it.

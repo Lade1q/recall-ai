@@ -1097,17 +1097,26 @@ export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
  * (anh em) vẫn dời như thường; đọc lại đúng `item.id` sau đó sẽ báo "không đổi" trong khi cụm THẬT
  * SỰ đã dời — hợp đồng tự mâu thuẫn. Từ chối sớm thay vì báo sai.
  *
- * 🔴 Guard 2: khi cụm đang được MỘT hàng traceback tier-0 đại diện (`pickRepresentative` +
- * `isWeakTraceback`, cùng luật đại diện #400 dùng cho màn Lịch), từ chối dời — nền tảng còn yếu
- * thì lịch phải do hệ thống giữ, không phải người dùng kéo đi đâu tuỳ ý. Guard đọc CỤM đã lọc
- * `ON_SCHEDULE_WHERE`, đúng tập hợp mà `getReviewSchedule` fold để chọn đại diện, nên "mục đang
- * đại diện" ở đây và trên màn Lịch không bao giờ lệch nhau. Trả 409 (không phải 400): body hợp lệ,
- * thứ chặn là trạng thái của cụm — cùng lớp `PLAN_NOT_ACTIVE`/`SESSION_ALREADY_RUNNING` (#426).
+ * 🔴 Guard 2: từ chối dời khi cụm còn **ít nhất một** hàng `reason='traceback'` có
+ * `masteryScore < MASTERY_THRESHOLD` — nền tảng còn yếu thì lịch phải do hệ thống giữ, không phải
+ * người dùng kéo đi đâu tuỳ ý.
+ * ⚠️ Viết bằng `pickRepresentative` cho khớp luật đại diện #400, nhưng ở chỗ gọi này nó **tương
+ * đương định lý** với `rows.some(isWeakTraceback)`: `beats()` cho tier thắng tuyệt đối trước
+ * `createdAt`, và cụm khoá `(planId, conceptId)` nên mọi hàng chung một `masteryScore` ⇒ nhánh
+ * `createdAt` không bao giờ đổi kết quả. **Đừng suy rằng guard đi theo luật đại diện** — nó hỏi một
+ * câu hẹp hơn. (Ghim bằng bài "locks the cluster even when the weak traceback row is not first".)
+ * ⚠️ Cụm guard đọc KHÔNG bằng tập `getReviewSchedule` fold: bên đó lọc thêm `plan.status='active'`,
+ * `ACTIVE_CONCEPT_WHERE` và `scheduledFor: { not: null }`. Hai bên không lệch nhau **chỉ nhờ**
+ * `ReviewItemDraft.scheduledFor` là `Date` không nullable (`concept-schedule.service.ts:43,57`) —
+ * bất biến đó ở tệp khác, nêu tên ở đây để ai nới nó biết phải quay lại.
+ * Trả 409 (không phải 400): body hợp lệ, thứ chặn là trạng thái của cụm — cùng lớp
+ * `PLAN_NOT_ACTIVE`/`SESSION_ALREADY_RUNNING` (#426).
  *
  * Ngày quá khứ (theo lịch VN) bị từ chối bằng `VALIDATION_ERROR` đã có sẵn — engine không bao giờ
  * xếp lịch vào quá khứ, và mã này không cần mapper client riêng (đã có case ở nơi khác).
  *
- * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB**, cùng lý do `snoozeReviewQueueItem`: Guard
+ * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB**. ⚠️ KHÁC `snoozeReviewQueueItem`, vốn chưa
+ * có guard tương ứng nên bước đọc-lại của nó vẫn nói sai được (#433): ở ĐÂY thì Guard
  * 1 ở trên là thứ làm cho việc đọc lại đúng `item.id` luôn an toàn — tới đây `item.id` đã được xác
  * nhận nằm trong tập vừa ghi.
  */
@@ -1121,7 +1130,7 @@ export async function setReviewQueueItemScheduledFor(
 
   if (OFF_SCHEDULE_STATUSES.includes(item.status)) {
     throw new AppError(
-      'Không thể dời ngày: mục này đã bị gỡ khỏi lịch, không còn đại diện cho cụm.',
+      'Không thể dời ngày: mục này đã được gỡ khỏi lịch. Đưa nó lại vào lịch trước khi đổi ngày.',
       409,
       'ITEM_NOT_ON_SCHEDULE'
     );
