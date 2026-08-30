@@ -47,14 +47,29 @@ export function minutesTowardDayTotal(session: FocusSessionListItem): number {
   return session.durationMinutes;
 }
 
-/** `Hôm nay · 27/07` cho ngày hiện tại, `26/07` cho mọi ngày khác — theo mockup. */
+/**
+ * `Hôm nay · 27/07` cho ngày hiện tại, `26/07` cho ngày khác trong CÙNG năm, và `26/07/2025` khi
+ * khác năm.
+ *
+ * Phần năm là có điều kiện chứ không phải luôn in: `DD/MM` là định dạng mockup vẽ, và với lịch
+ * sử vài tuần thì thêm năm vào mọi nhãn chỉ là nhiễu. Nhưng bỏ hẳn năm thì hai phiên cùng
+ * ngày-tháng khác năm rơi vào **hai nhóm riêng** (`dayStart` khác nhau) mà in ra **nhãn giống
+ * hệt** — người đọc thấy `30/08` hai lần, không cách nào biết đó là hai năm.
+ *
+ * Tab Phiên kiểm tra ngay cạnh — chính tệp mà hàm này khai là "cùng thủ pháp" — đã in kèm năm
+ * (`group-sessions.ts`: `Tháng ${month}/${getFullYear()}`), nên đây là bám quy ước của nhà chứ
+ * không phải đặt ra quy ước mới.
+ */
 export function dayLabel(startedAt: string, now: Date): string {
   const started = new Date(startedAt);
   // Một hàng có ngày hỏng không được làm sập cả danh sách — gom về nhóm riêng, cùng cách
   // `timeBucketLabel` xử lý.
   if (Number.isNaN(started.getTime())) return 'Không rõ thời gian';
 
-  const date = `${pad(started.getDate())}/${pad(started.getMonth() + 1)}`;
+  const sameYear = started.getFullYear() === now.getFullYear();
+  const date =
+    `${pad(started.getDate())}/${pad(started.getMonth() + 1)}` +
+    (sameYear ? '' : `/${started.getFullYear()}`);
   return startOfDay(started) === startOfDay(now) ? `Hôm nay · ${date}` : date;
 }
 
@@ -81,7 +96,9 @@ export interface FocusDayGroup {
  * gộp lại rồi che mất một hợp đồng đã vỡ.
  *
  * `hasMore` là tham số **bắt buộc**, không phải tuỳ chọn: hàm này chỉ cộng những hàng ĐÃ TẢI,
- * nên khi còn trang chưa tải thì nhóm cuối cùng có thể đang bị ranh giới trang cắt ngang. Bắt
+ * nên khi còn trang chưa tải thì nhóm cuối cùng có thể đang bị ranh giới trang cắt ngang — với
+ * giả định server giữ hợp đồng `startedAt` giảm dần; nếu thứ tự vỡ (ca ngay trên) thì một nhóm
+ * phía TRÊN cũng có thể thiếu hàng mà vẫn tự khai là đủ. Bắt
  * mọi nơi gọi phải trả lời "hết hàng chưa" là cách duy nhất để không ai vô tình in một tổng
  * một-phần như tổng đầy đủ — đúng lỗi đo được ở review PR #441 (`08/08 — 0 phút` → `30 phút`
  * sau khi bấm "Xem thêm", vi phạm AC #247 dòng 68).
@@ -114,10 +131,14 @@ export function groupFocusSessionsByDay(
     }
   }
 
-  // Chỉ nhóm CUỐI mới có thể thiếu hàng: server sắp `startedAt` giảm dần, nên mọi nhóm phía trên
-  // đã gặp một ngày cũ hơn ⇒ ngày của chúng đã đóng. Cố ý bảo thủ hơi thừa — khi ranh giới trang
-  // rơi trúng ranh giới ngày thì tổng vốn đã đúng nhưng vẫn bị giấu. Đổi lại, không cần biết
-  // kích thước trang, và không có ca nào in ra một con số sai.
+  // Chỉ nhóm CUỐI mới có thể thiếu hàng — **với giả định server giữ hợp đồng `startedAt` giảm
+  // dần**. Khi hợp đồng đó còn, mọi nhóm phía trên đã gặp một ngày cũ hơn ⇒ ngày của chúng đã
+  // đóng. Nếu thứ tự vỡ (chính ca đã nêu ở docstring trên), một nhóm phía TRÊN cũng có thể thiếu
+  // hàng và vẫn tự khai là đủ — cùng lớp "hợp đồng đã vỡ", không xử ở đây.
+  //
+  // Cố ý bảo thủ hơi thừa — khi ranh giới trang rơi trúng ranh giới ngày thì tổng vốn đã đúng
+  // nhưng vẫn bị giấu. Đổi lại, không cần biết kích thước trang, và không có ca nào in ra một
+  // con số sai.
   const lastGroup = groups[groups.length - 1];
   if (hasMore && lastGroup !== undefined) lastGroup.totalIsPartial = true;
 
