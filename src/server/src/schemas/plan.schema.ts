@@ -11,6 +11,19 @@ function toVnDateKey(date: Date): string {
   return new Date(date.getTime() + VN_UTC_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// UC-02 A3 "Dán text": alternative to `file` on the same multipart body — the controller
+// enforces exactly one of the two is present (Zod alone can't see `req.file`).
+const MAX_PASTED_CONTENT_LENGTH = 10_000;
+
+// multipart/form-data normalizes `\n` to `\r\n` in transit (the same mechanism that turns
+// a 902-byte paste into 908 bytes on disk), so `.max()` counting the raw field would charge
+// pasted content 1 extra character per line it never had — a 91-line, 9,957-character paste
+// was rejected as "too long" at 10,048 raw characters (Review #363). Undo it before counting
+// or storing, so the cap reflects what the student actually typed.
+function normalizeLineEndings(value: string): string {
+  return value.replace(/\r\n/g, '\n');
+}
+
 export const createPlanSchema = z.object({
   name: z.string().min(1, 'Plan name is required').max(255, 'Plan name is too long'),
   deadline: z
@@ -20,6 +33,23 @@ export const createPlanSchema = z.object({
       const date = new Date(val);
       return !isNaN(date.getTime()) && toVnDateKey(date) >= toVnDateKey(new Date());
     }, 'Deadline must be today or a future date'),
+  // A multipart form that submits a file also submits an untouched `content` textarea as
+  // `''`, not as an absent field — treat that the same as "not provided" so a file upload
+  // doesn't fail validation on an empty paste-text field it never meant to use. Trimmed to
+  // whitespace-only, not just exact `''`: a stray space typed into the textarea while
+  // uploading a file is the same "never meant to use this field" case (Review #363).
+  content: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z
+      .string()
+      .transform((val) => normalizeLineEndings(val).trim())
+      .refine((val) => val.length > 0, 'Pasted content cannot be empty')
+      .refine((val) => val.length <= MAX_PASTED_CONTENT_LENGTH, {
+        error: (issue) =>
+          `Pasted content is too long (max ${MAX_PASTED_CONTENT_LENGTH} characters, got ${(issue.input as string).length})`,
+      })
+      .optional()
+  ),
 });
 
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;

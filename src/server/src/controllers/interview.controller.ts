@@ -9,9 +9,11 @@ import {
   submitSelfGrade,
 } from '../services/interview.service';
 import { getSessionSummary } from '../services/session-summary.service';
+import { listInterviews } from '../services/interview-history.service';
 import {
   createInterviewSchema,
   interviewIdParamSchema,
+  listInterviewsQuerySchema,
   submitAnswerSchema,
   submitSelfGradeSchema,
 } from '../schemas/interview.schema';
@@ -56,6 +58,25 @@ export async function getInterviewController(req: Request, res: Response): Promi
   const { id } = interviewIdParamSchema.parse(req.params);
 
   const result = await getInterview(id, req.userId);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+/**
+ * GET /api/v1/interviews — SPEC_DB-03. Session history, newest first, `limit`/`offset` paged.
+ * Read-only: no `mastery_score` write, no AI call.
+ */
+export async function listInterviewsController(req: Request, res: Response): Promise<void> {
+  if (!req.userId) {
+    throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+
+  const { limit, offset, planId } = listInterviewsQuerySchema.parse(req.query);
+
+  const result = await listInterviews(req.userId, { limit, offset, planId });
 
   res.status(200).json({
     success: true,

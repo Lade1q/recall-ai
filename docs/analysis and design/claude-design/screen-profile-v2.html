@@ -1,0 +1,671 @@
+<!-- @dsCard group="Screens" subtitle="AM-03 · AM-04 — Hồ sơ v2 (sub-tabs)" -->
+<title>Recall AI — Hồ sơ v2</title>
+<style>
+  /* ── Tokens — Recall AI "Warm Editorial Minimalism" ────────────── */
+  :root {
+    --font-sans: 'Geist', 'Helvetica Neue', system-ui, sans-serif;
+    --font-heading: 'Noto Serif', 'Newsreader', Georgia, serif;
+    --font-mono: 'Geist Mono', 'SF Mono', ui-monospace, monospace;
+
+    --background: oklch(0.984 0.004 262);
+    --foreground: oklch(0.24 0.008 262);
+    --card: oklch(0.995 0.002 262);
+    --primary: oklch(0.5 0.16 262);
+    --primary-fg: oklch(0.985 0.012 262);
+    --secondary: oklch(0.95 0.006 262);
+    --muted: oklch(0.955 0.006 262);
+    --muted-fg: oklch(0.55 0.012 262);
+    --accent: oklch(0.95 0.006 262);
+    --border: oklch(0.9 0.005 262);
+    --border-subtle: oklch(0.93 0.003 262);
+    --sidebar-bg: oklch(0.97 0.005 262);
+    --radius: 0.625rem;
+    --error: oklch(0.5 0.15 25);
+    --error-bg: oklch(0.5 0.15 25 / 0.07);
+    --success: oklch(0.5 0.08 155);
+    --danger-ghost: oklch(0.5 0.15 25 / 0.07);
+    --danger-ghost-hover: oklch(0.5 0.15 25 / 0.12);
+    --primary-ghost: oklch(0.5 0.16 262 / 0.07);
+    --shadow-soft: 0 2px 8px oklch(0 0 0 / 0.04);
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --duration: 150ms;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --background: oklch(0.17 0.006 262);
+      --foreground: oklch(0.93 0.005 262);
+      --card: oklch(0.21 0.007 262);
+      --primary: oklch(0.62 0.17 262);
+      --primary-fg: oklch(0.98 0.012 262);
+      --secondary: oklch(0.27 0.008 262);
+      --muted: oklch(0.25 0.008 262);
+      --muted-fg: oklch(0.68 0.012 262);
+      --accent: oklch(0.27 0.008 262);
+      --border: oklch(1 0 0 / 8%);
+      --border-subtle: oklch(1 0 0 / 5%);
+      --sidebar-bg: oklch(0.19 0.007 262);
+      --error: oklch(0.68 0.16 25);
+      --error-bg: oklch(0.68 0.16 25 / 0.1);
+      --success: oklch(0.72 0.1 155);
+      --danger-ghost: oklch(0.68 0.16 25 / 0.1);
+      --danger-ghost-hover: oklch(0.68 0.16 25 / 0.16);
+      --primary-ghost: oklch(0.62 0.17 262 / 0.1);
+      --shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --background: oklch(0.17 0.006 262);
+    --foreground: oklch(0.93 0.005 262);
+    --card: oklch(0.21 0.007 262);
+    --primary: oklch(0.62 0.17 262);
+    --primary-fg: oklch(0.98 0.012 262);
+    --secondary: oklch(0.27 0.008 262);
+    --muted: oklch(0.25 0.008 262);
+    --muted-fg: oklch(0.68 0.012 262);
+    --accent: oklch(0.27 0.008 262);
+    --border: oklch(1 0 0 / 8%);
+    --border-subtle: oklch(1 0 0 / 5%);
+    --sidebar-bg: oklch(0.19 0.007 262);
+    --error: oklch(0.68 0.16 25);
+    --error-bg: oklch(0.68 0.16 25 / 0.1);
+    --success: oklch(0.72 0.1 155);
+    --danger-ghost: oklch(0.68 0.16 25 / 0.1);
+    --danger-ghost-hover: oklch(0.68 0.16 25 / 0.16);
+    --primary-ghost: oklch(0.62 0.17 262 / 0.1);
+    --shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22);
+  }
+
+  /* ── Reset ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── App Shell ─────────────────────────────────────────────────── */
+  .app-shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── App Sidebar ───────────────────────────────────────────────── */
+  .app-sidebar {
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .app-sidebar__logo {
+    font-family: var(--font-heading);
+    font-size: 20px;
+    letter-spacing: -0.02em;
+    padding: 0 8px 24px;
+    color: var(--primary);
+    font-weight: 700;
+  }
+
+  .app-sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: calc(var(--radius) * 0.8);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted-fg);
+    text-decoration: none;
+    transition: all var(--duration) var(--ease);
+  }
+
+  .app-sidebar__link:hover {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+
+  .app-sidebar__link--active {
+    background: var(--accent);
+    color: var(--foreground);
+  }
+
+  .app-sidebar__link svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+
+  /* ── App Main ──────────────────────────────────────────────────── */
+  .app-main {
+    padding: 40px 48px 80px;
+    max-width: 900px;
+  }
+
+  .page-title {
+    font-family: var(--font-heading);
+    font-size: 26px;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 6px;
+  }
+
+  .page-subtitle {
+    font-size: 13.5px;
+    color: var(--muted-fg);
+    margin-bottom: 28px;
+  }
+
+  /* ── Sub-tabs ──────────────────────────────────────────────────── */
+  .sub-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .sub-tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 20px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--muted-fg);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+  }
+
+  .sub-tab:hover { color: var(--foreground); }
+
+  .sub-tab.is-active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+
+  .sub-tab svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+
+  /* ── Pane switching ────────────────────────────────────────────── */
+  .pane { display: none; }
+  .pane.is-active {
+    display: block;
+    animation: pane-in 200ms var(--ease);
+  }
+
+  @keyframes pane-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Card ──────────────────────────────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 1.35);
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .card-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 24px;
+    min-height: 52px;
+  }
+
+  .card-row + .card-row {
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .card-row-label {
+    font-size: 13px;
+    color: var(--muted-fg);
+    min-width: 110px;
+    flex: none;
+  }
+
+  .card-row-value {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  .card-row-value--mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .card-row-value--muted { color: var(--muted-fg); }
+
+  /* ── Form ──────────────────────────────────────────────────────── */
+  .form-section { padding: 24px; }
+  .form-section + .form-section { border-top: 1px solid var(--border-subtle); }
+
+  .field { margin-bottom: 20px; }
+  .field:last-child { margin-bottom: 0; }
+
+  .field-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 8px;
+  }
+
+  .field-label .req { color: var(--error); margin-left: 2px; }
+
+  .field-input {
+    width: 100%;
+    max-width: 440px;
+    padding: 10px 14px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    color: var(--foreground);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 0.65);
+    outline: none;
+    transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  }
+
+  .field-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-ghost);
+  }
+
+  .field-input::placeholder { color: oklch(0.72 0.008 262); }
+  .field-input--error { border-color: var(--error); }
+  .field-input--error:focus { box-shadow: 0 0 0 3px var(--error-bg); }
+
+  .field-hint {
+    font-size: 12px;
+    color: var(--muted-fg);
+    margin-top: 6px;
+    line-height: 1.6;
+  }
+
+  /* Locked field */
+  .locked {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 0.65);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted-fg);
+    cursor: not-allowed;
+    max-width: 440px;
+  }
+
+  .locked svg { flex: none; opacity: 0.5; width: 14px; height: 14px; }
+
+  /* ── Password feedback ────────────────────────────────────────── */
+  .pw-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    margin-top: 6px;
+  }
+
+  .pw-status svg { flex: none; width: 13px; height: 13px; }
+  .pw-status--hint { color: var(--muted-fg); }
+  .pw-status--error { color: var(--error); }
+  .pw-status--ok { color: var(--success); }
+
+  /* ── Buttons ──────────────────────────────────────────────────── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 20px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    font-weight: 500;
+    border-radius: calc(var(--radius) * 0.8);
+    border: none;
+    cursor: pointer;
+    transition: all var(--duration) var(--ease);
+    white-space: nowrap;
+  }
+
+  .btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary { background: var(--primary); color: var(--primary-fg); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-danger-outline {
+    background: none;
+    color: var(--error);
+    border: 1px solid oklch(from var(--error) l c h / 0.3);
+  }
+  .btn-danger-outline:hover {
+    background: var(--danger-ghost);
+  }
+
+  /* ── Action row (inside card) ─────────────────────────────────── */
+  .action-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  /* ── Section label ─────────────────────────────────────────────── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: oklch(0.72 0.008 262);
+    margin-bottom: 10px;
+  }
+
+  /* ── Logout (always visible at bottom) ─────────────────────────── */
+  .logout-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-top: 32px;
+    margin-top: 12px;
+  }
+
+  /* ── Supplementary states ──────────────────────────────────────── */
+  .states-area {
+    padding-top: 40px;
+    margin-top: 28px;
+    border-top: 2px dashed var(--border);
+  }
+
+  .state-tag {
+    display: inline-flex;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: oklch(0.72 0.008 262);
+    background: var(--secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    letter-spacing: 0.03em;
+  }
+
+  .state-title {
+    font-size: 12.5px;
+    color: var(--muted-fg);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .state-title code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .state-block { margin-bottom: 24px; }
+
+  .state-preview {
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 1.35);
+    overflow: hidden;
+    background: var(--card);
+  }
+
+  .state-preview .form-section { padding: 16px 24px; }
+
+  /* ── Mockup ribbon ─────────────────────────────────────────────── */
+  .mockup-ribbon {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 7px 20px;
+    font-size: 10.5px;
+    color: var(--muted-fg);
+    text-align: center;
+    z-index: 10;
+    font-family: var(--font-mono);
+  }
+</style>
+
+<div class="app-shell">
+
+  <!-- ════════ APP SIDEBAR ════════ -->
+  <nav class="app-sidebar" aria-label="Điều hướng chính">
+    <div class="app-sidebar__logo">Recall AI</div>
+    <a class="app-sidebar__link" href="screen-dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Tổng quan
+    </a>
+    <a class="app-sidebar__link" href="screen-plans.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+      Kế hoạch ôn tập
+    </a>
+    <a class="app-sidebar__link" href="screen-concept-graph.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6m3-9 6 3m-6 3 6 3"/></svg>
+      Đồ thị khái niệm
+    </a>
+    <a class="app-sidebar__link" href="screen-focus-session.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 16.5 12"/></svg>
+      Focus Session
+    </a>
+    <a class="app-sidebar__link" href="screen-history.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 6 12 12 8 14"/><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 8 8 8"/></svg>
+      Lịch sử &amp; Tiến độ
+    </a>
+    <a class="app-sidebar__link app-sidebar__link--active" href="screen-profile.html" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+      Hồ sơ
+    </a>
+  </nav>
+
+  <!-- ════════ APP MAIN ════════ -->
+  <main class="app-main">
+    <h1 class="page-title">Hồ sơ</h1>
+    <p class="page-subtitle">Cập nhật thông tin cá nhân và bảo mật tài khoản.</p>
+
+    <!-- ── Sub-tabs: 2 tabs only ─────────────────────────────────── -->
+    <div class="sub-tabs">
+      <button class="sub-tab is-active" data-pane="info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+        Thông tin cá nhân
+      </button>
+      <button class="sub-tab" data-pane="password">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Đổi mật khẩu
+      </button>
+    </div>
+
+    <!-- ── Pane: Thông tin cá nhân ───────────────────────────────── -->
+    <div class="pane is-active" id="pane-info">
+      <div class="card">
+        <div class="form-section">
+          <div class="field">
+            <label class="field-label" for="f-fullname">Họ và tên</label>
+            <input class="field-input" id="f-fullname" type="text" placeholder="Nguyễn Văn A" maxlength="100">
+            <p class="field-hint">Không bắt buộc.</p>
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-name">Tên hiển thị <span class="req">*</span></label>
+            <input class="field-input" id="f-name" type="text" value="Test User" placeholder="Chưa đặt" maxlength="100">
+            <p class="field-hint">Bỏ trống thì hệ thống dùng phần đầu của email.</p>
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-phone">Số điện thoại</label>
+            <input class="field-input" id="f-phone" type="tel" placeholder="0901 234 567" maxlength="15">
+            <p class="field-hint">Không bắt buộc.</p>
+          </div>
+          <div class="field">
+            <label class="field-label">Email</label>
+            <div class="locked">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              test@recallai.dev
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label">Tham gia</label>
+            <span style="font-family:var(--font-mono); font-size:13px; color:var(--muted-fg);">15/01/2026</span>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-primary">Lưu thay đổi</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pane: Đổi mật khẩu ────────────────────────────────────── -->
+    <div class="pane" id="pane-password">
+      <div class="card">
+        <div class="form-section">
+          <div class="field">
+            <label class="field-label" for="f-pw-old">Mật khẩu hiện tại <span class="req">*</span></label>
+            <input class="field-input" id="f-pw-old" type="password">
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-pw-new">Mật khẩu mới <span class="req">*</span></label>
+            <input class="field-input" id="f-pw-new" type="password">
+            <p class="pw-status pw-status--hint">Ít nhất 8 ký tự.</p>
+          </div>
+          <div class="field">
+            <label class="field-label" for="f-pw-confirm">Nhập lại mật khẩu mới <span class="req">*</span></label>
+            <input class="field-input" id="f-pw-confirm" type="password">
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-primary" disabled>Đổi mật khẩu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Đăng xuất (always visible, bottom of page) ────────────── -->
+    <div class="logout-row">
+      <button class="btn btn-danger-outline">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Đăng xuất
+      </button>
+    </div>
+
+    <!-- ── Supplementary states ─────────────────────────────────── -->
+    <div class="states-area">
+      <div class="section-label" style="margin-bottom:18px;">Trạng thái bổ sung</div>
+
+      <!-- S1: name = null -->
+      <div class="state-block">
+        <div class="state-title">
+          <span class="state-tag">S1</span>
+          Khi <code>name = null</code>
+        </div>
+        <div class="state-preview">
+          <div class="form-section">
+            <div class="field">
+              <label class="field-label">Tên hiển thị <span class="req">*</span></label>
+              <input class="field-input" type="text" placeholder="Chưa đặt" value="">
+              <p class="field-hint">Bỏ trống thì hệ thống dùng phần đầu của email.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- E1: wrong password -->
+      <div class="state-block">
+        <div class="state-title">
+          <span class="state-tag">E1</span>
+          Sai mật khẩu hiện tại
+        </div>
+        <div class="state-preview">
+          <div class="form-section">
+            <div class="field">
+              <label class="field-label">Mật khẩu hiện tại <span class="req">*</span></label>
+              <input class="field-input field-input--error" type="password" value="wrongpw">
+              <p class="pw-status pw-status--error">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
+                Mật khẩu hiện tại không đúng.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- E2: too short → OK -->
+      <div class="state-block">
+        <div class="state-title">
+          <span class="state-tag">E2</span>
+          Mật khẩu mới quá ngắn
+          <span style="color:var(--muted-fg); margin:0 2px;">→</span>
+          <span class="state-tag" style="color:var(--success);">OK</span>
+          Khi đủ dài
+        </div>
+        <div class="state-preview">
+          <div class="form-section" style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+            <div class="field">
+              <label class="field-label">Quá ngắn</label>
+              <input class="field-input field-input--error" type="password" value="abc">
+              <p class="pw-status pw-status--error">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
+                Còn thiếu 5 ký tự.
+              </p>
+            </div>
+            <div class="field">
+              <label class="field-label">Đủ dài</label>
+              <input class="field-input" type="password" value="abcdefgh">
+              <p class="pw-status pw-status--ok">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                Đủ dài.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="mockup-ribbon">
+  screen-profile-v2 · Recall AI · 2 sub-tabs + logout bottom · Warm Editorial Minimalism
+</div>
+
+<script>
+  document.querySelectorAll('.sub-tab[data-pane]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var pane = this.getAttribute('data-pane');
+      document.querySelectorAll('.pane').forEach(function(p) { p.classList.remove('is-active'); });
+      document.querySelectorAll('.sub-tab').forEach(function(t) { t.classList.remove('is-active'); });
+      document.getElementById('pane-' + pane).classList.add('is-active');
+      this.classList.add('is-active');
+    });
+  });
+</script>

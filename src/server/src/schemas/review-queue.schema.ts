@@ -63,16 +63,28 @@ const updateStatusBodySchema = z.object({ status: z.enum(['skipped', 'pending'])
 const snoozeBodySchema = z.object({ snooze: z.literal(true) }).strict();
 
 /**
- * Hai hình dạng, một endpoint. Đây là body của **cùng một tài nguyên**, nên gộp bằng union chứ
- * không đẻ endpoint thứ hai (AC #233). Hai shape khác nhau vì hai thao tác đổi hai trục khác
- * nhau: "bỏ qua" đổi `status`, "hoãn" đổi *ngày đến hạn* — và giữ nguyên `status`.
+ * Nhánh **thứ ba**: dời ngày theo lựa chọn của người dùng (#403 — màn Lịch của epic #400).
  *
- * Cộng thuần, không sửa nhánh cũ: `{ status }` mà #224/#225 đang gửi live đi qua đây y hệt như
- * trước. `.strict()` ở cả hai nhánh nên một body lẫn cả `status` lẫn `snooze` bị 400 rõ ràng
- * thay vì để một trong hai âm thầm rơi mất.
+ * Client gửi NGÀY (`YYYY-MM-DD`), không gửi instant: cùng nguyên tắc `snooze` ở trên — biên ngày
+ * thuộc về server (`getVnDateInstant`), không phải một đồng hồ client bất kỳ múi giờ nào.
+ * `z.string().date()` từ chối cả sai định dạng lẫn ngày lịch không tồn tại (vd. 2026-02-30).
+ */
+const setScheduledForBodySchema = z
+  .object({ scheduledFor: z.string().date('scheduledFor must be YYYY-MM-DD') })
+  .strict();
+
+/**
+ * Ba hình dạng, một endpoint. Đây là body của **cùng một tài nguyên**, nên gộp bằng union chứ
+ * không đẻ endpoint thứ hai (AC #233). Ba shape khác nhau vì ba thao tác đổi ba trục khác nhau:
+ * "bỏ qua" đổi `status`, "hoãn" đổi *ngày đến hạn* sang mốc do server chọn, "dời ngày" đổi *ngày
+ * đến hạn* sang mốc do người dùng chọn — hai nhánh sau cùng giữ nguyên `status`.
+ *
+ * Cộng thuần, không sửa hai nhánh cũ: `{ status }` / `{ snooze }` mà #224/#225/#233 đang gửi live
+ * đi qua đây y hệt như trước. `.strict()` ở cả ba nhánh nên một body lẫn nhiều hơn một trong ba
+ * khoá bị 400 rõ ràng thay vì để một khoá âm thầm rơi mất.
  *
  * `error` thay câu mặc định `"Invalid input"` của union — câu đó không nói được body sai ở đâu,
- * vì union hỏng thì mọi nhánh đều hỏng. Câu này nêu thẳng cả hai hình dạng hợp lệ.
+ * vì union hỏng thì mọi nhánh đều hỏng. Câu này nêu thẳng cả ba hình dạng hợp lệ.
  *
  * Giới hạn đã đo, đừng tưởng nó dọn sạch response: zod **vẫn** kèm mảng `errors` của từng nhánh
  * trong chính issue đó, và `errorHandler` trả nguyên `err.issues` vào `details` — nên `details`
@@ -80,9 +92,13 @@ const snoozeBodySchema = z.object({ snooze: z.literal(true) }).strict();
  * Dọn hai chỗ đó là sửa `middleware/errorHandler.ts`, tức chạm mọi endpoint có Zod — không đáng
  * cho một endpoint. Câu rõ nằm ở `details[0].message`.
  */
-export const updateReviewQueueItemSchema = z.union([updateStatusBodySchema, snoozeBodySchema], {
-  error: () => "body must be { status: 'skipped' | 'pending' } or { snooze: true }",
-});
+export const updateReviewQueueItemSchema = z.union(
+  [updateStatusBodySchema, snoozeBodySchema, setScheduledForBodySchema],
+  {
+    error: () =>
+      "body must be { status: 'skipped' | 'pending' }, { snooze: true }, or { scheduledFor: 'YYYY-MM-DD' }",
+  }
+);
 
 export type UpdateReviewQueueItemInput = z.infer<typeof updateReviewQueueItemSchema>;
 

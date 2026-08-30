@@ -175,6 +175,66 @@ describe('AI Examiner Gemini calls', () => {
   });
 
   describe('gradeAnswer', () => {
+    /**
+     * The PROMPT half of the index contract (#346). The resolver half is covered thickly in
+     * `grade-evidence.test.ts`, but the numbering written into the prompt is what those indices
+     * are resolved AGAINST — and its failure mode is silent: renumber or reorder here and every
+     * index still lands inside `1..N`, every row still looks valid, and no counter moves. The
+     * mismatch is undetectable after the fact, so it has to be pinned here or nowhere.
+     */
+    it('numbers the checkpoints 1-based, in the order given, without sorting them', async () => {
+      mockCreate.mockResolvedValueOnce(
+        reply({ score: 0.5, feedback: 'ok', verdict: 'shallow', evidence: [] })
+      );
+
+      // Deliberately in no natural order: alphabetical, length or any other sort would reorder
+      // these, and the assertion below is what makes that reordering fail loudly.
+      await gradeAnswer({
+        ...GRADE_PARAMS,
+        checkpoints: [{ text: 'zeta comes first' }, { text: 'alpha is second' }, { text: 'mu' }],
+      });
+
+      const { input } = mockCreate.mock.calls[0][0];
+      expect(input).toContain('1. zeta comes first\n2. alpha is second\n3. mu');
+    });
+
+    it('asks for an empty evidence list when the concept has no checkpoints (C = 0)', async () => {
+      mockCreate.mockResolvedValueOnce(
+        reply({ score: 0.5, feedback: 'ok', verdict: 'shallow', evidence: [] })
+      );
+
+      await gradeAnswer({ ...GRADE_PARAMS, checkpoints: [] });
+
+      const { input } = mockCreate.mock.calls[0][0];
+      expect(input).toContain('no checkpoints');
+      expect(input).not.toMatch(/^1\. /m);
+    });
+
+    it('still asks for the verbatim quote and the number, not a title or an id', async () => {
+      mockCreate.mockResolvedValueOnce(
+        reply({ score: 0.5, feedback: 'ok', verdict: 'shallow', evidence: [] })
+      );
+
+      await gradeAnswer({ ...GRADE_PARAMS, checkpoints: [{ text: 'one thing' }] });
+
+      const { system_instruction } = mockCreate.mock.calls[0][0];
+      expect(system_instruction).toContain('WORD FOR WORD');
+      expect(system_instruction).toContain('Never a title, never an id');
+    });
+
+    it('includes earlier turns so a second/third grade is not blind to the first answer (#391)', async () => {
+      mockCreate.mockResolvedValueOnce(
+        reply({ score: 0.5, feedback: 'ok', verdict: 'shallow', evidence: [] })
+      );
+
+      await gradeAnswer({
+        ...GRADE_PARAMS,
+        previousTurns: [{ questionText: 'What is a stack?', answerText: 'LIFO', verdict: 'deep' }],
+      });
+
+      expect(mockCreate.mock.calls[0][0].input).toContain('LIFO');
+    });
+
     it('returns score, feedback and verdict when they already agree', async () => {
       mockCreate.mockResolvedValueOnce(reply({ score: 0.9, feedback: 'Good.', verdict: 'deep' }));
 

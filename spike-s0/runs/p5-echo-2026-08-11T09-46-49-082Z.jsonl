@@ -1,0 +1,40 @@
+{"t":0,"type":"note","msg":"⑤ ECHO/BARGE-IN — bán thủ công · model=gemini-live-2.5-flash-native-audio"}
+{"t":555,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":902,"type":"sent-text","text":"Giải thích giúp tôi địa chỉ IP lớp B trong khoảng 15 giây."}
+{"t":1706,"type":"output-transcript","text":"Địa chỉ"}
+{"t":1940,"type":"output-transcript","text":" IP"}
+{"t":2265,"type":"output-transcript","text":" lớp"}
+{"t":2278,"type":"output-transcript","text":" B"}
+{"t":2507,"type":"output-transcript","text":" thường"}
+{"t":2514,"type":"output-transcript","text":" dùng"}
+{"t":2541,"type":"output-transcript","text":" cho các"}
+{"t":2567,"type":"output-transcript","text":" mạng"}
+{"t":2577,"type":"output-transcript","text":" lớn,"}
+{"t":2694,"type":"output-transcript","text":" có dải"}
+{"t":2815,"type":"output-transcript","text":" từ"}
+{"t":2884,"type":"output-transcript","text":" 128.0.0.0"}
+{"t":3571,"type":"output-transcript","text":" đến"}
+{"t":3700,"type":"output-transcript","text":" 191.255.255.255."}
+{"t":4427,"type":"output-transcript","text":" Nó được"}
+{"t":4737,"type":"output-transcript","text":" chia"}
+{"t":4808,"type":"output-transcript","text":" thành"}
+{"t":4864,"type":"output-transcript","text":" hai"}
+{"t":4963,"type":"output-transcript","text":" octet"}
+{"t":5043,"type":"output-transcript","text":" đầu"}
+{"t":5148,"type":"output-transcript","text":" cho phần"}
+{"t":5235,"type":"output-transcript","text":" mạng"}
+{"t":5363,"type":"output-transcript","text":" và hai"}
+{"t":5528,"type":"output-transcript","text":" octet"}
+{"t":5598,"type":"output-transcript","text":" sau"}
+{"t":5669,"type":"output-transcript","text":" cho phần"}
+{"t":5718,"type":"output-transcript","text":" máy chủ."}
+{"t":5764,"type":"turn-complete","audioChunks":60,"audioBytes":615914,"toolCalls":0,"spoke":true}
+{"t":5769,"type":"note","msg":"Đã lưu audio model: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p5-model-audio-1786441609081.wav"}
+{"t":5769,"type":"note","msg":""}
+{"t":5769,"type":"note","msg":"QUY TRÌNH ĐO THỦ CÔNG (ghi số vào issue cổng):"}
+{"t":5769,"type":"note","msg":"  Chạy một phiên hội thoại thật trên máy spike (mic + loa) với client-VAD bật:"}
+{"t":5769,"type":"note","msg":"  (a) TAI NGHE: nói chuyện ~2 phút, đếm số lần model TỰ NGẮT LỜI MÌNH. Đạt = 0."}
+{"t":5769,"type":"note","msg":"  (b) LOA LAPTOP: lặp lại, đếm số lần tự-ngắt. Được phép fail — chỉ ghi số."}
+{"t":5769,"type":"note","msg":"  GO nếu (a)=0. (a)=0 & (b)>0 vẫn GO nhưng demo BẮT BUỘC tai nghe."}
+{"t":5769,"type":"note","msg":"  Mẹo: phát file WAV ở trên qua loa trong lúc client-VAD đang nghe để tái hiện echo mà không cần người nói."}
+{"t":5769,"type":"result","criterion":"5-echo","mode":"manual","modelAudioWav":"/home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p5-model-audio-1786441609081.wav"}

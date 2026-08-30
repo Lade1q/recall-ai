@@ -52,6 +52,13 @@ Team members:
 
 4. Backend is significantly outpacing Frontend (BE finished 4/4 core tasks, while FE only wrapped up Auth)
 
+5. The team decided to switch project management from Jira to GitHub Issues for the following reasons:
+   - Jira is separated from the code; linking it with GitHub requires inconvenient integration.
+   - Jira charges fees for premium features.
+   - Jira only allows assigning one person per task.
+
+   Therefore, the team migrated to GitHub Issues to manage both source code and project progress in one place.
+
 # **3. Next week's goals:**
 
 | STT | Description                                                                  | Due Date | Responsibility                                                          |

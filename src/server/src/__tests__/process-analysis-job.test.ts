@@ -418,4 +418,43 @@ describe('processAnalysisJob', () => {
 
     errorSpy.mockRestore();
   });
+
+  /**
+   * Review #425 round 2 (Quân) — a hardcoded `const materialText = null;` at the call site
+   * survived 926/926: every other test here runs `USE_MOCK_AI=true`, where `resolveMaterialText`
+   * short-circuits to `null` regardless of wiring, so nothing actually proves the real value read
+   * from disk reaches `buildConceptSourceRows`. This test runs the real (non-mock) `.txt` path —
+   * same `fs.promises.readFile` spy `runWithCheckpoints` already uses — and asserts the section
+   * title the mocked extraction returns actually survives into `conceptSourceRef.createMany`,
+   * which is only possible if `materialText` really is the file content, not `null`.
+   */
+  it('threads the real material text through to buildConceptSourceRows (sectionTitle guard)', async () => {
+    (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
+    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue({ id: 'doc-1' });
+    mockedExtractConcepts.mockResolvedValue({
+      ...MOCK_EXTRACT_RESULT,
+      concepts: [
+        {
+          ...MOCK_EXTRACT_RESULT.concepts[0],
+          source_section: 'nội dung',
+        },
+      ],
+      edges: [],
+    });
+    const readFile = jest.spyOn(fs.promises, 'readFile').mockResolvedValue('nội dung tài liệu');
+    process.env.USE_MOCK_AI = 'false';
+
+    try {
+      await processAnalysisJob(JOB_ID);
+
+      expect(mockedPrisma.conceptSourceRef.createMany).toHaveBeenCalledWith({
+        data: expect.arrayContaining([expect.objectContaining({ sectionTitle: 'nội dung' })]),
+      });
+    } finally {
+      readFile.mockRestore();
+      mockedExtractConcepts.mockReset();
+      process.env.USE_MOCK_AI = 'true';
+    }
+  });
 });

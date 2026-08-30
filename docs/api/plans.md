@@ -12,7 +12,10 @@ Tất cả các API quản lý Study Plan đều có tiền tố `/api/v1/plans`
 - **Request Fields:**
   - `name` (string, required): Tên kế hoạch học tập (1 - 255 ký tự).
   - `deadline` (string, required): Thời hạn học tập dưới dạng ISO Date (phải là ngày trong tương lai).
-  - `file` (file upload, required): File tài liệu học tập đính kèm (hỗ trợ `.pdf`, `.txt`, `.png`, `.jpg`, tối đa 10MB).
+  - `file` (file upload): File tài liệu học tập đính kèm (hỗ trợ `.pdf`, `.txt`, `.png`, `.jpg`, tối đa 10MB).
+  - `content` (string): Text dán trực tiếp thay cho việc upload file (UC-02 A3 "Dán text", tối đa 10,000 ký tự). Server tự lưu thành một Document `kind: "text"` (`pageCount: null`) và chạy đúng pipeline phân tích text hiện có — không cần thay đổi gì phía `extractConcepts`.
+
+  **Bắt buộc chọn đúng một trong hai:** `file` hoặc `content`. Thiếu cả hai → `FILE_REQUIRED`; có cả hai → `CONTENT_OR_FILE_CONFLICT` (HTTP 400). Vì luôn có đúng một trong hai, **`POST /plans` luôn tạo đúng 1 Document** cho plan mới — kịch bản "tạo plan chỉ bằng gõ concept, không file/text" (0 Document, không có `page_count`) không được mở qua endpoint này (Issue #172 chỉ phục vụ AF2 + dán text, xem mục 4). Đây là phát biểu về **endpoint này**, không phải bất biến toàn hệ thống: seed data và các đường tạo Plan khác vẫn có thể để plan không Document (xem guard `NO_MATERIAL` ở luồng Interview, #272/#303).
 
 - **Response thành công (HTTP 201 Created):**
 
@@ -31,14 +34,26 @@ Tất cả các API quản lý Study Plan đều có tiền tố `/api/v1/plans`
   }
   ```
 
-- **Lỗi thiếu file (HTTP 400 Bad Request):**
+- **Lỗi thiếu cả file lẫn content (HTTP 400 Bad Request):**
 
   ```json
   {
     "success": false,
     "error": {
       "code": "FILE_REQUIRED",
-      "message": "File is required"
+      "message": "File or pasted content is required"
+    }
+  }
+  ```
+
+- **Lỗi gửi cả file lẫn content cùng lúc (HTTP 400 Bad Request):**
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "CONTENT_OR_FILE_CONFLICT",
+      "message": "Provide either a file upload or pasted content, not both"
     }
   }
   ```
@@ -281,6 +296,8 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
 - **Endpoint:** `PUT /api/v1/plans/:id/graph`
 - **Xác thực:** ✅ Yêu cầu Bearer Token
 - **Dùng để:** Lưu đồ thị mà Sinh viên đã review/chỉnh sửa trong Edit mode (UC Spec SP-01, basic flow bước 8-9) — ví dụ nút "Confirm Graph" ở [I3.5](https://github.com/Lade1q/planning-ai/issues/79). Cũng dùng cho việc thêm/xóa 1 edge/node đơn lẻ trong lúc chỉnh sửa: FE gửi lại **toàn bộ** trạng thái canvas hiện tại mỗi lần.
+
+  **Đây cũng chính là API cho SP-01 AF2** (Issue #172): "AI thất bại 3 lần → tự nhập khái niệm và bắt đầu ngay" (UC-02, các trường hợp E1/E4). Endpoint này không có ràng buộc nào về `analysisStatus`, nên khi `AnalysisJob` gần nhất `failed` (plan vẫn `draft`, `concepts: []`), FE có thể gọi thẳng endpoint này với các concept do người dùng gõ tay + `confirm: true` — không cần, và không có, một endpoint `POST /plans/:id/concepts` riêng. Concept tên mới tự nhận `source: "manual"` (mục "Semantics" bên dưới) và không tạo `ConceptSourceRef` nào (không có trang/đoạn trích để neo vào — concept do người dùng gõ, không trích từ tài liệu).
 
 - **Semantics:** Đây là **full replace**, không phải patch từng phần. Body chứa toàn bộ tập concepts + edges mong muốn của đồ thị:
   - Concept được khớp theo **tên** (`name`) với concept đã có trong DB — tên trùng thì giữ nguyên `id`, `masteryScore` và lịch sử; tên biến mất thì bị xóa (cascade xóa các edge liên quan); tên mới thì được tạo với `source: "manual"`.

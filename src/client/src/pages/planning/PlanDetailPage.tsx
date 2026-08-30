@@ -373,7 +373,7 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
 
         <div className="h-150 flex flex-col gap-4">
           {plan?.dagAutoFixed && (
-            <div className="flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-600">
+            <div className="border-mastery-learning/40 bg-mastery-learning/10 flex items-center gap-2 rounded-md border p-3 text-sm">
               <svg
                 width="16"
                 height="16"
@@ -383,12 +383,13 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                className="text-mastery-learning shrink-0"
               >
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              <span>
+              <span className="text-foreground">
                 Hệ thống đã tự động loại bỏ một số quan hệ gây vòng lặp để đảm bảo cấu trúc hợp lệ.
               </span>
             </div>

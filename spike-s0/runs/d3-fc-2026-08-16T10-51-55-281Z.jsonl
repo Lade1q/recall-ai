@@ -1,0 +1,143 @@
+{"t":1,"type":"note","msg":"D3-FC — surface=dev · models=[gemini-3.1-flash-live-preview, gemini-2.5-flash-native-audio-latest] · delay=3000ms · trần 2/model, 8 WS tổng"}
+{"t":1,"type":"ceiling","maxWsTotal":8,"maxConnPerModel":2,"delayMs":3000}
+{"t":2,"type":"note","msg":"\n=== model: gemini-3.1-flash-live-preview ==="}
+{"t":150,"type":"open","model":"gemini-3.1-flash-live-preview"}
+{"t":719,"type":"sent-text","text":"Nhìn bit đầu là biết lớp: 0 là A, 10 là B, 110 là C."}
+{"t":1261,"type":"toolcall","id":"call_2803461","name":"record_evidence","args":{"checkpointId":"cp_1","quote":"Nhìn bit đầu là biết lớp: 0 là A, 10 là B, 110 là C.","status":"covered"},"at":1786877516541,"spokeBefore":false}
+{"t":1262,"type":"turn-complete","audioChunks":0,"audioBytes":0,"toolCalls":1,"spoke":false}
+{"t":1864,"type":"sent-text","text":"Lớp B thì octet đầu chạy từ 192 tới 223."}
+{"t":2430,"type":"output-transcript","text":"Bạn chắc"}
+{"t":2645,"type":"output-transcript","text":" chứ?"}
+{"t":2760,"type":"output-transcript","text":" Dải"}
+{"t":2856,"type":"output-transcript","text":" octet"}
+{"t":3014,"type":"output-transcript","text":" đầu"}
+{"t":3050,"type":"output-transcript","text":" của lớp"}
+{"t":3142,"type":"output-transcript","text":" B"}
+{"t":3217,"type":"output-transcript","text":" là bao"}
+{"t":3228,"type":"output-transcript","text":" nhiêu"}
+{"t":3425,"type":"output-transcript","text":" nhỉ?"}
+{"t":4262,"type":"toolresponse-delayed-sent","firesAt":1786877516542,"delayMs":3000}
+{"t":5984,"type":"turn-complete","audioChunks":18,"audioBytes":170910,"toolCalls":0,"spoke":true}
+{"t":6585,"type":"sent-text","text":"Về số byte: lớp A dùng 1 byte NetID và 3 byte Host, lớp B là 2 với 2, lớp C là 3 byte NetID 1 byte Host."}
+{"t":7382,"type":"toolcall","id":"call_2803696","name":"record_evidence","args":{"status":"covered","quote":"lớp A dùng 1 byte NetID và 3 byte Host, lớp B là 2 với 2, lớp C là 3 byte NetID 1 byte Host.","checkpointId":"cp_3"},"at":1786877522663,"spokeBefore":false}
+{"t":7383,"type":"turn-complete","audioChunks":0,"audioBytes":0,"toolCalls":1,"spoke":false}
+{"t":7984,"type":"sent-text","text":"Địa chỉ đường mạng thì giữ nguyên phần NetID, còn phần HostID cho về 0 hết."}
+{"t":8808,"type":"output-transcript","text":"Nội dung này"}
+{"t":8941,"type":"output-transcript","text":" bạn"}
+{"t":8994,"type":"output-transcript","text":" nắm"}
+{"t":9044,"type":"output-transcript","text":" đúng"}
+{"t":9083,"type":"output-transcript","text":" rồi."}
+{"t":9265,"type":"output-transcript","text":" Còn"}
+{"t":9304,"type":"output-transcript","text":" địa chỉ"}
+{"t":9441,"type":"output-transcript","text":" broadcast"}
+{"t":9582,"type":"output-transcript","text":" thì sao?"}
+{"t":9649,"type":"toolcall","id":"call_2803725","name":"record_evidence","args":{"checkpointId":"cp_4","quote":"Địa chỉ đường mạng thì giữ nguyên phần NetID, còn phần HostID cho về 0 hết.","status":"covered"},"at":1786877524930,"spokeBefore":true}
+{"t":10384,"type":"toolresponse-delayed-sent","firesAt":1786877522663,"delayMs":3000}
+{"t":12083,"type":"turn-complete","audioChunks":12,"audioBytes":157470,"toolCalls":1,"spoke":true}
+{"t":12650,"type":"toolresponse-delayed-sent","firesAt":1786877524930,"delayMs":3000}
+{"t":17687,"type":"note","msg":"  [NON_BLOCKING] connectError=null close=null fires=3 valid=3 firedSteps=3 midSpeechFires=2"}
+{"t":17687,"type":"note","msg":"    fire cp_1/covered: audioInWindow=18"}
+{"t":17687,"type":"note","msg":"    fire cp_3/covered: audioInWindow=12"}
+{"t":17687,"type":"note","msg":"    fire cp_4/covered: audioInWindow=0"}
+{"t":17688,"type":"note","msg":"  ⇒ NHÁNH A — NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response"}
+{"t":17688,"type":"note","msg":"\n=== model: gemini-2.5-flash-native-audio-latest ==="}
+{"t":17724,"type":"close","code":1000,"reason":""}
+{"t":17794,"type":"open","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":18187,"type":"sent-text","text":"Nhìn bit đầu là biết lớp: 0 là A, 10 là B, 110 là C."}
+{"t":21555,"type":"output-transcript","text":"Rất chính"}
+{"t":21684,"type":"output-transcript","text":" xác."}
+{"t":21782,"type":"output-transcript","text":" Vậy"}
+{"t":21991,"type":"output-transcript","text":" còn"}
+{"t":22045,"type":"output-transcript","text":" lớp"}
+{"t":22100,"type":"output-transcript","text":" D"}
+{"t":22166,"type":"output-transcript","text":" và E"}
+{"t":22252,"type":"output-transcript","text":" thì"}
+{"t":22297,"type":"output-transcript","text":" sao?"}
+{"t":22422,"type":"toolcall","id":"function-call-1401101230636279509","name":"record_evidence","args":{"status":"covered","quote":"Nhìn bit đầu là biết lớp: 0 là A, 10 là B, 110 là C.","checkpointId":"cp_1"},"at":1786877537703,"spokeBefore":true}
+{"t":23385,"type":"output-transcript","text":"Rất chính"}
+{"t":23556,"type":"output-transcript","text":" xác."}
+{"t":23676,"type":"output-transcript","text":" Vậy"}
+{"t":23792,"type":"output-transcript","text":" còn"}
+{"t":23847,"type":"output-transcript","text":" lớp"}
+{"t":23902,"type":"output-transcript","text":" D"}
+{"t":23958,"type":"output-transcript","text":" và"}
+{"t":24016,"type":"output-transcript","text":" E"}
+{"t":24048,"type":"output-transcript","text":" thì sao?"}
+{"t":25423,"type":"toolresponse-delayed-sent","firesAt":1786877537703,"delayMs":3000}
+{"t":27824,"type":"turn-complete","audioChunks":103,"audioBytes":286080,"toolCalls":1,"spoke":true}
+{"t":28425,"type":"sent-text","text":"Lớp B thì octet đầu chạy từ 192 tới 223."}
+{"t":32087,"type":"output-transcript","text":"Bạn có"}
+{"t":32235,"type":"output-transcript","text":" thể"}
+{"t":32279,"type":"output-transcript","text":" nói"}
+{"t":32333,"type":"output-transcript","text":" rõ"}
+{"t":32412,"type":"output-transcript","text":" hơn"}
+{"t":32465,"type":"output-transcript","text":" về"}
+{"t":32507,"type":"output-transcript","text":" dải"}
+{"t":32563,"type":"output-transcript","text":" octet"}
+{"t":32694,"type":"output-transcript","text":" đầu"}
+{"t":32724,"type":"output-transcript","text":" của lớp"}
+{"t":32848,"type":"output-transcript","text":" B không?"}
+{"t":35567,"type":"turn-complete","audioChunks":56,"audioBytes":151680,"toolCalls":0,"spoke":true}
+{"t":36167,"type":"sent-text","text":"Về số byte: lớp A dùng 1 byte NetID và 3 byte Host, lớp B là 2 với 2, lớp C là 3 byte NetID 1 byte Host."}
+{"t":39626,"type":"output-transcript","text":"Chính xác."}
+{"t":39665,"type":"output-transcript","text":" Sự"}
+{"t":39732,"type":"output-transcript","text":" phân"}
+{"t":39760,"type":"output-transcript","text":" chia"}
+{"t":39788,"type":"output-transcript","text":" NetID"}
+{"t":39936,"type":"output-transcript","text":" và HostID"}
+{"t":40106,"type":"output-transcript","text":" này"}
+{"t":40221,"type":"output-transcript","text":" có"}
+{"t":40277,"type":"output-transcript","text":" ý nghĩa"}
+{"t":40355,"type":"output-transcript","text":" gì"}
+{"t":40424,"type":"output-transcript","text":" trong"}
+{"t":40476,"type":"output-transcript","text":" việc"}
+{"t":40546,"type":"output-transcript","text":" tính"}
+{"t":40606,"type":"output-transcript","text":" toán"}
+{"t":40683,"type":"output-transcript","text":" các"}
+{"t":40735,"type":"output-transcript","text":" địa chỉ"}
+{"t":40781,"type":"output-transcript","text":" khác?"}
+{"t":42019,"type":"toolcall","id":"function-call-15538035941918050857","name":"record_evidence","args":{"status":"covered","checkpointId":"cp_3","quote":"Về số byte: lớp A dùng 1 byte NetID và 3 byte Host, lớp B là 2 với 2, lớp C là 3 byte NetID 1 byte Host."},"at":1786877557300,"spokeBefore":true}
+{"t":43000,"type":"output-transcript","text":"Chính xác."}
+{"t":43246,"type":"output-transcript","text":" Sự"}
+{"t":43383,"type":"output-transcript","text":" phân"}
+{"t":43436,"type":"output-transcript","text":" chia"}
+{"t":43483,"type":"output-transcript","text":" NetID"}
+{"t":43668,"type":"output-transcript","text":" và HostID"}
+{"t":43789,"type":"output-transcript","text":" này"}
+{"t":43853,"type":"output-transcript","text":" có"}
+{"t":43910,"type":"output-transcript","text":" ý nghĩa"}
+{"t":44014,"type":"output-transcript","text":" gì"}
+{"t":44069,"type":"output-transcript","text":" trong"}
+{"t":44137,"type":"output-transcript","text":" việc"}
+{"t":44206,"type":"output-transcript","text":" tính"}
+{"t":44252,"type":"output-transcript","text":" toán"}
+{"t":44331,"type":"output-transcript","text":" các"}
+{"t":44387,"type":"output-transcript","text":" địa chỉ"}
+{"t":44467,"type":"output-transcript","text":" khác?"}
+{"t":45019,"type":"toolresponse-delayed-sent","firesAt":1786877557300,"delayMs":3000}
+{"t":50764,"type":"turn-complete","audioChunks":231,"audioBytes":531840,"toolCalls":1,"spoke":true}
+{"t":51365,"type":"sent-text","text":"Địa chỉ đường mạng thì giữ nguyên phần NetID, còn phần HostID cho về 0 hết."}
+{"t":53205,"type":"output-transcript","text":"Đúng vậy."}
+{"t":53353,"type":"output-transcript","text":" Vậy"}
+{"t":53537,"type":"output-transcript","text":" địa"}
+{"t":53611,"type":"output-transcript","text":" chỉ"}
+{"t":53667,"type":"output-transcript","text":" broadcast"}
+{"t":53815,"type":"output-transcript","text":" thì"}
+{"t":53871,"type":"output-transcript","text":" được"}
+{"t":53924,"type":"output-transcript","text":" tính"}
+{"t":53988,"type":"output-transcript","text":" như"}
+{"t":53989,"type":"output-transcript","text":" thế"}
+{"t":53998,"type":"output-transcript","text":" nào?"}
+{"t":54168,"type":"toolcall","id":"function-call-2095486676259152548","name":"record_evidence","args":{"quote":"Địa chỉ đường mạng thì giữ nguyên phần NetID, còn phần HostID cho về 0 hết.","checkpointId":"cp_4","status":"covered"},"at":1786877569449,"spokeBefore":true}
+{"t":57058,"type":"turn-complete","audioChunks":66,"audioBytes":170880,"toolCalls":1,"spoke":true}
+{"t":57169,"type":"toolresponse-delayed-sent","firesAt":1786877569449,"delayMs":3000}
+{"t":62658,"type":"note","msg":"  [NON_BLOCKING] connectError=null close=null fires=3 valid=3 firedSteps=3 midSpeechFires=2"}
+{"t":62658,"type":"note","msg":"    fire cp_1/covered: audioInWindow=50"}
+{"t":62658,"type":"note","msg":"    fire cp_3/covered: audioInWindow=115"}
+{"t":62658,"type":"note","msg":"    fire cp_4/covered: audioInWindow=0"}
+{"t":62658,"type":"note","msg":"  ⇒ NHÁNH A — NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response"}
+{"t":62658,"type":"note","msg":"\nKẾT QUẢ D3-FC:"}
+{"t":62659,"type":"note","msg":"  gemini-3.1-flash-live-preview: nhánh A — NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response"}
+{"t":62659,"type":"note","msg":"  gemini-2.5-flash-native-audio-latest: nhánh A — NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response"}
+{"t":62659,"type":"result","criterion":"d3-fc","surface":"dev","delayMs":3000,"wsOpened":2,"outcomes":[{"model":"gemini-3.1-flash-live-preview","branch":"A","why":"NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response","attempts":[{"declaration":"NON_BLOCKING","connectError":null,"closeCode":null,"ev":{"totalFires":3,"validFires":3,"enumInvalid":0,"firedSteps":3,"stepsHit":3,"midSpeech":[{"cp":"cp_1","status":"covered","audioInWindow":18},{"cp":"cp_3","status":"covered","audioInWindow":12},{"cp":"cp_4","status":"covered","audioInWindow":0}],"midSpeechFires":2,"interrupted":0}}]},{"model":"gemini-2.5-flash-native-audio-latest","branch":"A","why":"NON_BLOCKING sống: 2 fire có audio trong cửa sổ 3000ms trước tool-response","attempts":[{"declaration":"NON_BLOCKING","connectError":null,"closeCode":null,"ev":{"totalFires":3,"validFires":3,"enumInvalid":0,"firedSteps":3,"stepsHit":3,"midSpeech":[{"cp":"cp_1","status":"covered","audioInWindow":50},{"cp":"cp_3","status":"covered","audioInWindow":115},{"cp":"cp_4","status":"covered","audioInWindow":0}],"midSpeechFires":2,"interrupted":0}}]}]}
+{"t":62659,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/d3-fc-2026-08-16T10-51-55-281Z.jsonl)"}

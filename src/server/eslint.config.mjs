@@ -16,7 +16,9 @@ export default [
   // Config files ở root của server chạy dưới CommonJS (module, require)
   {
     files: ['*.config.js'],
-    languageOptions: { sourceType: 'commonjs' },
+    // sourceType 'commonjs' chỉ cấp module/require/exports. `process` là global runtime của
+    // Node, không thuộc CommonJS wrapper, nên phải khai riêng — thiếu nó `eslint .` báo no-undef.
+    languageOptions: { sourceType: 'commonjs', globals: { process: 'readonly' } },
   },
   // Custom rules áp dụng riêng cho .ts files
   {

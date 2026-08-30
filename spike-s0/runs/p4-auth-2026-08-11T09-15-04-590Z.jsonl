@@ -1,0 +1,62 @@
+{"t":0,"type":"note","msg":"④ AUTH — 3 phiên × 300s · model=gemini-live-2.5-flash-native-audio"}
+{"t":1,"type":"note","msg":"  → phiên 1/3 ..."}
+{"t":1487,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":61826,"type":"sent-text","text":"ping 1"}
+{"t":62575,"type":"output-transcript","text":"pong 1."}
+{"t":62846,"type":"turn-complete","audioChunks":4,"audioBytes":45674,"toolCalls":0,"spoke":true}
+{"t":122848,"type":"sent-text","text":"ping 2"}
+{"t":123645,"type":"output-transcript","text":"pong 2."}
+{"t":124041,"type":"turn-complete","audioChunks":4,"audioBytes":51434,"toolCalls":0,"spoke":true}
+{"t":184048,"type":"sent-text","text":"ping 3"}
+{"t":184871,"type":"output-transcript","text":"pong 3."}
+{"t":185283,"type":"turn-complete","audioChunks":4,"audioBytes":51434,"toolCalls":0,"spoke":true}
+{"t":245285,"type":"sent-text","text":"ping 4"}
+{"t":246112,"type":"output-transcript","text":"pong 4."}
+{"t":246417,"type":"turn-complete","audioChunks":4,"audioBytes":53354,"toolCalls":0,"spoke":true}
+{"t":301822,"type":"sent-text","text":"ping 5"}
+{"t":302630,"type":"output-transcript","text":"pong 5."}
+{"t":303052,"type":"turn-complete","audioChunks":4,"audioBytes":51434,"toolCalls":0,"spoke":true}
+{"t":303053,"type":"note","msg":"    connected=true closeCode=null 1011=false"}
+{"t":303053,"type":"note","msg":"  → phiên 2/3 ..."}
+{"t":303311,"type":"close","code":1000,"reason":""}
+{"t":304502,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":364858,"type":"sent-text","text":"ping 1"}
+{"t":365290,"type":"turn-complete","audioChunks":0,"audioBytes":0,"toolCalls":0,"spoke":false}
+{"t":425295,"type":"sent-text","text":"ping 2"}
+{"t":426165,"type":"output-transcript","text":"ping 1"}
+{"t":426461,"type":"output-transcript","text":" ping"}
+{"t":426658,"type":"output-transcript","text":" 2"}
+{"t":426719,"type":"turn-complete","audioChunks":9,"audioBytes":99434,"toolCalls":0,"spoke":true}
+{"t":486722,"type":"sent-text","text":"ping 3"}
+{"t":487482,"type":"output-transcript","text":"ping 3"}
+{"t":487743,"type":"turn-complete","audioChunks":4,"audioBytes":47594,"toolCalls":0,"spoke":true}
+{"t":547748,"type":"sent-text","text":"ping 4"}
+{"t":548500,"type":"output-transcript","text":"ping 4"}
+{"t":548762,"type":"turn-complete","audioChunks":4,"audioBytes":45674,"toolCalls":0,"spoke":true}
+{"t":604862,"type":"sent-text","text":"ping 5"}
+{"t":605618,"type":"output-transcript","text":"ping 5"}
+{"t":605869,"type":"turn-complete","audioChunks":4,"audioBytes":43754,"toolCalls":0,"spoke":true}
+{"t":605869,"type":"note","msg":"    connected=true closeCode=null 1011=false"}
+{"t":605869,"type":"note","msg":"  → phiên 3/3 ..."}
+{"t":606122,"type":"close","code":1000,"reason":""}
+{"t":607234,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":667588,"type":"sent-text","text":"ping 1"}
+{"t":668311,"type":"output-transcript","text":"pong 1."}
+{"t":668544,"type":"turn-complete","audioChunks":3,"audioBytes":37994,"toolCalls":0,"spoke":true}
+{"t":728545,"type":"sent-text","text":"ping 2"}
+{"t":729322,"type":"output-transcript","text":"pong 2."}
+{"t":729638,"type":"turn-complete","audioChunks":5,"audioBytes":57194,"toolCalls":0,"spoke":true}
+{"t":789645,"type":"sent-text","text":"ping 3"}
+{"t":790411,"type":"output-transcript","text":"pong 3."}
+{"t":790810,"type":"turn-complete","audioChunks":5,"audioBytes":57194,"toolCalls":0,"spoke":true}
+{"t":850812,"type":"sent-text","text":"ping 4"}
+{"t":851683,"type":"output-transcript","text":"pong 4."}
+{"t":852086,"type":"turn-complete","audioChunks":5,"audioBytes":61034,"toolCalls":0,"spoke":true}
+{"t":907585,"type":"sent-text","text":"ping 5"}
+{"t":908312,"type":"output-transcript","text":"pong 5."}
+{"t":908710,"type":"turn-complete","audioChunks":5,"audioBytes":59114,"toolCalls":0,"spoke":true}
+{"t":908710,"type":"note","msg":"    connected=true closeCode=null 1011=false"}
+{"t":908711,"type":"note","msg":""}
+{"t":908711,"type":"note","msg":"KẾT QUẢ ④: 0 lần 1011 / 3 phiên  =>  ĐẠT ✅"}
+{"t":908711,"type":"result","criterion":"4-auth","total1011":0,"sessions":3,"pass":true,"results":[{"idx":1,"connected":true,"closeCode":1000,"got1011":false,"error":null},{"idx":2,"connected":true,"closeCode":1000,"got1011":false,"error":null},{"idx":3,"connected":true,"closeCode":null,"got1011":false,"error":null}]}
+{"t":908711,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p4-auth-2026-08-11T09-15-04-590Z.jsonl)"}

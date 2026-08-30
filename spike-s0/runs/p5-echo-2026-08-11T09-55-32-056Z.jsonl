@@ -1,0 +1,57 @@
+{"t":1,"type":"note","msg":"⑤ ECHO/BARGE-IN — bán thủ công · model=gemini-live-2.5-flash-native-audio"}
+{"t":1530,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":1858,"type":"sent-text","text":"Giải thích giúp tôi địa chỉ IP lớp B trong khoảng 15 giây."}
+{"t":2666,"type":"output-transcript","text":"Địa chỉ"}
+{"t":2905,"type":"output-transcript","text":" IP"}
+{"t":3028,"type":"output-transcript","text":" lớp"}
+{"t":3074,"type":"output-transcript","text":" B"}
+{"t":3266,"type":"output-transcript","text":" thường"}
+{"t":3275,"type":"output-transcript","text":" dành"}
+{"t":3293,"type":"output-transcript","text":" cho các"}
+{"t":3368,"type":"output-transcript","text":" tổ"}
+{"t":3457,"type":"output-transcript","text":" chức"}
+{"t":3478,"type":"output-transcript","text":" vừa"}
+{"t":3602,"type":"output-transcript","text":" và lớn,"}
+{"t":3838,"type":"output-transcript","text":" có dải"}
+{"t":3979,"type":"output-transcript","text":" mạng"}
+{"t":4009,"type":"output-transcript","text":" từ"}
+{"t":4089,"type":"output-transcript","text":" 128.0.0.0"}
+{"t":4739,"type":"output-transcript","text":" đến"}
+{"t":4869,"type":"output-transcript","text":" 191.255.255.255."}
+{"t":5642,"type":"output-transcript","text":" Nó sử"}
+{"t":5943,"type":"output-transcript","text":" dụng"}
+{"t":6051,"type":"output-transcript","text":" 16"}
+{"t":6124,"type":"output-transcript","text":" bit"}
+{"t":6265,"type":"output-transcript","text":" đầu"}
+{"t":6310,"type":"output-transcript","text":" tiên"}
+{"t":6449,"type":"output-transcript","text":" để xác"}
+{"t":6470,"type":"output-transcript","text":" định"}
+{"t":6500,"type":"output-transcript","text":" mạng"}
+{"t":6646,"type":"output-transcript","text":" và 16"}
+{"t":6872,"type":"output-transcript","text":" bit"}
+{"t":6926,"type":"output-transcript","text":" sau"}
+{"t":7029,"type":"output-transcript","text":" để xác"}
+{"t":7092,"type":"output-transcript","text":" định"}
+{"t":7240,"type":"output-transcript","text":" máy chủ."}
+{"t":7416,"type":"output-transcript","text":" Bạn"}
+{"t":7646,"type":"output-transcript","text":" có muốn"}
+{"t":7775,"type":"output-transcript","text":" tìm"}
+{"t":7866,"type":"output-transcript","text":" hiểu"}
+{"t":7890,"type":"output-transcript","text":" về"}
+{"t":7931,"type":"output-transcript","text":" các"}
+{"t":7969,"type":"output-transcript","text":" lớp"}
+{"t":8011,"type":"output-transcript","text":" IP"}
+{"t":8068,"type":"output-transcript","text":" khác"}
+{"t":8129,"type":"output-transcript","text":" không?"}
+{"t":8238,"type":"turn-complete","audioChunks":75,"audioBytes":786794,"toolCalls":0,"spoke":true}
+{"t":10742,"type":"note","msg":"Đã lưu audio model: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p5-model-audio-1786442132056.wav (16.39s)"}
+{"t":10742,"type":"note","msg":"Chẩn đoán cắt-đuôi: chunk TRƯỚC turnComplete=75 · SAU grace=0 · bytes@turnComplete=786794/786794"}
+{"t":10742,"type":"note","msg":"  → 0 chunk sau turnComplete ⇒ audio kết thúc ĐÚNG tại turnComplete ⇒ cụt-đuôi là API-side (transcript chạy trước audio), KHÔNG phải harness."}
+{"t":10742,"type":"note","msg":""}
+{"t":10742,"type":"note","msg":"QUY TRÌNH ĐO THỦ CÔNG (ghi số vào issue cổng):"}
+{"t":10742,"type":"note","msg":"  Chạy một phiên hội thoại thật trên máy spike (mic + loa) với client-VAD bật:"}
+{"t":10742,"type":"note","msg":"  (a) TAI NGHE: nói chuyện ~2 phút, đếm số lần model TỰ NGẮT LỜI MÌNH. Đạt = 0."}
+{"t":10742,"type":"note","msg":"  (b) LOA LAPTOP: lặp lại, đếm số lần tự-ngắt. Được phép fail — chỉ ghi số."}
+{"t":10742,"type":"note","msg":"  GO nếu (a)=0. (a)=0 & (b)>0 vẫn GO nhưng demo BẮT BUỘC tai nghe."}
+{"t":10742,"type":"note","msg":"  Mẹo: phát file WAV ở trên qua loa trong lúc client-VAD đang nghe để tái hiện echo mà không cần người nói."}
+{"t":10742,"type":"result","criterion":"5-echo","mode":"manual","modelAudioWav":"/home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p5-model-audio-1786442132056.wav"}

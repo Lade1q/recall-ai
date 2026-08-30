@@ -43,14 +43,38 @@ export function getInterviewErrorMessage(error: unknown): string {
   switch (code) {
     case 'NOT_FOUND':
       return 'Không tìm thấy phiên kiểm tra này.';
-    case 'SESSION_NOT_ACTIVE':
+    // Server ném mã này ở 4 chỗ (`interview.service.ts`: answer/pause/resume/abandon) khi phiên
+    // đã `completed`/`abandoned`. Nhãn cũ ở đây là `SESSION_NOT_ACTIVE` — một mã **không tồn tại
+    // phía server**, nên câu tiếng Việt này chưa từng hiển thị được; xem test hợp đồng
+    // `error-code-contract.test.ts`.
+    case 'SESSION_ENDED':
       return 'Phiên này không còn ở trạng thái đang diễn ra. Vui lòng tải lại trang.';
     case 'SESSION_PAUSED':
       return 'Phiên đang tạm dừng — đang mở lại, vui lòng thử lại.';
-    case 'NO_ACTIVE_CONCEPTS':
-      return 'Không có khái niệm nào để kiểm tra. Hãy chọn khái niệm khác.';
+    // Cùng ngoại lệ như `PLAN_NOT_ACTIVE` bên dưới. Đo trên cây hiện tại: **không** lời gọi
+    // `new AppError` nào trong server mang chuỗi tiếng Việt viết thẳng; đúng hai mã lấy câu từ
+    // biến, và cả hai đều là tiếng Việt — `PLAN_NOT_ACTIVE` (qua `buildInactivePlanMessage`) và
+    // mã này (qua `queue.message ?? NO_CONCEPTS_MESSAGE`). ~40 mã còn lại mang chuỗi debug tiếng
+    // Anh, nên **đừng tổng quát hoá lối render thẳng này ra cả switch**.
+    //
+    // Mã này gánh 3 câu tới được, mỗi câu một việc phải làm khác nhau: đồ thị rỗng (thêm khái
+    // niệm / phân tích lại), đã ôn hết kế hoạch (COMPLETED_PLAN_MESSAGE), và câu mặc định khi
+    // không còn gì trên lịch. Gộp về một hằng số phía client là nuốt mất hai trong ba.
+    case 'NO_CONCEPTS_TO_REVIEW':
+      return (
+        error.response.data?.error?.message ??
+        // Server luôn kèm message cho mã này, nên nhánh này chỉ chạy khi payload dị dạng. Khớp
+        // `NO_CONCEPTS_MESSAGE` phía server (`interview.service.ts`) — trung tính, không hứa một
+        // thao tác mà lối vào "Dùng gợi ý hôm nay" không có.
+        'Không có khái niệm nào cần ôn tập trong kế hoạch này.'
+      );
     case 'NO_MATERIAL':
       return 'Kế hoạch này chưa có tài liệu để tạo câu hỏi. Hãy tải tài liệu lên trước khi bắt đầu kiểm tra.';
+    // Ngoại lệ của quy ước "không render thẳng error.message": PLAN_NOT_ACTIVE gộp hai trạng thái
+    // (`archived`/`draft`) với hai câu hành động khác nhau — một hằng số phía client không phủ
+    // được cả hai, nên dùng nguyên văn câu server đã dựng bằng buildInactivePlanMessage().
+    case 'PLAN_NOT_ACTIVE':
+      return error.response.data?.error?.message ?? 'Đã xảy ra lỗi, vui lòng thử lại.';
     case 'VALIDATION_ERROR':
       return 'Thông tin gửi lên chưa hợp lệ.';
     default:

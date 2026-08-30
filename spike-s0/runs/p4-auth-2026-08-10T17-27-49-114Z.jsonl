@@ -1,0 +1,11 @@
+{"t":1,"type":"note","msg":"④ AUTH — 1 phiên × 30s · model=gemini-live-2.5-flash-native-audio"}
+{"t":2,"type":"note","msg":"  → phiên 1/1 ..."}
+{"t":1571,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":31919,"type":"sent-text","text":"ping 1"}
+{"t":32628,"type":"output-transcript","text":"pong 1."}
+{"t":32883,"type":"turn-complete","audioChunks":4,"audioBytes":43754,"toolCalls":0,"spoke":true}
+{"t":32884,"type":"note","msg":"    connected=true closeCode=null 1011=false"}
+{"t":32884,"type":"note","msg":""}
+{"t":32884,"type":"note","msg":"KẾT QUẢ ④: 0 lần 1011 / 1 phiên  =>  ĐẠT ✅"}
+{"t":32884,"type":"result","criterion":"4-auth","total1011":0,"sessions":1,"pass":true,"results":[{"idx":1,"connected":true,"closeCode":null,"got1011":false,"error":null}]}
+{"t":32884,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p4-auth-2026-08-10T17-27-49-114Z.jsonl)"}

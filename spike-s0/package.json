@@ -1,0 +1,17 @@
+{
+  "name": "spike-s0",
+  "private": true,
+  "type": "module",
+  "description": "Spike S0 (11–12/08) — throwaway harness đo tính khả thi Gemini Live cho Interview v2. KHÔNG phải production. Giao thức: docs/management/sprint-plans/s0-spike-protocol.md",
+  "scripts": {
+    "p4:auth": "node probes/p4-auth.mjs",
+    "gen:wav": "node probes/gen-wav.mjs",
+    "p1:latency": "node probes/p1-latency.mjs",
+    "p3:evidence": "node probes/p3-evidence.mjs",
+    "p2:viquality": "node probes/p2-viquality.mjs",
+    "p5:echo": "node probes/p5-echo.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^2.13.0"
+  }
+}

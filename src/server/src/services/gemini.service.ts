@@ -60,9 +60,22 @@ Rules:
 - The graph MUST be acyclic. Do not create cycles.
 - "difficulty" is an integer from 1 (easiest) to 5 (hardest).
 - "source_excerpt": a short verbatim quote (a sentence or two, at most ~300 characters) copied
-  exactly from the material where this concept is defined or introduced. Do not paraphrase.
+  exactly from the material, containing the clause that DEFINES this concept — what it is, what it
+  does, or how it works. Do not paraphrase.
+  Naming a concept is not defining it. If the material only mentions the term — a heading, a slide
+  title, an item in a list, a passing reference — without stating what it is, set "source_excerpt"
+  to null instead of quoting the mention. Prerequisite concepts the material assumes rather than
+  teaches are the common case here. A null excerpt is a correct answer, not a failure; still give
+  "source_page" if you know where the mention appears.
 - "source_page": the 1-based page number where that excerpt appears. For PDFs give the real page;
   for plain text or images with no page structure, use null.
+- "source_section": the title of the section/heading the material files this concept under (e.g.
+  "4.2 Stacks"), copied or lightly normalized from a real heading in the material — never invented.
+  Null if the material has no clear section structure around this concept.
+- "source_context": the paragraph surrounding "source_excerpt" — copied verbatim from the material,
+  same rule as "source_excerpt", just wider (the sentence/two of "source_excerpt" plus the
+  sentences around it, enough for a reader to see it in context). Do not paraphrase or summarize.
+  Null when "source_excerpt" is null — there is no excerpt to surround.
 - "checkpoints": the specific things a student must demonstrate to be counted as understanding
   this concept. One short statement each, written in the language of the material, each one
   checkable on its own. Take them from the material only — never from outside knowledge.
@@ -238,6 +251,16 @@ Rules:
 - score and verdict must agree: "deep" requires score >= 0.7, "wrong" requires score < 0.4.
 - feedback: 1-3 sentences, in the same language as the material, addressed to the student.
 - Do not decide whether the interview should continue — you are only grading this answer.
+- "evidence": what this answer showed about the numbered checkpoints listed in the prompt.
+  One entry per checkpoint the answer actually addresses; omit the ones it does not touch, and
+  return an empty list if it touches none. Never report a checkpoint that was not listed.
+  - "checkpoint": the NUMBER of the checkpoint exactly as listed. Never a title, never an id.
+  - "status": "covered" = the answer demonstrates that checkpoint; "contradicted" = the answer
+    asserts something that conflicts with it. If the student was unsure or did not remember,
+    that is neither — omit the checkpoint.
+  - "quote": a span copied WORD FOR WORD from the student's answer above, exactly as they wrote
+    it. Do not paraphrase, do not translate, do not shorten it with "...", do not fix spelling or
+    punctuation. If you cannot copy such a span from their answer, omit that entry entirely.
 - Return ONLY the JSON object matching the provided schema.`;
 
 /** Per-mode steer for the next question. The caller picks the mode, never the model (C4). */
@@ -337,7 +360,11 @@ async function callStructured<T>(
   throw new AppError(`AI call failed: ${detail}`, 502, 'AI_UNAVAILABLE');
 }
 
-/** Renders prior turns so 'deeper'/'probe' can reference what was actually said. */
+/**
+ * Renders prior turns so 'deeper'/'probe' and grading can reference what was actually said.
+ * Data only — no "don't repeat the question" instruction, since that only makes sense when the
+ * call is generating a new question (see `formatPreviousTurnsForQuestion`), not when grading one.
+ */
 function formatPreviousTurns(previousTurns: PreviousTurn[]): string {
   if (previousTurns.length === 0) return '';
 
@@ -347,7 +374,13 @@ function formatPreviousTurns(previousTurns: PreviousTurn[]): string {
     return `Turn ${index + 1}:\nQ: ${turn.questionText}\nA: ${answer}${verdict}`;
   });
 
-  return `\n\nEarlier in this session:\n${lines.join('\n\n')}\n\nDo not repeat a question already asked above.`;
+  return `\n\nEarlier in this session:\n${lines.join('\n\n')}`;
+}
+
+/** Same history block, plus the no-repeat instruction that only applies when generating a question. */
+function formatPreviousTurnsForQuestion(previousTurns: PreviousTurn[]): string {
+  if (previousTurns.length === 0) return '';
+  return `${formatPreviousTurns(previousTurns)}\n\nDo not repeat a question already asked above.`;
 }
 
 export interface GenerateQuestionParams {
@@ -375,7 +408,7 @@ export async function generateQuestion(
     `Concept under examination: "${conceptName}".\n` +
     `This is question number ${turnIndex} for this concept.\n` +
     `${MODE_INSTRUCTION[mode]}${languageLine}` +
-    formatPreviousTurns(previousTurns);
+    formatPreviousTurnsForQuestion(previousTurns);
 
   return callStructured(
     QUESTION_SYSTEM_INSTRUCTION,
@@ -392,14 +425,52 @@ export interface GradeAnswerParams {
   answerText: string;
   /** From extract_concepts' `language_detected`; falls back to the material's language. */
   language?: string;
+  /**
+   * The concept's committed checkpoints (#346), in the order they will be numbered for the model.
+   *
+   * ⚠️ The caller must keep THIS array and resolve `evidence[].checkpoint` against it — the number
+   * the model returns means "the n-th line I was shown" and nothing more. Optional and defaulting
+   * to empty so a caller with no ruler (or none to spend) simply gets no evidence asked for; the
+   * response schema is unchanged either way, since `grade_answer` is one fixed schema, not two.
+   */
+  checkpoints?: readonly { text: string }[];
+  /**
+   * Turns already asked/answered for this concept (#391), so a turn 2/3 grade isn't blind to
+   * turn 1 — mirrors `GenerateQuestionParams.previousTurns` above. Optional and defaulting to
+   * empty so an existing caller sees no behavior change; the response schema is unchanged (C4).
+   */
+  previousTurns?: PreviousTurn[];
+}
+
+/**
+ * Renders the checkpoint list the `evidence` field indexes into. 1-based, in array order — the
+ * numbering here IS the contract, so this must not sort, filter or de-duplicate.
+ */
+function formatCheckpoints(checkpoints: readonly { text: string }[]): string {
+  if (checkpoints.length === 0) {
+    return '\n\nThis concept has no checkpoints; return an empty "evidence" list.';
+  }
+  const lines = checkpoints.map((checkpoint, index) => `${index + 1}. ${checkpoint.text}`);
+  return `\n\nCheckpoints for this concept (use these numbers in "evidence"):\n${lines.join('\n')}`;
 }
 
 /**
  * Calls the grade_answer schema (AE-03). The returned verdict is reconciled against the
  * score before it leaves this function, so callers can rely on the two agreeing.
+ *
+ * `evidence` comes back unvalidated on purpose (`gradeAnswerResponseSchema`): a malformed entry
+ * must not turn a good grade into `AI_BAD_FORMAT`. The caller runs it through `mapGradeEvidence`.
  */
 export async function gradeAnswer(params: GradeAnswerParams): Promise<GradeAnswerResponse> {
-  const { conceptName, material, questionText, answerText, language } = params;
+  const {
+    conceptName,
+    material,
+    questionText,
+    answerText,
+    language,
+    checkpoints = [],
+    previousTurns = [],
+  } = params;
 
   if (process.env.USE_MOCK_AI === 'true') {
     return mockGradeAnswer(answerText);
@@ -410,7 +481,9 @@ export async function gradeAnswer(params: GradeAnswerParams): Promise<GradeAnswe
     `Concept under examination: "${conceptName}".\n` +
     `Question asked:\n${questionText}\n\n` +
     `The student answered:\n${answerText}\n\n` +
-    `Grade this answer against the material.${languageLine}`;
+    `Grade this answer against the material.${languageLine}` +
+    formatCheckpoints(checkpoints) +
+    formatPreviousTurns(previousTurns);
 
   const graded = await callStructured(
     GRADE_SYSTEM_INSTRUCTION,

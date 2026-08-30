@@ -5,6 +5,7 @@ import {
   createInterviewController,
   getInterviewController,
   getSessionSummaryController,
+  listInterviewsController,
   pauseInterviewController,
   resumeInterviewController,
   submitAnswerController,
@@ -14,6 +15,7 @@ const interviewRouter = Router();
 
 // All routes are protected via authMiddleware when mounted in app.ts
 interviewRouter.post('/', asyncHandler(createInterviewController));
+interviewRouter.get('/', asyncHandler(listInterviewsController));
 interviewRouter.get('/:id', asyncHandler(getInterviewController));
 interviewRouter.post('/:id/answers', asyncHandler(submitAnswerController));
 interviewRouter.post('/:id/pause', asyncHandler(pauseInterviewController));

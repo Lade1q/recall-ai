@@ -151,6 +151,47 @@ export interface StartInterviewResponse {
   fallback: InterviewFallbackResponse | null;
 }
 
+/**
+ * `GET /interviews` (SPEC_DB-03) — one row of the session history list. Deliberately not
+ * `InterviewSessionState`: that type carries "what to ask next" for a live session, this one
+ * carries "what happened", so the two never need to agree on shape.
+ */
+export interface InterviewSessionListConceptDelta {
+  conceptId: string;
+  name: string;
+  /**
+   * The concept's mastery score in force immediately before this session, and the score this
+   * session itself produced — both from `sessionMasteryScore` over `interview_turns`, never
+   * `Concept.masteryScore` (a later session may have overwritten it since).
+   *
+   * `null` is "never assessed" (before) or "this session graded nothing for it" (after) — not
+   * the same as `0` (graded, answered completely wrong). See `isFirstAssessment`.
+   */
+  masteryBefore: number | null;
+  masteryAfter: number | null;
+  /** True only when `masteryAfter` is this concept's first-ever real score. */
+  isFirstAssessment: boolean;
+}
+
+export interface InterviewSessionListItem {
+  id: string;
+  startedAt: Date;
+  endedAt: Date | null;
+  status: InterviewSessionStatus;
+  /** True once any Gemini call failed in this session — SPEC_DB-03 step #2's fallback label. */
+  fallbackMode: boolean;
+  plan: { id: string; name: string };
+  /** Concepts queued for this session — a plain count, not a "X/Y" progress fraction. */
+  conceptTotal: number;
+  /**
+   * Secondary signal per SPEC_DB-03's implementation notes: mixes concepts at very different
+   * stages, so `concepts` below (per-concept before/after) is what the list actually leads with.
+   * `null` when no concept in this session produced a real score yet.
+   */
+  averageMasteryScore: number | null;
+  concepts: InterviewSessionListConceptDelta[];
+}
+
 export interface GetInterviewResponse {
   session: InterviewSessionState;
   currentQuestion: InterviewQuestionResponse | null;
@@ -271,14 +312,18 @@ export interface SessionSummaryReviewItemResponse {
  * request never fails just because the AI did — see `message`.
  */
 export interface SessionSummaryReport {
-  /** `null` when `summarize_session` failed after retry — see `message`. */
+  /** `null` when `summarize_session` failed after retry, or was never called — see `message`. */
   text: string | null;
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
   /** `false` means only the structured score table below is real; `text` etc. are empty/null. */
   generatedByAi: boolean;
-  /** Set only when `generatedByAi` is `false` — UC-14 E1's "Không thể tổng hợp nhận xét lúc này." */
+  /**
+   * Set when `generatedByAi` is `false` because of an actual failure — UC-14 E1's "Không thể
+   * tổng hợp nhận xét lúc này." `null` for an abandoned session (SPEC_DB-03 AF3): there was
+   * nothing wrong, `summarize_session` was correctly never called.
+   */
   message: string | null;
 }
 

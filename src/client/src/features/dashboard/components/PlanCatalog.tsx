@@ -39,8 +39,26 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
   );
 }
 
-/** A1 (DB-01 [E1]) — chưa có kế hoạch nào. Onboarding thay cho một lưới trống. */
-function CatalogOnboarding() {
+/**
+ * A1 (DB-01 [E1]) — chưa có kế hoạch nào. Onboarding thay cho một lưới trống, và thay luôn cho
+ * thẻ "Gợi ý hôm nay" (`TodayNudge`) mà `DashboardPage` cố ý không render trong ca này — mockup
+ * A1 chỉ có MỘT thẻ, không phải hai thẻ nói cùng một điều bằng hai giọng khác nhau (#389).
+ *
+ * `message` là `NO_PLAN_MESSAGE` server trả về nguyên văn (cùng nguồn dữ liệu `TodayNudge` từng
+ * dùng để tự render thẻ thứ hai) — không phải copy tự viết ở client. Quy tắc nằm ở mockup
+ * `docs/analysis and design/claude-design/screen-dashboard.html`, khối `state__name` **A2b**:
+ * trong bảy trạng thái của `TodayNudge`, A2b là ca DUY NHẤT client tự đặt chữ, bốn ca kia render
+ * nguyên văn `message`.
+ *
+ * Trỏ vào `claude-design/` chứ không phải bản sao `ui-prototype/`: `src/` viện dẫn cây trước ở 11
+ * tệp và cây sau ở 0 tệp, và hai cây đã lệch nhau. Trỏ tên khối chứ không phải số dòng — số dòng
+ * vào một tệp còn được sửa thì lần sửa kế tiếp là sai (#446).
+ *
+ * `null` khi `/review-queue/today` chưa tải xong hoặc lỗi: chỉ ẩn đoạn thân bài, không thay bằng
+ * chữ bịa ra. Ca lỗi không vì thế mà câm — `DashboardPage` giữ `BlockError` + "Thử lại" ngay
+ * phía trên (`todayFailed`), nên chuyện hỏng đã được nói đúng một lần, ở đúng khối của nó.
+ */
+function CatalogOnboarding({ message }: { message: string | null }) {
   return (
     <div className="border-border bg-card rounded-xl border px-7 py-10">
       <div className="mx-auto max-w-[460px] text-center">
@@ -68,11 +86,15 @@ function CatalogOnboarding() {
         <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
           Bắt đầu kế hoạch ôn tập đầu tiên
         </h2>
-        <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
-          Tải lên một chương bài giảng, hệ thống sẽ tách nó thành các khái niệm, tìm khái niệm nào
-          là nền của khái niệm nào, rồi xếp lịch ôn theo đúng thứ tự đó.
+        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`. Đủ ở bề ngang mà câu server
+            nằm gọn một dòng — đo được 0px giật ở 1440px và 768px. KHÔNG đủ ở 360px: ở đó câu
+            xuống 2 dòng (22,9 → 45,9px) nên CTA vẫn giật 23px khi chữ về (#446). Nâng `min-h`
+            lên hai dòng sẽ chữa chỗ đó nhưng chừa một khoảng trống thừa ở mọi bề ngang khác, nên
+            để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được. */}
+        <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
+          {message}
         </p>
-        <Button asChild>
+        <Button asChild size="lg">
           <Link to="/plan/new">Tạo kế hoạch đầu tiên</Link>
         </Button>
       </div>
@@ -101,13 +123,15 @@ export function PlanCatalog({
   activePlans,
   hasAnyPlan,
   currentPlanId,
+  noPlanMessage,
 }: {
   activePlans: PlanSummary[];
   hasAnyPlan: boolean;
   currentPlanId: string | null;
+  noPlanMessage: string | null;
 }) {
   if (activePlans.length === 0) {
-    return hasAnyPlan ? <CatalogNoActive /> : <CatalogOnboarding />;
+    return hasAnyPlan ? <CatalogNoActive /> : <CatalogOnboarding message={noPlanMessage} />;
   }
 
   return (

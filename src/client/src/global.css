@@ -116,16 +116,44 @@
   --popover: oklch(0.995 0.002 262);
   --popover-foreground: oklch(0.24 0.008 262);
   --primary: oklch(0.5 0.16 262);
-  --primary-foreground: oklch(0.985 0.012 262);
+  /* Chroma 0.012 -> 0.006: at L 0.985 the blue channel reached 1.0140 in
+     linear sRGB, so this value was clamped and never rendered as declared.
+     Lightness untouched, so contrast is unchanged. */
+  --primary-foreground: oklch(0.985 0.006 262);
   --secondary: oklch(0.95 0.006 262);
   --secondary-foreground: oklch(0.24 0.008 262);
   --muted: oklch(0.955 0.006 262);
-  --muted-foreground: oklch(0.55 0.012 262);
+  /* This is the app's majority text colour - 299 call sites against 117
+     for --foreground - and roughly two thirds of them render at 13.5px
+     or below, so the large-text exemption never applies. At L 0.55 it
+     passed on the plain page (4.62:1 on --background, 4.76:1 on --card)
+     and failed everywhere it is actually layered: 4.24:1 on --muted,
+     4.19:1 on --secondary and --accent, 4.43:1 on --sidebar. All
+     measured in the browser against the rendered tokens.
+
+     0.55 -> 0.53 is the smallest step that clears 4.5:1 on every
+     surface it lands on (worst case 4.57:1 on --secondary). It stops
+     there on purpose: this is the DE-EMPHASIS tier, and darkening it
+     compresses the gap to --foreground, which works against the
+     hierarchy the heading weight above just restored. Fixing the
+     contrast failure is worth one step; it is not worth three. */
+  --muted-foreground: oklch(0.53 0.012 262);
   --accent: oklch(0.95 0.006 262);
   --accent-foreground: oklch(0.24 0.008 262);
   --destructive: oklch(0.5 0.15 25);
-  --border: oklch(0.9 0.005 262);
-  --input: oklch(0.9 0.005 262);
+  /* The 1px rule is the only thing separating a card from the page:
+     --card and --background are 1.03:1 apart, and --shadow-soft is 4%
+     alpha. Measured in the browser, this border used to sit at 1.29:1
+     against the background and 1.33:1 against a card, so the boundary
+     it was supposed to draw was invisible and cards dissolved into the
+     canvas. L 0.9 -> 0.76 puts it at roughly 2.06:1 / 2.12:1 - visible,
+     but deliberately short of the 3:1 that WCAG 1.4.11 asks of a real
+     UI boundary, because pushing a quiet canvas to 3:1 on 149 border
+     sites turns it into a wireframe. Only lightness moved; hue and
+     chroma are untouched. --input keeps the same value it always had
+     relative to --border. */
+  --border: oklch(0.76 0.005 262);
+  --input: oklch(0.76 0.005 262);
   --ring: oklch(0.5 0.16 262);
   --chart-1: oklch(0.5 0.09 235);
   --chart-2: oklch(0.5 0.08 155);
@@ -136,15 +164,22 @@
   --sidebar: oklch(0.97 0.005 262);
   --sidebar-foreground: oklch(0.24 0.008 262);
   --sidebar-primary: oklch(0.5 0.16 262);
-  --sidebar-primary-foreground: oklch(0.985 0.012 262);
+  --sidebar-primary-foreground: oklch(0.985 0.006 262);
   --sidebar-accent: oklch(0.95 0.006 262);
   --sidebar-accent-foreground: oklch(0.24 0.008 262);
-  --sidebar-border: oklch(0.9 0.005 262);
+  /* Follows --border. Missed when --border moved: this token draws the
+     sidebar's right edge and the rules above and below the nav list
+     (5 call sites in MainLayout), so leaving it behind made the one
+     boundary that is on screen at all times the faintest one in the
+     app. */
+  --sidebar-border: oklch(0.76 0.005 262);
   --sidebar-ring: oklch(0.5 0.16 262);
 
-  /* Ultra-diffuse shadow — cards are defined by a 1px border, this is
-     hover-lift only, opacity kept under 0.05 per the minimalist protocol. */
-  --shadow-soft: 0 2px 8px oklch(0 0 0 / 0.04);
+  /* Cards are defined by a 1px border first, this is hover-lift second —
+     but at 4% alpha it rendered as functionally invisible next to dark
+     mode's 22%. Doubled to the smallest step that reads as a shadow on
+     a light canvas rather than a border-adjacent rounding error. */
+  --shadow-soft: 0 2px 8px oklch(0 0 0 / 0.08);
 
   /*
     RECALL AI — Custom Tokens (Light)
@@ -182,8 +217,38 @@
   --mastery-untested: oklch(0.75 0.008 262);
   --mastery-untested-fg: oklch(0.4 0.01 262);
 
-  /* REMEDIATE: muted orange — Hệ thống tự chèn prerequisite vào lịch */
-  --remediate: oklch(0.55 0.13 55);
+  /*
+    Bộ lông Gấu Trúc. Là token vì nó PHẢI đổi theo theme.
+
+    Sprite chỉ có hai tông, nên theme nào cũng có một tông đứng sát nền: đo ra
+    ở theme sáng lông trắng chỉ 1,11:1 so với nền (hình vẫn đọc được vì lông
+    đen gánh 15,86:1), còn ở theme tối thì ngược lại — lông đen tụt xuống
+    1,16:1, tai và tay chân tan vào nền, chỉ còn trơ một khối trắng.
+  */
+  --panda-ink: oklch(0.24 0.012 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  /* Bóng đổ: tối hơn nền, đúng như bóng thật. */
+  --panda-shadow: oklch(0.24 0.012 40);
+
+  /* REMEDIATE: muted orange — Hệ thống tự chèn prerequisite vào lịch.
+
+     L 0.55 -> 0.50: đây là accent DUY NHẤT không nằm ở L 0.5 như bốn accent còn
+     lại (ai 0.5/235, strong 0.5/155, learning 0.5/85, weak 0.5/25), và chỗ lệch
+     đó làm nó trượt chuẩn tương phản ở đúng nơi nó được dùng nhiều nhất.
+
+     Đo trong browser trên nền đã hợp thành alpha, light mode:
+       `<Badge tone="remediate">` = text-remediate trên bg-remediate/14  -> 4.13  ✗
+       trên --accent / --secondary                                      -> 4.39  ✗
+       trên --muted                                                     -> 4.44  ✗
+     Bốn tone badge kia đều đạt (4.65–5.12); remediate là ca hỏng duy nhất, và nó
+     mang nhãn `TRUY NGƯỢC · TẦNG N` — một trong những chip người học đọc nhiều nhất.
+
+     Sau khi hạ về L 0.5 (C 0.13 -> 0.14 để giữ độ đậm của màu):
+       badge 5.02 · --accent/--secondary 5.48 · --muted 5.54 · --card 6.22
+     Dark mode không đổi: --remediate ở đó là 0.72 0.13 55, đã đồng bộ với anh em
+     và đo được 5.55 trên badge. */
+  --remediate: oklch(0.5 0.14 55);
   --remediate-foreground: oklch(0.99 0.002 262);
 
   /* ANIMATION TOKENS */
@@ -199,10 +264,26 @@
 
 /*
   DARK MODE — primary target, not an afterthought.
-  Warm dark charcoal (never cold navy, never pure black). Ink/paper
-  invert: primary becomes a warm off-white solid on dark charcoal text.
+  Warm dark charcoal (never cold navy, never pure black).
   Semantic accents brighten (higher L, slightly more C) to stay legible
   against the dark canvas, same hue as light mode for consistency.
+
+  Câu "ink/paper invert: primary becomes a warm off-white solid on dark
+  charcoal text" từng đứng ở đây đã bị GỠ: nó mô tả một thiết kế không
+  tồn tại trong file. `--primary` ở dark là xanh `oklch(0.56 0.17 262)`
+  với chữ gần trắng, không phải off-white với chữ than. Ai đọc chú thích
+  cũ rồi "khôi phục" cho khớp sẽ lật ngược mọi nút primary của app.
+
+  ⚠️ CÒN NỢ, chưa sửa ở đây vì không sửa được bằng một con số:
+  `--primary` ở dark KHÔNG đạt 4.5:1 khi dùng làm CHỮ trên mọi mặt phẳng
+  (--background 3.99 · --card 3.70 · --muted 3.33 · --secondary/--accent
+  3.13 · --sidebar 3.84), trong khi repo có 15 chỗ dùng `text-primary`
+  (nhãn "Đang diễn ra", tab đang chọn, số bước trên `bg-primary/10`…).
+  Nâng L để cứu chữ thì hỏng nút: đo được L 0.64 cho chữ 5.16 ✓ nhưng
+  `--primary-foreground` trên `--primary` tụt còn 3.25 ✗ (hiện 4.55).
+  Một token không phục vụ được cả hai vai. Hai lối, đều cần người quyết:
+  tách token riêng cho vai CHỮ, hoặc đảo `--primary-foreground` ở dark
+  sang mực tối rồi nâng `--primary`. Đừng tự chọn khi vá lặt vặt.
 */
 .dark {
   --background: oklch(0.17 0.006 262);
@@ -211,8 +292,25 @@
   --card-foreground: oklch(0.93 0.005 262);
   --popover: oklch(0.21 0.007 262);
   --popover-foreground: oklch(0.93 0.005 262);
-  --primary: oklch(0.62 0.17 262);
-  --primary-foreground: oklch(0.98 0.012 262);
+  /* Dark is the mode this file names as the primary target, and this
+     pair paints two things that are on screen for an entire session:
+     every default button, and the active sidebar row. Measured, it gave
+     3.52:1 for 13-14px button text - below AA, on the loudest colour in
+     the app.
+
+     L 0.62 -> 0.56 reaches 4.53:1, the smallest step that clears it.
+     Only lightness moved; hue 262 and chroma 0.17 are untouched, so the
+     brand read is intact. --ring keeps 0.62 on purpose: a focus ring is
+     a different affordance and wants to stay bright.
+
+     Chroma 0.012 -> 0.006 on the foreground is a separate fix in the
+     same pair. At L 0.98 chroma 0.012 puts the blue channel at 1.0073
+     in linear sRGB - outside the gamut, so the browser silently clamped
+     it and the value declared here was never the value that rendered.
+     0.006 lands at 0.9906. Lightness is untouched, so contrast is
+     unaffected; this only makes the declaration honest. */
+  --primary: oklch(0.56 0.17 262);
+  --primary-foreground: oklch(0.98 0.006 262);
   --secondary: oklch(0.27 0.008 262);
   --secondary-foreground: oklch(0.93 0.005 262);
   --muted: oklch(0.25 0.008 262);
@@ -220,8 +318,13 @@
   --accent: oklch(0.27 0.008 262);
   --accent-foreground: oklch(0.93 0.005 262);
   --destructive: oklch(0.68 0.16 25);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
+  /* Same problem, same fix, measured on the dark canvas: composited
+     over --background this border was 1.2:1, and cards are only 1.08:1
+     from the page here, so dark mode had even less to see. 8% -> 24%
+     reaches about 2.11:1. --input keeps its 4pp lead over --border so a
+     form field still reads as more interactive than a card edge. */
+  --border: oklch(1 0 0 / 24%);
+  --input: oklch(1 0 0 / 28%);
   --ring: oklch(0.62 0.17 262);
   --chart-1: oklch(0.72 0.1 235);
   --chart-2: oklch(0.72 0.09 155);
@@ -230,11 +333,15 @@
   --chart-5: oklch(0.68 0.012 262);
   --sidebar: oklch(0.19 0.007 262);
   --sidebar-foreground: oklch(0.93 0.005 262);
-  --sidebar-primary: oklch(0.62 0.17 262);
-  --sidebar-primary-foreground: oklch(0.98 0.012 262);
+  /* Same pair, same reasons - this one paints the always-visible active
+     nav row, so it is the single most persistent instance of the 3.52:1
+     failure above. */
+  --sidebar-primary: oklch(0.56 0.17 262);
+  --sidebar-primary-foreground: oklch(0.98 0.006 262);
   --sidebar-accent: oklch(0.27 0.008 262);
   --sidebar-accent-foreground: oklch(0.93 0.005 262);
-  --sidebar-border: oklch(1 0 0 / 8%);
+  /* Follows --border, same reason as light. */
+  --sidebar-border: oklch(1 0 0 / 24%);
   --sidebar-ring: oklch(0.62 0.17 262);
 
   --shadow-soft: 0 2px 10px oklch(0 0 0 / 0.22);
@@ -261,6 +368,31 @@
   --mastery-untested: oklch(0.4 0.01 262);
   --mastery-untested-fg: oklch(0.68 0.012 262);
 
+  /*
+    Lông đen phải SÁNG LÊN ở theme tối, nếu không con vật mất viền ngoài.
+
+    Đây là đánh đổi có ý thức, không phải con số tối ưu: muốn chạm 3:1 thì phải
+    đẩy tới L=0.52, lúc đó nó là xám trung và con gấu TRÚC hết còn là gấu trúc.
+    L=0.46 cho ~2,7:1 — tai và tay chân hiện rõ, mà vẫn đọc ra là lông sẫm.
+
+    Bóng đổ thì KHÔNG cứu được, và cũng không nên cố cứu. Nền tối đã ở 0.17,
+    gần đáy thang, nên một vệt tối hơn nền cao nhất chỉ đạt 1,07:1 dù dùng đen
+    tuyệt đối với alpha bao nhiêu — đã đo năm tổ hợp. Nghĩa là ở theme tối con
+    vật KHÔNG CÓ dấu chạm đất, và câu đúng phải là thừa nhận điều đó.
+
+    Bản trước lật nó thành một vệt SÁNG hơn nền để "vẫn neo được nhân vật".
+    Đo thì đẹp — 1,03 lên 1,88 — nhưng nhìn thì đó là một gạch trắng nằm dưới
+    đít con gấu, không ai đọc ra là mặt đất. Đó là sửa cho phép đo vừa mắt chứ
+    không phải sửa cho trang vừa mắt.
+
+    Nên nó ở lại là bóng thật, tối hơn nền, và chấp nhận gần như không thấy.
+    Vô hình thì vô hại; một vệt sáng sai chỗ thì không.
+  */
+  --panda-ink: oklch(0.46 0.014 40);
+  --panda-fur: oklch(0.95 0.008 65);
+  --panda-eye: oklch(0.99 0.004 65);
+  --panda-shadow: oklch(0.1 0.006 262);
+
   --remediate: oklch(0.72 0.13 55);
   --remediate-foreground: oklch(0.17 0.006 262);
 }
@@ -281,13 +413,36 @@
   }
 
   /* Editorial serif for hero/major headings only — tight tracking,
-     tight leading, per the minimalist-editorial protocol. Apply via
-     `font-heading` utility, not globally on h1-h6, since dense UI
-     labels (nav, buttons, table headers) stay sans. */
+     per the minimalist-editorial protocol. Apply via `font-heading`
+     utility, not globally on h1-h6, since dense UI labels (nav,
+     buttons, table headers) stay sans.
+
+     `font-weight` belongs HERE, not at each call site. Tailwind's
+     Preflight resets h1-h6 to `font-weight: inherit`, so a heading
+     that only carries `.font-heading` inherits 400 from body. Measured
+     in the running app before this rule existed: the h1 rendered at
+     400 on nine of eleven screens while the labels around it rendered
+     at 500-700 (65 `font-medium` + 56 `font-semibold` call sites), so
+     the loudest text on a screen was routinely a status chip or a
+     stat. On /focus the h1 was 26px/400 directly under a 44px/600
+     clock painted in `--muted-foreground` — the de-emphasis colour.
+     The emphasis axis ran backwards; this is the line that turns it
+     around. It sits in `@layer base`, so a screen that deliberately
+     wants a different weight still wins with a utility class.
+
+     Leading is 1.25 rather than the 1.1 this rule shipped with. Not
+     because 1.1 clipped anything — that was checked against the real
+     font in a browser and it does not clip, it only overflows its own
+     box by 4px with nothing set to hide the overflow. The reason is
+     that 600-weight serif at 1.1 reads measurably denser than the 400
+     it replaced, so the weight above would have bought emphasis at the
+     cost of legibility. 1.25 also gives Vietnamese stacked diacritics
+     (Ẫ, Ế, Ộ) room between wrapped lines: box overflow drops 4px to 2px. */
   .font-heading {
     font-family: var(--font-heading);
+    font-weight: 600;
     letter-spacing: -0.02em;
-    line-height: 1.1;
+    line-height: 1.25;
   }
 }
 
@@ -510,6 +665,155 @@ kbd,
 }
 
 /*
+  LANDING (#388) — hoạt hoạ của trang công khai `/`.
+
+  Tiền tố `lp-` cho MỌI lớp ở đây: `.node` đã bị khối mockup phía dưới chiếm,
+  và landing cũng có node đồ thị của riêng nó.
+
+  Phần lớn kịch bản (Gấu khiêng khái niệm, quăng cạnh, đi dọc đường truy
+  ngược) do React điều khiển trong `features/landing`, không phải bằng
+  @keyframes: nhịp nằm trong hàm thuần test được, còn CSS ở đây chỉ lo phần
+  nội suy giữa hai trạng thái. Ngoại lệ duy nhất là cú chạy qua lại ở hero —
+  nó không mang trạng thái nào nên keyframe là chỗ đúng của nó.
+*/
+/*
+  Quãng chạy đo bằng `left` theo phần trăm, KHÔNG bằng `translateX(100vw - …)`.
+
+  Bản trước tính quãng chạy theo bề rộng KHUNG NHÌN, trong khi đường chạy nằm
+  trong `<main class="max-w-[1280px]">`. Trên màn rộng hơn 1280px hai con số đó
+  rời nhau, và Gấu chạy quá đà đúng bằng phần chênh:
+
+    · từ ~1434px  — Gấu lọt ra ngoài cột nội dung
+    · từ ~1700px  — Gấu vượt hẳn mép phải khung nhìn và ĐẺ RA THANH CUỘN NGANG
+                    (đo ở 1920px: mép phải Gấu ở 2030px, tràn 110px, và không
+                    tổ tiên nào có `overflow-x` để chặn)
+
+  Phần trăm của `left` lấy mốc là khối chứa — chính là đường chạy — nên quãng
+  chạy khớp cột nội dung ở MỌI bề rộng, không cần biết khung nhìn rộng bao
+  nhiêu. `--lp-runner-w` do `LandingHero` truyền xuống, ngay cạnh chỗ đặt cỡ
+  sprite, để hai con số không thể lệch nhau.
+*/
+.lp-runner {
+  left: 0;
+  transform-origin: center bottom;
+  animation: lp-run 24s linear infinite;
+}
+
+@keyframes lp-run {
+  0% {
+    left: 0;
+    transform: scaleX(1);
+  }
+
+  45%,
+  47% {
+    left: calc(100% - var(--lp-runner-w, 150px));
+    transform: scaleX(1);
+  }
+
+  50% {
+    left: calc(100% - var(--lp-runner-w, 150px));
+    transform: scaleX(-1);
+  }
+
+  95%,
+  97% {
+    left: 0;
+    transform: scaleX(-1);
+  }
+
+  100% {
+    left: 0;
+    transform: scaleX(1);
+  }
+}
+
+/* Gấu đi giữa trang tài liệu và đồ thị ở cảnh 1. React đổi `left`, CSS lo
+   phần trượt — 900ms ngắn hơn nhịp 1000ms một chút để có một nhịp dừng rất
+   ngắn ở mỗi đầu, đọc ra thành "đặt xuống rồi mới quay đi".
+
+   `bottom` chuyển chậm hơn và đi kèm nhịp nảy nhẹ: đó là lúc nó trèo thang,
+   mà trèo thì phải thấy được từng nấc chứ không trượt thẳng lên như thang máy. */
+.lp-carrier {
+  transition:
+    left 1800ms var(--ease-standard),
+    bottom 1700ms steps(9, end);
+}
+
+/* Thang dựng lên / cất đi cùng nhịp với hồi nối cạnh. */
+.lp-ladder {
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+/* Mỗi chặng của đường truy ngược ở cảnh 2. 520ms so với 560ms giữa hai bước:
+   khoảng hở đó là thứ làm nó đọc ra thành "bước qua từng nút" thay vì trôi
+   một mạch tới đích. */
+.lp-walker {
+  transition: transform 520ms cubic-bezier(0.4, 0, 0.55, 1);
+}
+
+.lp-node {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.lp-node:hover {
+  transform: scale(1.16);
+}
+
+/*
+  Vòng tiêu điểm là một <circle> vẽ sẵn trong mỗi node, không phải `outline`.
+
+  `outline` trên nhóm SVG bám theo hộp bao của cả nhóm, mà nhóm gồm nhãn ở
+  trên và điểm số ở dưới — thành ra một chữ nhật cao gấp ba lần cái chấm, và ở
+  4/7 node nó thò ra chạm vào Gấu Trúc. Chữ nhật đó cũng nói sai: nó khoanh cả
+  phần chữ trong khi thứ đang được chọn chỉ là cái node.
+
+  Tắt outline mặc định ở `:focus` chứ KHÔNG phải `:focus-visible`.
+
+  Bấm chuột vào một `<g tabindex=0>` thì nó vào `:focus` mà không vào
+  `:focus-visible`. Bản trước chỉ tắt ở `:focus-visible`, nên đúng trường hợp
+  bấm chuột là luật tắt không với tới — và Chrome tự vẽ `outline: auto` dày 5px
+  quanh HỘP BAO CẢ NHÓM, tức là cái khung sáng trùm lên cả nhãn lẫn con Gấu.
+  Tắt ở `:focus` thì phủ cả hai trường hợp.
+
+  Bỏ outline mà không thay gì là làm hỏng khả năng tiếp cận — ở đây có thay:
+  `.lp-focus-ring` bên dưới lo đúng trường hợp bàn phím. Còn bấm chuột thì
+  không cần chỉ báo tiêu điểm, và node vừa chọn đã tự to lên và đổi màu rồi.
+*/
+.lp-focus-ring {
+  opacity: 0;
+}
+
+.lp-node:focus {
+  outline: none;
+}
+
+.lp-node:focus-visible .lp-focus-ring {
+  opacity: 1;
+}
+
+/* Xung chạy dọc cạnh đang thuộc đường truy ngược. */
+.lp-edge-live {
+  stroke-dasharray: 7 6;
+  animation: lp-flow 700ms linear infinite;
+}
+
+@keyframes lp-flow {
+  to {
+    stroke-dashoffset: -13;
+  }
+}
+
+.lp-chip {
+  transition:
+    opacity var(--duration-normal) var(--ease-standard),
+    transform var(--duration-normal) var(--ease-spring);
+}
+
+/*
   ACCESSIBILITY — prefers-reduced-motion
   Tắt tất cả animation khi user yêu cầu, bao gồm reveal-on-scroll.
 */
@@ -518,7 +822,14 @@ kbd,
   .is-remediating,
   .reveal-on-scroll,
   .concept-node,
-  .react-flow__node {
+  .react-flow__node,
+  .lp-runner,
+  .lp-carrier,
+  .lp-ladder,
+  .lp-walker,
+  .lp-node,
+  .lp-edge-live,
+  .lp-chip {
     animation: none !important;
     transition: none !important;
   }
@@ -652,7 +963,10 @@ kbd,
 
 .node__diff {
   font-family: var(--font-mono);
-  font-size: 10px;
+  /* 11px là sàn cỡ chữ của app (#386 mục 2). Site này nấp sau class global nên không lộ khi
+     grep `text-[` trong `.tsx` — nó là chữ render BÊN TRONG node đồ thị, và vì
+     `MiniConceptGraph` dùng lại `ConceptGraph` nên nó xuất hiện ở cả Dashboard. */
+  font-size: 11px;
   color: var(--muted-foreground);
   position: absolute;
   top: 100%;

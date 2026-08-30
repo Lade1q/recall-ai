@@ -363,11 +363,13 @@ export function RunningSession({
           đã ẩn tài liệu ⇒ nhánh dưới rơi về màn đang chạy NGUYÊN VẸN. */}
       <div className="relative flex min-h-0 flex-1 flex-col min-[900px]:flex-row">
         {documentPlanId !== null && isDocumentOpen ? (
-          /* Bố cục hai cột của mockup (`.split`): tài liệu trái, cột phải giữ ĐỒNG HỒ RÚT GỌN + nút
-           đổi mức. Theo mockup, cột phải CHỈ có đồng hồ + ghi chú + một nút duy nhất — cụm dừng/kết
-           thúc thuộc màn không-tài-liệu; ở đây `Space` vẫn tạm dừng, và bấm "Ẩn" trên thanh trên là
-           về màn đó. Mỗi cột tự cuộn (`min-h-0` + `overflow-y-auto`) để trang PDF cao đến đâu cũng
-           không đẩy đồng hồ khỏi tầm mắt. */
+          /* Bố cục hai cột của mockup (`.split`): tài liệu trái, cột phải giữ TÊN KHÁI NIỆM + ĐỒNG
+           HỒ RÚT GỌN + nút đổi mức. Mockup vẽ cột phải chỉ có đồng hồ + ghi chú + một nút duy nhất;
+           khối tên khái niệm là phần THÊM của #373 và là chỗ lệch mockup duy nhất ở đây — mở tài
+           liệu ra mà không còn tên khái niệm thì người đọc mất luôn thứ mà mẩu trích đang minh hoạ.
+           Cụm dừng/kết thúc vẫn thuộc màn không-tài-liệu; ở đây `Space` vẫn tạm dừng, và bấm "Ẩn"
+           trên thanh trên là về màn đó. Mỗi cột tự cuộn (`min-h-0` + `overflow-y-auto`) để trang PDF
+           cao đến đâu cũng không đẩy đồng hồ khỏi tầm mắt. */
           <div
             ref={contentRef}
             tabIndex={-1}
@@ -378,19 +380,39 @@ export function RunningSession({
             </div>
 
             <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-[22px]">
+              {/* #373 ①: mở tài liệu ra thì tên khái niệm biến mất khỏi màn — người dùng còn lại
+                  mỗi một mẩu chữ rời và không có gì nói nó đang minh hoạ cho cái gì.
+                  ⚠️ Đặt ở CỘT PHẢI cạnh đồng hồ, KHÔNG phải đầu cột tài liệu: #227 đã cố ý gỡ nó
+                  khỏi chỗ đó vì nằm đúng vị trí tiêu đề mục thì nó đọc ra như một mục có thật
+                  trong tệp — một nhãn bịa (xem docstring `DocumentExcerpt`). Ở đây nó thuộc về
+                  khối trạng thái phiên, cạnh đồng hồ, nên không giả vờ là nội dung tài liệu. */}
+              <div className="text-center">
+                <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
+                  Đang học
+                </div>
+                <h1 className="font-heading mt-1 text-balance text-[17px] leading-[1.25] tracking-[-0.02em]">
+                  {item.name}
+                </h1>
+              </div>
+
               <div className="text-center">
                 <div className="font-mono text-[34px] font-semibold tabular-nums tracking-[-0.03em]">
                   {formatClock(Math.max(0, timer.phaseTargetMs - timer.phaseElapsedMs))}
                 </div>
-                <div className="text-muted-foreground mt-1.5 text-[10px] uppercase tracking-[0.08em]">
+                <div className="text-muted-foreground mt-1.5 text-[11px] uppercase tracking-[0.08em]">
                   Còn lại · Pomodoro {(timer.pomodorosCompleted % timer.config.cycles) + 1}/
                   {timer.config.cycles}
                 </div>
               </div>
 
+              {/* #373 ②: câu cũ — "Vùng tô sáng là đoạn khớp… Phần còn lại của tài liệu vẫn mở
+                  được…" — dựng sai mô hình trong đầu người đọc. Nó gợi ra một trang tài liệu có
+                  một vùng được tô, trong khi thứ trên màn là một mẩu trích 65–119 ký tự mà
+                  **69–79% đã là vùng tô sáng**: không có "phần còn lại" nào quanh nó để mà đối
+                  chiếu. Câu mới nói đúng thứ đang bày, và trỏ sang nút ngay dưới cho ngữ cảnh. */}
               <p className="text-muted-foreground m-0 text-xs leading-[1.6]">
                 {sessionDocument.level === 'excerpt'
-                  ? 'Vùng tô sáng là đoạn khớp với khái niệm đang học. Phần còn lại của tài liệu vẫn mở được, nhưng không mặc định chiếm màn hình.'
+                  ? 'Đây là câu trích ngắn lấy nguyên văn từ tài liệu, không phải cả đoạn quanh nó. Mở toàn văn để đọc trong ngữ cảnh.'
                   : 'Đang mở toàn văn. Thời gian tập trung vẫn chạy vì bạn còn ở trong tab này.'}
               </p>
 

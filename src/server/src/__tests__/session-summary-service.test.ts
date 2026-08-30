@@ -117,7 +117,7 @@ describe('getSessionSummary', () => {
     });
   });
 
-  it('rejects with 409 when the session has not finished yet', async () => {
+  it('rejects with 409 when the session has not finished yet (active)', async () => {
     mockedLoadSession.mockResolvedValue(baseSession({ status: 'active' }));
 
     await expect(getSessionSummary(SESSION_ID, USER_ID)).rejects.toMatchObject({
@@ -125,6 +125,43 @@ describe('getSessionSummary', () => {
       code: 'SESSION_NOT_COMPLETED',
     });
     expect(mockedSummarizeSession).not.toHaveBeenCalled();
+  });
+
+  it('still rejects with 409 for a paused session — nothing finished to summarise yet', async () => {
+    mockedLoadSession.mockResolvedValue(baseSession({ status: 'paused' }));
+
+    await expect(getSessionSummary(SESSION_ID, USER_ID)).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'SESSION_NOT_COMPLETED',
+    });
+    expect(mockedSummarizeSession).not.toHaveBeenCalled();
+  });
+
+  it('accepts an abandoned session (SPEC_DB-03) but never calls summarize_session for it (AF3)', async () => {
+    mockedLoadSession.mockResolvedValue(baseSession({ status: 'abandoned' }));
+
+    const result = await getSessionSummary(SESSION_ID, USER_ID);
+
+    expect(result.status).toBe('abandoned');
+    expect(result.summary).toEqual({
+      text: null,
+      strengths: [],
+      weaknesses: [],
+      recommendations: [],
+      generatedByAi: false,
+      message: null,
+    });
+    expect(mockedSummarizeSession).not.toHaveBeenCalled();
+    // The score table itself is unaffected — same concepts/turns as any other session.
+    expect(result.concepts).toHaveLength(2);
+  });
+
+  it('does not reuse the AI-unavailable message for an abandoned session (different reason, AF3 vs UC-14 E1)', async () => {
+    mockedLoadSession.mockResolvedValue(baseSession({ status: 'abandoned' }));
+
+    const result = await getSessionSummary(SESSION_ID, USER_ID);
+
+    expect(result.summary.message).toBeNull();
   });
 
   it('calls Gemini once, caches the result, and returns the full breakdown', async () => {

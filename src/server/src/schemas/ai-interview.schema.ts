@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_CHECKPOINTS_PER_CONCEPT } from '../utils/checkpoint';
 
 /**
  * Response shapes for the AI Examiner calls (I6.2 / #114, I6.5 / AE-09).
@@ -15,10 +16,70 @@ export const generateQuestionResponseSchema = z.object({
   question_type: z.enum(['recall', 'application', 'why']),
 });
 
-export const gradeAnswerResponseSchema = z.object({
+/** Longest quote we ask for. A quote is a span of the student's own answer, not a retelling. */
+export const EVIDENCE_QUOTE_MAX_CHARS = 1000;
+
+/**
+ * One checkpoint's worth of evidence, as `grade_answer` is ASKED to produce it (#346).
+ *
+ * `checkpoint` is a 1-based INDEX into the checkpoint list serialised into that same prompt —
+ * never an id and never the checkpoint's text. Two reasons, and the first is the deciding one:
+ *   - an index is CHECKABLE deterministically (`1 ≤ i ≤ N` is arithmetic), whereas "is this uuid
+ *     real?" is not checkable cheaply — and `InterviewEvidence.checkpointId` is deliberately NOT a
+ *     foreign key (#330), so an invented uuid WRITES SUCCESSFULLY. The index turns an
+ *     undetectable error into an arithmetic one. This is the cost side of the non-FK decision
+ *     coming due.
+ *   - matching on text would stand up a SECOND normalisation pipeline over model output, on top
+ *     of `checkpointKey` — exactly what #330 avoided.
+ *
+ * ⚠️ The index is only meaningful against the array that was serialised INTO the prompt. Resolving
+ * it must read that same array in the same request — see `mapGradeEvidence` (`utils/grade-evidence.ts`),
+ * which is where that rule is enforced and explained.
+ */
+const gradeAnswerEvidenceItemSchema = z.object({
+  checkpoint: z.number().int().min(1),
+  status: z.enum(['covered', 'contradicted']),
+  quote: z.string().min(1).max(EVIDENCE_QUOTE_MAX_CHARS),
+});
+
+const gradeAnswerCoreShape = {
   score: z.number().min(0).max(1),
   feedback: z.string().min(1).max(2000),
   verdict: z.enum(['deep', 'shallow', 'wrong']),
+};
+
+/**
+ * What `grade_answer` is ASKED for. Used for ONE thing: deriving the JSON Schema handed to
+ * Gemini's structured output. It is never used to parse a response — see the asymmetry note on
+ * `gradeAnswerResponseSchema`.
+ *
+ * Exported so a test can assert the JSON Schema still declares the full item shape: dropping a
+ * field here is behaviour-neutral for every existing test (the response schema would not change),
+ * so nothing else would go red.
+ */
+export const gradeAnswerAskSchema = z.object({
+  ...gradeAnswerCoreShape,
+  evidence: z.array(gradeAnswerEvidenceItemSchema).max(MAX_CHECKPOINTS_PER_CONCEPT),
+});
+
+/**
+ * What `grade_answer` is ACCEPTED as — deliberately NOT the schema above, for exactly one field.
+ *
+ * `evidence` is `unknown` here because `callStructured` treats a Zod failure as `AI_BAD_FORMAT`,
+ * which drops the whole response and sends the session into `gradingUnavailable`. A single
+ * malformed evidence entry would then cost the student an answer that was graded correctly —
+ * evidence is ADDITIVE (#346) and must never be able to take the grade down with it. So the shape
+ * is checked per item, downstream, by `mapGradeEvidence`, which counts what it rejects instead of
+ * throwing.
+ *
+ * The strictness lives in the JSON Schema (`gradeAnswerJsonSchema`, derived from
+ * `gradeAnswerAskSchema`) — structured output is what actually keeps the model on the rails; the
+ * looseness here only stops a deviation from being fatal. Asking strictly and accepting leniently
+ * is the point, not an oversight: keep both, and keep them different.
+ */
+export const gradeAnswerResponseSchema = z.object({
+  ...gradeAnswerCoreShape,
+  evidence: z.unknown().optional(),
 });
 
 export type GenerateQuestionResponse = z.infer<typeof generateQuestionResponseSchema>;
@@ -51,5 +112,7 @@ export type SummarizeSessionResponse = z.infer<typeof summarizeSessionResponseSc
 // JSON Schemas passed to Gemini's response_format, derived from the Zod schemas above so
 // the contract is written once (DRY / Platform Leverage Ladder), same as ai-extract.schema.ts.
 export const generateQuestionJsonSchema = z.toJSONSchema(generateQuestionResponseSchema);
-export const gradeAnswerJsonSchema = z.toJSONSchema(gradeAnswerResponseSchema);
+// Derived from the ASK schema, not the response schema: `grade_answer` is the one call where the
+// two differ on purpose (#346). See the note on `gradeAnswerResponseSchema`.
+export const gradeAnswerJsonSchema = z.toJSONSchema(gradeAnswerAskSchema);
 export const summarizeSessionJsonSchema = z.toJSONSchema(summarizeSessionResponseSchema);

@@ -83,6 +83,20 @@ export function getVnTomorrowStartUtc(now: Date): Date {
 }
 
 /**
+ * Thời điểm UTC "giữa ngày" (10:00 giờ VN, 03:00Z) ứng với một ngày lịch VN dạng `'YYYY-MM-DD'`.
+ * Mốc ghi cho PATCH `{scheduledFor}` (#403): client chỉ gửi NGÀY, server sở hữu instant.
+ *
+ * Không neo vào 00:00 VN như `getVnTomorrowStartUtc`: nửa đêm VN nằm sát biên ngày (= 17:00Z hôm
+ * trước), nên một lệch đồng hồ vài tiếng giữa client/server dễ rơi nhầm sang ngày kế bên. 03:00Z
+ * nằm giữa cửa sổ UTC của ngày đó (`[D-1 17:00Z, D 17:00Z)`), đúng quy ước đã dùng sẵn cho
+ * `scheduledFor` ở khắp repo (fixture `schedule-sample.ts`, `review-schedule-service.test.ts`).
+ */
+export function getVnDateInstant(dateKey: string): Date {
+  const { year, month, day } = parseVnDateKey(dateKey);
+  return new Date(Date.UTC(year, month - 1, day, 3, 0, 0));
+}
+
+/**
  * Streak không thể dài hơn số ngày này — giới hạn cửa sổ quét lịch sử hoạt động để chi phí
  * không tăng tuyến tính theo tuổi tài khoản (mỗi lần vào Dashboard đều quét lại). Đủ lớn (>1
  * năm) để không bao giờ cắt cụt một streak thật.

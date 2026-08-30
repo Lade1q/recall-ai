@@ -49,7 +49,9 @@ export async function getConceptDetail(
       select: {
         pageFrom: true,
         pageTo: true,
+        sectionTitle: true,
         excerpt: true,
+        context: true,
         document: { select: { id: true, filename: true, kind: true } },
       },
       orderBy: { createdAt: 'asc' },
@@ -93,7 +95,9 @@ export async function getConceptDetail(
       kind: ref.document.kind,
       pageFrom: ref.pageFrom,
       pageTo: ref.pageTo,
+      sectionTitle: ref.sectionTitle,
       excerpt: ref.excerpt,
+      context: ref.context,
     })),
     history: buildConceptHistory(
       turns,

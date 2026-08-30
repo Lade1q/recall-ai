@@ -887,8 +887,15 @@
               </svg>
             </div>
             <h3>Bắt đầu kế hoạch ôn tập đầu tiên</h3>
-            <!-- Nguyên văn NO_PLAN_MESSAGE — /review-queue/today trả câu này khi statuses.length === 0 -->
+            <!-- Nguyên văn NO_PLAN_MESSAGE — /review-queue/today trả câu này khi statuses.length === 0.
+                 ⚠️ Trang tĩnh này chỉ vẽ ca ĐÃ CÓ message. Khi /review-queue/today chưa về hoặc lỗi
+                 thì đó là ca "chưa có dữ liệu" (không phải ca "rỗng"): app để trống đúng đoạn thân
+                 bài này — KHÔNG thay bằng chữ client — và ở ca lỗi thì khối "Gợi ý hôm nay" phía
+                 trên hiện báo lỗi + "Thử lại", nên A1 lúc đó có HAI khối chứ không phải một.
+                 Xem review PR #408. -->
             <p>Bạn chưa có kế hoạch ôn tập nào. Tạo một kế hoạch để bắt đầu ôn.</p>
+            <!-- App dùng size="lg" (h-11 = 44px) cho CTA này, lệch có chủ đích so với .btn-primary
+                 (40px) ở đây — yêu cầu trực tiếp 16/08, ghi trong AC #389. -->
             <a class="btn btn-primary" href="screen-create-plan.html" style="text-decoration:none;">
               Tạo kế hoạch đầu tiên
             </a>

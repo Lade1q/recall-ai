@@ -133,6 +133,9 @@ export interface PlanDetailResponse {
  * panel shows the excerpt that produced the concept, next to the file and page it lives on.
  * Every field but `documentId`/`filename` is best-effort — the AI supplies page and excerpt,
  * and `buildConceptSourceRows` anchors on whichever of the two it got.
+ *
+ * `sectionTitle`/`context` (#296): `null` on every row anchored before this field existed — the
+ * client must fall back to the pre-#296 rendering (#227) rather than show an empty heading.
  */
 export interface ConceptSourceItemResponse {
   documentId: string;
@@ -140,7 +143,9 @@ export interface ConceptSourceItemResponse {
   kind: DocumentKind;
   pageFrom: number | null;
   pageTo: number | null;
+  sectionTitle: string | null;
   excerpt: string | null;
+  context: string | null;
 }
 
 /** One row of the DB-06 "Lịch sử học tập" list — see `utils/concept-history.ts`. */

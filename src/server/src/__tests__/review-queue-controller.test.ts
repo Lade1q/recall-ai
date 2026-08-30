@@ -7,6 +7,7 @@ import {
 import {
   getReviewQueueForPlan,
   getTodayReviewQueue,
+  setReviewQueueItemScheduledFor,
   snoozeReviewQueueItem,
   updateReviewQueueItemStatus,
 } from '../services/scheduling.service';
@@ -21,12 +22,14 @@ jest.mock('../services/scheduling.service', () => ({
   getTodayReviewQueue: jest.fn(),
   updateReviewQueueItemStatus: jest.fn(),
   snoozeReviewQueueItem: jest.fn(),
+  setReviewQueueItemScheduledFor: jest.fn(),
 }));
 
 const mockedGetQueue = getReviewQueueForPlan as jest.Mock;
 const mockedGetToday = getTodayReviewQueue as jest.Mock;
 const mockedUpdateItem = updateReviewQueueItemStatus as jest.Mock;
 const mockedSnoozeItem = snoozeReviewQueueItem as jest.Mock;
+const mockedSetScheduledFor = setReviewQueueItemScheduledFor as jest.Mock;
 
 const USER_ID = 'user-owner-uuid';
 const PLAN_ID = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
@@ -374,6 +377,114 @@ describe('updateReviewQueueItemController — snooze branch (#233)', () => {
       userId: USER_ID,
       params: { itemId: ITEM_ID },
       body: { snooze: true },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBe(notFound);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+// #403 — nhánh thứ ba: dời sang ngày người dùng chọn (màn Lịch của epic #400).
+describe('updateReviewQueueItemController — scheduledFor branch (#403)', () => {
+  const RESCHEDULED = {
+    id: ITEM_ID,
+    conceptId: 'c1',
+    planId: PLAN_ID,
+    status: 'pending' as const,
+    scheduledFor: new Date('2026-08-25T03:00:00.000Z'),
+  };
+
+  it('routes { scheduledFor } to the reschedule service and returns 200', async () => {
+    mockedSetScheduledFor.mockResolvedValue(RESCHEDULED);
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { scheduledFor: '2026-08-25' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    await updateReviewQueueItemController(req, res);
+
+    expect(mockedSetScheduledFor).toHaveBeenCalledWith(
+      ITEM_ID,
+      USER_ID,
+      '2026-08-25',
+      expect.any(Date)
+    );
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+    expect(mockedSnoozeItem).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { item: RESCHEDULED } });
+  });
+
+  it('rejects a malformed date instead of forwarding it to the service', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { scheduledFor: '25/08/2026' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSetScheduledFor).not.toHaveBeenCalled();
+  });
+
+  it('rejects a calendar date that does not exist (2026-02-30)', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { scheduledFor: '2026-02-30' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSetScheduledFor).not.toHaveBeenCalled();
+  });
+
+  it('rejects a body carrying both status and scheduledFor rather than picking one', async () => {
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { status: 'skipped', scheduledFor: '2026-08-25' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBeInstanceOf(ZodError);
+    expect(mockedSetScheduledFor).not.toHaveBeenCalled();
+    expect(mockedUpdateItem).not.toHaveBeenCalled();
+  });
+
+  it('propagates the traceback-guard rejection from the service untouched', async () => {
+    const locked = new AppError(
+      "Không thể dời ngày: Nền tảng của 'Đệ quy' mà bạn còn yếu, nên lịch của mục này do hệ thống giữ nguyên.",
+      409,
+      'TRACEBACK_REPRESENTATIVE_LOCKED'
+    );
+    mockedSetScheduledFor.mockRejectedValue(locked);
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { scheduledFor: '2026-08-25' },
+    } as unknown as Request;
+    const res = mockRes();
+
+    const error = await updateReviewQueueItemController(req, res).catch((e) => e);
+    expect(error).toBe(locked);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('propagates a 404 from the reschedule service (item missing or not owned)', async () => {
+    const notFound = new AppError('Review queue item not found', 404, 'NOT_FOUND');
+    mockedSetScheduledFor.mockRejectedValue(notFound);
+    const req = {
+      userId: USER_ID,
+      params: { itemId: ITEM_ID },
+      body: { scheduledFor: '2026-08-25' },
     } as unknown as Request;
     const res = mockRes();
 

@@ -1,0 +1,8 @@
+# `runs/` và `fixtures/*.wav` từng bị bỏ qua ở đây vì spike là mã vứt đi.
+# Chúng được track từ 15/08/2026: `docs/management/technical-spike-s0-report.md`
+# trích số liệu thẳng từ các tệp này, nên chúng là HIỆN VẬT kiểm chứng được,
+# không còn là rác tạm. Xoá chúng đi thì báo cáo dẫn nguồn không tồn tại.
+node_modules/
+
+# Chứa project ID và đường dẫn tới service-account key. Xem .env.example.
+.env

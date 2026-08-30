@@ -175,6 +175,50 @@ export function sessionMasteryScore(
   return calculateMasteryScore(graded);
 }
 
+/** One other session's outcome for the same concept, as `conceptMasteryForSession` needs it. */
+export interface ConceptMasteryTimelinePoint {
+  startedAt: number;
+  masteryAfter: number | null;
+}
+
+/**
+ * SPEC_DB-03 step #4's before/after pair for one concept in one session: the score that was in
+ * force just before this session ran, and the score this session itself produced.
+ *
+ * `priorPoints` is every OTHER session of the same user that touched this concept, in any
+ * order — only the ones strictly before `targetStartedAt` count, and among those only the most
+ * recent one with a real (non-null) score; a session that touched the concept but graded
+ * nothing is skipped rather than resetting "before" to null, so a run of ungraded attempts
+ * never hides the last real score.
+ *
+ * `isFirstAssessment` is true only when this session is the first ever to produce a real score
+ * for the concept — `masteryBefore: null` on its own would also cover "queued but never
+ * reached", which is not the same claim.
+ */
+export function conceptMasteryForSession(
+  targetTurns: readonly { turnIndex: number; score: number | null }[],
+  targetStartedAt: number,
+  priorPoints: readonly ConceptMasteryTimelinePoint[]
+): { masteryBefore: number | null; masteryAfter: number | null; isFirstAssessment: boolean } {
+  const masteryAfter = sessionMasteryScore(targetTurns);
+
+  let masteryBefore: number | null = null;
+  let latestBeforeTime = -Infinity;
+  for (const point of priorPoints) {
+    if (point.masteryAfter === null) continue;
+    if (point.startedAt < targetStartedAt && point.startedAt > latestBeforeTime) {
+      masteryBefore = point.masteryAfter;
+      latestBeforeTime = point.startedAt;
+    }
+  }
+
+  return {
+    masteryBefore,
+    masteryAfter,
+    isFirstAssessment: masteryBefore === null && masteryAfter !== null,
+  };
+}
+
 /** At or above this, a concept reads as fully mastered rather than still being learned. */
 export const MASTERY_STRONG_THRESHOLD = 0.8;
 

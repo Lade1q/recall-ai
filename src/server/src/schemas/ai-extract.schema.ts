@@ -8,6 +8,13 @@ import { z } from 'zod';
  */
 export const CHECKPOINT_MAX_LENGTH = 300;
 
+/** Longest a section title may be — a heading, not a sentence (#296). */
+export const SOURCE_SECTION_MAX_LENGTH = 200;
+
+/** Longest the surrounding-context passage may be — a paragraph, wider than `source_excerpt`'s
+ *  short verbatim quote (#296, FS-04 state 6). */
+export const SOURCE_CONTEXT_MAX_LENGTH = 2000;
+
 export const conceptExtractSchema = z.object({
   name: z.string().min(1).max(255),
   difficulty: z.number().int().min(1).max(5).catch(1),
@@ -18,6 +25,14 @@ export const conceptExtractSchema = z.object({
   // (plain text/images); `source_excerpt` is the verbatim passage used to ground it (C5).
   source_page: z.number().int().min(1).nullish().catch(null),
   source_excerpt: z.string().min(1).max(2000).nullish().catch(null),
+  // #296 — làm giàu FS-04 state 6, cả hai best-effort/độc lập như hai field trên.
+  // `source_section`: tiêu đề mục tài liệu chứa khái niệm (KHÔNG phải tên khái niệm — DocumentExcerpt
+  // từng lấy nhầm tên khái niệm làm tiêu đề mục, #227 đã bỏ vì đó là nhãn bịa).
+  source_section: z.string().min(1).max(SOURCE_SECTION_MAX_LENGTH).nullish().catch(null),
+  // `source_context`: đoạn văn BAO QUANH `source_excerpt`, tách riêng khỏi excerpt (C5) — excerpt
+  // vẫn phải là câu trích verbatim ngắn dùng cho `<mark>`/đối chiếu nguồn, không được nới ra để
+  // gồm cả ngữ cảnh (mất khả năng tô đúng câu, và dễ lẫn diễn giải của model vào phần verbatim).
+  source_context: z.string().min(1).max(SOURCE_CONTEXT_MAX_LENGTH).nullish().catch(null),
   // What the student must demonstrate to be counted as understanding this concept — the ruler
   // Interview v2 grades against, committed HERE at analysis time and immutable while grading
   // (INV-1, #329). No weight field by design: a harder checkpoint is simply written as more

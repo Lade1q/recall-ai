@@ -9,6 +9,7 @@ import {
   PLAN_AWAITING_CONFIRMATION_MESSAGE,
   getReviewQueueForPlan,
   getTodayReviewQueue,
+  setReviewQueueItemScheduledFor,
   updateReviewQueueItemStatus,
 } from '../services/scheduling.service';
 
@@ -36,6 +37,7 @@ interface FakeQueueRow {
   sourceConceptId: string | null;
   sourceSessionId: string | null;
   scheduledFor: Date | null;
+  createdAt: Date;
 }
 
 interface FakeConcept {
@@ -81,6 +83,7 @@ function row(overrides: Partial<FakeQueueRow> & { id: string; conceptId: string 
     sourceConceptId: null,
     sourceSessionId: null,
     scheduledFor: ALREADY_DUE,
+    createdAt: new Date('2026-08-01T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -88,12 +91,14 @@ function row(overrides: Partial<FakeQueueRow> & { id: string; conceptId: string 
 /** The subset of Prisma's `where` grammar these two services actually use. */
 interface FakeWhere {
   planId?: string;
+  conceptId?: string;
   status?: ReviewItemStatus | { notIn?: ReviewItemStatus[] };
   scheduledFor?: { lte: Date };
 }
 
 function matches(candidate: FakeQueueRow, where: FakeWhere = {}): boolean {
   if (where.planId !== undefined && candidate.planId !== where.planId) return false;
+  if (where.conceptId !== undefined && candidate.conceptId !== where.conceptId) return false;
   if (typeof where.status === 'string' && candidate.status !== where.status) return false;
   if (typeof where.status === 'object' && where.status.notIn?.includes(candidate.status)) {
     return false;
@@ -113,9 +118,10 @@ jest.mock('../config/prisma', () => ({
       count: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
       updateMany: jest.fn(),
     },
-    concept: { findMany: jest.fn(), count: jest.fn() },
+    concept: { findMany: jest.fn(), count: jest.fn(), findUnique: jest.fn() },
     interviewSession: { findMany: jest.fn() },
     studyPlan: { findUnique: jest.fn(), findMany: jest.fn() },
   },
@@ -126,9 +132,10 @@ const mockedPrisma = prisma as unknown as {
     count: jest.Mock;
     findMany: jest.Mock;
     findUnique: jest.Mock;
+    findUniqueOrThrow: jest.Mock;
     updateMany: jest.Mock;
   };
-  concept: { findMany: jest.Mock; count: jest.Mock };
+  concept: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
   interviewSession: { findMany: jest.Mock };
   studyPlan: { findUnique: jest.Mock; findMany: jest.Mock };
 };
@@ -167,10 +174,21 @@ beforeEach(() => {
               id: found.id,
               conceptId: found.conceptId,
               planId: found.planId,
+              status: found.status,
               plan: { userId: USER_ID },
             }
           : null
       );
+    }
+  );
+
+  // #403: `setReviewQueueItemScheduledFor` reads the row back after writing it, same reason
+  // `snoozeReviewQueueItem` does — the response must say what actually landed, not what was asked.
+  mockedPrisma.reviewQueueItem.findUniqueOrThrow.mockImplementation(
+    ({ where }: { where: { id: string } }) => {
+      const found = queueRows.find((candidate) => candidate.id === where.id);
+      if (!found) throw new Error(`no row with id ${where.id}`);
+      return Promise.resolve({ status: found.status, scheduledFor: found.scheduledFor });
     }
   );
 
@@ -182,14 +200,13 @@ beforeEach(() => {
       where,
       data,
     }: {
-      where: { planId: string; conceptId: string };
-      data: { status: ReviewItemStatus };
+      where: FakeWhere;
+      data: { status?: ReviewItemStatus; scheduledFor?: Date };
     }) => {
-      const affected = queueRows.filter(
-        (candidate) => candidate.planId === where.planId && candidate.conceptId === where.conceptId
-      );
+      const affected = queueRows.filter((candidate) => matches(candidate, where));
       for (const candidate of affected) {
-        candidate.status = data.status;
+        if (data.status !== undefined) candidate.status = data.status;
+        if (data.scheduledFor !== undefined) candidate.scheduledFor = data.scheduledFor;
       }
       return Promise.resolve({ count: affected.length });
     }
@@ -199,6 +216,9 @@ beforeEach(() => {
   planConcepts = [];
   mockedPrisma.concept.findMany.mockImplementation(() => Promise.resolve(planConcepts));
   mockedPrisma.concept.count.mockImplementation(() => Promise.resolve(planConcepts.length));
+  mockedPrisma.concept.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+    Promise.resolve(concepts.find((concept) => concept.id === where.id) ?? null)
+  );
   mockedPrisma.interviewSession.findMany.mockResolvedValue([]);
   // Plans honour their `where` too — a draft plan sitting next to the active one is exactly
   // the case #265 introduces, and a canned array would hide it.
@@ -282,6 +302,282 @@ describe('the queue reads everything still on the schedule, not just `pending`',
     const today = await getTodayReviewQueue(USER_ID);
 
     expect(conceptIdsOf(today.items)).toEqual(['concept-dfs']);
+  });
+});
+
+/**
+ * #403 — PATCH `{scheduledFor}`, the "dời ngày" action on the calendar screen of epic #400.
+ * `NOW` sits at 03:00Z, the repo-wide convention for "10:00 giờ VN cùng ngày" (see
+ * `dashboard-stats.test.ts`), so `toVnDateKey(NOW)` is `'2026-08-20'` — today.
+ */
+describe('setReviewQueueItemScheduledFor (#403)', () => {
+  const NOW = new Date('2026-08-20T03:00:00.000Z');
+
+  it('moves every row of the cluster to the chosen date, not just the row named by id', async () => {
+    queueRows = [
+      row({ id: 'item-1', conceptId: 'concept-recursion', sourceSessionId: 'session-1' }),
+      row({ id: 'item-2', conceptId: 'concept-recursion', sourceSessionId: 'session-2' }),
+      row({ id: 'item-dfs', conceptId: 'concept-dfs' }),
+    ];
+
+    const result = await setReviewQueueItemScheduledFor('item-1', USER_ID, '2026-08-25', NOW);
+
+    expect(result.scheduledFor).toEqual(new Date('2026-08-25T03:00:00.000Z'));
+    expect(
+      queueRows
+        .filter((candidate) => candidate.conceptId === 'concept-recursion')
+        .every((candidate) => candidate.scheduledFor?.toISOString() === '2026-08-25T03:00:00.000Z')
+    ).toBe(true);
+    // Sibling concept untouched.
+    expect(queueRows.find((candidate) => candidate.id === 'item-dfs')?.scheduledFor).toEqual(
+      ALREADY_DUE
+    );
+  });
+
+  it('survives a re-read (F5) — the write is persisted, not just returned', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+
+    await setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-09-01', NOW);
+    const reread = await setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-09-01', NOW);
+
+    expect(reread.scheduledFor).toEqual(new Date('2026-09-01T03:00:00.000Z'));
+  });
+
+  it('rejects a date before today (VN calendar day), leaving the row untouched', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-08-19', NOW)
+    ).rejects.toMatchObject({ statusCode: 400, code: 'VALIDATION_ERROR' });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('accepts today itself — "today" is not "the past"', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-08-20', NOW)
+    ).resolves.toMatchObject({ scheduledFor: new Date('2026-08-20T03:00:00.000Z') });
+  });
+
+  it('rejects moving a cluster still represented by a weak traceback row (guard)', async () => {
+    // concept-avl: masteryScore 0.31 — below MASTERY_THRESHOLD (0.6), so this traceback row is
+    // still "weak" and represents the cluster (schedule-representative.ts).
+    queueRows = [
+      row({
+        id: 'item-traceback',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+        createdAt: new Date('2026-08-10T00:00:00.000Z'),
+      }),
+    ];
+
+    const error = await setReviewQueueItemScheduledFor(
+      'item-traceback',
+      USER_ID,
+      '2026-08-25',
+      NOW
+    ).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 409, code: 'TRACEBACK_REPRESENTATIVE_LOCKED' });
+    // The rejection reuses the existing "Nền tảng của X mà bạn còn yếu" wording, naming the
+    // concept the student is actually weak on — not inventing new vocabulary.
+    expect(error.message).toContain("Nền tảng của 'Duyệt đồ thị DFS' mà bạn còn yếu");
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('locks the cluster even when the weak traceback row is not first', async () => {
+    // Cùng cụm concept-avl (masteryScore 0.31), nhưng hàng traceback đứng SAU. Guard fold theo TIER
+    // nên vị trí trong mảng không được đổi kết quả — bài này ghim đúng tính chất đó.
+    // Không có nó, thay `pickRepresentative(clusterRows)` bằng `clusterRows[0]` vẫn xanh cả suite:
+    // mọi ca traceback hiện có đều tình cờ đặt hàng traceback ở vị trí 0.
+    queueRows = [
+      row({ id: 'item-spaced', conceptId: 'concept-avl' }),
+      row({
+        id: 'item-traceback',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+      }),
+    ];
+
+    const error = await setReviewQueueItemScheduledFor(
+      'item-spaced',
+      USER_ID,
+      '2026-08-25',
+      NOW
+    ).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 409, code: 'TRACEBACK_REPRESENTATIVE_LOCKED' });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('allows the move once a newer, non-weak row represents the cluster', async () => {
+    // concept-recursion: masteryScore 0.68 — at/above the bar, so a newer plain row now
+    // represents the cluster and the old traceback row no longer locks it.
+    queueRows = [
+      row({
+        id: 'item-traceback',
+        conceptId: 'concept-recursion',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+        createdAt: new Date('2026-08-05T00:00:00.000Z'),
+      }),
+      row({
+        id: 'item-retest',
+        conceptId: 'concept-recursion',
+        reason: 'spaced_repetition',
+        createdAt: new Date('2026-08-18T00:00:00.000Z'),
+      }),
+    ];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-retest', USER_ID, '2026-08-25', NOW)
+    ).resolves.toMatchObject({ scheduledFor: new Date('2026-08-25T03:00:00.000Z') });
+  });
+
+  it('does not touch a row the student has removed from the schedule', async () => {
+    queueRows = [
+      row({ id: 'item-1', conceptId: 'concept-avl', status: 'skipped' }),
+      row({ id: 'item-2', conceptId: 'concept-avl' }),
+    ];
+
+    await setReviewQueueItemScheduledFor('item-2', USER_ID, '2026-08-25', NOW);
+
+    expect(queueRows.find((candidate) => candidate.id === 'item-1')?.scheduledFor).toEqual(
+      ALREADY_DUE
+    );
+  });
+
+  it('404s on an item belonging to someone else, without touching the row', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+    mockedPrisma.reviewQueueItem.findUnique.mockResolvedValue({
+      id: 'item-avl',
+      plan: { userId: 'someone-else' },
+    });
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-08-25', NOW)
+    ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #426 — review on PR #423 found the response contract self-contradicting: `itemId` pointed at
+   * a `skipped` row is excluded from `updateMany`'s `ON_SCHEDULE_WHERE` write, but the old code
+   * still read back exactly that row afterwards and reported "nothing changed" while the row's
+   * on-schedule siblings in the same cluster genuinely moved. Rejecting up front (rather than
+   * reading back a different row's state) keeps "what you asked about" and "what the response
+   * describes" the same row, always.
+   */
+  it('rejects a PATCH pointed at a row that is itself off-schedule (skipped)', async () => {
+    queueRows = [
+      row({ id: 'item-1', conceptId: 'concept-avl', status: 'skipped' }),
+      row({ id: 'item-2', conceptId: 'concept-avl' }),
+    ];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-1', USER_ID, '2026-08-25', NOW)
+    ).rejects.toMatchObject({ statusCode: 409, code: 'ITEM_NOT_ON_SCHEDULE' });
+    // Nothing moved — including the on-schedule sibling, which a partial write would be worse than
+    // the original bug: a rejected request must not have side effects.
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+    expect(queueRows.find((candidate) => candidate.id === 'item-2')?.scheduledFor).toEqual(
+      ALREADY_DUE
+    );
+  });
+
+  it('rejects a PATCH pointed at a row that is itself off-schedule (done)', async () => {
+    queueRows = [row({ id: 'item-1', conceptId: 'concept-avl', status: 'done' })];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-1', USER_ID, '2026-08-25', NOW)
+    ).rejects.toMatchObject({ statusCode: 409, code: 'ITEM_NOT_ON_SCHEDULE' });
+  });
+
+  it('response carries dateKey (#426) matching the re-read scheduledFor', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+
+    const result = await setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-08-25', NOW);
+
+    expect(result.dateKey).toBe('2026-08-25');
+    expect(result.scheduledFor).toEqual(new Date('2026-08-25T03:00:00.000Z'));
+  });
+
+  /**
+   * The Guard-1 fix above makes the read-back a no-op in every straight-line test: `item.id` is
+   * now always part of the cluster the `updateMany` just wrote, so a naive "return what I asked
+   * for" would look identical to "return what the row actually holds" — the very thing that hid
+   * the original #288-style class of bug from CI. This test breaks that equivalence on purpose,
+   * the same way `interview.service.ts`'s `#288` tests do: something else lands on the row
+   * *between* the write and the read-back, so only an actual re-read can report it correctly.
+   */
+  it('the returned scheduledFor comes from a real re-read, not the value merely requested', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+
+    mockedPrisma.reviewQueueItem.updateMany.mockImplementationOnce(
+      ({ where, data }: { where: FakeWhere; data: { scheduledFor?: Date } }) => {
+        const affected = queueRows.filter((candidate) => matches(candidate, where));
+        for (const candidate of affected) {
+          if (data.scheduledFor !== undefined) candidate.scheduledFor = data.scheduledFor;
+        }
+        // A concurrent second PATCH lands in the instant between this write and the read below.
+        const raced = queueRows.find((candidate) => candidate.id === 'item-avl');
+        if (raced) raced.scheduledFor = new Date('2026-09-15T03:00:00.000Z');
+        return Promise.resolve({ count: affected.length });
+      }
+    );
+
+    const result = await setReviewQueueItemScheduledFor('item-avl', USER_ID, '2026-08-25', NOW);
+
+    expect(result.scheduledFor).toEqual(new Date('2026-09-15T03:00:00.000Z'));
+    expect(result.dateKey).toBe('2026-09-15');
+  });
+
+  /**
+   * The guard's cluster read (`findMany` feeding `pickRepresentative`) must be scoped exactly like
+   * the write below it — `(planId, conceptId, ON_SCHEDULE_WHERE)` — or it either leaks another
+   * concept's traceback row into this concept's decision, or lets a `skipped`/`done` traceback row
+   * that should no longer count still lock the cluster. Both are silent: they change nothing about
+   * the shape of the response, only whether the guard fires when it should not (or vice versa).
+   */
+  it("guard's cluster read is scoped by conceptId — another concept's weak traceback must not lock this one", async () => {
+    queueRows = [
+      // concept-avl (masteryScore 0.31, weak) has a locking traceback row — but on a DIFFERENT
+      // concept than the one being patched.
+      row({
+        id: 'item-avl-tb',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+      }),
+      row({ id: 'item-recursion', conceptId: 'concept-recursion' }),
+    ];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-recursion', USER_ID, '2026-08-25', NOW)
+    ).resolves.toMatchObject({ scheduledFor: new Date('2026-08-25T03:00:00.000Z') });
+  });
+
+  it("guard's cluster read excludes off-schedule rows — a skipped weak-traceback row must not lock the cluster", async () => {
+    queueRows = [
+      // Same concept as the item being patched, but `skipped`: ON_SCHEDULE_WHERE must drop it
+      // from the representative pick, or its tier-0 weak-traceback status wins by default and
+      // blocks a cluster that has no *active* traceback row left.
+      row({
+        id: 'item-tb-skipped',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+        status: 'skipped',
+      }),
+      row({ id: 'item-avl-active', conceptId: 'concept-avl', reason: 'spaced_repetition' }),
+    ];
+
+    await expect(
+      setReviewQueueItemScheduledFor('item-avl-active', USER_ID, '2026-08-25', NOW)
+    ).resolves.toMatchObject({ scheduledFor: new Date('2026-08-25T03:00:00.000Z') });
   });
 });
 

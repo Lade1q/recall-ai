@@ -98,7 +98,7 @@ export function NotesPanel({ sessionId, conceptId, conceptName, className }: Not
               key={note.id}
               className="border-border text-muted-foreground border-l-2 pl-2.5 text-[12px] leading-[1.55]"
             >
-              <span className="text-muted-foreground block font-mono text-[10px]">
+              <span className="text-muted-foreground block font-mono text-[11px]">
                 {formatClockTime(new Date(note.createdAt))}
               </span>
               {note.body}

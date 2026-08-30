@@ -11,6 +11,7 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (email: string, password: string, name: string) => Promise<void>;
+  updateUser: (partial: Partial<User>) => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -62,7 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [logout]);
 
   const register = useCallback(async (email: string, password: string, name: string) => {
-    await registerApi({ email, password, name, confirmPassword: password });
+    const res = await registerApi({ email, password, name, confirmPassword: password });
+    localStorage.setItem('access_token', res.data.accessToken);
+    localStorage.setItem('refresh_token', res.data.refreshToken);
+    setUser(res.data.user);
+  }, []);
+
+  const updateUser = useCallback((partial: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...partial } : prev));
   }, []);
 
   return (
@@ -74,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
+        updateUser,
       }}
     >
       {children}

@@ -2,7 +2,7 @@
 
 > **Hạn nộp:** 14/08/2026 · **Issue:** #253 · **Rubric:** _"Revise UI prototype — submit the final UI design chosen for the system."_
 
-Thư mục này chứa bản **thiết kế UI cuối cùng** của hệ thống RecallAI, bao gồm toàn bộ 13 màn hình tương tác.
+Thư mục này chứa bản **thiết kế UI cuối cùng** của hệ thống RecallAI, bao gồm toàn bộ 11 màn hình tương tác.
 
 ---
 
@@ -55,7 +55,7 @@ URL mẫu: `http://localhost:8080/docs/analysis%20and%20design/ui-prototype/scre
     ui-prototype/
     ├── README.md                    ← file này
     ├── tokens.css                   ← design tokens (màu, font, spacing…)
-    ├── screen-*.html                ← 12 màn hình chính của hệ thống
+    ├── screen-*.html                ← 11 màn hình chính của hệ thống
     └── components.html              ← thư viện component
 
 ---

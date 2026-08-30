@@ -3,7 +3,8 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { DEFAULT_MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 import { daysUntil } from '../utils/mastery';
-import { getVnTomorrowStartUtc } from '../utils/dashboard-stats';
+import { getVnDateInstant, getVnTomorrowStartUtc, toVnDateKey } from '../utils/dashboard-stats';
+import { isWeakTraceback, pickRepresentative } from '../utils/schedule-representative';
 
 /**
  * Review Queue API (Scheduling & Remediation Engine output, I7.3 / #124).
@@ -369,7 +370,9 @@ export function buildReasonText(
 ): string {
   switch (reason) {
     case 'traceback':
-      return `Nền tảng của '${context.sourceConceptName ?? ''}' mà bạn còn yếu`;
+      return context.sourceConceptName
+        ? `Nền tảng của '${context.sourceConceptName}' mà bạn còn yếu`
+        : 'Một khái niệm nền tảng của mục này mà bạn còn yếu';
     case 'spaced_repetition':
       return context.masteryScore === null
         ? NOT_TESTED_REASON_TEXT
@@ -403,7 +406,7 @@ export function sortReviewItems<T extends { reason: ReviewReason; priority: numb
  * `name` ride along on every item (#232). Both GET endpoints already load the plan row, so
  * carrying it through costs no extra query — see the ràng buộc in #232.
  */
-interface QueuePlan {
+export interface QueuePlan {
   id: string;
   name: string;
   deadline: Date | null;
@@ -567,7 +570,7 @@ async function buildFallbackItems(plan: QueuePlan, now: Date): Promise<ReviewQue
   );
 }
 
-interface QueueRow {
+export interface QueueRow {
   id: string;
   conceptId: string;
   reason: ReviewReason;
@@ -587,7 +590,7 @@ const QUEUE_ROW_INCLUDE = {
  * whole page. Shared by the queue itself and by the "đã gỡ khỏi lịch" group so the two lists
  * can never drift into different shapes — #225 draws them with the same row component.
  */
-async function toResponseItems(
+export async function toResponseItems(
   rows: readonly QueueRow[],
   plan: QueuePlan,
   now: Date
@@ -966,17 +969,23 @@ export interface ReviewQueueItemSnooze extends ReviewQueueItemUpdate {
 async function findOwnedQueueItem(
   itemId: string,
   userId: string
-): Promise<{ id: string; conceptId: string; planId: string }> {
+): Promise<{ id: string; conceptId: string; planId: string; status: ReviewItemStatus }> {
   const item = await prisma.reviewQueueItem.findUnique({
     where: { id: itemId },
-    select: { id: true, conceptId: true, planId: true, plan: { select: { userId: true } } },
+    select: {
+      id: true,
+      conceptId: true,
+      planId: true,
+      status: true,
+      plan: { select: { userId: true } },
+    },
   });
 
   if (!item || item.plan.userId !== userId) {
     throw new AppError('Review queue item not found', 404, 'NOT_FOUND');
   }
 
-  return { id: item.id, conceptId: item.conceptId, planId: item.planId };
+  return { id: item.id, conceptId: item.conceptId, planId: item.planId, status: item.status };
 }
 
 /**
@@ -1059,4 +1068,127 @@ export async function updateReviewQueueItemStatus(
   });
 
   return { ...item, status };
+}
+
+/** Kết quả của "dời ngày" (#403): cùng hình dạng với `ReviewQueueItemSnooze`, mốc do NGƯỜI DÙNG chọn. */
+export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
+  scheduledFor: Date | null;
+  /**
+   * Ngày VN đã cắt sẵn (#426) — cùng khoá mà một mục của `GET /review-queue/schedule` mang
+   * (`getReviewSchedule`). Thiếu nó buộc client hoặc gọi lại cả `/schedule` sau mỗi lần kéo, hoặc
+   * tự cắt ngày VN ở phía mình — đúng quy ước ngày thứ hai mà #402 tránh.
+   */
+  dateKey: string | null;
+}
+
+/**
+ * PATCH /review-queue/:itemId với `{ scheduledFor: 'YYYY-MM-DD' }` — "dời ngày theo cụm" trên màn
+ * Lịch của epic #400 (#403).
+ *
+ * Không dựng bảng override riêng (xem ghi chú của #403): ghi thẳng `scheduledFor` là **một nguồn
+ * sự thật** cho mọi đường đọc (`/today`, hàng đợi, lịch) — không cần `resolvePlanQueue` biết thêm
+ * gì để hai màn hình khỏi bất đồng về "đến hạn khi nào".
+ *
+ * `updateMany` theo CỤM `(planId, conceptId)`, cùng cơ chế `snoozeReviewQueueItem`: một khái niệm
+ * gộp nhiều hàng thành một mục trên màn hình (#232), nên dời một hàng để hàng anh em kéo mục đó
+ * về ngày cũ ở lần đọc sau — nút bấm trông như không làm gì.
+ *
+ * 🔴 Guard 1 (#426): `itemId` phải TỰ nó đang on-schedule (`ON_SCHEDULE_WHERE`), từ chối
+ * `ITEM_NOT_ON_SCHEDULE` nếu không. `updateMany` bên dưới chỉ ghi các hàng on-schedule của cụm —
+ * nếu hàng được trỏ tới là `skipped`/`done`, nó KHÔNG nằm trong tập được ghi, nhưng hàng đợi
+ * (anh em) vẫn dời như thường; đọc lại đúng `item.id` sau đó sẽ báo "không đổi" trong khi cụm THẬT
+ * SỰ đã dời — hợp đồng tự mâu thuẫn. Từ chối sớm thay vì báo sai.
+ *
+ * 🔴 Guard 2: từ chối dời khi cụm còn **ít nhất một** hàng `reason='traceback'` có
+ * `masteryScore < MASTERY_THRESHOLD` — nền tảng còn yếu thì lịch phải do hệ thống giữ, không phải
+ * người dùng kéo đi đâu tuỳ ý.
+ * ⚠️ Viết bằng `pickRepresentative` cho khớp luật đại diện #400, nhưng ở chỗ gọi này nó **tương
+ * đương định lý** với `rows.some(isWeakTraceback)`: `beats()` cho tier thắng tuyệt đối trước
+ * `createdAt`, và cụm khoá `(planId, conceptId)` nên mọi hàng chung một `masteryScore` ⇒ nhánh
+ * `createdAt` không bao giờ đổi kết quả. **Đừng suy rằng guard đi theo luật đại diện** — nó hỏi một
+ * câu hẹp hơn. (Ghim bằng bài "locks the cluster even when the weak traceback row is not first".)
+ * ⚠️ Cụm guard đọc KHÔNG bằng tập `getReviewSchedule` fold: bên đó lọc thêm `plan.status='active'`,
+ * `ACTIVE_CONCEPT_WHERE` và `scheduledFor: { not: null }`. Hai bên không lệch nhau **chỉ nhờ**
+ * `ReviewItemDraft.scheduledFor` là `Date` không nullable (`concept-schedule.service.ts:43,57`) —
+ * bất biến đó ở tệp khác, nêu tên ở đây để ai nới nó biết phải quay lại.
+ * Trả 409 (không phải 400): body hợp lệ, thứ chặn là trạng thái của cụm — cùng lớp
+ * `PLAN_NOT_ACTIVE`/`SESSION_ALREADY_RUNNING` (#426).
+ *
+ * Ngày quá khứ (theo lịch VN) bị từ chối bằng `VALIDATION_ERROR` đã có sẵn — engine không bao giờ
+ * xếp lịch vào quá khứ, và mã này không cần mapper client riêng (đã có case ở nơi khác).
+ *
+ * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB**. ⚠️ KHÁC `snoozeReviewQueueItem`, vốn chưa
+ * có guard tương ứng nên bước đọc-lại của nó vẫn nói sai được (#433): ở ĐÂY thì Guard
+ * 1 ở trên là thứ làm cho việc đọc lại đúng `item.id` luôn an toàn — tới đây `item.id` đã được xác
+ * nhận nằm trong tập vừa ghi.
+ */
+export async function setReviewQueueItemScheduledFor(
+  itemId: string,
+  userId: string,
+  dateKey: string,
+  now: Date
+): Promise<ReviewQueueItemReschedule> {
+  const item = await findOwnedQueueItem(itemId, userId);
+
+  if (OFF_SCHEDULE_STATUSES.includes(item.status)) {
+    throw new AppError(
+      'Không thể dời ngày: mục này đã được gỡ khỏi lịch. Đưa nó lại vào lịch trước khi đổi ngày.',
+      409,
+      'ITEM_NOT_ON_SCHEDULE'
+    );
+  }
+
+  if (dateKey < toVnDateKey(now)) {
+    throw new AppError(
+      'scheduledFor không được là một ngày trong quá khứ',
+      400,
+      'VALIDATION_ERROR'
+    );
+  }
+
+  const clusterRows = await prisma.reviewQueueItem.findMany({
+    where: { planId: item.planId, conceptId: item.conceptId, ...ON_SCHEDULE_WHERE },
+    select: {
+      reason: true,
+      createdAt: true,
+      sourceConceptId: true,
+      concept: { select: { masteryScore: true } },
+    },
+  });
+  const representative = pickRepresentative(clusterRows);
+
+  if (representative && isWeakTraceback(representative)) {
+    const sourceConcept = representative.sourceConceptId
+      ? await prisma.concept.findUnique({
+          where: { id: representative.sourceConceptId },
+          select: { name: true },
+        })
+      : null;
+
+    throw new AppError(
+      `Không thể dời ngày: ${buildReasonText('traceback', {
+        masteryScore: null,
+        sourceConceptName: sourceConcept?.name ?? null,
+      })}, nên lịch của mục này do hệ thống giữ nguyên.`,
+      409,
+      'TRACEBACK_REPRESENTATIVE_LOCKED'
+    );
+  }
+
+  await prisma.reviewQueueItem.updateMany({
+    where: { planId: item.planId, conceptId: item.conceptId, ...ON_SCHEDULE_WHERE },
+    data: { scheduledFor: getVnDateInstant(dateKey) },
+  });
+
+  const updated = await prisma.reviewQueueItem.findUniqueOrThrow({
+    where: { id: item.id },
+    select: { status: true, scheduledFor: true },
+  });
+
+  return {
+    ...item,
+    status: updated.status,
+    scheduledFor: updated.scheduledFor,
+    dateKey: updated.scheduledFor ? toVnDateKey(updated.scheduledFor) : null,
+  };
 }

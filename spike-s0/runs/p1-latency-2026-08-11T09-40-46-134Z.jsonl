@@ -1,0 +1,587 @@
+{"t":1,"type":"note","msg":"① LATENCY — 25 lần · model=gemini-live-2.5-flash-native-audio · audio=/home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/fixtures/student-vi-16k.wav (16000Hz, 57950B)"}
+{"t":1579,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":1909,"type":"activity-start"}
+{"t":3797,"type":"activity-end"}
+{"t":4315,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":4665,"type":"output-transcript","text":"Để tôi"}
+{"t":4894,"type":"output-transcript","text":" xem."}
+{"t":5034,"type":"output-transcript","text":" Bạn"}
+{"t":5288,"type":"output-transcript","text":" có thể"}
+{"t":5403,"type":"output-transcript","text":" cho biết"}
+{"t":5584,"type":"output-transcript","text":" đây là"}
+{"t":5715,"type":"output-transcript","text":" lớp"}
+{"t":5779,"type":"output-transcript","text":" trong"}
+{"t":5962,"type":"output-transcript","text":" môn"}
+{"t":6124,"type":"output-transcript","text":" học"}
+{"t":6141,"type":"output-transcript","text":" hay"}
+{"t":6167,"type":"output-transcript","text":" lĩnh"}
+{"t":6178,"type":"output-transcript","text":" vực"}
+{"t":6205,"type":"output-transcript","text":" nào không?"}
+{"t":6365,"type":"turn-complete","audioChunks":22,"audioBytes":231914,"toolCalls":0,"spoke":true}
+{"t":6365,"type":"note","msg":"  cold-start: 937ms"}
+{"t":6765,"type":"activity-start"}
+{"t":7002,"type":"interrupted"}
+{"t":8631,"type":"activity-end"}
+{"t":9200,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":9566,"type":"output-transcript","text":"Vẫn cần"}
+{"t":9866,"type":"output-transcript","text":" thông tin"}
+{"t":9971,"type":"output-transcript","text":" thêm"}
+{"t":10032,"type":"output-transcript","text":" bạn"}
+{"t":10129,"type":"output-transcript","text":" nhé."}
+{"t":10240,"type":"output-transcript","text":" \"Lớp"}
+{"t":10460,"type":"output-transcript","text":" B\""}
+{"t":10538,"type":"output-transcript","text":" có"}
+{"t":10616,"type":"output-transcript","text":" thể"}
+{"t":10695,"type":"output-transcript","text":" là"}
+{"t":10750,"type":"output-transcript","text":" lớp"}
+{"t":10769,"type":"output-transcript","text":" học"}
+{"t":10867,"type":"output-transcript","text":" trong"}
+{"t":10924,"type":"output-transcript","text":" trường"}
+{"t":11014,"type":"output-transcript","text":" học,"}
+{"t":11137,"type":"output-transcript","text":" hoặc"}
+{"t":11301,"type":"output-transcript","text":" trong"}
+{"t":11384,"type":"output-transcript","text":" một"}
+{"t":11462,"type":"output-transcript","text":" trung"}
+{"t":11490,"type":"output-transcript","text":" tâm"}
+{"t":11569,"type":"output-transcript","text":" đào"}
+{"t":11600,"type":"output-transcript","text":" tạo."}
+{"t":11731,"type":"output-transcript","text":" Bạn"}
+{"t":11893,"type":"output-transcript","text":" nói rõ"}
+{"t":11972,"type":"output-transcript","text":" hơn"}
+{"t":12044,"type":"output-transcript","text":" được không?"}
+{"t":12189,"type":"turn-complete","audioChunks":33,"audioBytes":368234,"toolCalls":0,"spoke":true}
+{"t":12189,"type":"note","msg":"  [2] 1047ms"}
+{"t":12589,"type":"activity-start"}
+{"t":12825,"type":"interrupted"}
+{"t":14451,"type":"activity-end"}
+{"t":14976,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":15417,"type":"output-transcript","text":"Nếu bạn"}
+{"t":15675,"type":"output-transcript","text":" nói"}
+{"t":15752,"type":"output-transcript","text":" đến"}
+{"t":15888,"type":"output-transcript","text":" lớp"}
+{"t":15947,"type":"output-transcript","text":" B"}
+{"t":15969,"type":"output-transcript","text":" trong"}
+{"t":16039,"type":"output-transcript","text":" một"}
+{"t":16128,"type":"output-transcript","text":" trường"}
+{"t":16189,"type":"output-transcript","text":" học"}
+{"t":16220,"type":"output-transcript","text":" cụ thể,"}
+{"t":16413,"type":"output-transcript","text":" vui"}
+{"t":16581,"type":"output-transcript","text":" lòng"}
+{"t":16633,"type":"output-transcript","text":" cung"}
+{"t":16722,"type":"output-transcript","text":" cấp"}
+{"t":16778,"type":"output-transcript","text":" tên trường"}
+{"t":16835,"type":"output-transcript","text":" học đó"}
+{"t":17015,"type":"output-transcript","text":" nhé."}
+{"t":17075,"type":"output-transcript","text":" Mỗi"}
+{"t":17351,"type":"output-transcript","text":" trường"}
+{"t":17411,"type":"output-transcript","text":" có cách"}
+{"t":17491,"type":"output-transcript","text":" sắp"}
+{"t":17513,"type":"output-transcript","text":" xếp"}
+{"t":17571,"type":"output-transcript","text":" khác"}
+{"t":17611,"type":"output-transcript","text":" nhau."}
+{"t":17735,"type":"turn-complete","audioChunks":30,"audioBytes":318314,"toolCalls":0,"spoke":true}
+{"t":17735,"type":"note","msg":"  [3] 1044ms"}
+{"t":18135,"type":"activity-start"}
+{"t":18371,"type":"interrupted"}
+{"t":20005,"type":"activity-end"}
+{"t":20515,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":21070,"type":"output-transcript","text":"Vì không"}
+{"t":21421,"type":"output-transcript","text":" có thông"}
+{"t":21490,"type":"output-transcript","text":" tin"}
+{"t":21629,"type":"output-transcript","text":" cụ thể"}
+{"t":21642,"type":"output-transcript","text":" khác,"}
+{"t":21758,"type":"output-transcript","text":" tôi không"}
+{"t":21917,"type":"output-transcript","text":" thể"}
+{"t":22026,"type":"output-transcript","text":" trả"}
+{"t":22087,"type":"output-transcript","text":" lời"}
+{"t":22105,"type":"output-transcript","text":" chính"}
+{"t":22175,"type":"output-transcript","text":" xác"}
+{"t":22219,"type":"output-transcript","text":" địa chỉ"}
+{"t":22287,"type":"output-transcript","text":" lớp"}
+{"t":22427,"type":"output-transcript","text":" B được."}
+{"t":22564,"type":"output-transcript","text":" Bạn"}
+{"t":22780,"type":"output-transcript","text":" vui lòng"}
+{"t":22879,"type":"output-transcript","text":" bổ sung"}
+{"t":22928,"type":"output-transcript","text":" thông"}
+{"t":22988,"type":"output-transcript","text":" tin"}
+{"t":23039,"type":"output-transcript","text":" nhé."}
+{"t":23168,"type":"turn-complete","audioChunks":27,"audioBytes":293354,"toolCalls":0,"spoke":true}
+{"t":23169,"type":"note","msg":"  [4] 1195ms"}
+{"t":23570,"type":"activity-start"}
+{"t":23805,"type":"interrupted"}
+{"t":25436,"type":"activity-end"}
+{"t":26053,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":27390,"type":"output-transcript","text":"Để tìm"}
+{"t":27631,"type":"output-transcript","text":" địa chỉ"}
+{"t":27787,"type":"output-transcript","text":" lớp"}
+{"t":27843,"type":"output-transcript","text":" B,"}
+{"t":27991,"type":"output-transcript","text":" bạn"}
+{"t":28107,"type":"output-transcript","text":" cần"}
+{"t":28272,"type":"output-transcript","text":" cung"}
+{"t":28321,"type":"output-transcript","text":" cấp"}
+{"t":28343,"type":"output-transcript","text":" tên"}
+{"t":28448,"type":"output-transcript","text":" trường"}
+{"t":28487,"type":"output-transcript","text":" học"}
+{"t":28584,"type":"output-transcript","text":" hoặc"}
+{"t":28641,"type":"output-transcript","text":" tổ chức"}
+{"t":28807,"type":"output-transcript","text":" đó."}
+{"t":28939,"type":"output-transcript","text":" Bạn"}
+{"t":29185,"type":"output-transcript","text":" có thể"}
+{"t":29258,"type":"output-transcript","text":" cho biết"}
+{"t":29327,"type":"output-transcript","text":" thêm thông"}
+{"t":29378,"type":"output-transcript","text":" tin"}
+{"t":29418,"type":"output-transcript","text":" không?"}
+{"t":29571,"type":"turn-complete","audioChunks":27,"audioBytes":295274,"toolCalls":0,"spoke":true}
+{"t":29571,"type":"note","msg":"  [5] 2048ms"}
+{"t":29972,"type":"activity-start"}
+{"t":30209,"type":"interrupted"}
+{"t":31834,"type":"activity-end"}
+{"t":32359,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":32831,"type":"output-transcript","text":"Rất tiếc,"}
+{"t":33143,"type":"output-transcript","text":" tôi"}
+{"t":33251,"type":"output-transcript","text":" vẫn"}
+{"t":33307,"type":"output-transcript","text":" cần"}
+{"t":33343,"type":"output-transcript","text":" thông"}
+{"t":33369,"type":"output-transcript","text":" tin"}
+{"t":33436,"type":"output-transcript","text":" cụ thể"}
+{"t":33561,"type":"output-transcript","text":" hơn."}
+{"t":33685,"type":"output-transcript","text":" Mỗi"}
+{"t":33871,"type":"output-transcript","text":" nơi"}
+{"t":33992,"type":"output-transcript","text":" có"}
+{"t":34044,"type":"output-transcript","text":" cách"}
+{"t":34115,"type":"output-transcript","text":" xác"}
+{"t":34191,"type":"output-transcript","text":" định"}
+{"t":34210,"type":"output-transcript","text":" địa chỉ"}
+{"t":34322,"type":"output-transcript","text":" khác"}
+{"t":34445,"type":"output-transcript","text":" nhau."}
+{"t":34542,"type":"output-transcript","text":" Bạn"}
+{"t":34687,"type":"output-transcript","text":" vui lòng"}
+{"t":34805,"type":"output-transcript","text":" kiểm"}
+{"t":34818,"type":"output-transcript","text":" tra"}
+{"t":34885,"type":"output-transcript","text":" lại"}
+{"t":34905,"type":"output-transcript","text":" nhé."}
+{"t":35048,"type":"turn-complete","audioChunks":29,"audioBytes":314474,"toolCalls":0,"spoke":true}
+{"t":35048,"type":"note","msg":"  [6] 1073ms"}
+{"t":35449,"type":"activity-start"}
+{"t":35684,"type":"interrupted"}
+{"t":37309,"type":"activity-end"}
+{"t":37867,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":38306,"type":"output-transcript","text":"Tôi hiểu"}
+{"t":38616,"type":"output-transcript","text":" bạn"}
+{"t":38772,"type":"output-transcript","text":" muốn"}
+{"t":38772,"type":"output-transcript","text":" biết"}
+{"t":38830,"type":"output-transcript","text":" địa chỉ"}
+{"t":38903,"type":"output-transcript","text":" lớp"}
+{"t":38962,"type":"output-transcript","text":" B."}
+{"t":39083,"type":"output-transcript","text":" Tuy nhiên,"}
+{"t":39314,"type":"output-transcript","text":" thông"}
+{"t":39417,"type":"output-transcript","text":" tin"}
+{"t":39487,"type":"output-transcript","text":" này"}
+{"t":39574,"type":"output-transcript","text":" thường"}
+{"t":39652,"type":"output-transcript","text":" phụ thuộc"}
+{"t":39788,"type":"output-transcript","text":" vào"}
+{"t":39892,"type":"output-transcript","text":" trường"}
+{"t":40014,"type":"output-transcript","text":" học"}
+{"t":40085,"type":"output-transcript","text":" hoặc"}
+{"t":40153,"type":"output-transcript","text":" tổ chức"}
+{"t":40225,"type":"output-transcript","text":" nào"}
+{"t":40285,"type":"output-transcript","text":" đó."}
+{"t":40383,"type":"output-transcript","text":" Bạn"}
+{"t":40681,"type":"output-transcript","text":" có thể"}
+{"t":40753,"type":"output-transcript","text":" cung"}
+{"t":40781,"type":"output-transcript","text":" cấp"}
+{"t":40850,"type":"output-transcript","text":" thêm"}
+{"t":40934,"type":"output-transcript","text":" tên"}
+{"t":40953,"type":"output-transcript","text":" đơn vị"}
+{"t":41044,"type":"output-transcript","text":" đó không?"}
+{"t":41203,"type":"turn-complete","audioChunks":37,"audioBytes":400874,"toolCalls":0,"spoke":true}
+{"t":41203,"type":"note","msg":"  [7] 1074ms"}
+{"t":41603,"type":"activity-start"}
+{"t":41854,"type":"interrupted"}
+{"t":43463,"type":"activity-end"}
+{"t":44011,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":44502,"type":"output-transcript","text":"Vẫn là"}
+{"t":44751,"type":"output-transcript","text":" câu hỏi"}
+{"t":44883,"type":"output-transcript","text":" cũ,"}
+{"t":44953,"type":"output-transcript","text":" nhưng"}
+{"t":45156,"type":"output-transcript","text":" tôi vẫn"}
+{"t":45246,"type":"output-transcript","text":" chưa"}
+{"t":45341,"type":"output-transcript","text":" có đủ"}
+{"t":45400,"type":"output-transcript","text":" thông"}
+{"t":45450,"type":"output-transcript","text":" tin"}
+{"t":45547,"type":"output-transcript","text":" để trả"}
+{"t":45610,"type":"output-transcript","text":" lời."}
+{"t":45696,"type":"output-transcript","text":" Mong"}
+{"t":45827,"type":"output-transcript","text":" bạn thông"}
+{"t":45945,"type":"output-transcript","text":" cảm."}
+{"t":46064,"type":"turn-complete","audioChunks":22,"audioBytes":229994,"toolCalls":0,"spoke":true}
+{"t":46064,"type":"note","msg":"  [8] 1109ms"}
+{"t":46464,"type":"activity-start"}
+{"t":46716,"type":"interrupted"}
+{"t":48325,"type":"activity-end"}
+{"t":48844,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":49303,"type":"output-transcript","text":"Do không"}
+{"t":49489,"type":"output-transcript","text":" có thông"}
+{"t":49582,"type":"output-transcript","text":" tin"}
+{"t":49644,"type":"output-transcript","text":" cụ thể,"}
+{"t":49797,"type":"output-transcript","text":" tôi không"}
+{"t":49981,"type":"output-transcript","text":" thể"}
+{"t":50023,"type":"output-transcript","text":" cho bạn"}
+{"t":50091,"type":"output-transcript","text":" biết"}
+{"t":50163,"type":"output-transcript","text":" địa chỉ"}
+{"t":50284,"type":"output-transcript","text":" lớp"}
+{"t":50389,"type":"output-transcript","text":" B được."}
+{"t":50527,"type":"output-transcript","text":" Bạn"}
+{"t":50760,"type":"output-transcript","text":" vui lòng"}
+{"t":50824,"type":"output-transcript","text":" bổ sung"}
+{"t":50903,"type":"output-transcript","text":" thông tin"}
+{"t":50974,"type":"output-transcript","text":" nhé."}
+{"t":51107,"type":"turn-complete","audioChunks":24,"audioBytes":274154,"toolCalls":0,"spoke":true}
+{"t":51108,"type":"note","msg":"  [9] 1034ms"}
+{"t":51508,"type":"activity-start"}
+{"t":51760,"type":"interrupted"}
+{"t":53367,"type":"activity-end"}
+{"t":54008,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":54401,"type":"output-transcript","text":"Bạn ơi,"}
+{"t":54765,"type":"output-transcript","text":" vẫn"}
+{"t":54902,"type":"output-transcript","text":" cần"}
+{"t":54982,"type":"output-transcript","text":" thông"}
+{"t":54990,"type":"output-transcript","text":" tin"}
+{"t":55109,"type":"output-transcript","text":" thêm"}
+{"t":55179,"type":"output-transcript","text":" về"}
+{"t":55299,"type":"output-transcript","text":" trường"}
+{"t":55383,"type":"output-transcript","text":" học"}
+{"t":55457,"type":"output-transcript","text":" hoặc"}
+{"t":55537,"type":"output-transcript","text":" tổ"}
+{"t":55577,"type":"output-transcript","text":" chức"}
+{"t":55669,"type":"output-transcript","text":" đó"}
+{"t":55736,"type":"output-transcript","text":" nhé."}
+{"t":55812,"type":"output-transcript","text":" Chỉ"}
+{"t":56024,"type":"output-transcript","text":" với \"lớp"}
+{"t":56142,"type":"output-transcript","text":" B\""}
+{"t":56303,"type":"output-transcript","text":" thì"}
+{"t":56394,"type":"output-transcript","text":" tôi không"}
+{"t":56474,"type":"output-transcript","text":" thể"}
+{"t":56543,"type":"output-transcript","text":" trả"}
+{"t":56561,"type":"output-transcript","text":" lời"}
+{"t":56614,"type":"output-transcript","text":" được."}
+{"t":56726,"type":"turn-complete","audioChunks":28,"audioBytes":316394,"toolCalls":0,"spoke":true}
+{"t":56726,"type":"note","msg":"  [10] 1125ms"}
+{"t":57126,"type":"activity-start"}
+{"t":57377,"type":"interrupted"}
+{"t":58985,"type":"activity-end"}
+{"t":59510,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":59964,"type":"output-transcript","text":"Thông tin về"}
+{"t":60273,"type":"output-transcript","text":" \"lớp"}
+{"t":60367,"type":"output-transcript","text":" B\""}
+{"t":60437,"type":"output-transcript","text":" còn"}
+{"t":60463,"type":"output-transcript","text":" thiếu"}
+{"t":60516,"type":"output-transcript","text":" nhiều"}
+{"t":60632,"type":"output-transcript","text":" quá."}
+{"t":60754,"type":"output-transcript","text":" Bạn"}
+{"t":60914,"type":"output-transcript","text":" cung cấp"}
+{"t":61016,"type":"output-transcript","text":" thêm"}
+{"t":61064,"type":"output-transcript","text":" tên"}
+{"t":61083,"type":"output-transcript","text":" trường"}
+{"t":61114,"type":"output-transcript","text":" học"}
+{"t":61193,"type":"output-transcript","text":" được không?"}
+{"t":61323,"type":"turn-complete","audioChunks":18,"audioBytes":199274,"toolCalls":0,"spoke":true}
+{"t":61324,"type":"note","msg":"  [11] 1043ms"}
+{"t":61724,"type":"activity-start"}
+{"t":61975,"type":"interrupted"}
+{"t":63582,"type":"activity-end"}
+{"t":64122,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":64596,"type":"output-transcript","text":"Rất tiếc,"}
+{"t":65008,"type":"output-transcript","text":" tôi vẫn"}
+{"t":65131,"type":"output-transcript","text":" không"}
+{"t":65151,"type":"output-transcript","text":" có thông"}
+{"t":65267,"type":"output-transcript","text":" tin"}
+{"t":65267,"type":"output-transcript","text":" đủ"}
+{"t":65353,"type":"output-transcript","text":" để trả"}
+{"t":65471,"type":"output-transcript","text":" lời."}
+{"t":65534,"type":"output-transcript","text":" Bạn"}
+{"t":65685,"type":"output-transcript","text":" vui lòng"}
+{"t":65794,"type":"output-transcript","text":" bổ sung"}
+{"t":65853,"type":"output-transcript","text":" thông tin"}
+{"t":65912,"type":"output-transcript","text":" nhé."}
+{"t":66063,"type":"turn-complete","audioChunks":20,"audioBytes":218474,"toolCalls":0,"spoke":true}
+{"t":66063,"type":"note","msg":"  [12] 1087ms"}
+{"t":66464,"type":"activity-start"}
+{"t":66715,"type":"interrupted"}
+{"t":68323,"type":"activity-end"}
+{"t":68815,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":69268,"type":"output-transcript","text":"Để có"}
+{"t":69440,"type":"output-transcript","text":" địa chỉ"}
+{"t":69554,"type":"output-transcript","text":" lớp"}
+{"t":69675,"type":"output-transcript","text":" B,"}
+{"t":69729,"type":"output-transcript","text":" bạn"}
+{"t":69882,"type":"output-transcript","text":" cần cho"}
+{"t":69961,"type":"output-transcript","text":" biết"}
+{"t":70099,"type":"output-transcript","text":" đó"}
+{"t":70185,"type":"output-transcript","text":" là lớp"}
+{"t":70333,"type":"output-transcript","text":" học"}
+{"t":70396,"type":"output-transcript","text":" thuộc"}
+{"t":70470,"type":"output-transcript","text":" trường"}
+{"t":70576,"type":"output-transcript","text":" học"}
+{"t":70625,"type":"output-transcript","text":" nào"}
+{"t":70629,"type":"output-transcript","text":" bạn"}
+{"t":70629,"type":"output-transcript","text":" nhé."}
+{"t":70806,"type":"turn-complete","audioChunks":21,"audioBytes":220394,"toolCalls":0,"spoke":true}
+{"t":70806,"type":"note","msg":"  [13] 1007ms"}
+{"t":71207,"type":"activity-start"}
+{"t":71457,"type":"interrupted"}
+{"t":73067,"type":"activity-end"}
+{"t":73608,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":74042,"type":"output-transcript","text":"Thông tin về"}
+{"t":74432,"type":"output-transcript","text":" \"lớp"}
+{"t":74506,"type":"output-transcript","text":" B\""}
+{"t":74568,"type":"output-transcript","text":" vẫn"}
+{"t":74640,"type":"output-transcript","text":" còn"}
+{"t":74700,"type":"output-transcript","text":" chung"}
+{"t":74745,"type":"output-transcript","text":" chung"}
+{"t":74789,"type":"output-transcript","text":" quá."}
+{"t":74862,"type":"output-transcript","text":" Bạn"}
+{"t":75049,"type":"output-transcript","text":" cung cấp"}
+{"t":75127,"type":"output-transcript","text":" thêm tên"}
+{"t":75209,"type":"output-transcript","text":" trường"}
+{"t":75289,"type":"output-transcript","text":" học nhé."}
+{"t":75442,"type":"turn-complete","audioChunks":19,"audioBytes":205034,"toolCalls":0,"spoke":true}
+{"t":75442,"type":"note","msg":"  [14] 1037ms"}
+{"t":75842,"type":"activity-start"}
+{"t":76093,"type":"interrupted"}
+{"t":77697,"type":"activity-end"}
+{"t":78228,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":78678,"type":"output-transcript","text":"Rất tiếc,"}
+{"t":79074,"type":"output-transcript","text":" tôi vẫn"}
+{"t":79174,"type":"output-transcript","text":" không"}
+{"t":79267,"type":"output-transcript","text":" có thông"}
+{"t":79335,"type":"output-transcript","text":" tin"}
+{"t":79346,"type":"output-transcript","text":" đủ để"}
+{"t":79541,"type":"output-transcript","text":" trả"}
+{"t":79614,"type":"output-transcript","text":" lời."}
+{"t":79671,"type":"output-transcript","text":" Bạn"}
+{"t":79909,"type":"output-transcript","text":" vui lòng"}
+{"t":79989,"type":"output-transcript","text":" bao gồm"}
+{"t":80129,"type":"output-transcript","text":" tên"}
+{"t":80164,"type":"output-transcript","text":" trường"}
+{"t":80208,"type":"output-transcript","text":" học"}
+{"t":80220,"type":"output-transcript","text":" nhé."}
+{"t":80349,"type":"turn-complete","audioChunks":22,"audioBytes":229994,"toolCalls":0,"spoke":true}
+{"t":80349,"type":"note","msg":"  [15] 1065ms"}
+{"t":80750,"type":"activity-start"}
+{"t":81000,"type":"interrupted"}
+{"t":82609,"type":"activity-end"}
+{"t":83162,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":83619,"type":"output-transcript","text":"Thông tin bạn"}
+{"t":83879,"type":"output-transcript","text":" cung cấp"}
+{"t":84001,"type":"output-transcript","text":" vẫn chưa"}
+{"t":84046,"type":"output-transcript","text":" đủ."}
+{"t":84195,"type":"output-transcript","text":" Vui lòng"}
+{"t":84449,"type":"output-transcript","text":" cho biết"}
+{"t":84521,"type":"output-transcript","text":" thêm"}
+{"t":84580,"type":"output-transcript","text":" tên"}
+{"t":84592,"type":"output-transcript","text":" trường"}
+{"t":84638,"type":"output-transcript","text":" học"}
+{"t":84706,"type":"output-transcript","text":" nhé."}
+{"t":84818,"type":"turn-complete","audioChunks":16,"audioBytes":180074,"toolCalls":0,"spoke":true}
+{"t":84819,"type":"note","msg":"  [16] 1081ms"}
+{"t":85219,"type":"activity-start"}
+{"t":85469,"type":"interrupted"}
+{"t":87083,"type":"activity-end"}
+{"t":87622,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":88028,"type":"output-transcript","text":"Vẫn cần"}
+{"t":88329,"type":"output-transcript","text":" thông tin"}
+{"t":88431,"type":"output-transcript","text":" thêm"}
+{"t":88546,"type":"output-transcript","text":" về trường"}
+{"t":88636,"type":"output-transcript","text":" học,"}
+{"t":88719,"type":"output-transcript","text":" bạn"}
+{"t":88801,"type":"output-transcript","text":" nhé."}
+{"t":88875,"type":"output-transcript","text":" Chỉ"}
+{"t":89100,"type":"output-transcript","text":" \"lớp"}
+{"t":89121,"type":"output-transcript","text":" B\""}
+{"t":89213,"type":"output-transcript","text":" thì"}
+{"t":89253,"type":"output-transcript","text":" tôi không"}
+{"t":89311,"type":"output-transcript","text":" tìm"}
+{"t":89381,"type":"output-transcript","text":" được."}
+{"t":89495,"type":"turn-complete","audioChunks":18,"audioBytes":203114,"toolCalls":0,"spoke":true}
+{"t":89496,"type":"note","msg":"  [17] 1012ms"}
+{"t":89896,"type":"activity-start"}
+{"t":90148,"type":"interrupted"}
+{"t":91755,"type":"activity-end"}
+{"t":92282,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":92744,"type":"output-transcript","text":"Do không"}
+{"t":92965,"type":"output-transcript","text":" có thông"}
+{"t":93056,"type":"output-transcript","text":" tin"}
+{"t":93125,"type":"output-transcript","text":" cụ thể,"}
+{"t":93273,"type":"output-transcript","text":" tôi không"}
+{"t":93421,"type":"output-transcript","text":" thể"}
+{"t":93464,"type":"output-transcript","text":" trả lời"}
+{"t":93557,"type":"output-transcript","text":" địa chỉ"}
+{"t":93656,"type":"output-transcript","text":" lớp"}
+{"t":93713,"type":"output-transcript","text":" B được."}
+{"t":93898,"type":"output-transcript","text":" Bạn"}
+{"t":94053,"type":"output-transcript","text":" vui lòng"}
+{"t":94146,"type":"output-transcript","text":" bổ sung"}
+{"t":94226,"type":"output-transcript","text":" thông tin"}
+{"t":94350,"type":"output-transcript","text":" nhé."}
+{"t":94499,"type":"turn-complete","audioChunks":25,"audioBytes":262634,"toolCalls":0,"spoke":true}
+{"t":94499,"type":"note","msg":"  [18] 1053ms"}
+{"t":94900,"type":"activity-start"}
+{"t":95151,"type":"interrupted"}
+{"t":96760,"type":"activity-end"}
+{"t":97296,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":97887,"type":"output-transcript","text":"Bạn ơi,"}
+{"t":98220,"type":"output-transcript","text":" vẫn"}
+{"t":98318,"type":"output-transcript","text":" cần"}
+{"t":98364,"type":"output-transcript","text":" thông"}
+{"t":98442,"type":"output-transcript","text":" tin"}
+{"t":98514,"type":"output-transcript","text":" thêm"}
+{"t":98558,"type":"output-transcript","text":" về trường"}
+{"t":98696,"type":"output-transcript","text":" học."}
+{"t":98881,"type":"output-transcript","text":" Bạn"}
+{"t":99019,"type":"output-transcript","text":" cung cấp"}
+{"t":99158,"type":"output-transcript","text":" thêm tên"}
+{"t":99258,"type":"output-transcript","text":" trường"}
+{"t":99315,"type":"output-transcript","text":" học"}
+{"t":99345,"type":"output-transcript","text":" nhé."}
+{"t":99396,"type":"output-transcript","text":" Chỉ"}
+{"t":99455,"type":"output-transcript","text":" \"lớp"}
+{"t":99485,"type":"output-transcript","text":" B\""}
+{"t":99612,"type":"output-transcript","text":" thì"}
+{"t":99859,"type":"output-transcript","text":" không"}
+{"t":100048,"type":"output-transcript","text":" đủ."}
+{"t":100117,"type":"turn-complete","audioChunks":31,"audioBytes":333674,"toolCalls":0,"spoke":true}
+{"t":100118,"type":"note","msg":"  [19] 1195ms"}
+{"t":100518,"type":"activity-start"}
+{"t":100769,"type":"interrupted"}
+{"t":102376,"type":"activity-end"}
+{"t":102921,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":103335,"type":"output-transcript","text":"Vẫn không"}
+{"t":103559,"type":"output-transcript","text":" có thông"}
+{"t":103628,"type":"output-transcript","text":" tin"}
+{"t":103673,"type":"output-transcript","text":" đủ,"}
+{"t":103759,"type":"output-transcript","text":" bạn"}
+{"t":103963,"type":"output-transcript","text":" vui lòng"}
+{"t":104098,"type":"output-transcript","text":" cung cấp"}
+{"t":104196,"type":"output-transcript","text":" thêm"}
+{"t":104226,"type":"output-transcript","text":" tên"}
+{"t":104255,"type":"output-transcript","text":" trường"}
+{"t":104309,"type":"output-transcript","text":" học"}
+{"t":104374,"type":"output-transcript","text":" nhé."}
+{"t":104515,"type":"turn-complete","audioChunks":15,"audioBytes":178154,"toolCalls":0,"spoke":true}
+{"t":104516,"type":"note","msg":"  [20] 1028ms"}
+{"t":104916,"type":"activity-start"}
+{"t":105168,"type":"interrupted"}
+{"t":106776,"type":"activity-end"}
+{"t":107379,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":107872,"type":"output-transcript","text":"Tôi vẫn"}
+{"t":108110,"type":"output-transcript","text":" cần"}
+{"t":108163,"type":"output-transcript","text":" thông"}
+{"t":108219,"type":"output-transcript","text":" tin"}
+{"t":108251,"type":"output-transcript","text":" thêm"}
+{"t":108306,"type":"output-transcript","text":" về trường"}
+{"t":108444,"type":"output-transcript","text":" học."}
+{"t":108505,"type":"output-transcript","text":" Bạn"}
+{"t":108707,"type":"output-transcript","text":" cung cấp"}
+{"t":108784,"type":"output-transcript","text":" tên trường"}
+{"t":108926,"type":"output-transcript","text":" học"}
+{"t":109004,"type":"output-transcript","text":" nhé."}
+{"t":109011,"type":"output-transcript","text":" Chỉ"}
+{"t":109089,"type":"output-transcript","text":" \"lớp"}
+{"t":109772,"type":"output-transcript","text":" B\""}
+{"t":109785,"type":"output-transcript","text":" thì"}
+{"t":109985,"type":"output-transcript","text":" không"}
+{"t":110175,"type":"output-transcript","text":" đủ."}
+{"t":110237,"type":"turn-complete","audioChunks":37,"audioBytes":387434,"toolCalls":0,"spoke":true}
+{"t":110237,"type":"note","msg":"  [21] 1168ms"}
+{"t":110638,"type":"activity-start"}
+{"t":110889,"type":"interrupted"}
+{"t":112501,"type":"activity-end"}
+{"t":113052,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":113485,"type":"output-transcript","text":"Do không"}
+{"t":113724,"type":"output-transcript","text":" có thông"}
+{"t":113814,"type":"output-transcript","text":" tin"}
+{"t":113926,"type":"output-transcript","text":" cụ thể,"}
+{"t":114099,"type":"output-transcript","text":" tôi không"}
+{"t":114243,"type":"output-transcript","text":" thể"}
+{"t":114314,"type":"output-transcript","text":" trả lời"}
+{"t":114392,"type":"output-transcript","text":" địa chỉ"}
+{"t":114498,"type":"output-transcript","text":" lớp"}
+{"t":114628,"type":"output-transcript","text":" B được."}
+{"t":114785,"type":"output-transcript","text":" Bạn"}
+{"t":114895,"type":"output-transcript","text":" vui lòng"}
+{"t":114942,"type":"output-transcript","text":" bổ sung"}
+{"t":115022,"type":"output-transcript","text":" thông tin"}
+{"t":115111,"type":"output-transcript","text":" nhé."}
+{"t":115277,"type":"turn-complete","audioChunks":25,"audioBytes":266474,"toolCalls":0,"spoke":true}
+{"t":115277,"type":"note","msg":"  [22] 1041ms"}
+{"t":115677,"type":"activity-start"}
+{"t":115928,"type":"interrupted"}
+{"t":117541,"type":"activity-end"}
+{"t":118156,"type":"input-transcript","text":"địa chỉ lớp B là gì?"}
+{"t":118563,"type":"output-transcript","text":"Bạn ơi,"}
+{"t":119006,"type":"output-transcript","text":" vẫn"}
+{"t":119026,"type":"output-transcript","text":" cần"}
+{"t":119069,"type":"output-transcript","text":" thông"}
+{"t":119218,"type":"output-transcript","text":" tin"}
+{"t":119226,"type":"output-transcript","text":" thêm"}
+{"t":119248,"type":"output-transcript","text":" về trường"}
+{"t":119401,"type":"output-transcript","text":" học."}
+{"t":119513,"type":"output-transcript","text":" Bạn"}
+{"t":119664,"type":"output-transcript","text":" cung cấp"}
+{"t":119827,"type":"output-transcript","text":" tên trường"}
+{"t":119919,"type":"output-transcript","text":" học"}
+{"t":119962,"type":"output-transcript","text":" nhé."}
+{"t":120061,"type":"output-transcript","text":" Chỉ"}
+{"t":120228,"type":"output-transcript","text":" \"lớp"}
+{"t":120277,"type":"output-transcript","text":" B\""}
+{"t":120335,"type":"output-transcript","text":" thì không"}
+{"t":120394,"type":"output-transcript","text":" đủ."}
+{"t":120562,"type":"turn-complete","audioChunks":27,"audioBytes":291434,"toolCalls":0,"spoke":true}
+{"t":120563,"type":"note","msg":"  [23] 1100ms"}
+{"t":120963,"type":"activity-start"}
+{"t":121214,"type":"interrupted"}
+{"t":122822,"type":"activity-end"}
+{"t":123360,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":123788,"type":"output-transcript","text":"Tôi vẫn"}
+{"t":124008,"type":"output-transcript","text":" cần"}
+{"t":124086,"type":"output-transcript","text":" thông tin"}
+{"t":124216,"type":"output-transcript","text":" thêm"}
+{"t":124291,"type":"output-transcript","text":" về trường"}
+{"t":124356,"type":"output-transcript","text":" học."}
+{"t":124497,"type":"output-transcript","text":" Bạn"}
+{"t":124637,"type":"output-transcript","text":" cung cấp"}
+{"t":124781,"type":"output-transcript","text":" tên trường"}
+{"t":124873,"type":"output-transcript","text":" học nhé."}
+{"t":124990,"type":"output-transcript","text":" Chỉ"}
+{"t":125059,"type":"output-transcript","text":" \"lớp"}
+{"t":126226,"type":"output-transcript","text":" B\" thì"}
+{"t":126372,"type":"output-transcript","text":" không"}
+{"t":126449,"type":"output-transcript","text":" đủ."}
+{"t":126539,"type":"turn-complete","audioChunks":44,"audioBytes":456554,"toolCalls":0,"spoke":true}
+{"t":126539,"type":"note","msg":"  [24] 1065ms"}
+{"t":126939,"type":"activity-start"}
+{"t":127190,"type":"interrupted"}
+{"t":128800,"type":"activity-end"}
+{"t":129341,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":129754,"type":"output-transcript","text":"Do không"}
+{"t":129983,"type":"output-transcript","text":" có thông"}
+{"t":130087,"type":"output-transcript","text":" tin cụ"}
+{"t":130184,"type":"output-transcript","text":" thể,"}
+{"t":130252,"type":"output-transcript","text":" tôi không"}
+{"t":130477,"type":"output-transcript","text":" thể trả"}
+{"t":130522,"type":"output-transcript","text":" lời địa"}
+{"t":130637,"type":"output-transcript","text":" chỉ lớp"}
+{"t":130795,"type":"output-transcript","text":" B được."}
+{"t":130944,"type":"output-transcript","text":" Bạn"}
+{"t":131088,"type":"output-transcript","text":" vui lòng"}
+{"t":131138,"type":"output-transcript","text":" bổ sung"}
+{"t":131247,"type":"output-transcript","text":" thông tin"}
+{"t":131324,"type":"output-transcript","text":" nhé."}
+{"t":132497,"type":"turn-complete","audioChunks":44,"audioBytes":458474,"toolCalls":0,"spoke":true}
+{"t":132497,"type":"note","msg":"  [25] 1028ms"}
+{"t":132899,"type":"note","msg":""}
+{"t":132899,"type":"note","msg":"KẾT QUẢ ①: n=24 · p50=1065ms · p95=1195ms · cold=937ms  =>  ĐẠT ✅"}
+{"t":132899,"type":"note","msg":"   (ngưỡng: p50<1500 · p95<3000 · cold≤3000)"}
+{"t":132899,"type":"result","criterion":"1-latency","n":24,"p50":1065,"p95":1195,"cold":937,"pass":true,"samples":[1047,1044,1195,2048,1073,1074,1109,1034,1125,1043,1087,1007,1037,1065,1081,1012,1053,1195,1028,1168,1041,1100,1065,1028]}
+{"t":132899,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p1-latency-2026-08-11T09-40-46-134Z.jsonl)"}

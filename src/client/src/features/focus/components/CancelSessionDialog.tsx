@@ -35,7 +35,7 @@ export function CancelSessionDialog({
     <Dialog open={open} onOpenChange={(next) => !isSubmitting && onOpenChange(next)}>
       <DialogContent showCloseButton={false} className="rounded-[calc(var(--radius)*1.1)]">
         <DialogHeader>
-          <DialogTitle className="font-heading text-[17px] font-normal tracking-[-0.02em]">
+          <DialogTitle className="font-heading text-[17px] tracking-[-0.02em]">
             Hủy phiên này?
           </DialogTitle>
           <DialogDescription>

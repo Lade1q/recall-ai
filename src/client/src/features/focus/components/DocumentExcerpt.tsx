@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { FileText } from 'lucide-react';
 import type { ConceptSourceExcerpt } from '@/features/study-planner/types/concept';
-import { formatPageAnchor } from '../utils/format';
+import { formatPageAnchor, isTruncatedQuote } from '../utils/format';
 
 /** Thanh tiêu đề của một tệp nguồn: tên tệp bên trái, neo vị trí bên phải (mockup `.docbar`). */
 export function DocumentBar({ filename, children }: { filename: string; children?: ReactNode }) {
@@ -19,6 +19,11 @@ export function DocumentBar({ filename, children }: { filename: string; children
 /**
  * Mức "Trích đoạn" — đọc thẳng cột `concept_sources.excerpt`, không tải tệp về, không gọi AI (C4).
  *
+ * Câu trích được bọc trong ngoặc kép và `…` (khi cụt) **đặt NGOÀI `<mark>`**, không phải bên trong:
+ * chúng là dấu hiệu của *chúng ta*, không phải chữ có trong tệp. Nhét vào trong vùng tô sáng là
+ * lặng lẽ khẳng định tài liệu có mấy ký tự đó. `aria-hidden` để trình đọc màn hình không đọc ra
+ * "dấu ngoặc kép" giữa câu — thông tin đó là thị giác, và nội dung trích vẫn nguyên vẹn.
+ *
  * Tô SÁNG CẢ ĐOẠN chứ không tô từng tên khái niệm bên trong, và đây là điểm khác `HighlightedExcerpt`
  * của Concept Graph một cách có chủ ý: `ConceptSourceRef` không lưu offset `[from, to]` nào, chỉ lưu
  * một `excerpt` verbatim ngắn — chính là câu định nghĩa mà `extract_concepts` rút ra. Đoạn đó *toàn
@@ -34,6 +39,11 @@ export function DocumentExcerpt({ sources }: { sources: ConceptSourceExcerpt[] }
     <div className="flex flex-col gap-7">
       {sources.map((source, index) => {
         const anchor = formatPageAnchor(source.pageFrom, source.pageTo);
+        // `.trim()` chứ không phải `source.excerpt` trần: schema server là `z.string().min(1)`
+        // **không** `.trim()`, nên `"   "` lưu được và là truthy — render ra `“   …”`, tức một cặp
+        // ngoặc kép bao quanh không có gì, kèm dấu `…` hứa rằng còn nữa. Cắt ở client là đủ và
+        // không đụng tới dữ liệu đã lưu.
+        const quote = source.excerpt?.trim();
 
         return (
           <article key={`${source.documentId}-${index}`}>
@@ -46,16 +56,24 @@ export function DocumentExcerpt({ sources }: { sources: ConceptSourceExcerpt[] }
             </DocumentBar>
 
             <div className="text-muted-foreground max-w-[62ch] text-[13px] leading-[1.85]">
-              {source.excerpt ? (
+              {quote ? (
                 <p className="m-0">
+                  <span aria-hidden="true">“</span>
                   <mark className="bg-focus-session/16 text-foreground box-decoration-clone px-0 py-px">
-                    {source.excerpt}
+                    {quote}
                   </mark>
+                  {isTruncatedQuote(quote) && <span aria-hidden="true">…</span>}
+                  <span aria-hidden="true">”</span>
                 </p>
               ) : (
-                // Có neo trang nhưng không có câu trích: hàng vẫn thật, chỉ thiếu chữ. Nói đúng
-                // điều đó thay vì để khoảng trắng — "không có" khác "chưa tải được".
-                <p className="m-0 italic">Đoạn này chỉ có neo vị trí, không có câu trích dẫn.</p>
+                // Hàng vẫn thật, chỉ thiếu chữ — "không có" khác "chưa tải được". Nhưng câu phải
+                // khớp đúng thứ hàng NÀY có: khoe "chỉ có neo vị trí" trong khi `pageFrom` rỗng là
+                // khai một cái neo không tồn tại, lúc đó hàng chỉ còn mỗi tên tệp.
+                <p className="m-0 italic">
+                  {anchor
+                    ? 'Đoạn này chỉ có neo vị trí, không có câu trích dẫn.'
+                    : 'Khái niệm này chưa neo được vào vị trí cụ thể trong tệp, và không có câu trích dẫn.'}
+                </p>
               )}
             </div>
           </article>

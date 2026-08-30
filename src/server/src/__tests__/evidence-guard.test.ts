@@ -1,4 +1,5 @@
 import {
+  isQuoteGrounded,
   sanitizeEvidence,
   type RawEvidence,
   type SanitizedEvidence,
@@ -244,5 +245,72 @@ describe('sanitizeEvidence — deterministic INV-2 + enum backstop (spike S0)', 
     for (const quote of perMarker) {
       expect(sanitizeEvidence({ status: 'contradicted', quote })).toEqual({ kind: 'downgraded' });
     }
+  });
+});
+
+/**
+ * §④ grounding (#346) — the other half of this module, and the one that must never borrow the
+ * marker half's diacritic stripping. Every case below is about the SAME operation being correct
+ * for markers and wrong here.
+ */
+describe('isQuoteGrounded — a quote must be the student’s own words', () => {
+  const ANSWER =
+    'Địa chỉ mạng và địa chỉ broadcast không gán được cho máy, nên phải trừ đi hai địa chỉ.';
+
+  it('accepts a span copied verbatim out of the answer', () => {
+    expect(isQuoteGrounded('phải trừ đi hai địa chỉ', ANSWER)).toBe(true);
+  });
+
+  it('accepts the whole answer as its own quote', () => {
+    expect(isQuoteGrounded(ANSWER, ANSWER)).toBe(true);
+  });
+
+  it('rejects a paraphrase, however faithful', () => {
+    // Not a weaker citation — text the model wrote. That is the thing C5 forbids, which is why
+    // this is not a threshold anyone gets to tune.
+    expect(isQuoteGrounded('cần loại trừ hai địa chỉ đặc biệt', ANSWER)).toBe(false);
+  });
+
+  it('rejects an elided quote stitched together with an ellipsis', () => {
+    expect(isQuoteGrounded('Địa chỉ mạng … phải trừ đi hai địa chỉ', ANSWER)).toBe(false);
+  });
+
+  it('accepts a re-cased quote', () => {
+    expect(isQuoteGrounded('ĐỊA CHỈ MẠNG VÀ ĐỊA CHỈ BROADCAST', ANSWER)).toBe(true);
+  });
+
+  it('accepts a quote whose internal whitespace was re-wrapped', () => {
+    expect(isQuoteGrounded('phải trừ\n   đi hai   địa chỉ', ANSWER)).toBe(true);
+  });
+
+  it('accepts a decomposed (NFD) quote of an accented answer', () => {
+    // Vietnamese renders identically in NFC and NFD but differs byte for byte. Without the NFC
+    // step this rejects a REAL quote for a reason nobody can see — a false negative with no
+    // signal at all, which is why NFC is not an optional refinement.
+    const quote = 'phải trừ đi hai địa chỉ'.normalize('NFD');
+    expect(quote).not.toBe('phải trừ đi hai địa chỉ');
+    expect(isQuoteGrounded(quote, ANSWER)).toBe(true);
+  });
+
+  it('🚫 does NOT strip diacritics: an un-accented quote of an accented answer is rejected', () => {
+    // The one case that proves the two halves of this file stay apart. Stripping is deliberate for
+    // a marker (it catches a hedge typed without accents) and wrong here, where it would accept an
+    // invented quote that means something else.
+    expect(isQuoteGrounded('phai tru di hai dia chi', ANSWER)).toBe(false);
+  });
+
+  it('🚫 does NOT let a diacritic-blind match through: "ma" must not ground against "má"', () => {
+    expect(isQuoteGrounded('con ma', 'con má của em rất hiền')).toBe(false);
+    expect(isQuoteGrounded('con má', 'con má của em rất hiền')).toBe(true);
+  });
+
+  it('rejects an empty or whitespace-only quote instead of matching everything', () => {
+    for (const quote of ['', '   ', '\n\t']) {
+      expect(isQuoteGrounded(quote, ANSWER)).toBe(false);
+    }
+  });
+
+  it('rejects any quote when the answer is empty', () => {
+    expect(isQuoteGrounded('phải trừ đi hai địa chỉ', '')).toBe(false);
   });
 });

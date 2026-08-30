@@ -7,7 +7,7 @@
 > minimalist/editorial: canvas đơn sắc ấm, màu chỉ dùng cho 5 accent ngữ nghĩa, không gradient,
 > không shadow nặng, không pill-shape cho container lớn.
 >
-> Token thật nằm trong [`src/global.css`](../src/frontend/src/global.css) — tài liệu này mô tả,
+> Token thật nằm trong [`src/client/src/global.css`](../../src/client/src/global.css) — tài liệu này mô tả,
 > không phải nguồn chân lý; nếu hai bên lệch nhau, `global.css` luôn đúng.
 
 ---
@@ -68,6 +68,15 @@ chút warm chroma (hue ~75-80, xem §3.1). `line-height: 1.6` cho body.
 ---
 
 ## 3. Color System
+
+> ⚠️ **§3.1 và §3.2 đã cũ so với code (ghi 16/08/2026).** Hai bảng dưới được soạn **trước** lần đổi
+> ngôn ngữ thị giác ngày 12/08/2026 và không còn khớp `global.css`. Lệch đo được: bảng quy định
+> hue **75/80** ("warm monochrome") cho nhóm token nền, nhưng ứng dụng đang ship hue **262** ở cả
+> sáu (`src/client/src/global.css:112`, `:118`); `--primary` trong code cũng là một màu thương hiệu
+> bão hoà (`oklch(0.5 0.16 262)`) chứ không phải ink-solid như bảng mô tả. Theo đúng luật do chính
+> tài liệu này đặt ở đầu trang — **`global.css` luôn đúng khi hai bên lệch** — hãy đọc giá trị token
+> từ `global.css`, và coi hai bảng dưới là hồ sơ chủ đích v3, không phải đặc tả đang hiệu lực.
+> Việc lập lại bảng thuộc đợt rà soát ngôn ngữ thị giác, không làm trong tuần đóng băng.
 
 ### 3.1 Canvas & Neutral (warm monochrome — never pure black/white)
 

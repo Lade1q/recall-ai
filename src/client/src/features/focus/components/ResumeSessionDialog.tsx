@@ -33,7 +33,7 @@ export function ResumeSessionDialog({
     <Dialog open onOpenChange={() => {}}>
       <DialogContent showCloseButton={false} className="rounded-[calc(var(--radius)*1.1)]">
         <DialogHeader>
-          <DialogTitle className="font-heading text-[17px] font-normal tracking-[-0.02em]">
+          <DialogTitle className="font-heading text-[17px] tracking-[-0.02em]">
             Phiên học chưa được ghi nhận
           </DialogTitle>
           <DialogDescription>

@@ -34,6 +34,10 @@ export const ENDPOINTS = {
     BASE: '/api/v1/review-queue',
     ITEM: (itemId: string) => `/api/v1/review-queue/${itemId}`,
     TODAY: '/api/v1/review-queue/today',
+    // Màn Lịch ôn tập (#400). Nằm dưới `review-queue` chứ không phải `/plans/schedule`: planRouter
+    // đã có `GET /:id`, nên một `/plans/schedule` chỉ đúng khi được đăng ký TRƯỚC nó — một ràng
+    // buộc theo thứ tự dòng, vỡ im lặng khi ai đó sắp lại route.
+    SCHEDULE: '/api/v1/review-queue/schedule',
   },
   DASHBOARD: {
     STATS: '/api/v1/dashboard/stats',
@@ -46,6 +50,8 @@ export const ENDPOINTS = {
     NOTE: (id: string, noteId: string) => `/api/v1/focus-sessions/${id}/notes/${noteId}`,
   },
   USERS: {
+    PROFILE: '/api/v1/users/me',
+    PASSWORD: '/api/v1/users/me/password',
     POMODORO_CONFIG: '/api/v1/users/me/pomodoro-config',
   },
 } as const;

@@ -149,7 +149,7 @@ export function ConceptDetailPanel({
       : null;
 
   return (
-    <aside className="w-70 border-border bg-card shadow-soft absolute bottom-0 right-0 top-0 z-10 flex shrink-0 flex-col gap-5 overflow-y-auto border-l p-[22px_22px_26px] lg:static lg:w-80 lg:border-none lg:shadow-none">
+    <aside className="w-70 border-border bg-card shadow-(--shadow-soft) absolute bottom-0 right-0 top-0 z-10 flex shrink-0 flex-col gap-5 overflow-y-auto border-l p-[22px_22px_26px] lg:static lg:w-80 lg:border-none lg:shadow-none">
       <div>
         <div className="mb-1.5 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -210,7 +210,7 @@ export function ConceptDetailPanel({
                     style={{ width: `${scorePercent}%` }}
                   />
                 </div>
-                <div className="text-muted-foreground relative mt-1 h-3.5 font-mono text-[10px]">
+                <div className="text-muted-foreground relative mt-1 h-3.5 font-mono text-[11px]">
                   <span
                     className="border-border h-1.25 absolute -top-1.5 border-l"
                     style={{ left: `${MASTERY_THRESHOLD * 100}%` }}

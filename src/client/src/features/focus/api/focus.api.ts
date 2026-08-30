@@ -5,6 +5,7 @@ import type {
   CreateFocusSessionResponse,
   EndFocusSessionInput,
   EndFocusSessionResponse,
+  FocusSessionListItem,
   PomodoroConfig,
 } from '../types/focus.types';
 
@@ -38,6 +39,16 @@ export function getFocusSessionErrorMessage(
       return 'Thời gian tập trung ghi nhận không hợp lệ. Vui lòng tải lại trang.';
     case 'INVALID_CONCEPT_IDS':
       return 'Khái niệm không thuộc kế hoạch đã chọn.';
+    // #328/#371: có phiên running khác plan/concept đang chạy. Server đã KHÔNG trả nhầm phiên
+    // đó về (từng là bug — silently ghi giờ học vào sai khái niệm), nên ở đây chỉ còn việc báo
+    // rõ cho người dùng, không phải xử lý dữ liệu sai lệch nào.
+    case 'SESSION_ALREADY_RUNNING':
+      return 'Bạn đang có một phiên học tập trung khác đang chạy trên kế hoạch/khái niệm khác. Vui lòng kết thúc phiên đó trước khi bắt đầu phiên mới.';
+    // Ngoại lệ của quy ước "không render thẳng error.message": PLAN_NOT_ACTIVE gộp hai trạng thái
+    // (`archived`/`draft`) với hai câu hành động khác nhau — một hằng số phía client không phủ
+    // được cả hai, nên dùng nguyên văn câu server đã dựng bằng buildInactivePlanMessage().
+    case 'PLAN_NOT_ACTIVE':
+      return error.response.data?.error?.message ?? 'Đã xảy ra lỗi, vui lòng thử lại.';
     case 'VALIDATION_ERROR':
       return 'Thông tin gửi lên chưa hợp lệ.';
     default:
@@ -77,6 +88,31 @@ export const focusSessionApi = {
     );
     return response.data.data;
   },
+
+  /**
+   * Lịch sử phiên học (FS-03), mới nhất trước.
+   *
+   * `data` là một **mảng trần** — không `total`, không `hasMore`, không header phân trang, y
+   * hệt `GET /interviews`. Cách duy nhất biết đã hết là so số phần tử nhận được với `limit` đã
+   * xin (xem `useFocusSessionList`). ⇒ Không suy ra được TỔNG số phiên; đừng hứa một con số
+   * tổng ở đâu trên UI.
+   *
+   * `limit > 50` bị **từ chối 400**, không phải kẹp im lặng (`listFocusSessionsQuerySchema`
+   * dùng `.max(50)` của Zod) — khác chỗ `history.api.ts` mô tả cho `/interviews`.
+   */
+  list: async ({
+    limit,
+    offset,
+  }: {
+    limit: number;
+    offset: number;
+  }): Promise<FocusSessionListItem[]> => {
+    const response = await apiClient.get<ApiEnvelope<FocusSessionListItem[]>>(
+      ENDPOINTS.FOCUS_SESSIONS.BASE,
+      { params: { limit, offset } }
+    );
+    return response.data.data;
+  },
 };
 
 export const pomodoroConfigApi = {
@@ -84,6 +120,15 @@ export const pomodoroConfigApi = {
   get: async (): Promise<PomodoroConfig> => {
     const response = await apiClient.get<ApiEnvelope<PomodoroConfig>>(
       ENDPOINTS.USERS.POMODORO_CONFIG
+    );
+    return response.data.data;
+  },
+
+  /** PATCH /users/me/pomodoro-config — cập nhật cài đặt Pomodoro mặc định. */
+  update: async (config: Partial<PomodoroConfig>): Promise<PomodoroConfig> => {
+    const response = await apiClient.patch<ApiEnvelope<PomodoroConfig>>(
+      ENDPOINTS.USERS.POMODORO_CONFIG,
+      config
     );
     return response.data.data;
   },

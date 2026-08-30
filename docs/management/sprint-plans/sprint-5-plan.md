@@ -8,6 +8,54 @@
 
 ---
 
+> ## 🔻 SỬA PHẠM VI 16/08/2026 — đọc trước cả banner 15/08 bên dưới
+>
+> **Interview v2 bị BỎ khỏi phạm vi bài nộp.** Không phải hoãn, không phải chờ điều kiện.
+>
+> Banner 15/08 bên dưới hoãn _vế 2_ (tầng vận chuyển giọng nói) và giữ _vế 1_ (đổi grain chấm) làm deliverable. Quyết định 16/08 bỏ nốt vế 1: chuỗi [#356](https://github.com/Lade1q/planning-ai/issues/356) → [#357](https://github.com/Lade1q/planning-ai/issues/357) → [#358](https://github.com/Lade1q/planning-ai/issues/358) đóng lúc 02:10 (`closed as not planned`), PR [#362](https://github.com/Lade1q/planning-ai/pull/362) đóng không merge. Năm ngày còn lại tới code freeze dồn vào thứ đã chạy được.
+>
+> **Hệ quả trong mã, ghi ra chứ không giấu:** `recordTurnEvidence` vẫn ghi bảng `interview_evidence` mỗi lượt, nhưng `finalizeConceptCoverage` **không có caller**. Hệ thống ghi dữ liệu mà không ai đọc. Điểm sinh viên nhìn thấy tiếp tục tính bằng trung bình có trọng số 3 lượt như Sprint 4. Kiểm lại bằng `git grep finalizeConceptCoverage -- src`.
+>
+> ### Cái gì chết theo quyết định này
+>
+> | Mục                                                           | Tình trạng                                       |
+> | ------------------------------------------------------------- | ------------------------------------------------ |
+> | Banner 15/08 dòng cuối ("Ba issue thay cho nhánh B")          | **Chết** — cả ba đã đóng `not planned`           |
+> | §6.1 lý do hoãn #245 #246 #247 ("tranh người với đường găng") | **Chết** — làn đã trống                          |
+> | §6.1 "Chưa đổi milestone"                                     | **Sai** từ 16/08 01:35 — xem §6.2                |
+> | §6.1 hàng #172 ("giữ hoãn")                                   | **Lật** — đã nhận vào Sprint 5                   |
+> | §7.1 toàn bộ lịch 15–23/08                                    | **Huỷ** — xem §7.2                               |
+> | §9 khối "Bắt buộc"                                            | **Không đạt** — xem ghi chú tại chỗ              |
+> | §10 mục 5 (#121)                                              | **Sai** — #121 đã đóng 12/08, không re-milestone |
+
+---
+
+> ## 🔻 SỬA PHẠM VI 15/08/2026 — đọc trước mọi mục bên dưới
+>
+> **Vế 2 của mục tiêu sprint ("đưa voice-to-voice thành kênh dẫn phiên chính") được HOÃN ra ngoài phạm vi môn học.** Vế 1 (đổi grain chấm) và vế 3 (giữ engine tất định) **giữ nguyên và là deliverable của sprint**.
+>
+> Đây là **quyết định về lịch, không phải kết luận về tính khả thi** — spike S0 đã qua cổng 13/08 với cả bốn tiêu chí bắt buộc. Lý lẽ đầy đủ, số đo và hiện vật: [`../technical-spike-s0-report.md`](../technical-spike-s0-report.md).
+>
+> ### Cách đọc tài liệu này từ đây trở đi
+>
+> Các mục bên dưới **giữ nguyên văn bản ngày 10/08** — đây là hồ sơ kế hoạch, và khoảng cách giữa _kế hoạch_ với _thực tế_ là thứ đáng giữ lại chứ không phải thứ nên xoá đi. Chỗ nào đã bị thay thế thì được **đánh dấu tại chỗ**, không viết lại:
+>
+> | Mục                         | Tình trạng                                                               |
+> | --------------------------- | ------------------------------------------------------------------------ |
+> | §1 vế 1, vế 3 · §3 · §5     | **Còn hiệu lực**                                                         |
+> | §1 vế 2 · §2 Q1 Q3 Q5 Q12   | Bị thay thế bởi quyết định 15/08                                         |
+> | §4 nhánh B · §7 chặng S2 S3 | **Huỷ** — xem §7                                                         |
+> | §6                          | Lý do hoãn phải viết lại — xem §6.1                                      |
+> | §8 R11 R13 R14 R15          | Đã có số đo; R14 sai về mặt dữ kiện — xem ghi chú tại chỗ                |
+> | §9 khối "Nếu cổng ra GO"    | Không áp dụng cho bài nộp môn học                                        |
+> | §10                         | **Bổ sung 16/08** — mục này bị bỏ quên khỏi bảng; mục 5 sai, xem tại chỗ |
+>
+> ~~**Ba issue thay cho nhánh B:** [#356](https://github.com/Lade1q/planning-ai/issues/356) → [#357](https://github.com/Lade1q/planning-ai/issues/357) → [#358](https://github.com/Lade1q/planning-ai/issues/358) — nối cơ chế chấm theo bằng chứng (đã merge nhưng **chưa có caller**) vào chỗ đóng khái niệm của đường văn bản.~~
+>
+> 🚫 **HUỶ 16/08.** Cả ba đóng lúc 02:10 với lý do bỏ phạm vi (`not planned`); PR #362 đóng không merge. Mệnh đề "chưa có caller" thì vẫn đúng — và bây giờ là **vĩnh viễn** trong phạm vi môn học.
+
+---
+
 ## 1. Mục tiêu Sprint
 
 Ba vế, theo đúng thứ tự ưu tiên:
@@ -216,22 +264,99 @@ Sau khi hoãn, còn lại: `@phong0801` → #171 #130 #250 · `@baonguyen1776` �
 
 **Đề xuất phân công nhánh B** (chờ Quân chốt): backend/infra (S2, S3 proxy + audio) và assessment layer (S1, S4) là hai luồng tách được, hợp với đúng hai người vừa giải phóng. QA (`@NMP039`) vào từ S1 vì tầng chấm là thứ **unit-test được không cần DB/API key**.
 
+### 6.1 Cập nhật 15/08 — lý do hoãn phải viết lại
+
+Nhánh B bị huỷ, nên câu _"hoãn để lấy năng lực cho nhánh B"_ **không còn là lý do hợp lệ**. Nhưng kết luận thì không đổi, vì hai dữ kiện mới:
+
+**① Năng lực không thực sự được giải phóng.** Câu _"cả hai gần như rảnh sau 14/08"_ ở trên **đã sai tính tới 15/08**:
+
+- `@baonguyen1776` vẫn giữ [#166](https://github.com/Lade1q/planning-ai/issues/166) (Trang Hồ sơ, milestone Sprint 4, mở từ 31/07) — chưa xong.
+- `@phong0801` có PR [#350](https://github.com/Lade1q/planning-ai/pull/350) đang mở chưa ai review, cộng [#327](https://github.com/Lade1q/planning-ai/issues/327).
+
+**② Việc thay thế dùng đúng hai người đó.** [#356](https://github.com/Lade1q/planning-ai/issues/356)/[#357](https://github.com/Lade1q/planning-ai/issues/357) là **backend**, [#358](https://github.com/Lade1q/planning-ai/issues/358) là **frontend** — cùng làn với [#245](https://github.com/Lade1q/planning-ai/issues/245) (BE) và [#246](https://github.com/Lade1q/planning-ai/issues/246) (FE). Chuỗi #356→#357→#358 lại **nối tiếp**, nên gọi thêm việc song song không rút ngắn được đường găng, chỉ chia mỏng người trên nó.
+
+#### Phân loại lại
+
+> 🚫 **Bảng này đã bị §6.2 (16/08) thay thế** — #172 và #245 nay **gỡ hoãn**, #248 đổi hạng ngược. Giữ nguyên bên dưới làm hồ sơ; đọc §6.2 để biết trạng thái đang có hiệu lực.
+
+| Issue                                                                                                                                                                      | Quyết 15/08                       | Lý do **mới** (thay lý do ở bảng trên)                                                                                                                                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [#245](https://github.com/Lade1q/planning-ai/issues/245) [#246](https://github.com/Lade1q/planning-ai/issues/246) [#247](https://github.com/Lade1q/planning-ai/issues/247) | giữ hoãn                          | Tranh người với đường găng #356→#358. Lịch sử phiên vẫn không phải điểm khác biệt.                                                                                                                                                                                                                                       |
+| [#211](https://github.com/Lade1q/planning-ai/issues/211)                                                                                                                   | giữ hoãn — **kể cả khi có người** | Nó đổi **thứ tự hàng đợi ôn**, tức chạm đúng phần đang chạy đúng và được chấm nặng nhất (§1 vế 3). Sáu ngày trước freeze, đây là đổi rủi ro hồi quy lấy giá trị demo gần bằng 0.                                                                                                                                         |
+| [#172](https://github.com/Lade1q/planning-ai/issues/172)                                                                                                                   | giữ hoãn, **nhưng phải ghi nhận** | Là alternative flow `SP-01 AF2/A3` **đã khai trong UC-Spec**. Không xây thì khoảng lệch spec↔code phải được ghi vào [#128](https://github.com/Lade1q/planning-ai/issues/128), đừng để người chấm tự phát hiện.                                                                                                           |
+| [#248](https://github.com/Lade1q/planning-ai/issues/248)                                                                                                                   | **đổi hạng: hoãn → CHẶN**         | Lý do của nó ở bảng trên (_"grain chấm đang bị thay"_) chưa bao giờ là thiếu người, và giờ **mạnh hơn**. Đã cài `blocked_by` [#358](https://github.com/Lade1q/planning-ai/issues/358) (hạt chấm) và [#246](https://github.com/Lade1q/planning-ai/issues/246) (chỗ đặt form, theo `SPEC_DB-03` bước #7) + nhãn `blocked`. |
+
+> 🔑 **Bài học giữ lại:** một danh sách hoãn phải mang **lý do riêng cho từng mục**, không phải một lý do chung. Khi lý do chung mất hiệu lực, năm mục vẫn hoãn đúng còn một mục thì lẽ ra phải đổi hạng — gộp chung rổ che mất đúng mục đó.
+
+> ⚠️ **Bài học đó hỏng ngay hôm sau — ghi lại 16/08.** Lý do "mới" viết ở bảng trên cho #245/#246/#247 vẫn **trỏ vào một việc khác trong cùng sprint** (đường găng #356→#358). Ngày 16/08 đường găng đó bị bỏ, và cả ba mục lại mất lý do cùng một lúc — đúng thất bại vừa rút kinh nghiệm, chỉ đổi vỏ. Bài học thật hơn: **lý do hoãn phải là một tính chất của chính issue đó**, không được là một con trỏ tới việc khác. Chỉ #211 đạt chuẩn ấy, và chỉ nó sống sót qua cả hai lần đổi phạm vi.
+
+### 6.2 Cập nhật 16/08 — sau khi bỏ Interview v2
+
+~~**Chưa đổi milestone.**~~ Câu đó **sai từ 16/08 01:35**: milestone `Sau demo (post-23/08)` được tạo lúc 01:35:12Z và #211 #245 #246 #247 #248 chuyển sang trong 10 giây kế tiếp. Ghi lại đúng như đã xảy ra thay vì sửa lịch sử — quyết định do Quân chốt, thao tác thực hiện cùng ngày.
+
+Phân loại lại **lần thứ ba**, sau khi chuỗi #356→#358 bị bỏ:
+
+| Issue                                                    | Quyết 16/08                             | Lý do                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [#172](https://github.com/Lade1q/planning-ai/issues/172) | **gỡ hoãn** → Sprint 5                  | Hoãn này chỉ tồn tại trong tài liệu; bảng issue không mang dấu hiệu nào nên @phong0801 nhặt lên và **đã viết xong** (PR #363). Khoảng lệch spec↔code biến mất khi #363 merge ⇒ **gỡ mục này khỏi #128**.                                                                                                                                                                                 |
+| [#245](https://github.com/Lade1q/planning-ai/issues/245) | **gỡ hoãn** → Sprint 5                  | Làn đã trống thật. 824 dòng đã viết xong ở nhánh `feature/db-03-interview-history`; PR [#324](https://github.com/Lade1q/planning-ai/pull/324) **đã mở lại 16/08**. Xung đột merge: **đúng một tệp tài liệu** (`docs/api/interviews.md`, do #350 merge sau đó cũng sửa tệp này); `interview.types.ts` và `mastery.ts` tự merge sạch. Việc còn lại: giải một xung đột docs, review, merge. |
+| [#246](https://github.com/Lade1q/planning-ai/issues/246) | giữ hoãn                                | Là FE của chính #245 — chưa có API thì chưa có gì để nối. Và @baonguyen1776 đang giữ #360, thứ duy nhất còn trên đường đi demo.                                                                                                                                                                                                                                                          |
+| [#247](https://github.com/Lade1q/planning-ai/issues/247) | giữ hoãn                                | Nằm sau cả #245 lẫn #246 trong cùng một màn, không trên đường demo.                                                                                                                                                                                                                                                                                                                      |
+| [#248](https://github.com/Lade1q/planning-ai/issues/248) | **đổi hạng ngược: CHẶN → hoãn vì lịch** | Lý do chặn 15/08 (_"grain chấm đang bị thay"_) **tự tiêu** — hạt chấm không đổi nữa. Phụ thuộc thật còn lại chỉ là #246. `blocked_by` #358 trỏ vào issue đã bỏ.                                                                                                                                                                                                                          |
+| [#211](https://github.com/Lade1q/planning-ai/issues/211) | giữ hoãn                                | **Không đổi** — lý do của nó chưa bao giờ phụ thuộc kế hoạch voice.                                                                                                                                                                                                                                                                                                                      |
+
+> ⚠️ **Nợ quy trình đã trả 16/08:** bốn issue giữ hoãn trước đó chưa từng nhận **một comment nào** trong cả vòng đời. Body-edit + nhãn + milestone là ba thao tác GitHub **không gửi notification** — đó chính xác là cơ chế đã làm #172 bị xây oan. Đã post comment @-mention assignee cho từng issue.
+
 ---
 
 ## 7. Lịch trong sprint
 
-| Mốc                     | Ngày       | Nội dung                                                                                                                                                                                                                                |
-| ----------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sprint Planning         | 10/08 (CN) | Chốt phạm vi, công bố danh sách hoãn, chốt phân công                                                                                                                                                                                    |
-| **Spike S0**            | 11–12/08   | Song song PA4 — không chặn ai                                                                                                                                                                                                           |
-| **CỔNG GO/NO-GO**       | **13/08**  | 5 tiêu chí mục 4. Quyết định trước khi ai viết dòng production nào cho voice                                                                                                                                                            |
-| **PA4 phải nộp**        | **14/08**  | [#249](https://github.com/Lade1q/planning-ai/issues/249)–[#253](https://github.com/Lade1q/planning-ai/issues/253) · [#128](https://github.com/Lade1q/planning-ai/issues/128) · [#130](https://github.com/Lade1q/planning-ai/issues/130) |
-| **S1 phải xong**        | 15/08      | Nhánh A chạy trên đường text — mốc không được trượt                                                                                                                                                                                     |
-| S2                      | 15–17/08   | Pipeline trích text                                                                                                                                                                                                                     |
-| S3                      | 17–19/08   | Lát dọc voice 1 concept                                                                                                                                                                                                                 |
-| **Code freeze nhánh B** | **21/08**  | Sau mốc này chỉ sửa lỗi, không thêm tính năng                                                                                                                                                                                           |
-| Làm cứng demo           | 22/08      | Tai nghe, đường lui, bản ghi dự phòng                                                                                                                                                                                                   |
-| **Final demo + PA5**    | **23/08**  |                                                                                                                                                                                                                                         |
+| Mốc                  | Ngày         | Nội dung                                                                                                                                                                                                                                |
+| -------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sprint Planning      | 10/08 (CN)   | Chốt phạm vi, công bố danh sách hoãn, chốt phân công                                                                                                                                                                                    |
+| **Spike S0**         | 11–12/08     | Song song PA4 — không chặn ai                                                                                                                                                                                                           |
+| **CỔNG GO/NO-GO**    | **13/08**    | 5 tiêu chí mục 4. Quyết định trước khi ai viết dòng production nào cho voice                                                                                                                                                            |
+| **PA4 phải nộp**     | **14/08**    | [#249](https://github.com/Lade1q/planning-ai/issues/249)–[#253](https://github.com/Lade1q/planning-ai/issues/253) · [#128](https://github.com/Lade1q/planning-ai/issues/128) · [#130](https://github.com/Lade1q/planning-ai/issues/130) |
+| **S1 phải xong**     | 15/08        | Nhánh A chạy trên đường text — mốc không được trượt                                                                                                                                                                                     |
+| ~~S2~~               | ~~15–17/08~~ | ~~Pipeline trích text~~ — **HUỶ 15/08** (chỉ cần cho voice)                                                                                                                                                                             |
+| ~~S3~~               | ~~17–19/08~~ | ~~Lát dọc voice 1 concept~~ — **HUỶ 15/08**                                                                                                                                                                                             |
+| **Code freeze**      | **21/08**    | Sau mốc này chỉ sửa lỗi, không thêm tính năng                                                                                                                                                                                           |
+| Làm cứng demo        | 22/08        | ~~Tai nghe, bản ghi dự phòng~~ → đường đi demo, dữ liệu mẫu                                                                                                                                                                             |
+| **Final demo + PA5** | **23/08**    |                                                                                                                                                                                                                                         |
+
+### 7.1 Lịch thay thế 15–23/08 (thay hai chặng đã huỷ)
+
+> 🚫 **TOÀN BỘ §7.1 HUỶ 16/08** — đường găng #356→#357→#358 và câu nghiệm thu của nó không còn. Lịch đang có hiệu lực ở **§7.2**. Giữ nguyên bên dưới làm hồ sơ.
+
+Đường găng là **chuỗi nối tiếp** — không rút ngắn được bằng cách thêm người.
+
+| Ngày      | Việc                                                                                                           | Ai  |
+| --------- | -------------------------------------------------------------------------------------------------------------- | --- |
+| 15–17/08  | [#356](https://github.com/Lade1q/planning-ai/issues/356) nối coverage vào 2 chỗ đóng khái niệm + guard `C < N` | BE  |
+| 17–18/08  | [#357](https://github.com/Lade1q/planning-ai/issues/357) migration mềm hợp đồng `/summary`                     | BE  |
+| 18–20/08  | [#358](https://github.com/Lade1q/planning-ai/issues/358) màn kết quả theo hạt checkpoint + câu chữ cho `null`  | FE  |
+| 19–21/08  | Đánh bóng **đúng đường đi demo** — không rà soát UI toàn app                                                   | FE  |
+| **21/08** | **Code freeze**                                                                                                |     |
+| 22/08     | Diễn tập demo + dữ liệu mẫu                                                                                    |     |
+| 23/08     | Final demo + PA5                                                                                               |     |
+
+> ⏳ **Chốt chặn trước khi bắt đầu #357:** đang chờ `@baonguyen1776` trả lời (hỏi ở [#357](https://github.com/Lade1q/planning-ai/issues/357) và PR [#307](https://github.com/Lade1q/planning-ai/pull/307)) — họ tự cầm #358 hay để người khác làm rồi review, và shape đề xuất đã đủ cho `ScoreBreakdown` chưa. Đây là quy tắc R20: đổi hợp đồng dưới chân màn hình người khác vừa ship thì **báo trước**, không phải báo lúc PR đã mở.
+
+~~**Nghiệm thu của cả chuỗi — một câu, đo được:** một phiên **văn bản** thật, sinh viên trả lời dở dang một khái niệm ⇒ `masteryScore = null` (_"chưa đủ để kết luận"_), khái niệm **quay lại hàng đợi ôn**, **không** sinh dòng truy ngược, và màn kết quả **nói đúng điều đó bằng câu chữ**. Đó là câu trả lời đo được cho lời chê ngày 08/08 — và cũng chính là nội dung PA5 (_"Working software"_).~~ — **không đạt được, xem §9.**
+
+### 7.2 Lịch thay thế lần hai — 16–23/08
+
+| Ngày      | Việc                                                                                                                                                                                  | Ai     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 16–17/08  | Review + merge [#324](https://github.com/Lade1q/planning-ai/pull/324) ([#245](https://github.com/Lade1q/planning-ai/issues/245) DB-03) — đã mở lại; 1 xung đột docs cần giải          | BE     |
+| 16–18/08  | [#360](https://github.com/Lade1q/planning-ai/pull/360) Trang Hồ sơ — gỡ 1317 dòng code chết, bỏ 2 ô nhập                                                                              | FE     |
+| 16–18/08  | Review + merge [#350](https://github.com/Lade1q/planning-ai/pull/350), [#363](https://github.com/Lade1q/planning-ai/pull/363), [#366](https://github.com/Lade1q/planning-ai/pull/366) | Review |
+| 19–20/08  | Đánh bóng **đúng đường đi demo** — không rà soát UI toàn app                                                                                                                          | FE     |
+| **21/08** | **Code freeze**                                                                                                                                                                       |        |
+| 22/08     | Diễn tập demo + dữ liệu mẫu                                                                                                                                                           |        |
+| 23/08     | Final demo + PA5                                                                                                                                                                      |        |
+
+**Nghiệm thu mới, thay câu đã gạch ở trên:** Sprint 5 không giao được tính năng mà nó đặt ra. Thứ nó giao là một **quyết định có căn cứ**: một spike hai ngày với ngưỡng đạt/không-đạt **công bố trước khi đo**, chạy trên hạ tầng thật, ra **GO về kỹ thuật và NO-GO về lịch** — kèm số đo đọc lại được từ hiện vật. Đó là nội dung PA5.
 
 ---
 
@@ -252,9 +377,38 @@ SDP đã dùng tới R10 nên đánh số tiếp từ **R11**.
 | **R19** | **Hai người gánh toàn bộ nhánh B.** Biến thể của R07, nhưng nặng hơn vì hạ tầng mới hoàn toàn                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Luật bánh cóc mục 4: mỗi chặng tự demo được, vắng người thì lùi mức chứ không mất trắng                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | **R20** | 🟡 **S1 đụng hợp đồng API mà PR [#307](https://github.com/Lade1q/planning-ai/pull/307) đang xây trên đó** — nhưng **không phải hard-break** (đã kiểm code nhánh PR). Đổi `grade_answer` sang evidence per-checkpoint làm `turns[{score, verdict}]` mất nghĩa, song `ScoreBreakdown.tsx` của #307 **tự degrade**: `WeightedFormula` gác `allScored = turns.every(score !== null)` → per-turn null thì thu về `"N lượt"`; `TurnDetail` hiện `"Chưa chấm"` / `"--"`. Không crash. Điểm ở mức concept lấy từ công thức coverage mới, không từ per-turn. #305/#310 chỉ **đọc** điểm đã lưu ⇒ không vỡ | **Migration mềm** (do lane kiến trúc điều phối): giữ `turns[]` làm transcript (`turnIndex`+`answerText`), deprecate `score`/`verdict` per-turn → null ở v2, **thêm** `checkpoints[]`/coverage. Vẫn **báo `@baonguyen1776` trước khi đổi schema** (đồng nghiệp đang coordinate #307). Hệ quả: màn kết quả **degrade thành rỗng** ở phần per-turn cho tới khi **S1 vẽ lại breakdown theo checkpoint** — nên FE màn kết quả là **hạng mục bắt buộc trong S1**, không phải polish tuỳ chọn. Không còn chặn cứng mốc S1-15/08 |
 
+### 8.1 Cập nhật 15/08 — bốn rủi ro đã có số đo, một cái ghi SAI dữ kiện
+
+| Risk                                | Kết quả thật                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **R11** độ trễ VN                   | ✅ **Đóng.** Đo `p50 1065 ms · p95 1195 ms · nguội 937 ms` (n=24) — p95 chưa tới **một nửa** ngưỡng 3s. Lo ngại "APAC không có vùng phục vụ ⇒ giật" **không xảy ra**.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **R13** `SILENT` gây 1008           | ✅ **Không xảy ra** (0 lần 1008 qua 10 lần bắn). ⚠️ Nhưng probe ra **nhánh B**: _"incremental chạy nhưng KHÔNG silent — model kể lể bookkeeping"_. Cơ chế sống, **tính im lặng thì không**.                                                                                                                                                                                                                                                                                                                                                                           |
+| **R14** `silenceDurationMs` vô dụng | 🔴 **MỆNH ĐỀ NÀY GHI RỘNG QUÁ — đã sai.** Tra 15/08: `googleapis/js-genai#1467` ghi thẳng _"The same parameter works correctly on `gemini-2.5-flash-native-audio-latest`"_; bug là **của `gemini-3.1-flash-live-preview`**. ⇒ trên đúng model spike dùng, **server-VAD hoạt động**, và cách xử lý "tự cầm endpointing" ở cột bên có thể là **không cần thiết**. Doc best-practices của Google còn cảnh báo ngược chiều: client VAD ngưỡng gắt **cắt giữa câu ở quãng nghỉ tự nhiên** — tức tự dựng lại đúng lời chê gốc. **Phải probe lại trước khi ai dựa vào R14.** |
+| **R15** tự ngắt lời trên loa        | ⚠️ Còn nguyên, nhưng **hết liên quan tới bài nộp** vì demo không dùng voice.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+
+**Rủi ro mới thay chỗ R12/R16/R19** (chúng chỉ tồn tại vì nhánh B): cơ chế `record_evidence` bất đồng bộ **chỉ có ở dòng mô hình 2.5**; bản kế nhiệm do nhà cung cấp chỉ định (`gemini-3.1-flash-live-preview`) bỏ cả async function calling lẫn structured output. Không chặn bài nộp, nhưng chặn việc đi tiếp — lối thoát (chấm out-of-band từ transcript) ghi ở §8 của [`../technical-spike-s0-report.md`](../technical-spike-s0-report.md).
+
 ---
 
 ## 9. Definition of Done cho cả Sprint
+
+> **Cập nhật 16/08 — thay ghi chú 15/08 ngay dưới:** khối **"Bắt buộc"** **KHÔNG ĐẠT**. Ghi ra chứ không sửa tiêu chí cho vừa kết quả.
+>
+> Ghi chú 15/08 đúng tại thời điểm viết: nhánh A đứng độc lập được, nên khối này còn hiệu lực. Ngày 16/08 nhánh A cũng bị bỏ, và mục đầu tiên — thứ định nghĩa cả khối — không còn cơ chế nào đạt được.
+>
+> | Mục                                                                            | Kết quả                               | Vì sao                                                                                                                                                                                                                              |
+> | ------------------------------------------------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Nhánh A độc lập · `masteryScore = null` cho câu dở dang                        | ❌ **Không đạt**                      | `finalizeConceptCoverage` 0 caller; điểm vẫn là trung bình có trọng số 3 lượt                                                                                                                                                       |
+> | Tầng chấm trong `utils/`, test xanh khi tước `DATABASE_URL` + `GEMINI_API_KEY` | ⚠️ **Đạt về mã, vô hiệu về tác dụng** | `coverageMasteryScore` + `evidence-tally` tồn tại và có test, nhưng **không ai gọi**. R05 vẫn đứng.                                                                                                                                 |
+> | Concept Graph Engine không đổi hành vi                                         | ✅ **Đạt**                            | Không đụng tới — và đây là mục được chấm nặng nhất                                                                                                                                                                                  |
+> | SDP sửa xong ba mệnh đề §5                                                     | 🚫 **Phần voice không còn áp dụng**   | Còn **một** mệnh đề thật phải ghi: output của `grade_answer` rộng thêm mảng `evidence` (`ai-interview.schema.ts`). Số bề mặt gọi AI **không đổi** (vẫn 4) ⇒ **C4 không bị vi phạm**, nhưng lệch schema so với SDP thì phải ghi chú. |
+> | Cổng 13/08 có số đo, **ghi vào issue**                                         | ⚠️ **Đạt về số, sai chỗ chứa**        | Số nằm ở [`../technical-spike-s0-report.md`](../technical-spike-s0-report.md); không tồn tại issue cổng nào                                                                                                                         |
+>
+> **Sprint 5 không đạt Definition of Done của chính nó.** Giữ nguyên DoD và ghi "không đạt" là trung thực hơn hạ tiêu chí xuống cho vừa kết quả — và khoảng cách giữa _kế hoạch_ với _thực tế_ chính là thứ tài liệu này đã tuyên ngay từ banner 15/08 là đáng giữ lại.
+>
+> ---
+>
+> ~~**Cập nhật 15/08:** khối **"Bắt buộc"** bên dưới **giữ nguyên hiệu lực** — nó vốn được viết để nhánh A đứng độc lập kể cả khi cổng ra no-go, và đó chính xác là tình huống hiện tại (khác một điều: cổng ra **GO**, việc hoãn là do lịch).~~ Khối **"Nếu cổng ra GO"** **không áp dụng** cho bài nộp môn học.
 
 **Bắt buộc (không đạt = sprint fail):**
 
@@ -267,7 +421,7 @@ SDP đã dùng tới R10 nên đánh số tiếp từ **R11**.
 - [ ] SDP sửa xong ba mệnh đề mục 5, kèm biện minh viết thành văn.
 - [ ] Cổng 13/08 có **kết quả đo bằng số**, ghi vào issue — kể cả khi ra no-go.
 
-**Nếu cổng ra GO:**
+**Nếu cổng ra GO:** _(🚫 KHÔNG áp dụng — cổng ra GO nhưng voice đã hoãn ngày 15/08. Giữ lại làm Definition of Done cho lần nối tiếp sau môn học.)_
 
 - [ ] Một phiên voice thật, tiếng Việt, trên tài liệu người dùng upload, chạy hết một concept và ghi được evidence.
 - [ ] **Số đo tuân thủ C5**: vì backend là bên phục vụ lát tài liệu, đo được tỉ lệ câu hỏi rơi ra ngoài lát đã phục vụ. C5 phải là **"đã đo, có số"**, không phải "đã viết trong prompt". Yêu cầu kiến trúc kèm theo: **transcript hai chiều bật từ ngày đầu ở tầng proxy** — không móc sẵn thì cuối sprint không đo được.
@@ -279,12 +433,12 @@ SDP đã dùng tới R10 nên đánh số tiếp từ **R11**.
 
 ## 10. Điểm cần làm rõ khi lập kế hoạch
 
-| #   | Điểm                                                                                                                                           | Hướng xử lý                                                                           |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 1   | **C4 bị nhớ thiếu mệnh đề 2** ở mọi tài liệu nội bộ; và SDP đếm 2 call còn bản Việt đếm 4                                                      | Mục 5 ① giải quyết dứt điểm, đồng bộ cả hai bản                                       |
-| 2   | **"Zero budget" là ràng buộc có viết nhưng không đánh số** nên bị đối xử như lời khuyên                                                        | Mục 5 ③                                                                               |
-| 3   | **`concept_sources.excerpt` bị tưởng là vật liệu**, thực tế trung vị 81 ký tự                                                                  | Mục 3.3. Liên quan [#296](https://github.com/Lade1q/planning-ai/issues/296) đang OPEN |
-| 4   | **Backend không có text tài liệu** — không ai từng cần, nên không ai từng phát hiện                                                            | Chặng S2                                                                              |
-| 5   | [#121](https://github.com/Lade1q/planning-ai/issues/121) đang stale ở milestone Sprint 4                                                       | Re-milestone sang Sprint 5, đổi mô tả thành "phương án lui khi cổng no-go" (Q12)      |
-| 6   | **Trích dẫn nguồn C5 chỉ có bản text.** Không ai nhận ra vì voice chưa tồn tại                                                                 | Mục 3.5 + một mục DoD                                                                 |
-| 7   | **Bề mặt gọi AI thứ 6 (hội thoại tự do) không có schema** nên không xuất hiện trong bất kỳ bảng đếm nào — kể cả bảng đầu tiên của kế hoạch này | Mục 5 ① đã gọi tên và rào                                                             |
+| #   | Điểm                                                                                                                                           | Hướng xử lý                                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **C4 bị nhớ thiếu mệnh đề 2** ở mọi tài liệu nội bộ; và SDP đếm 2 call còn bản Việt đếm 4                                                      | Mục 5 ① giải quyết dứt điểm, đồng bộ cả hai bản                                                                                                                                                                           |
+| 2   | **"Zero budget" là ràng buộc có viết nhưng không đánh số** nên bị đối xử như lời khuyên                                                        | Mục 5 ③                                                                                                                                                                                                                   |
+| 3   | **`concept_sources.excerpt` bị tưởng là vật liệu**, thực tế trung vị 81 ký tự                                                                  | Mục 3.3. Liên quan [#296](https://github.com/Lade1q/planning-ai/issues/296) đang OPEN                                                                                                                                     |
+| 4   | **Backend không có text tài liệu** — không ai từng cần, nên không ai từng phát hiện                                                            | Chặng S2                                                                                                                                                                                                                  |
+| 5   | ~~[#121](https://github.com/Lade1q/planning-ai/issues/121) đang stale ở milestone Sprint 4~~                                                   | 🚫 **SAI — sửa 16/08.** #121 đã **ĐÓNG từ 12/08** và vẫn ở milestone Sprint 4. Không re-milestone, không dùng làm phương án lui. Q12 ("#121 không đóng") hết hiệu lực. §4 nhắc #121 ở nhánh NO-GO cũng đọc theo dòng này. |
+| 6   | **Trích dẫn nguồn C5 chỉ có bản text.** Không ai nhận ra vì voice chưa tồn tại                                                                 | Mục 3.5 + một mục DoD                                                                                                                                                                                                     |
+| 7   | **Bề mặt gọi AI thứ 6 (hội thoại tự do) không có schema** nên không xuất hiện trong bất kỳ bảng đếm nào — kể cả bảng đầu tiên của kế hoạch này | Mục 5 ① đã gọi tên và rào                                                                                                                                                                                                 |

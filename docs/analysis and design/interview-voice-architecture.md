@@ -1,8 +1,25 @@
 # Interview v2 — Voice-to-Voice Architecture (Sprint 5)
 
-> **Trạng thái:** v0 draft cho Quân duyệt · nguồn: [[project_interview_module_rethink_sprint5]] + verify live main 10/08 (sau #281/#289/#305/#310).
-> **Cặp tài liệu:** kế hoạch/lịch/SDP ở `docs/management/sprint-plans/sprint-5-plan.md` (Co-Plan). File này = kiến trúc kỹ thuật lane (2)(3)(4).
-> **Chưa commit** tới khi Quân duyệt; khi commit ra nhánh mới, không phải `feat/310`.
+> ### ⏸️ Trạng thái: TẦNG VẬN CHUYỂN GIỌNG NÓI ĐƯỢC HOÃN CÓ CHỦ ĐÍCH (quyết định 15/08/2026)
+>
+> Thiết kế này **đã qua cổng khả thi** — spike S0 đo thật trên Vertex native audio và bốn tiêu chí bắt buộc đều đạt (độ trễ từ VN p50 1065 ms, tiếng Việt sạch, xác thực ổn định, phát bằng chứng bất đồng bộ chạy được). Việc hoãn là **quyết định về lịch, không phải kết luận về tính khả thi**.
+>
+> **Phần ĐÃ GIAO:** §1 (hai bất biến) · §2 (grain bằng chứng, công thức phủ-lượng→điểm, hàng rào tất định) — **đã hợp nhất vào `src/`**. Phân biệt hai nửa, vì mức độ "đang chạy" khác nhau:
+>
+> - **Thu bằng chứng (checkpoint → evidence): đã hợp nhất VÀ đang chạy** trên đường văn bản — `grade_answer` phát `evidence` cộng thêm, `sanitizeEvidence` chặn trước khi vào công thức.
+> - **Phủ-lượng → điểm: đã hợp nhất nhưng CHƯA chạy.** `finalizeConceptCoverage` (`services/concept-coverage.service.ts`) tính đúng và có test, nhưng **chưa có caller ở đường sản phẩm** — điểm sinh viên nhìn thấy hôm nay vẫn tới từ `{score,verdict}` per-turn của `grade_answer`. 🚫 **Và sẽ không được nối trong phạm vi môn học:** PR #362 (định tuyến đóng khái niệm) đóng **không merge** ngày 16/08 cùng quyết định bỏ Interview v2, chuỗi #356→#357→#358 đóng `not planned`. `finalizeConceptCoverage` chính thức không có caller. Kiểm lại bằng `git grep finalizeConceptCoverage -- src`.
+>
+> **Phần HOÃN:** §3 §4 §5(#6) — kết nối Live, dò biên lượt nói, hội thoại tự do. Chi phí làm lại khi nối tiếp: **bằng không** (lý do ở §8 của báo cáo dưới).
+>
+> 📄 **Lý lẽ, số đo và hiện vật:** [`docs/management/technical-spike-s0-report.md`](../management/technical-spike-s0-report.md)
+> 📄 **Giao thức đo (ngưỡng công bố trước khi chạy):** [`docs/management/sprint-plans/s0-spike-protocol.md`](../management/sprint-plans/s0-spike-protocol.md)
+> 📄 **Kế hoạch/lịch/SDP:** [`docs/management/sprint-plans/sprint-5-plan.md`](../management/sprint-plans/sprint-5-plan.md)
+>
+> ⚠️ **Ba mệnh đề dưới đây soạn ngày 10/08 và đã bị dữ kiện sau đó vượt qua** — giữ nguyên văn để truy vết, đọc kèm §6 của báo cáo trước khi dựa vào:
+>
+> 1. **§2.1** — _"async FC + `SILENT`: ghi nhận không cắt lời"_. Đo thật (probe ③, 11/08) ra **nhánh B**: incremental chạy, nhưng mô hình **kể lể việc ghi sổ** thay vì im lặng.
+> 2. **§2.1 / §5** — cơ chế phát bằng chứng bất đồng bộ **chỉ tồn tại ở dòng mô hình 2.5**. Bản kế nhiệm do nhà cung cấp chỉ định (`gemini-3.1-flash-live-preview`) **bỏ** cả function calling bất đồng bộ lẫn structured output.
+> 3. **§4** — _"tự cầm endpointing để né bug `silenceDurationMs`"_. Tra 15/08: lỗi đó là của **3.1**; trên **2.5 native audio** tham số này **hoạt động đúng**. Nếu xác nhận lại được, cả tầng dò biên lượt nói tự viết là **không cần thiết**.
 
 ---
 
@@ -36,8 +53,8 @@ record_evidence(checkpointId, status: 'covered' | 'contradicted', quote: <trích
 
 - `not_discussed` **không nằm trong schema model** — nó là **suy tất định lúc đóng concept**: `checkpoints_chốt − checkpoints_có_evidence`. Đẩy thêm một mẩu từ AI sang code.
 - **Voice:** model gọi `record_evidence` **tăng dần** (async FC + `SILENT`: ghi nhận không cắt lời) mỗi khi một checkpoint ngã ngũ.
-- **Text:** `grade_answer` **đổi schema** sang cùng shape evidence (thay `{score,feedback,verdict}`). Một câu trả lời text → 0..n evidence.
-- 🔎 **Quyết định mở:** gom `grade_answer` (text) + `record_evidence` (voice) thành **một schema `assess_checkpoints`** dùng chung? → giảm còn 4 fixed-schema. Nghiêng "có" (cùng shape, khác cách gọi). Chốt khi dựng schema.
+- **Text:** `grade_answer` nhận **thêm** một mảng `evidence` cùng shape trên, **bên cạnh** `{score,feedback,verdict}` — **không thay**. Một câu trả lời text → 0..n evidence. ✅ **Đã hợp nhất (#346, PR #326):** `gradeAnswerAskSchema` (`src/server/src/schemas/ai-interview.schema.ts`) vẫn khai đủ `score`/`feedback`/`verdict` và cộng `evidence`; `gradeAnswerResponseSchema` để `evidence` ở dạng `unknown().optional()` đúng vì evidence là **cộng thêm** và không bao giờ được phép kéo điểm xuống cùng nó. ⚠️ **Bản soạn 10/08 của mục này viết `grade_answer` "đổi schema" — sai; sửa 16/08.** Xoá `{score,feedback,verdict}` là xoá đúng con số sinh viên đang nhìn thấy trên màn kết quả.
+- 🔎 ~~**Quyết định mở:** gom `grade_answer` (text) + `record_evidence` (voice) thành **một schema `assess_checkpoints`** dùng chung?~~ — **ĐÃ CHỐT: KHÔNG LÀM** (xem §6.2). Hai bề mặt giữ riêng; `git grep assess_checkpoints -- src` = 0 hit.
 - 🛡️ **Model KHÔNG đáng tin về nhãn** (đo ở spike S0 11/08): schema-enum lẫn prompt đều không đáng tin làm ràng buộc ⇒ guard tất định **`sanitizeEvidence`** (drop enum-rác + hạ bất-định) chạy trước công thức coverage — xem **§2.5**.
 
 ### 2.2 Bảng evidence + atomicity
@@ -160,7 +177,7 @@ Model **không được hỏi "có tiếp không"** ở cả ba → đó là câ
 | 5   | `record_evidence`                   | fixed     | không             | voice         |
 | 6   | **Hội thoại Live**                  | **KHÔNG** | **không**         | voice         |
 
-(#3+#5 có thể gom → 4 fixed-schema; xem 2.1.)
+(~~#3+#5 có thể gom → 4 fixed-schema~~ — **đã chốt KHÔNG gom**, xem §6.2. Con số giữ ở **5 fixed-schema + 1 hội thoại**.)
 
 **Câu sửa C4 (cho lane 5):** C4 cũ _"AI called ONLY for [...] with fixed JSON schemas"_ → mở **#6 (hội thoại tự do, không schema)** — đây là thay đổi hạng mục, không phải thêm 1 call. Rào bằng **3 bảo đảm tất định**: (a) routing = code (mở/đóng/chuyển/kết); (b) scoring = code (coverage→mastery); (c) `record_evidence`/`assess_checkpoints` = **đầu ra có cấu trúc DUY NHẤT** feed chấm. Lõi C4 _(AI không sở hữu assess→graph→schedule)_ **giữ nguyên** — thứ đổi là _AI conduct không còn bị trói vào fixed-schema calls_.
 
@@ -171,7 +188,7 @@ Model **không được hỏi "có tiếp không"** ở cả ba → đó là câ
 ## 6. Quyết định mở (cần chốt trước khi build)
 
 1. **Nguồn checkpoint:** (b) thêm `checkpoints` vào `extract_concepts` — **đã chốt** (đo DB giết (a)). Spike thì **hardcode từ 1 PDF fixture**, không đụng DB/pipeline.
-2. **Gom `grade_answer` + `record_evidence` → `assess_checkpoints`?** Nghiêng có.
+2. ~~**Gom `grade_answer` + `record_evidence` → `assess_checkpoints`?** Nghiêng có.~~ — **ĐÃ CHỐT: KHÔNG GOM** (16/08). `grade_answer` giữ nguyên hợp đồng `{score,feedback,verdict}` + `evidence` cộng thêm (#346); `record_evidence` sẽ là bề mặt riêng của kênh voice khi tầng Live được nối lại. Kiểm chứng: `git grep assess_checkpoints -- src` → **0 hit**; schema đó chưa từng được dựng và sẽ không dựng. Bảng §5 vẫn đếm **5 fixed-schema + 1 hội thoại**, không phải 4.
 3. ~~MIN_COVERAGE / weight độ khó~~ — **ĐÃ CHỐT (lane 5):** `MIN_COVERAGE = 0.7` (lý do over-credit ở §2.3, **đừng hạ về 0.5**); **KHÔNG** weight checkpoint theo độ khó (checkpoint khó đếm nhiều dòng lúc extract).
 4. **Pipeline trích-text + chunk-theo-concept** (lane D2/1 Co-Plan): repo chưa có (grounding hôm nay chỉ nhờ Gemini tự đọc file; Live KHÔNG nhận file). Chi phí lớn nhất của B; trả nợ luôn `gemini.service.ts:409`.
 5. **Biên guard concept mỏng:** §2.4 guard bắn ở `C=0` (không checkpoint); §2.3 nói `C=1,2` là pass/fail thực tế. Chốt biên **`C < N` → route đường text** (N đặt cạnh `MIN_COVERAGE`), để người dựng guard khỏi đoán "voice-assess một concept 1 điểm hay đẩy sang text". Chưa cần chốt số bây giờ.
@@ -186,9 +203,9 @@ Model **không được hỏi "có tiếp không"** ở cả ba → đó là câ
 
 `GET /interviews/:id/summary` hôm nay trả `concepts[].turns[{turnIndex, score, verdict}]`. Grain v2 là **per-checkpoint** ⇒ per-turn `score/verdict` mất nghĩa. Consumer: **#305** (masteryScore từ turns, merged) · **#310** (id+sourceConceptId, merged, = HEAD nhánh đang đứng) · **PR #307** (màn kết quả FE, `ScoreBreakdown` per-turn, **CHƯA merge, của @baonguyen1776, còn blocker `.items.find`**).
 
-- **Không xoá cứng `turns[]`:** giữ nó làm **transcript** (`turnIndex` + `answerText`), **deprecate** `score/verdict` per-turn (null ở v2); **thêm** `checkpoints[]`/coverage vào response. Migration mềm, không đập hợp đồng dưới chân consumer đang chạy.
-- **Thứ tự bắt buộc (đúng "báo tác giả trước"):** ① merge #307 (vá `.items.find` bằng `id` của #310, gỡ workaround) → ② **báo @baonguyen1776 trước khi đổi schema** → ③ mới đổi `grade_answer`→evidence.
-- ⚠️ **#307 bị chạm HAI LẦN:** now (fix theo #310, grain v1) + **S1** (đổi `ScoreBreakdown` per-turn → per-checkpoint). ⇒ **màn kết quả là HẠNG MỤC FE trong S1, không phải "đã xong".** (Cũng chính là chỗ workaround seam `WeightedFormula` — nó vốn đã tới số phải viết lại.)
+- **Không xoá cứng `turns[]`:** giữ nó làm **transcript** (`turnIndex` + `answerText`), **deprecate** `score/verdict` per-turn (null ở v2); **thêm** `checkpoints[]`/coverage vào response. Migration mềm, không đập hợp đồng dưới chân consumer đang chạy. **Phần này còn nguyên giá trị** — ba consumer trên đã merge, nên đổi grain bây giờ là đổi dưới chân code đang chạy thật. ⚠️ Và danh sách consumer chưa đóng: PR [#324](https://github.com/Lade1q/planning-ai/pull/324) (mở lại 16/08) **cũng nới hợp đồng `/summary`** — `session-summary.service.ts`, `interview.types.ts`, `docs/api/interviews.md`. Đếm consumer trước khi đổi grain thì phải đếm cả PR đang mở, không chỉ cái đã merge.
+- **Thứ tự bắt buộc (đúng "báo tác giả trước"):** ~~① merge #307~~ **đã xong 13/08**; còn lại ① **báo @baonguyen1776 trước khi đổi schema** → ② mới đổi grain `turns[]` sang per-checkpoint.
+- ⚠️ **#307 bị chạm LẦN THỨ HAI ở S1:** đổi `ScoreBreakdown` per-turn → per-checkpoint. ⇒ **màn kết quả là HẠNG MỤC FE trong S1, không phải "đã xong".** (Cũng chính là chỗ workaround seam `WeightedFormula` — nó vốn đã tới số phải viết lại.)
 
 ### 7.2 Neo nguồn C5 trong voice (đừng đánh rơi tính năng Sprint 4)
 

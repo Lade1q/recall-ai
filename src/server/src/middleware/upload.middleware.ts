@@ -3,8 +3,10 @@ import path from 'path';
 import fs from 'fs';
 import { AppError } from './errorHandler';
 
-// Temporary staging directory — files are moved to final storage by StorageService
-const STAGING_DIR = path.resolve(process.cwd(), 'uploads', '.staging');
+// Temporary staging directory — files are moved to final storage by StorageService.
+// Exported so createPlanController can stage pasted text (UC-02 A3) the same way multer
+// stages an uploaded file, and reuse the same cleanup-on-error path.
+export const STAGING_DIR = path.resolve(process.cwd(), 'uploads', '.staging');
 
 if (!fs.existsSync(STAGING_DIR)) {
   fs.mkdirSync(STAGING_DIR, { recursive: true });

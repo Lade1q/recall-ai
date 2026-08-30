@@ -78,3 +78,21 @@ export const interviewIdParamSchema = z.object({
 });
 
 export type InterviewIdParam = z.infer<typeof interviewIdParamSchema>;
+
+/** GET /interviews (SPEC_DB-03) — limit/offset, same shape as `listFocusSessionsQuerySchema`. */
+export const listInterviewsQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int('limit must be an integer')
+    .positive('limit must be greater than 0')
+    .max(50, 'limit must be at most 50')
+    .optional(),
+  offset: z.coerce
+    .number()
+    .int('offset must be an integer')
+    .min(0, 'offset must not be negative')
+    .optional(),
+  planId: z.string().uuid('planId must be a valid UUID').optional(),
+});
+
+export type ListInterviewsQuery = z.infer<typeof listInterviewsQuerySchema>;

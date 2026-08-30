@@ -243,7 +243,10 @@ export async function getSessionSummary(
 ): Promise<SessionSummaryResponse> {
   const session = await loadSession(sessionId, userId);
 
-  if (session.status !== 'completed') {
+  // SPEC_DB-03: the history screen must open a paused/abandoned session's detail too, but
+  // "paused" has nothing finished to summarise yet — only a closed session (completed or
+  // abandoned) has a real score table to show.
+  if (session.status !== 'completed' && session.status !== 'abandoned') {
     throw new AppError('This interview session has not finished yet', 409, 'SESSION_NOT_COMPLETED');
   }
 
@@ -253,51 +256,66 @@ export async function getSessionSummary(
     loadReviewScheduleForSession(sessionId),
   ]);
 
-  const summaryInput: SessionConceptSummaryInput[] = concepts.map((concept) => ({
-    conceptName: concept.name,
-    masteryScore: concept.masteryScore,
-    verdicts: concept.turns
-      .map((turn) => turn.verdict)
-      .filter((verdict): verdict is Verdict => verdict !== null),
-  }));
-  const hasAnyGradedTurn = summaryInput.some((concept) => concept.verdicts.length > 0);
-
-  const cached = session.summaryText ? parseCachedSummary(session.summaryText) : null;
-
   let summary: SessionSummaryReport;
-  if (cached) {
-    summary = reportFromCache(cached);
-  } else if (!hasAnyGradedTurn) {
-    // UC-12 E1 can end a session before its first concept was ever graded — nothing for
-    // summarize_session to read, and calling it with an all-empty input would only invite a
-    // made-up report. Same "score table only" shape as a genuine AI failure below.
-    summary = unavailableReport();
+  if (session.status === 'abandoned') {
+    // SPEC_DB-03 AF3: summarize_session is deliberately never called for an abandoned session
+    // (see abandonInterview()'s own comment on why) — the queue never ran to completion, so
+    // there is nothing for it to read. This is not an AI failure, so it does NOT reuse
+    // unavailableReport()'s message — that wording is UC-14 E1's specifically.
+    summary = {
+      text: null,
+      strengths: [],
+      weaknesses: [],
+      recommendations: [],
+      generatedByAi: false,
+      message: null,
+    };
   } else {
-    try {
-      const result = await summarizeSession({
-        concepts: summaryInput,
-        language: session.plan.languageDetected ?? undefined,
-      });
-      const toCache: CachedSummary = {
-        summaryText: result.summary_text,
-        strengths: result.strengths,
-        weaknesses: result.weaknesses,
-        recommendations: result.recommendations,
-      };
-      // Best-effort cache: if the write fails the AI result is already paid for (quota),
-      // so we still return it rather than throwing 500 and re-calling Gemini next time.
-      try {
-        await prisma.interviewSession.update({
-          where: { id: sessionId },
-          data: { summaryText: JSON.stringify(toCache) },
-        });
-      } catch (dbError) {
-        console.error('[session-summary] failed to cache summary to DB:', dbError);
-      }
-      summary = reportFromCache(toCache);
-    } catch (error) {
-      if (!isAiFailure(error)) throw error;
+    const summaryInput: SessionConceptSummaryInput[] = concepts.map((concept) => ({
+      conceptName: concept.name,
+      masteryScore: concept.masteryScore,
+      verdicts: concept.turns
+        .map((turn) => turn.verdict)
+        .filter((verdict): verdict is Verdict => verdict !== null),
+    }));
+    const hasAnyGradedTurn = summaryInput.some((concept) => concept.verdicts.length > 0);
+
+    const cached = session.summaryText ? parseCachedSummary(session.summaryText) : null;
+
+    if (cached) {
+      summary = reportFromCache(cached);
+    } else if (!hasAnyGradedTurn) {
+      // UC-12 E1 can end a session before its first concept was ever graded — nothing for
+      // summarize_session to read, and calling it with an all-empty input would only invite a
+      // made-up report. Same "score table only" shape as a genuine AI failure below.
       summary = unavailableReport();
+    } else {
+      try {
+        const result = await summarizeSession({
+          concepts: summaryInput,
+          language: session.plan.languageDetected ?? undefined,
+        });
+        const toCache: CachedSummary = {
+          summaryText: result.summary_text,
+          strengths: result.strengths,
+          weaknesses: result.weaknesses,
+          recommendations: result.recommendations,
+        };
+        // Best-effort cache: if the write fails the AI result is already paid for (quota),
+        // so we still return it rather than throwing 500 and re-calling Gemini next time.
+        try {
+          await prisma.interviewSession.update({
+            where: { id: sessionId },
+            data: { summaryText: JSON.stringify(toCache) },
+          });
+        } catch (dbError) {
+          console.error('[session-summary] failed to cache summary to DB:', dbError);
+        }
+        summary = reportFromCache(toCache);
+      } catch (error) {
+        if (!isAiFailure(error)) throw error;
+        summary = unavailableReport();
+      }
     }
   }
 

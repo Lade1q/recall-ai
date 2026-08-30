@@ -66,6 +66,68 @@ describe('createPlanSchema deadline', () => {
   });
 });
 
+// UC-02 A3 "Dán text" — `content` là field mới, thay thế cho `file` khi tạo plan bằng cách
+// dán text thuần thay vì upload tài liệu.
+describe('createPlanSchema content (dán text)', () => {
+  const base = { name: 'Test plan', deadline: '2099-12-31' };
+
+  it('chấp nhận khi không có content (luồng upload file cũ)', () => {
+    expect(() => createPlanSchema.parse(base)).not.toThrow();
+  });
+
+  it('chấp nhận content hợp lệ và trim khoảng trắng thừa', () => {
+    const result = createPlanSchema.parse({ ...base, content: '  Nội dung bài học  ' });
+    expect(result.content).toBe('Nội dung bài học');
+  });
+
+  // Code review #363 (2 vòng): một form multipart gửi file lại kèm luôn ô `content` chưa
+  // đụng tới dưới dạng chuỗi rỗng `''`, hoặc lỡ gõ một dấu cách `'   '` — cả hai không phải
+  // ý định dán text, nên coi như "không có" thay vì ném VALIDATION_ERROR vào một request
+  // upload-file hợp lệ. Vòng đầu chỉ vá `''`; vòng hai mở rộng ra mọi chuỗi toàn khoảng trắng.
+  it('coi content chuỗi rỗng ("") là không có, không phải lỗi', () => {
+    const result = createPlanSchema.parse({ ...base, content: '' });
+    expect(result.content).toBeUndefined();
+  });
+
+  it('coi content toàn khoảng trắng ("   ") là không có, không phải lỗi', () => {
+    const result = createPlanSchema.parse({ ...base, content: '   ' });
+    expect(result.content).toBeUndefined();
+  });
+
+  it('từ chối content vượt quá 10,000 ký tự', () => {
+    const tooLong = 'a'.repeat(10_001);
+    expect(() => createPlanSchema.parse({ ...base, content: tooLong })).toThrow(/too long/);
+  });
+
+  it('chấp nhận content đúng giới hạn 10,000 ký tự', () => {
+    const maxLength = 'a'.repeat(10_000);
+    expect(() => createPlanSchema.parse({ ...base, content: maxLength })).not.toThrow();
+  });
+
+  // Comment bổ sung trên #363: multipart/form-data chuẩn hoá mỗi `\n` thành `\r\n` khi
+  // truyền tải — nếu đếm giới hạn trên chuỗi thô, mỗi dòng xuống hàng bị tính thành 2 ký
+  // tự, khiến một đoạn 9,957 ký tự đã gõ (91 dòng) bị từ chối vì "too long" ở 10,048 ký
+  // tự thô. Chuẩn hoá `\r\n` → `\n` trước khi đếm để cap phản ánh đúng số ký tự đã gõ.
+  it('không tính CRLF (xuống dòng qua multipart) gấp đôi khi kiểm tra giới hạn', () => {
+    // Xuống dòng nằm giữa nội dung (không ở đầu/cuối) để .trim() không vô tình nuốt mất
+    // — mô phỏng một đoạn nhiều dòng thật, không phải chuỗi toàn '\n'.
+    const lines = Array.from({ length: 100 }, (_, i) => `dòng ${i}: ` + 'a'.repeat(90));
+    const typed = lines.join('\n'); // đúng những gì sinh viên gõ, dùng '\n'
+    const wireValue = typed.replace(/\n/g, '\r\n'); // dạng đã "nở" mà multipart gửi lên
+    expect(wireValue.length).toBeGreaterThan(typed.length); // xác nhận có "nở" thật, không phải no-op
+
+    const result = createPlanSchema.parse({ ...base, content: wireValue });
+    expect(result.content).toBe(typed); // sau chuẩn hoá, khớp đúng bản gốc đã gõ, không còn CRLF
+  });
+
+  it('thông báo lỗi vượt giới hạn có kèm số ký tự thực tế đã gõ', () => {
+    const tooLong = 'a'.repeat(10_001);
+    expect(() => createPlanSchema.parse({ ...base, content: tooLong })).toThrow(
+      /max 10000 characters, got 10001/
+    );
+  });
+});
+
 // Regression coverage for PR #160: id là @db.Uuid trong Prisma — một id không phải UUID
 // ném PrismaClientKnownRequestError P2023 chưa được errorHandler map, rớt xuống 500
 // INTERNAL_ERROR nếu không bị chặn ở đây trước khi chạm service/Prisma.

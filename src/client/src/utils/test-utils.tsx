@@ -23,6 +23,7 @@ const makeProviders =
       login: async () => {},
       logout: () => {},
       register: async () => {},
+      updateUser: () => {},
     };
     return (
       <AuthContext.Provider value={authValue}>

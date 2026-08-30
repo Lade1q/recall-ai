@@ -1,0 +1,11 @@
+{"t":0,"type":"note","msg":"D2 — bidiGenerateContent qua Developer API (GEMINI_API_KEY)"}
+{"t":1,"type":"note","msg":"Trần: <=3 kết nối · 10s/kết nối · audio gửi = 0s · watchdog 90s"}
+{"t":1,"type":"ceiling","maxConnections":3,"perConnMs":10000,"watchdogMs":90000}
+{"t":1,"type":"note","msg":"  → thử gemini-2.5-flash-native-audio-latest ..."}
+{"t":127,"type":"open","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":485,"type":"setup-complete","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":487,"type":"note","msg":"    setupComplete=true connect=true msgs=1 close=null kết=setupComplete"}
+{"t":487,"type":"note","msg":""}
+{"t":487,"type":"note","msg":"KẾT QUẢ D2: GỌI ĐƯỢC ✅ — dùng 1/3 kết nối, WS mở 1, audio gửi 0s"}
+{"t":487,"type":"result","criterion":"d2-devapi-auth","pass":true,"guardBound":true,"connectCalls":1,"wsOpened":1,"audioSecondsSent":0,"results":[{"model":"gemini-2.5-flash-native-audio-latest","connectResolved":true,"setupComplete":true,"messages":1,"error":null,"closeCode":null,"closeReason":"","finishedBy":"setupComplete"}]}
+{"t":488,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/d2-devapi-auth-2026-08-14T18-41-37-210Z.jsonl)"}

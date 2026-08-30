@@ -1,0 +1,160 @@
+{"t":4,"type":"note","msg":"D3-VAD — surface=dev · models=[gemini-3.1-flash-live-preview, gemini-2.5-flash-native-audio-latest] · pause=2500ms · wav=/home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/fixtures/student-vi-16k.wav (16000Hz)"}
+{"t":4,"type":"ceiling","maxWsTotal":8,"pauseMs":2500,"silenceSettingMs":5000}
+{"t":5,"type":"note","msg":"\n=== model: gemini-3.1-flash-live-preview ==="}
+{"t":5,"type":"note","msg":"  --- V1 (silenceDurationMs=5000) ---"}
+{"t":150,"type":"open","model":"gemini-3.1-flash-live-preview"}
+{"t":12466,"type":"input-transcript","text":"Địa chỉ lớp B là gì? Địa chỉ lớp B là gì?"}
+{"t":12467,"type":"output-transcript","text":"Bạn cần"}
+{"t":12519,"type":"output-transcript","text":" thông"}
+{"t":12527,"type":"output-transcript","text":" tin"}
+{"t":12539,"type":"output-transcript","text":" gì"}
+{"t":12547,"type":"output-transcript","text":" cụ"}
+{"t":12554,"type":"output-transcript","text":" thể"}
+{"t":12568,"type":"output-transcript","text":" về lớp"}
+{"t":12575,"type":"output-transcript","text":" B?"}
+{"t":15057,"type":"turn-complete","audioChunks":16,"audioBytes":124324,"toolCalls":0,"spoke":true}
+{"t":19557,"type":"note","msg":"    ⇒ VAD-OK · firstAudio=11923ms · utt1End=1881 utt2End=6331 · audioInPause=0 · interrupted=0 · close=null"}
+{"t":19596,"type":"close","code":1000,"reason":""}
+{"t":20359,"type":"note","msg":"  --- V2 (VAD mặc định) ---"}
+{"t":20500,"type":"open","model":"gemini-3.1-flash-live-preview"}
+{"t":24387,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":24391,"type":"output-transcript","text":"Bạn cần"}
+{"t":24447,"type":"output-transcript","text":" địa"}
+{"t":24463,"type":"output-transcript","text":" chỉ"}
+{"t":24471,"type":"output-transcript","text":" cụ"}
+{"t":24479,"type":"output-transcript","text":" thể"}
+{"t":24486,"type":"output-transcript","text":" nào"}
+{"t":24499,"type":"output-transcript","text":" vậy?"}
+{"t":24654,"type":"output-transcript","text":" Lớp"}
+{"t":24715,"type":"output-transcript","text":" B"}
+{"t":24815,"type":"output-transcript","text":" môn"}
+{"t":24852,"type":"output-transcript","text":" học"}
+{"t":24973,"type":"output-transcript","text":" hay"}
+{"t":25009,"type":"output-transcript","text":" khóa"}
+{"t":25098,"type":"output-transcript","text":" học"}
+{"t":25183,"type":"output-transcript","text":" nào?"}
+{"t":25747,"type":"interrupted"}
+{"t":25748,"type":"turn-complete","audioChunks":24,"audioBytes":229470,"toolCalls":0,"spoke":true}
+{"t":28743,"type":"input-transcript","text":"Địa chỉ lớp B là gì?"}
+{"t":28743,"type":"output-transcript","text":"Tôi không"}
+{"t":28777,"type":"output-transcript","text":" có thông"}
+{"t":28876,"type":"output-transcript","text":" tin"}
+{"t":28961,"type":"output-transcript","text":" đó."}
+{"t":29029,"type":"output-transcript","text":" Bạn"}
+{"t":29110,"type":"output-transcript","text":" có thể"}
+{"t":29227,"type":"output-transcript","text":" hỏi"}
+{"t":29316,"type":"output-transcript","text":" văn"}
+{"t":29342,"type":"output-transcript","text":" phòng"}
+{"t":29471,"type":"output-transcript","text":" khoa"}
+{"t":29495,"type":"output-transcript","text":" hoặc"}
+{"t":29562,"type":"output-transcript","text":" xem"}
+{"t":29690,"type":"output-transcript","text":" thời khoá"}
+{"t":29819,"type":"output-transcript","text":" biểu không?"}
+{"t":33515,"type":"turn-complete","audioChunks":23,"audioBytes":228962,"toolCalls":0,"spoke":true}
+{"t":36263,"type":"note","msg":"    ⇒ CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải) · firstAudio=3506ms · utt1End=1865 utt2End=6298 · audioInPause=24 · interrupted=1 · close=null"}
+{"t":36306,"type":"close","code":1000,"reason":""}
+{"t":37066,"type":"note","msg":"  --- V3 (manual activity) ---"}
+{"t":37177,"type":"open","model":"gemini-3.1-flash-live-preview"}
+{"t":37545,"type":"activity-start"}
+{"t":46910,"type":"activity-end"}
+{"t":47112,"type":"input-transcript","text":"Địa chỉ lớp B là gì? Địa chỉ lớp B là gì?"}
+{"t":47626,"type":"output-transcript","text":"Bạn cần"}
+{"t":47810,"type":"output-transcript","text":" địa"}
+{"t":47868,"type":"output-transcript","text":" chỉ"}
+{"t":47948,"type":"output-transcript","text":" của"}
+{"t":48009,"type":"output-transcript","text":" lớp"}
+{"t":48080,"type":"output-transcript","text":" B môn"}
+{"t":48102,"type":"output-transcript","text":" học"}
+{"t":48177,"type":"output-transcript","text":" nào"}
+{"t":48334,"type":"output-transcript","text":" vậy?"}
+{"t":50595,"type":"turn-complete","audioChunks":18,"audioBytes":141602,"toolCalls":0,"spoke":true}
+{"t":52915,"type":"note","msg":"    ⇒ OK · firstAudio=10082ms · utt1End=1869 utt2End=6293 · audioInPause=0 · interrupted=0 · close=null"}
+{"t":52949,"type":"close","code":1000,"reason":""}
+{"t":53719,"type":"note","msg":"\n=== model: gemini-2.5-flash-native-audio-latest ==="}
+{"t":53720,"type":"note","msg":"  --- V1 (silenceDurationMs=5000) ---"}
+{"t":53825,"type":"open","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":57047,"type":"input-transcript","text":" Đị"}
+{"t":57258,"type":"input-transcript","text":"a chỉ"}
+{"t":57411,"type":"input-transcript","text":" lớ"}
+{"t":57588,"type":"input-transcript","text":"p"}
+{"t":57797,"type":"input-transcript","text":" B"}
+{"t":57948,"type":"input-transcript","text":" là"}
+{"t":58134,"type":"input-transcript","text":" gì"}
+{"t":58350,"type":"input-transcript","text":"?"}
+{"t":61474,"type":"input-transcript","text":" Đị"}
+{"t":61658,"type":"input-transcript","text":"a chỉ"}
+{"t":62020,"type":"input-transcript","text":" lớp"}
+{"t":62209,"type":"input-transcript","text":" B"}
+{"t":62394,"type":"input-transcript","text":" là"}
+{"t":62767,"type":"input-transcript","text":" gì"}
+{"t":62952,"type":"input-transcript","text":"?"}
+{"t":69982,"type":"output-transcript","text":"Không rõ"}
+{"t":70137,"type":"output-transcript","text":" địa"}
+{"t":70181,"type":"output-transcript","text":" chỉ"}
+{"t":70233,"type":"output-transcript","text":" lớp"}
+{"t":70289,"type":"output-transcript","text":" B."}
+{"t":71714,"type":"turn-complete","audioChunks":14,"audioBytes":71040,"toolCalls":0,"spoke":true}
+{"t":73099,"type":"note","msg":"    ⇒ VAD-OK · firstAudio=16124ms · utt1End=1866 utt2End=6289 · audioInPause=0 · interrupted=0 · close=null"}
+{"t":73130,"type":"close","code":1000,"reason":""}
+{"t":73902,"type":"note","msg":"  --- V2 (VAD mặc định) ---"}
+{"t":74009,"type":"open","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":77232,"type":"input-transcript","text":" Đị"}
+{"t":77414,"type":"input-transcript","text":"a chỉ"}
+{"t":77605,"type":"input-transcript","text":" lớ"}
+{"t":77605,"type":"input-transcript","text":"p B là gì?"}
+{"t":79322,"type":"output-transcript","text":"Bạn cần"}
+{"t":79392,"type":"output-transcript","text":" thêm"}
+{"t":79456,"type":"output-transcript","text":" thông"}
+{"t":79510,"type":"output-transcript","text":" tin"}
+{"t":79608,"type":"output-transcript","text":" gì"}
+{"t":79616,"type":"output-transcript","text":" nữa"}
+{"t":79649,"type":"output-transcript","text":" không?"}
+{"t":81236,"type":"interrupted"}
+{"t":81237,"type":"turn-complete","audioChunks":23,"audioBytes":88320,"toolCalls":0,"spoke":true}
+{"t":82841,"type":"input-transcript","text":" Đị"}
+{"t":83060,"type":"input-transcript","text":"a chỉ"}
+{"t":83123,"type":"input-transcript","text":" lớp B là gì?"}
+{"t":85413,"type":"output-transcript","text":"Tôi không"}
+{"t":85438,"type":"output-transcript","text":" có thông"}
+{"t":85441,"type":"output-transcript","text":" tin"}
+{"t":85444,"type":"output-transcript","text":" cụ thể"}
+{"t":85531,"type":"output-transcript","text":" về"}
+{"t":85589,"type":"output-transcript","text":" \"lớp"}
+{"t":85641,"type":"output-transcript","text":" B\"."}
+{"t":85739,"type":"output-transcript","text":" Bạn"}
+{"t":85937,"type":"output-transcript","text":" cần"}
+{"t":86011,"type":"output-transcript","text":" lớp"}
+{"t":86066,"type":"output-transcript","text":" B"}
+{"t":86133,"type":"output-transcript","text":" trong"}
+{"t":86201,"type":"output-transcript","text":" ngữ"}
+{"t":86241,"type":"output-transcript","text":" cảnh"}
+{"t":86295,"type":"output-transcript","text":" nào"}
+{"t":86348,"type":"output-transcript","text":" nhỉ?"}
+{"t":89743,"type":"note","msg":"    ⇒ CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải) · firstAudio=5234ms · utt1End=1864 utt2End=6287 · audioInPause=0 · interrupted=0 · close=null"}
+{"t":89773,"type":"close","code":1000,"reason":""}
+{"t":90546,"type":"note","msg":"  --- V3 (manual activity) ---"}
+{"t":90647,"type":"open","model":"gemini-2.5-flash-native-audio-latest"}
+{"t":90979,"type":"activity-start"}
+{"t":93932,"type":"input-transcript","text":" Đị"}
+{"t":94192,"type":"input-transcript","text":"a chỉ"}
+{"t":94425,"type":"input-transcript","text":" lớ"}
+{"t":94690,"type":"input-transcript","text":"p"}
+{"t":94955,"type":"input-transcript","text":" B"}
+{"t":95184,"type":"input-transcript","text":" là"}
+{"t":95420,"type":"input-transcript","text":" gì"}
+{"t":95645,"type":"input-transcript","text":"?"}
+{"t":99265,"type":"input-transcript","text":" Đị"}
+{"t":99462,"type":"input-transcript","text":"a chỉ"}
+{"t":99897,"type":"input-transcript","text":" lớp"}
+{"t":100099,"type":"input-transcript","text":" B"}
+{"t":100300,"type":"input-transcript","text":" là"}
+{"t":100331,"type":"activity-end"}
+{"t":100732,"type":"input-transcript","text":" gì"}
+{"t":100929,"type":"input-transcript","text":"?"}
+{"t":106336,"type":"note","msg":"    ⇒ INCONCLUSIVE (không có phản hồi) · firstAudio=nullms · utt1End=1865 utt2End=6282 · audioInPause=0 · interrupted=0 · close=null"}
+{"t":106366,"type":"close","code":1000,"reason":""}
+{"t":107139,"type":"note","msg":"\nKẾT QUẢ D3-VAD:"}
+{"t":107139,"type":"note","msg":"  gemini-3.1-flash-live-preview: V1=VAD-OK · V2=CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải) · V3=OK"}
+{"t":107139,"type":"note","msg":"  gemini-2.5-flash-native-audio-latest: V1=VAD-OK · V2=CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải) · V3=INCONCLUSIVE (không có phản hồi)"}
+{"t":107139,"type":"result","criterion":"d3-vad","surface":"dev","wsOpened":6,"outcomes":[{"model":"gemini-3.1-flash-live-preview","runs":[{"variant":"V1","verdict":"VAD-OK","closeCode":null,"error":null,"marks":{"utt1End":1881,"utt2Start":4456,"utt2End":6331,"activityEnd":null},"firstAudioRel":11923,"audioInPause":0,"interruptedDuringFeed":0,"audioEvents":16,"turnCompletes":[14513]},{"variant":"V2","verdict":"CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải)","closeCode":null,"error":null,"marks":{"utt1End":1865,"utt2Start":4427,"utt2End":6298,"activityEnd":null},"firstAudioRel":3506,"audioInPause":24,"interruptedDuringFeed":1,"audioEvents":47,"turnCompletes":[4863,12630]},{"variant":"V3","verdict":"OK","closeCode":null,"error":null,"marks":{"utt1End":1869,"utt2Start":4430,"utt2End":6293,"activityEnd":9365},"firstAudioRel":10082,"audioInPause":0,"interruptedDuringFeed":0,"audioEvents":18,"turnCompletes":[13050]}]},{"model":"gemini-2.5-flash-native-audio-latest","runs":[{"variant":"V1","verdict":"VAD-OK","closeCode":null,"error":null,"marks":{"utt1End":1866,"utt2Start":4427,"utt2End":6289,"activityEnd":null},"firstAudioRel":16124,"audioInPause":0,"interruptedDuringFeed":0,"audioEvents":14,"turnCompletes":[17550]},{"variant":"V2","verdict":"CONTROL-OK (mặc định commit trong pause — phép đo có độ phân giải)","closeCode":null,"error":null,"marks":{"utt1End":1864,"utt2Start":4425,"utt2End":6287,"activityEnd":null},"firstAudioRel":5234,"audioInPause":0,"interruptedDuringFeed":0,"audioEvents":118,"turnCompletes":[6863],"inTranscript":" Địa chỉ lớp B là gì?"},{"variant":"V3","verdict":"INCONCLUSIVE (không có phản hồi)","closeCode":null,"error":null,"marks":{"utt1End":1865,"utt2Start":4419,"utt2End":6282,"activityEnd":9352},"firstAudioRel":null,"audioInPause":0,"interruptedDuringFeed":0,"audioEvents":0,"turnCompletes":[],"inTranscript":" Địa chỉ lớp B là gì? Địa chỉ lớp B là gì?"}]}]}
+{"t":107140,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/d3-vad-2026-08-16T10-56-04-247Z.jsonl)"}

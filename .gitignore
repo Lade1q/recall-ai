@@ -41,3 +41,7 @@ uploads/
 
 # Local diagram-rendering tools (not SAD content)
 tools/plantuml.jar
+# Service-account key for the Vertex Live spike. Untracked and must stay that way:
+# a `git add -A` at repo root would otherwise commit a live credential. Anchored to
+# the root rather than a blanket *.json, which would swallow package.json and friends.
+/recall-live-proxy-key.json

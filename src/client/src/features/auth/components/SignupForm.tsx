@@ -47,8 +47,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<typeof 
   const onSubmit = async (data: RegisterFormData) => {
     try {
       await registerAuth(data.email, data.password, data.name);
-      toast.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
-      navigate('/login');
+      toast.success('Đăng ký tài khoản thành công!');
+      navigate('/dashboard');
     } catch (error) {
       const { code, message } = getAuthErrorMessage(error);
       // AM-01 [E1]: email đã tồn tại là lỗi của một ô cụ thể — gắn vào ô email,

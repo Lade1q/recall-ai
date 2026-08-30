@@ -2,6 +2,9 @@ import { FocusSessionStatus } from '@prisma/client';
 
 /** Response shape for POST /focus-sessions (FS-01, bước 3-6). */
 export interface CreateFocusSessionResponse {
+  /** `false` when a `running` session already existed and is being handed back (#328) instead
+   *  of creating a duplicate — same "resume" pattern as `StartInterviewResponse.created`. */
+  created: boolean;
   id: string;
   planId: string | null;
   conceptIds: string[];

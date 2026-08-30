@@ -1,0 +1,89 @@
+@startuml RecallAI-ClassDiagram-AIExaminer
+!pragma layout smetana
+' SAD Section 4.7 — Component: AI Examiner (Interview state machine + Scheduling & Remediation Engine). Issue #111 (PA4).
+' Companion to state-interview.puml (behaviour) — this is the static structure behind it.
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam class {
+  BackgroundColor #FDFDFF
+  BorderColor #6A6AC0
+}
+title Recall AI — Class Diagram: AI Examiner Component (back end)
+
+class InterviewController <<controller>> {
+  +{static} createInterviewController(req, res) : void
+  +{static} getInterviewController(req, res) : void
+  +{static} submitAnswerController(req, res) : void
+  +{static} pauseInterviewController(req, res) : void
+  +{static} resumeInterviewController(req, res) : void
+  +{static} getSummaryController(req, res) : void
+  +{static} abandonInterviewController(req, res) : void
+}
+
+class InterviewService <<service>> {
+  -{static} MAX_TURNS_PER_CONCEPT : number = 3
+  +{static} createSession(userId, planId) : CreateInterviewSessionResponse
+  +{static} getSession(userId, sessionId) : InterviewSessionResponse
+  +{static} submitAnswer(userId, sessionId, answerText) : SubmitAnswerResponse
+  +{static} pauseSession(userId, sessionId) : void
+  +{static} resumeSession(userId, sessionId) : void
+  +{static} abandonSession(userId, sessionId) : void
+  +{static} getSummary(userId, sessionId) : InterviewSummaryResponse
+  -{static} decideNextStep(session, gradeResult) : NextStepDecision
+  -{static} resolveFallbackStep(session) : NextStepDecision
+}
+
+class ConceptResultService <<service>> {
+  +{static} finalizeConceptResult(sessionId, conceptId) : ConceptResultResponse
+  -{static} computeMasteryScore(turns) : number
+}
+
+class SchedulingService <<service>> {
+  +{static} scheduleNextReview(conceptId, masteryScore) : void
+  +{static} calculatePriorityQueue(userId) : ReviewQueueItem[]
+}
+
+class TracebackService <<service>> {
+  +{static} reverseBfsTraceback(conceptId, maxDepth) : ConceptTracebackResult
+}
+
+class GeminiService <<service>> {
+  +{static} generateQuestion(concept, history) : AiGenerateQuestionResponse
+  +{static} gradeAnswer(question, answerText) : AiGradeAnswerResponse
+  +{static} summarizeSession(sessionId) : AiSummarizeResponse
+}
+note bottom of GeminiService
+  Same class as §4.5 (class-plan-graph.puml) —
+  the only class permitted to call Gemini (C4 / C5).
+end note
+
+class PrismaClient <<external>> {
+  +interviewSession
+  +interviewTurn
+  +reviewQueueItem
+  +$transaction()
+}
+
+InterviewController ..> InterviewService : delegates
+InterviewService ..> GeminiService : generate_question / grade_answer
+InterviewService ..> ConceptResultService : finalize (C6 reached)
+ConceptResultService ..> SchedulingService : schedule next review
+ConceptResultService ..> TracebackService : AE-07 traceback
+InterviewService ..> PrismaClient
+ConceptResultService ..> PrismaClient
+SchedulingService ..> PrismaClient
+TracebackService ..> PrismaClient
+
+note right of InterviewService
+  C4 — decideNextStep and resolveFallbackStep
+  are pure, deterministic functions.
+  The LLM never chooses what happens next.
+end note
+
+note right of TracebackService
+  AE-07 — reverse-BFS traceback,
+  depth-limited to max_depth = 2.
+  Runs only when mastery_score < 0.6.
+end note
+
+@enduml

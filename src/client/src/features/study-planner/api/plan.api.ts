@@ -42,6 +42,16 @@ const UPLOAD_VALIDATION_CODES = new Set([
   'INVALID_FILE_TYPE',
   'FILE_REQUIRED',
   'ENCRYPTED_PDF',
+  // #363. Goes here rather than the allowlist in `error-code-contract.test.ts` to sit with
+  // `FILE_REQUIRED`, which plan.controller.ts throws two lines below it in the same guard
+  // cluster — splitting a pair that fails together would be arbitrary.
+  //
+  // Not reachable from the current UI: CreatePlanPage turns pasted text into a `File` and never
+  // sends a `content` field at all, so `req.file && input.content` cannot both hold. The server
+  // schema is written for a client that *does* post both (see the `content` preprocess in
+  // plan.schema.ts, which normalises an untouched textarea's `''` away), so this is the branch
+  // that catches such a client rather than dead weight.
+  'CONTENT_OR_FILE_CONFLICT',
 ]);
 
 /** Same shape as getRetryErrorMessage, for POST /plans/:id/document's DOCUMENT_CHANGE_NOT_ALLOWED

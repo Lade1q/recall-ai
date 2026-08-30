@@ -311,7 +311,12 @@ export default function InterviewSessionPage() {
               <ArrowLeft />
               Về Dashboard
             </Button>
-            <h1 className="truncate text-sm font-semibold">Kết quả kiểm tra</h1>
+            {/* Nhãn chrome, KHÔNG phải heading: nội dung của trạng thái này đã có `h1` thật
+                30px ở `SessionSummary` ("Kết quả phiên kiểm tra"). Để nguyên `h1` ở đây là hai
+                `h1` gần trùng chữ trên cùng một trang — trình đọc màn hình nghe hai lần, và
+                thước đo "mỗi trạng thái đúng một h1" của epic #380 hỏng. Giữ cỡ nhỏ vì nó là
+                nhãn thanh trên, không phải tiêu đề nội dung. */}
+            <p className="truncate text-sm font-semibold">Kết quả kiểm tra</p>
           </div>
 
           {/* `.ex-top__mid` của mockup ở trạng thái cuối: mét tiến độ giữ nguyên chỗ cũ nhưng
@@ -397,7 +402,7 @@ export default function InterviewSessionPage() {
               Về Dashboard
             </Button>
           )}
-          <h1 className="truncate text-sm font-semibold">Kiểm tra vấn đáp</h1>
+          <h1 className="font-heading truncate text-base tracking-tight">Kiểm tra vấn đáp</h1>
         </div>
 
         <ConceptMeter progress={progress} className="hidden md:flex" />

@@ -117,6 +117,10 @@ async function resolveDeepLinkItem(
 ): Promise<ReviewQueueItem | null> {
   try {
     const plan = await planApi.getPlan(planId);
+    // Kế hoạch không còn `active` (đã lưu trữ / chưa xác nhận đồ thị) không được mở phiên —
+    // rơi về `null` như mọi thất bại khác để `resolveEntry()` chuyển sang hàng đợi thường, nơi
+    // đã có sẵn câu chữ đúng cho từng trạng thái (`fetchEntryBranch`).
+    if (plan.status !== 'active') return null;
     const concept = plan.graph.concepts.find((c) => c.id === conceptId);
     if (!concept) return null;
     return {

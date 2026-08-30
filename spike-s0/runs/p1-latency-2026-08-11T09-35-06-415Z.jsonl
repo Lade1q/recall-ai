@@ -1,0 +1,440 @@
+{"t":1,"type":"note","msg":"① LATENCY — 25 lần · model=gemini-live-2.5-flash-native-audio · audio=/home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/fixtures/student-vi-16k.wav (16000Hz, 223070B)"}
+{"t":1563,"type":"open","model":"gemini-live-2.5-flash-native-audio"}
+{"t":1912,"type":"activity-start"}
+{"t":1921,"type":"activity-end"}
+{"t":7907,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":8098,"type":"output-transcript","text":"Chính xác. Dải"}
+{"t":8884,"type":"output-transcript","text":" địa"}
+{"t":8916,"type":"output-transcript","text":" chỉ"}
+{"t":8944,"type":"output-transcript","text":" IP"}
+{"t":9042,"type":"output-transcript","text":" lớp"}
+{"t":9068,"type":"output-transcript","text":" B"}
+{"t":9083,"type":"output-transcript","text":" bắt"}
+{"t":9140,"type":"output-transcript","text":" đầu"}
+{"t":9187,"type":"output-transcript","text":" từ"}
+{"t":9246,"type":"output-transcript","text":" 128.0.0.0"}
+{"t":9952,"type":"output-transcript","text":" đến"}
+{"t":10101,"type":"output-transcript","text":" 191.255.255.255."}
+{"t":10928,"type":"output-transcript","text":" nhé."}
+{"t":11043,"type":"turn-complete","audioChunks":48,"audioBytes":496874,"toolCalls":0,"spoke":true}
+{"t":11044,"type":"note","msg":"  cold-start: 6247ms"}
+{"t":11444,"type":"activity-start"}
+{"t":11461,"type":"activity-end"}
+{"t":11675,"type":"interrupted"}
+{"t":17368,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":17618,"type":"output-transcript","text":"Vâng, đúng"}
+{"t":17892,"type":"output-transcript","text":" vậy."}
+{"t":18040,"type":"output-transcript","text":" Dải"}
+{"t":18135,"type":"output-transcript","text":" địa"}
+{"t":18221,"type":"output-transcript","text":" chỉ"}
+{"t":18249,"type":"output-transcript","text":" IP"}
+{"t":18395,"type":"output-transcript","text":" lớp"}
+{"t":18462,"type":"output-transcript","text":" B"}
+{"t":18526,"type":"output-transcript","text":" có"}
+{"t":18683,"type":"output-transcript","text":" octet"}
+{"t":18818,"type":"output-transcript","text":" đầu"}
+{"t":18905,"type":"output-transcript","text":" tiên"}
+{"t":19000,"type":"output-transcript","text":" trong"}
+{"t":19068,"type":"output-transcript","text":" khoảng"}
+{"t":19269,"type":"output-transcript","text":" từ"}
+{"t":19310,"type":"output-transcript","text":" 128"}
+{"t":19477,"type":"output-transcript","text":" đến"}
+{"t":19575,"type":"output-transcript","text":" 191."}
+{"t":19760,"type":"turn-complete","audioChunks":30,"audioBytes":325994,"toolCalls":0,"spoke":true}
+{"t":19760,"type":"note","msg":"  [2] 6217ms"}
+{"t":20160,"type":"activity-start"}
+{"t":20165,"type":"activity-end"}
+{"t":20407,"type":"interrupted"}
+{"t":25928,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":26191,"type":"output-transcript","text":"Xác nhận"}
+{"t":26416,"type":"output-transcript","text":" với bạn,"}
+{"t":26560,"type":"output-transcript","text":" địa"}
+{"t":26674,"type":"output-transcript","text":" chỉ"}
+{"t":26714,"type":"output-transcript","text":" IP"}
+{"t":26857,"type":"output-transcript","text":" lớp"}
+{"t":26924,"type":"output-transcript","text":" B"}
+{"t":27015,"type":"output-transcript","text":" có"}
+{"t":27224,"type":"output-transcript","text":" octet"}
+{"t":27305,"type":"output-transcript","text":" đầu"}
+{"t":27389,"type":"output-transcript","text":" tiên"}
+{"t":27498,"type":"output-transcript","text":" nằm"}
+{"t":27613,"type":"output-transcript","text":" trong"}
+{"t":27625,"type":"output-transcript","text":" khoảng"}
+{"t":27715,"type":"output-transcript","text":" từ"}
+{"t":27846,"type":"output-transcript","text":" 128"}
+{"t":28027,"type":"output-transcript","text":" đến"}
+{"t":28125,"type":"output-transcript","text":" 191"}
+{"t":28242,"type":"output-transcript","text":" nhé."}
+{"t":28351,"type":"turn-complete","audioChunks":31,"audioBytes":329834,"toolCalls":0,"spoke":true}
+{"t":28351,"type":"note","msg":"  [3] 6087ms"}
+{"t":28752,"type":"activity-start"}
+{"t":28759,"type":"activity-end"}
+{"t":28985,"type":"interrupted"}
+{"t":34662,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":34944,"type":"output-transcript","text":"Đúng rồi."}
+{"t":35255,"type":"output-transcript","text":" Đó"}
+{"t":35443,"type":"output-transcript","text":" là đặc"}
+{"t":35528,"type":"output-transcript","text":" điểm"}
+{"t":35556,"type":"output-transcript","text":" của"}
+{"t":35613,"type":"output-transcript","text":" IP"}
+{"t":35694,"type":"output-transcript","text":" lớp"}
+{"t":35774,"type":"output-transcript","text":" B."}
+{"t":35892,"type":"turn-complete","audioChunks":12,"audioBytes":147434,"toolCalls":0,"spoke":true}
+{"t":35893,"type":"note","msg":"  [4] 6267ms"}
+{"t":36293,"type":"activity-start"}
+{"t":36303,"type":"activity-end"}
+{"t":36529,"type":"interrupted"}
+{"t":42228,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":42467,"type":"output-transcript","text":"Chính xác. Dải"}
+{"t":42853,"type":"output-transcript","text":" địa"}
+{"t":42879,"type":"output-transcript","text":" chỉ"}
+{"t":42939,"type":"output-transcript","text":" IP"}
+{"t":43116,"type":"output-transcript","text":" lớp"}
+{"t":43212,"type":"output-transcript","text":" B"}
+{"t":43307,"type":"output-transcript","text":" nằm"}
+{"t":43437,"type":"output-transcript","text":" trong"}
+{"t":43480,"type":"output-transcript","text":" khoảng"}
+{"t":43543,"type":"output-transcript","text":" từ"}
+{"t":43651,"type":"output-transcript","text":" 128"}
+{"t":43818,"type":"output-transcript","text":" đến"}
+{"t":43928,"type":"output-transcript","text":" 191"}
+{"t":44038,"type":"output-transcript","text":" nhé."}
+{"t":44152,"type":"turn-complete","audioChunks":25,"audioBytes":270314,"toolCalls":0,"spoke":true}
+{"t":44152,"type":"note","msg":"  [5] 6230ms"}
+{"t":44553,"type":"activity-start"}
+{"t":44562,"type":"activity-end"}
+{"t":44789,"type":"interrupted"}
+{"t":50410,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":50622,"type":"output-transcript","text":"Vâng, đó"}
+{"t":51002,"type":"output-transcript","text":" là đặc"}
+{"t":51070,"type":"output-transcript","text":" điểm"}
+{"t":51199,"type":"output-transcript","text":" của"}
+{"t":51208,"type":"output-transcript","text":" IP"}
+{"t":51221,"type":"output-transcript","text":" lớp"}
+{"t":51271,"type":"output-transcript","text":" B."}
+{"t":51429,"type":"turn-complete","audioChunks":13,"audioBytes":133994,"toolCalls":0,"spoke":true}
+{"t":51429,"type":"note","msg":"  [6] 6107ms"}
+{"t":51829,"type":"activity-start"}
+{"t":51837,"type":"activity-end"}
+{"t":52065,"type":"interrupted"}
+{"t":57673,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":57897,"type":"output-transcript","text":"Đúng vậy. Dải"}
+{"t":58300,"type":"output-transcript","text":" IP"}
+{"t":58437,"type":"output-transcript","text":" lớp"}
+{"t":58443,"type":"output-transcript","text":" B"}
+{"t":58546,"type":"output-transcript","text":" có"}
+{"t":58595,"type":"output-transcript","text":" octet"}
+{"t":58652,"type":"output-transcript","text":" đầu"}
+{"t":58692,"type":"output-transcript","text":" tiên"}
+{"t":58770,"type":"output-transcript","text":" từ"}
+{"t":58886,"type":"output-transcript","text":" 128"}
+{"t":59025,"type":"output-transcript","text":" đến"}
+{"t":59133,"type":"output-transcript","text":" 191."}
+{"t":59325,"type":"turn-complete","audioChunks":24,"audioBytes":247274,"toolCalls":0,"spoke":true}
+{"t":59325,"type":"note","msg":"  [7] 6114ms"}
+{"t":59725,"type":"activity-start"}
+{"t":59734,"type":"activity-end"}
+{"t":59972,"type":"interrupted"}
+{"t":65569,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":65822,"type":"output-transcript","text":"Xác nhận"}
+{"t":66037,"type":"output-transcript","text":" lại lần"}
+{"t":66193,"type":"output-transcript","text":" nữa,"}
+{"t":66269,"type":"output-transcript","text":" đúng"}
+{"t":66400,"type":"output-transcript","text":" là như"}
+{"t":66424,"type":"output-transcript","text":" vậy"}
+{"t":66514,"type":"output-transcript","text":" nhé."}
+{"t":66581,"type":"output-transcript","text":" Đó là"}
+{"t":66749,"type":"output-transcript","text":" đặc"}
+{"t":66778,"type":"output-transcript","text":" điểm"}
+{"t":66848,"type":"output-transcript","text":" của"}
+{"t":66886,"type":"output-transcript","text":" IP"}
+{"t":66974,"type":"output-transcript","text":" lớp"}
+{"t":67014,"type":"output-transcript","text":" B."}
+{"t":67172,"type":"turn-complete","audioChunks":20,"audioBytes":218474,"toolCalls":0,"spoke":true}
+{"t":67172,"type":"note","msg":"  [8] 6148ms"}
+{"t":67573,"type":"activity-start"}
+{"t":67580,"type":"activity-end"}
+{"t":67811,"type":"interrupted"}
+{"t":73436,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":73671,"type":"output-transcript","text":"Chính xác. Dải"}
+{"t":74108,"type":"output-transcript","text":" địa"}
+{"t":74122,"type":"output-transcript","text":" chỉ"}
+{"t":74218,"type":"output-transcript","text":" IP"}
+{"t":74293,"type":"output-transcript","text":" lớp"}
+{"t":74347,"type":"output-transcript","text":" B"}
+{"t":74500,"type":"output-transcript","text":" có"}
+{"t":74637,"type":"output-transcript","text":" octet"}
+{"t":74716,"type":"output-transcript","text":" đầu"}
+{"t":74793,"type":"output-transcript","text":" tiên"}
+{"t":74880,"type":"output-transcript","text":" trong"}
+{"t":74938,"type":"output-transcript","text":" khoảng"}
+{"t":75023,"type":"output-transcript","text":" từ"}
+{"t":75163,"type":"output-transcript","text":" 128"}
+{"t":75339,"type":"output-transcript","text":" đến"}
+{"t":75437,"type":"output-transcript","text":" 191."}
+{"t":75620,"type":"turn-complete","audioChunks":28,"audioBytes":306794,"toolCalls":0,"spoke":true}
+{"t":75621,"type":"note","msg":"  [9] 6137ms"}
+{"t":76021,"type":"activity-start"}
+{"t":76029,"type":"activity-end"}
+{"t":76258,"type":"interrupted"}
+{"t":81779,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":81990,"type":"output-transcript","text":"Đúng vậy. Đó"}
+{"t":82437,"type":"output-transcript","text":" là đặc"}
+{"t":82523,"type":"output-transcript","text":" điểm"}
+{"t":82532,"type":"output-transcript","text":" của"}
+{"t":82575,"type":"output-transcript","text":" IP"}
+{"t":82666,"type":"output-transcript","text":" lớp"}
+{"t":82703,"type":"output-transcript","text":" B."}
+{"t":82864,"type":"turn-complete","audioChunks":14,"audioBytes":145514,"toolCalls":0,"spoke":true}
+{"t":82864,"type":"note","msg":"  [10] 6018ms"}
+{"t":83265,"type":"activity-start"}
+{"t":83273,"type":"activity-end"}
+{"t":83501,"type":"interrupted"}
+{"t":89110,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":89356,"type":"output-transcript","text":"Xác nhận"}
+{"t":89578,"type":"output-transcript","text":" lại lần"}
+{"t":89657,"type":"output-transcript","text":" nữa,"}
+{"t":89790,"type":"output-transcript","text":" đúng"}
+{"t":89858,"type":"output-transcript","text":" là như"}
+{"t":89929,"type":"output-transcript","text":" vậy"}
+{"t":90004,"type":"output-transcript","text":" nhé."}
+{"t":90108,"type":"output-transcript","text":" Đó là"}
+{"t":90295,"type":"output-transcript","text":" đặc"}
+{"t":90326,"type":"output-transcript","text":" điểm"}
+{"t":90426,"type":"output-transcript","text":" của"}
+{"t":90446,"type":"output-transcript","text":" IP"}
+{"t":90537,"type":"output-transcript","text":" lớp"}
+{"t":90567,"type":"output-transcript","text":" B."}
+{"t":90733,"type":"turn-complete","audioChunks":21,"audioBytes":220394,"toolCalls":0,"spoke":true}
+{"t":90733,"type":"note","msg":"  [11] 6140ms"}
+{"t":91133,"type":"activity-start"}
+{"t":91138,"type":"activity-end"}
+{"t":91358,"type":"interrupted"}
+{"t":96937,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":97172,"type":"output-transcript","text":"Đúng vậy."}
+{"t":97604,"type":"output-transcript","text":" Đó là"}
+{"t":97674,"type":"output-transcript","text":" đặc"}
+{"t":97798,"type":"output-transcript","text":" điểm"}
+{"t":97811,"type":"output-transcript","text":" của"}
+{"t":97840,"type":"output-transcript","text":" IP"}
+{"t":97909,"type":"output-transcript","text":" lớp"}
+{"t":97968,"type":"output-transcript","text":" B."}
+{"t":98095,"type":"turn-complete","audioChunks":13,"audioBytes":147434,"toolCalls":0,"spoke":true}
+{"t":98095,"type":"note","msg":"  [12] 6085ms"}
+{"t":98496,"type":"activity-start"}
+{"t":98503,"type":"activity-end"}
+{"t":98732,"type":"interrupted"}
+{"t":104441,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":104719,"type":"output-transcript","text":"Xác nhận"}
+{"t":104969,"type":"output-transcript","text":" lại lần"}
+{"t":105065,"type":"output-transcript","text":" nữa,"}
+{"t":105173,"type":"output-transcript","text":" đúng"}
+{"t":105259,"type":"output-transcript","text":" là như"}
+{"t":105284,"type":"output-transcript","text":" vậy"}
+{"t":105351,"type":"output-transcript","text":" nhé."}
+{"t":105523,"type":"output-transcript","text":" Đó là"}
+{"t":105682,"type":"output-transcript","text":" đặc"}
+{"t":105723,"type":"output-transcript","text":" điểm"}
+{"t":105806,"type":"output-transcript","text":" của"}
+{"t":105836,"type":"output-transcript","text":" IP"}
+{"t":105928,"type":"output-transcript","text":" lớp"}
+{"t":105998,"type":"output-transcript","text":" B."}
+{"t":106123,"type":"turn-complete","audioChunks":21,"audioBytes":220394,"toolCalls":0,"spoke":true}
+{"t":106123,"type":"note","msg":"  [13] 6270ms"}
+{"t":106524,"type":"activity-start"}
+{"t":106530,"type":"activity-end"}
+{"t":106760,"type":"interrupted"}
+{"t":112313,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":112628,"type":"output-transcript","text":"Vâng, đó"}
+{"t":112972,"type":"output-transcript","text":" là đặc"}
+{"t":113054,"type":"output-transcript","text":" điểm"}
+{"t":113169,"type":"output-transcript","text":" của"}
+{"t":113178,"type":"output-transcript","text":" IP"}
+{"t":113186,"type":"output-transcript","text":" lớp"}
+{"t":113273,"type":"output-transcript","text":" B."}
+{"t":113363,"type":"turn-complete","audioChunks":12,"audioBytes":126314,"toolCalls":0,"spoke":true}
+{"t":113363,"type":"note","msg":"  [14] 6156ms"}
+{"t":113764,"type":"activity-start"}
+{"t":113776,"type":"activity-end"}
+{"t":114000,"type":"interrupted"}
+{"t":119739,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":119942,"type":"output-transcript","text":"Đúng vậy."}
+{"t":120358,"type":"output-transcript","text":" Đó là"}
+{"t":120386,"type":"output-transcript","text":" đặc"}
+{"t":120478,"type":"output-transcript","text":" điểm"}
+{"t":120518,"type":"output-transcript","text":" của"}
+{"t":120566,"type":"output-transcript","text":" IP"}
+{"t":120647,"type":"output-transcript","text":" lớp"}
+{"t":120707,"type":"output-transcript","text":" B."}
+{"t":120755,"type":"turn-complete","audioChunks":12,"audioBytes":135914,"toolCalls":0,"spoke":true}
+{"t":120755,"type":"note","msg":"  [15] 6222ms"}
+{"t":121155,"type":"activity-start"}
+{"t":121162,"type":"activity-end"}
+{"t":121391,"type":"interrupted"}
+{"t":126930,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":127566,"type":"output-transcript","text":"Chính xác. Dải"}
+{"t":127836,"type":"output-transcript","text":" địa chỉ"}
+{"t":127952,"type":"output-transcript","text":" IP"}
+{"t":128108,"type":"output-transcript","text":" lớp"}
+{"t":128149,"type":"output-transcript","text":" B"}
+{"t":128249,"type":"output-transcript","text":" có"}
+{"t":128396,"type":"output-transcript","text":" octet"}
+{"t":128490,"type":"output-transcript","text":" đầu"}
+{"t":128569,"type":"output-transcript","text":" tiên"}
+{"t":128661,"type":"output-transcript","text":" trong"}
+{"t":128715,"type":"output-transcript","text":" khoảng"}
+{"t":128795,"type":"output-transcript","text":" từ"}
+{"t":128914,"type":"output-transcript","text":" 128"}
+{"t":129084,"type":"output-transcript","text":" đến"}
+{"t":129173,"type":"output-transcript","text":" 191."}
+{"t":129370,"type":"turn-complete","audioChunks":28,"audioBytes":295274,"toolCalls":0,"spoke":true}
+{"t":129370,"type":"note","msg":"  [16] 6453ms"}
+{"t":129771,"type":"activity-start"}
+{"t":129780,"type":"activity-end"}
+{"t":129996,"type":"interrupted"}
+{"t":135619,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":135976,"type":"output-transcript","text":"Đúng vậy."}
+{"t":136384,"type":"output-transcript","text":" Đó là"}
+{"t":136436,"type":"output-transcript","text":" đặc"}
+{"t":136517,"type":"output-transcript","text":" khi"}
+{"t":136566,"type":"output-transcript","text":" nhận"}
+{"t":136606,"type":"output-transcript","text":" biết"}
+{"t":136677,"type":"output-transcript","text":" IP"}
+{"t":136746,"type":"output-transcript","text":" lớp"}
+{"t":136817,"type":"output-transcript","text":" B."}
+{"t":136948,"type":"turn-complete","audioChunks":14,"audioBytes":164714,"toolCalls":0,"spoke":true}
+{"t":136948,"type":"note","msg":"  [17] 6251ms"}
+{"t":137348,"type":"activity-start"}
+{"t":137357,"type":"activity-end"}
+{"t":137573,"type":"interrupted"}
+{"t":143224,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":143490,"type":"output-transcript","text":"Xác nhận"}
+{"t":143775,"type":"output-transcript","text":" lại lần"}
+{"t":143904,"type":"output-transcript","text":" nữa,"}
+{"t":144004,"type":"output-transcript","text":" đúng"}
+{"t":144045,"type":"output-transcript","text":"\u0016 là như"}
+{"t":144154,"type":"output-transcript","text":" vậy"}
+{"t":144205,"type":"output-transcript","text":" nhé."}
+{"t":144275,"type":"output-transcript","text":" Đó là"}
+{"t":144445,"type":"output-transcript","text":" đặc"}
+{"t":144501,"type":"output-transcript","text":" điểm"}
+{"t":144550,"type":"output-transcript","text":" của"}
+{"t":144610,"type":"output-transcript","text":" IP"}
+{"t":144689,"type":"output-transcript","text":" lớp"}
+{"t":144758,"type":"output-transcript","text":" B."}
+{"t":144863,"type":"turn-complete","audioChunks":20,"audioBytes":216554,"toolCalls":0,"spoke":true}
+{"t":144863,"type":"note","msg":"  [18] 6190ms"}
+{"t":145263,"type":"activity-start"}
+{"t":145272,"type":"activity-end"}
+{"t":145503,"type":"interrupted"}
+{"t":151249,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":151756,"type":"output-transcript","text":"Đúng vậy."}
+{"t":152221,"type":"output-transcript","text":" Đó là"}
+{"t":152228,"type":"output-transcript","text":" đặc"}
+{"t":152353,"type":"output-transcript","text":" điểm"}
+{"t":152406,"type":"output-transcript","text":" khi nhận"}
+{"t":152477,"type":"output-transcript","text":" biết"}
+{"t":152527,"type":"output-transcript","text":" IP"}
+{"t":152627,"type":"output-transcript","text":" lớp"}
+{"t":152667,"type":"output-transcript","text":" B."}
+{"t":152728,"type":"turn-complete","audioChunks":14,"audioBytes":157034,"toolCalls":0,"spoke":true}
+{"t":152729,"type":"note","msg":"  [19] 6533ms"}
+{"t":153129,"type":"activity-start"}
+{"t":153134,"type":"activity-end"}
+{"t":153376,"type":"interrupted"}
+{"t":158856,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":159128,"type":"output-transcript","text":"Xác nhận"}
+{"t":159385,"type":"output-transcript","text":" lại lần"}
+{"t":159476,"type":"output-transcript","text":" nữa,"}
+{"t":159662,"type":"output-transcript","text":" đúng"}
+{"t":159669,"type":"output-transcript","text":" là như"}
+{"t":159766,"type":"output-transcript","text":" vậy"}
+{"t":159842,"type":"output-transcript","text":" nhé."}
+{"t":159924,"type":"output-transcript","text":" Đó là"}
+{"t":160082,"type":"output-transcript","text":" đặc"}
+{"t":160141,"type":"output-transcript","text":" điểm"}
+{"t":160194,"type":"output-transcript","text":" của"}
+{"t":160255,"type":"output-transcript","text":" IP"}
+{"t":160377,"type":"output-transcript","text":" lớp"}
+{"t":160510,"type":"output-transcript","text":" B."}
+{"t":160544,"type":"turn-complete","audioChunks":21,"audioBytes":220394,"toolCalls":0,"spoke":true}
+{"t":160544,"type":"note","msg":"  [20] 6050ms"}
+{"t":160945,"type":"activity-start"}
+{"t":160951,"type":"activity-end"}
+{"t":161191,"type":"interrupted"}
+{"t":166865,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":167068,"type":"output-transcript","text":"Vâng, đó"}
+{"t":167469,"type":"output-transcript","text":" là đặc"}
+{"t":167544,"type":"output-transcript","text":" điểm"}
+{"t":167591,"type":"output-transcript","text":" của"}
+{"t":167650,"type":"output-transcript","text":" IP"}
+{"t":167731,"type":"output-transcript","text":" lớp"}
+{"t":167760,"type":"output-transcript","text":" B."}
+{"t":167881,"type":"turn-complete","audioChunks":11,"audioBytes":126314,"toolCalls":0,"spoke":true}
+{"t":167881,"type":"note","msg":"  [21] 6169ms"}
+{"t":168282,"type":"activity-start"}
+{"t":168289,"type":"activity-end"}
+{"t":168518,"type":"interrupted"}
+{"t":174120,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":174372,"type":"output-transcript","text":"Đúng vậy."}
+{"t":174776,"type":"output-transcript","text":" Đó là"}
+{"t":174813,"type":"output-transcript","text":" đặc"}
+{"t":174934,"type":"output-transcript","text":" điểm"}
+{"t":174973,"type":"output-transcript","text":" khi nhận"}
+{"t":175090,"type":"output-transcript","text":" biết"}
+{"t":175151,"type":"output-transcript","text":" IP"}
+{"t":175221,"type":"output-transcript","text":" lớp"}
+{"t":175321,"type":"output-transcript","text":" B."}
+{"t":175379,"type":"turn-complete","audioChunks":15,"audioBytes":162794,"toolCalls":0,"spoke":true}
+{"t":175379,"type":"note","msg":"  [22] 6139ms"}
+{"t":175780,"type":"activity-start"}
+{"t":175790,"type":"activity-end"}
+{"t":176016,"type":"interrupted"}
+{"t":181664,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":181904,"type":"output-transcript","text":"Chính xác. Dải"}
+{"t":182154,"type":"output-transcript","text":" địa chỉ"}
+{"t":182275,"type":"output-transcript","text":" IP"}
+{"t":182463,"type":"output-transcript","text":" lớp"}
+{"t":182509,"type":"output-transcript","text":" B"}
+{"t":182611,"type":"output-transcript","text":" có"}
+{"t":182744,"type":"output-transcript","text":" octet"}
+{"t":182822,"type":"output-transcript","text":" đầu tiên"}
+{"t":182995,"type":"output-transcript","text":" trong"}
+{"t":183049,"type":"output-transcript","text":" khoảng"}
+{"t":183127,"type":"output-transcript","text":" từ"}
+{"t":183264,"type":"output-transcript","text":" 128"}
+{"t":183428,"type":"output-transcript","text":" đến"}
+{"t":183531,"type":"output-transcript","text":" 191."}
+{"t":183722,"type":"turn-complete","audioChunks":27,"audioBytes":295274,"toolCalls":0,"spoke":true}
+{"t":183723,"type":"note","msg":"  [23] 6164ms"}
+{"t":184123,"type":"activity-start"}
+{"t":184129,"type":"activity-end"}
+{"t":184372,"type":"interrupted"}
+{"t":189986,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":190287,"type":"output-transcript","text":"Vâng, đó"}
+{"t":190632,"type":"output-transcript","text":" là đặc"}
+{"t":190723,"type":"output-transcript","text":" điểm"}
+{"t":190832,"type":"output-transcript","text":" của IP"}
+{"t":190860,"type":"output-transcript","text":" lớp"}
+{"t":190920,"type":"output-transcript","text":" B."}
+{"t":191025,"type":"turn-complete","audioChunks":11,"audioBytes":126314,"toolCalls":0,"spoke":true}
+{"t":191025,"type":"note","msg":"  [24] 6216ms"}
+{"t":191426,"type":"activity-start"}
+{"t":191433,"type":"activity-end"}
+{"t":191674,"type":"interrupted"}
+{"t":197363,"type":"input-transcript","text":"Địa chỉ IP lớp B có octet đầu tiên nằm trong khoảng từ 128 đến 191."}
+{"t":197635,"type":"output-transcript","text":"Đúng vậy."}
+{"t":198098,"type":"output-transcript","text":" Đó là"}
+{"t":198176,"type":"output-transcript","text":" đặc"}
+{"t":198187,"type":"output-transcript","text":" điểm"}
+{"t":198205,"type":"output-transcript","text":" của"}
+{"t":198254,"type":"output-transcript","text":" IP"}
+{"t":198333,"type":"output-transcript","text":" lớp"}
+{"t":198401,"type":"output-transcript","text":" B."}
+{"t":198530,"type":"turn-complete","audioChunks":13,"audioBytes":143594,"toolCalls":0,"spoke":true}
+{"t":198530,"type":"note","msg":"  [25] 6258ms"}
+{"t":198932,"type":"note","msg":""}
+{"t":198932,"type":"note","msg":"KẾT QUẢ ①: n=24 · p50=6164ms · p95=6453ms · cold=6247ms  =>  KHÔNG ĐẠT ❌"}
+{"t":198932,"type":"note","msg":"   (ngưỡng: p50<1500 · p95<3000 · cold≤3000)"}
+{"t":198932,"type":"result","criterion":"1-latency","n":24,"p50":6164,"p95":6453,"cold":6247,"pass":false,"samples":[6217,6087,6267,6230,6107,6114,6148,6137,6018,6140,6085,6270,6156,6222,6453,6251,6190,6533,6050,6169,6139,6164,6216,6258]}
+{"t":198932,"type":"note","msg":"(log: /home/lade1q/study/Introduction  to Software Engineering/P01/spike-s0/runs/p1-latency-2026-08-11T09-35-06-415Z.jsonl)"}

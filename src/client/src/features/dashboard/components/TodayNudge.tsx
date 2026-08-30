@@ -4,8 +4,9 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
+// Deep-link đã chốt ở #127/#227, dùng chung với panel ngày của màn Lịch (#405).
+import { focusHref, interviewHref } from '@/features/review-queue/utils/review-queue-links';
 import type {
-  ReviewQueueItem,
   ReviewQueueListResponse,
   ReviewReason,
 } from '@/features/review-queue/types/review-queue.types';
@@ -23,14 +24,6 @@ const REASON_TONE: Record<ReviewReason, 'remediate' | 'ai' | 'neutral'> = {
   deadline_priority: 'remediate',
   manual: 'neutral',
 };
-
-/** Deep-link đã chốt ở #127/#227: Focus cần cả `conceptId`, phiên kiểm tra nhận `conceptIds`. */
-function focusHref(item: ReviewQueueItem): string {
-  return `/focus?planId=${item.planId}&conceptId=${item.conceptId}`;
-}
-function interviewHref(item: ReviewQueueItem): string {
-  return `/interview?planId=${item.planId}&conceptIds=${item.conceptId}`;
-}
 
 /** Cột "Hàng đợi hôm nay · ≈ N phút" — mỗi mục là tên + `reasonText` (câu chữ do backend trả). */
 function TodayQueue({ data }: { data: ReviewQueueListResponse }) {
@@ -258,7 +251,7 @@ export function TodayNudge({
 export function TodayNudgeSkeleton() {
   return (
     <section className={`${CARD_CLASS} p-6 sm:p-7`} aria-hidden="true">
-      <div className="text-muted-foreground mb-3.5 font-mono text-[10.5px]">
+      <div className="text-muted-foreground mb-3.5 font-mono text-[11px]">
         Đang tải · Gợi ý hôm nay
       </div>
       <div className="bg-border h-[18px] w-[70px] animate-pulse rounded" />

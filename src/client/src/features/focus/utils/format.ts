@@ -78,3 +78,19 @@ export function formatPageAnchor(pageFrom: number | null, pageTo: number | null)
   if (pageTo === null || pageTo === pageFrom) return `tr. ${pageFrom}`;
   return `tr. ${pageFrom}–${pageTo}`;
 }
+
+/**
+ * Mẩu trích có bị cắt giữa chừng không? Dùng để quyết định có thêm `…` sau câu trích.
+ *
+ * #373: 46/67 mẩu trong DB **không kết bằng dấu câu** — gần như toàn bộ là hàng PDF, nơi nguồn là
+ * bullet trên slide chứ không phải câu văn xuôi. Bày một mẩu cụt mà không có dấu hiệu gì khiến nó
+ * đọc ra như *nguyên văn một câu hoàn chỉnh trong tài liệu*, và đó chính là cảm giác "chỉ bắt
+ * keyword" mà người dùng báo. Dấu `…` không sửa được nội dung, nhưng nói đúng rằng đây là một mẩu
+ * cắt ra — người đọc thôi chờ một câu trọn vẹn.
+ */
+export function isTruncatedQuote(excerpt: string): boolean {
+  // Chỉ dấu KẾT CÂU mới tính là trọn vẹn, kèm một dấu đóng ngoặc/ngoặc kép bám sau nó. `:` và `;`
+  // cố ý **không** nằm trong tập này: một dòng kết bằng `:` là dòng đang dẫn vào một danh sách bị
+  // cắt mất — đó là ca cụt rõ nhất, không phải ca hoàn chỉnh.
+  return !/[.!?…]["'”’)\]]?$/.test(excerpt.trimEnd());
+}

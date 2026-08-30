@@ -6,6 +6,7 @@ import {
   addDays,
   calculateMasteryScore,
   classifyMastery,
+  conceptMasteryForSession,
   daysUntil,
   gradedTurnScores,
   reviewIntervalDays,
@@ -176,6 +177,69 @@ describe('sessionMasteryScore', () => {
       { turnIndex: 4, score: 0.0 },
     ];
     expect(sessionMasteryScore(turns)).toBe(0.75);
+  });
+});
+
+describe('conceptMasteryForSession', () => {
+  const DAY_1 = new Date('2026-07-01T10:00:00.000Z').getTime();
+  const DAY_2 = new Date('2026-07-05T10:00:00.000Z').getTime();
+  const DAY_3 = new Date('2026-07-10T10:00:00.000Z').getTime();
+
+  it('is the first assessment when there is no prior scored session', () => {
+    const turns = [{ turnIndex: 1, score: 0.8 }];
+
+    const result = conceptMasteryForSession(turns, DAY_2, []);
+
+    expect(result).toEqual({ masteryBefore: null, masteryAfter: 0.8, isFirstAssessment: true });
+  });
+
+  it("carries the most recent prior session's score as masteryBefore, not the raw history order", () => {
+    const turns = [{ turnIndex: 1, score: 0.9 }];
+    const priorPoints = [
+      { startedAt: DAY_1, masteryAfter: 0.3 },
+      { startedAt: DAY_2, masteryAfter: 0.6 }, // most recent before DAY_3 — this one wins
+    ];
+
+    const result = conceptMasteryForSession(turns, DAY_3, priorPoints);
+
+    expect(result).toEqual({ masteryBefore: 0.6, masteryAfter: 0.9, isFirstAssessment: false });
+  });
+
+  it('skips a prior session that touched the concept but graded nothing, instead of resetting before to null', () => {
+    const turns = [{ turnIndex: 1, score: 0.7 }];
+    const priorPoints = [
+      { startedAt: DAY_1, masteryAfter: 0.5 },
+      { startedAt: DAY_2, masteryAfter: null }, // e.g. abandoned before this concept was reached
+    ];
+
+    const result = conceptMasteryForSession(turns, DAY_3, priorPoints);
+
+    expect(result.masteryBefore).toBe(0.5);
+    expect(result.isFirstAssessment).toBe(false);
+  });
+
+  it('ignores prior sessions that happened after the target session', () => {
+    const turns = [{ turnIndex: 1, score: 0.5 }];
+    const priorPoints = [{ startedAt: DAY_3, masteryAfter: 0.9 }]; // later, must not count as "before"
+
+    const result = conceptMasteryForSession(turns, DAY_2, priorPoints);
+
+    expect(result.masteryBefore).toBeNull();
+    expect(result.isFirstAssessment).toBe(true);
+  });
+
+  it('returns masteryAfter null — not 0 — when the target session graded no turn of this concept, while still resolving masteryBefore', () => {
+    const priorPoints = [{ startedAt: DAY_1, masteryAfter: 0.4 }];
+
+    const result = conceptMasteryForSession([], DAY_2, priorPoints);
+
+    expect(result).toEqual({ masteryBefore: 0.4, masteryAfter: null, isFirstAssessment: false });
+  });
+
+  it('is not a first assessment when neither before nor after has a real score', () => {
+    const result = conceptMasteryForSession([], DAY_2, []);
+
+    expect(result).toEqual({ masteryBefore: null, masteryAfter: null, isFirstAssessment: false });
   });
 });
 

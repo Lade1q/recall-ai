@@ -72,7 +72,7 @@ export function PomodoroClockRing({
           <div className="font-mono text-[44px] font-semibold tabular-nums leading-none tracking-[-0.03em]">
             {formatClock(remainingMs)}
           </div>
-          <div className="text-muted-foreground mt-1.5 text-[10px] uppercase tracking-[0.08em]">
+          <div className="text-muted-foreground mt-1.5 text-[11px] uppercase tracking-[0.08em]">
             Còn lại
           </div>
         </div>

@@ -24,6 +24,7 @@ import { invalidatePlanMaterial } from '../services/gemini.service';
 import { getPdfPageCount, EncryptedPdfError } from '../utils/pdf';
 import { DocumentMeta } from '../types/plan.types';
 import { AppError } from '../middleware/errorHandler';
+import { STAGING_DIR } from '../middleware/upload.middleware';
 
 const storageService = createStorageService();
 
@@ -81,29 +82,67 @@ async function buildDocumentMeta(
 }
 
 /**
+ * Stages pasted text (UC-02 A3, "Dán text") as a `.txt` file in the same staging dir
+ * multer uses for uploads, so the rest of createPlanController — buildDocumentMeta,
+ * storageService.upload, cleanup-on-error — treats it exactly like an uploaded file.
+ * `documentKindFromExt('.txt')` resolves this to `kind: 'text'`, which the existing
+ * analysis pipeline (`resolveMaterialSource`, inline `extractConcepts({kind:'text'})`)
+ * already knows how to read — nothing downstream needs to change for this source.
+ */
+function stagePastedContent(content: string): {
+  path: string;
+  originalname: string;
+  size: number;
+} {
+  const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+  const filePath = path.join(STAGING_DIR, `${uniqueSuffix}.txt`);
+  fs.writeFileSync(filePath, content, 'utf-8');
+  return {
+    path: filePath,
+    originalname: 'pasted-text.txt',
+    size: Buffer.byteLength(content, 'utf-8'),
+  };
+}
+
+/**
  * POST /api/v1/plans
  * Creates a new StudyPlan and triggers background analysis.
- * Expects multipart/form-data with fields: name, deadline, file.
+ * Expects multipart/form-data with either a `file` upload or a pasted-text `content`
+ * field (not both) — plus `name`, `deadline`.
  */
 export async function createPlanController(req: Request, res: Response): Promise<void> {
   if (!req.userId) {
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  if (!req.file) {
-    throw new AppError('File is required', 400, 'FILE_REQUIRED');
-  }
-
-  const localFilePath = req.file.path;
+  // Set from `req.file` up front so cleanup (step 7) still fires if Zod validation
+  // below throws on a request that *did* stage a multer file.
+  let localFilePath: string | null = req.file?.path ?? null;
   let uploadedFileKey: string | null = null;
 
   try {
     // 1. Validate inputs (Zod) trước tiên
     const input = createPlanSchema.parse(req.body);
 
+    if (req.file && input.content) {
+      throw new AppError(
+        'Provide either a file upload or pasted content, not both',
+        400,
+        'CONTENT_OR_FILE_CONFLICT'
+      );
+    }
+    if (!req.file && !input.content) {
+      throw new AppError('File or pasted content is required', 400, 'FILE_REQUIRED');
+    }
+
+    const source = req.file
+      ? { path: req.file.path, originalname: req.file.originalname, size: req.file.size }
+      : stagePastedContent(input.content as string);
+    localFilePath = source.path;
+
     // 2. Generate uuid cho StudyPlan trước
     const planId = crypto.randomUUID();
-    const ext = path.extname(req.file.originalname);
+    const ext = path.extname(source.originalname);
     uploadedFileKey = `plans/${planId}/${Date.now()}${ext}`;
 
     // 3. Thu thập metadata tài liệu. page_count đọc từ file cục bộ TRƯỚC khi upload
@@ -111,9 +150,9 @@ export async function createPlanController(req: Request, res: Response): Promise
     //    trước khi file được upload hay AnalysisJob được tạo (Issue #223).
     const documentMeta = await buildDocumentMeta(
       localFilePath,
-      req.file.originalname,
+      source.originalname,
       ext,
-      req.file.size,
+      source.size,
       uploadedFileKey
     );
 
@@ -139,11 +178,13 @@ export async function createPlanController(req: Request, res: Response): Promise
     // 7. Cleanup orphaned files on any error (validation, DB, etc.)
 
     // Delete staging file if it hasn't been moved yet
-    try {
-      await fs.promises.access(localFilePath);
-      await fs.promises.unlink(localFilePath);
-    } catch {
-      // File already moved or doesn't exist — no cleanup needed
+    if (localFilePath) {
+      try {
+        await fs.promises.access(localFilePath);
+        await fs.promises.unlink(localFilePath);
+      } catch {
+        // File already moved or doesn't exist — no cleanup needed
+      }
     }
 
     // Delete uploaded file from storage if DB transaction failed after upload
