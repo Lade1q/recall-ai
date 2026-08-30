@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { focusSessionApi } from '@/features/focus/api/focus.api';
 import type { FocusSessionListItem } from '@/features/focus/types/focus.types';
@@ -99,6 +100,10 @@ export function useFocusSessionList(): FocusSessionList {
         // Tải thêm hỏng thì giữ nguyên những phiên đã có — mất danh sách đang đọc vì một trang
         // phụ lỗi là cái giá quá đắt. Nút vẫn còn đó để bấm lại.
         setLoadingMore(false);
+
+        // Xem `useSessionList.ts` — cùng một nhánh, cùng lý do (#450). Chỉ khác danh từ trong
+        // câu, vì hai tab nói về hai loại phiên khác nhau.
+        toast.error('Không tải thêm được phiên học. Kiểm tra kết nối rồi bấm lại.');
       });
   }, [loadingMore, current, key]);
 

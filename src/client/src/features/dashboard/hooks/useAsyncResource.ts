@@ -16,6 +16,11 @@ export interface AsyncResource<T> {
  * `reload()`), nên một arrow inline mới ở mỗi lần render không kích hoạt request mới. Cờ
  * `loading` được bật trong chính `reload()` (event handler) chứ không phải trong thân effect, và
  * `data` cũ được giữ lại khi tải lại lỗi để nội dung đang hiển thị không biến mất.
+ *
+ * `error` đọc là **"lần thử gần nhất đã hỏng"**, KHÔNG phải "đang hỏng ngay lúc này". Nó chỉ đổi
+ * khi có kết quả mới về, nên nó sống qua `reload()` — xem lý do tại chính `reload()` bên dưới.
+ * Kèm theo đó: nơi tiêu thụ muốn phân biệt *tải lần đầu* với *tải lại sau lỗi* thì đọc cặp
+ * `loading && error`, chứ đừng suy từ `data === null` (cả hai ca đều `null`).
  */
 export function useAsyncResource<T>(loader: () => Promise<T>): AsyncResource<T> {
   const [state, setState] = useState<{ data: T | null; loading: boolean; error: boolean }>({
@@ -43,7 +48,20 @@ export function useAsyncResource<T>(loader: () => Promise<T>): AsyncResource<T> 
   }, [nonce]);
 
   const reload = useCallback(() => {
-    setState((prev) => ({ data: prev.data, loading: true, error: false }));
+    // `error` cố ý KHÔNG bị hạ về `false` ở đây. Hạ sớm làm ca "tải lại sau lỗi" trùng khít ca
+    // "tải lần đầu" — cả hai đều `{data: null, loading: true, error: false}` — và người tiêu thụ
+    // mất mọi cách phân biệt. Hậu quả đo được ở #445 cơ chế ②: cổng `todayFailed` của
+    // `DashboardPage` tắt ngay lúc bấm, nên **cả `<section>` gợi ý biến mất** trong lúc lần tải
+    // lại còn bay, và chỉ hiện lại khi request hỏng LẦN NỮA.
+    //
+    // ⚠️ KHÔNG phải "nút Thử lại thôi biến mất" — đo LIVE bác mệnh đề đó: nút mất ở CẢ HAI build
+    // (`todayPending` thắng `todayFailed` trong thứ tự nhánh nên chỗ đó vẽ `TodayNudgeSkeleton`),
+    // và `stats`/`plans` cũng vậy. Thứ đổi là khối gợi ý ở lại màn dưới dạng ĐANG TẢI thay vì
+    // bốc hơi: `pulse` 0 → 6.
+    //
+    // Effect luôn ghi đè `error` bằng kết quả thật (`false` khi resolve, `true` khi reject), nên
+    // giữ giá trị cũ ở đây chỉ kéo dài nó đúng khoảng request đang bay, không tạo trạng thái kẹt.
+    setState((prev) => ({ data: prev.data, loading: true, error: prev.error }));
     setNonce((n) => n + 1);
   }, []);
 

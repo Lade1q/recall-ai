@@ -48,6 +48,24 @@ describe('dayLabel', () => {
   it('ngày hỏng không ném, rơi vào nhóm riêng', () => {
     expect(dayLabel('không-phải-ngày', NOW)).toBe('Không rõ thời gian');
   });
+
+  it('KHÁC năm thì in kèm năm — hai ngày trùng DD/MM không được cho ra một nhãn', () => {
+    // `dayStart` khác nhau ⇒ chúng là hai NHÓM riêng. Nếu nhãn giống hệt thì người đọc thấy
+    // "30/08" hai lần mà không cách nào biết đó là hai năm.
+    const nowAug2026 = new Date(2026, 7, 30, 12, 0);
+    const thisYear = dayLabel(new Date(2026, 7, 30, 9, 0).toISOString(), nowAug2026);
+    const lastYear = dayLabel(new Date(2025, 7, 30, 9, 0).toISOString(), nowAug2026);
+
+    expect(lastYear).toBe('30/08/2025');
+    expect(thisYear).not.toBe(lastYear);
+  });
+
+  it('ĐỐI CHỨNG ÂM: cùng năm thì KHÔNG in năm', () => {
+    // Thêm năm vô điều kiện cũng làm ca trên xanh — vế này là thứ phân biệt "có điều kiện" với
+    // "luôn in", và nó bám đúng định dạng `DD/MM` mockup vẽ.
+    expect(dayLabel(new Date(2026, 6, 26, 20, 50).toISOString(), NOW)).toBe('26/07');
+    expect(dayLabel(new Date(2026, 6, 27, 19, 5).toISOString(), NOW)).toBe('Hôm nay · 27/07');
+  });
 });
 
 describe('minutesTowardDayTotal', () => {
@@ -152,7 +170,9 @@ describe('groupFocusSessionsByDay', () => {
   /**
    * Lỗi đo được ở review PR #441: một ngày vắt qua ranh giới 20 hàng thì nhóm cuối chỉ cộng phần
    * ĐÃ TẢI, mà vẫn in ra như tổng của cả ngày (`08/08 — 0 phút` → `30 phút` sau "Xem thêm").
-   * Chỉ nhóm cuối bị — server sắp giảm dần nên mọi nhóm trên đã gặp một ngày cũ hơn, tức đã đóng.
+   * Chỉ nhóm cuối bị — **với giả định** server sắp giảm dần, khi đó mọi nhóm trên đã gặp một
+   * ngày cũ hơn, tức đã đóng. Thứ tự vỡ thì một nhóm trên cũng thiếu được; đó là hợp đồng đã vỡ,
+   * cố ý không xử ở đây.
    */
   it('còn trang chưa tải: CHỈ nhóm cuối bị đánh dấu tổng một-phần', () => {
     const groups = groupFocusSessionsByDay(
@@ -195,6 +215,12 @@ describe('formatDuration', () => {
 
   it('tròn giờ không in phần phút thừa', () => {
     expect(formatDuration(120)).toBe('2 giờ');
+  });
+
+  it('biên đúng 60 phút là "1 giờ", không phải "60 phút"', () => {
+    // `< 60` → `<= 60` là một đột biến sống trên nền cũ: nó in "60 phút" cho một giờ tròn.
+    expect(formatDuration(60)).toBe('1 giờ');
+    expect(formatDuration(59)).toBe('59 phút');
   });
 
   it('lẻ giờ in cả hai phần', () => {
