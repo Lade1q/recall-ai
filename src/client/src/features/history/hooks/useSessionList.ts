@@ -84,8 +84,9 @@ export function useSessionList(planId: string | null): SessionList {
       })
       .catch(() => {
         if (alive) {
-          // Reload hỏng vẫn giữ các trang người dùng đang đọc. `error` đưa ra lối Thử lại,
-          // nhưng dữ liệu không bị vứt đi rồi làm selection âm thầm đổi sang phiên khác.
+          // `SessionList` ưu tiên vẽ khối lỗi nên các hàng này tạm thời không hiện trên màn hình.
+          // Nhưng giữ chúng trong state để lần Thử lại thành công vẫn tìm được selection cũ, thay
+          // vì âm thầm rơi về phiên đầu trang 1.
           setLoaded((current) => ({
             key,
             attempt,

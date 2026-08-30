@@ -63,6 +63,10 @@ export function useFocusSessionList(): FocusSessionList {
         }
       })
       .catch(() => {
+        // Khác `useSessionList`: tab này không có mutation làm đổi một hàng, và `reload` chỉ
+        // được gọi từ nút Thử lại của trạng thái lỗi. Vì vậy `error` ở đây luôn đi cùng danh
+        // sách rỗng. Nếu đổi để giữ trang đã tải, phải mang sang ĐỦ `attempt` + `pageOffsets`
+        // của #397; chỉ sao chép nửa "giữ sessions" sẽ tạo lại lỗi mất trang khi reload.
         if (alive) setLoaded({ key, sessions: [], error: true, hasMore: false });
       });
     return () => {
