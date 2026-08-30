@@ -13,13 +13,13 @@ The use-case **set is unchanged since PA3** (Use-Case Specification v2.0) — st
 cases across 5 modules** (AM, SP, FS, AE, DB); no use case has been added or removed. What
 changed between the PA3 submission and this revision:
 
-| Change                                                    | Detail                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **New actor: Admin** (documentation-only)                 | Added to §1 per decision **05/08/2026 (#249)**. No UC, table, endpoint, or screen — see the note under §1.                                                                                                                                                   |
-| **Sprint-label corrections** (chốt 2026-08-11)            | `FS-04`, `FS-05`: relabelled `Sprint 4-5` → **`Sprint 4`** (#227, #228, closed — done earlier than planned). `DB-09`: `Sprint 5` → **`Sprint 4`** (#233, closed).                                                                                            |
-| **`DB-07` (Deadline Calendar) moved to POST-MVP**         | Was labelled `Sprint 4-5`; decision #234 (phương án A, PR #313 merged) removed the dead "Xem lịch →" link instead of building the screen. No issue exists for it, so it now sits outside MVP scope; the `<<extend>>` relation in §3.3 is marked accordingly. |
-| **`generate_question` AI schema fixed** (chốt 2026-08-11) | Response shape dropped the redundant `concept_id` field (caller already knows which concept it asked about). Affects `AE-02`'s `<<include>>` AI Service call; UC text unchanged, only the underlying schema. See §5.1.                                       |
-| **New table `session_notes`** landed for `FS-05`          | Ghi chú nhanh trong phiên học now has its 4 endpoints and the `session_notes` table (§4.6 Database, §111 ER redraw) — was previously only a UC with no backing schema.                                                                                       |
+| Change                                                    | Detail                                                                                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **New actor: Admin** (documentation-only)                 | Added to §1 per decision **05/08/2026 (#249)**. No UC, table, endpoint, or screen — see the note under §1.                                                                                                                                                                                                                                                            |
+| **Sprint-label corrections** (chốt 2026-08-11)            | `FS-04`, `FS-05`: relabelled `Sprint 4-5` → **`Sprint 4`** (#227, #228, closed — done earlier than planned). `DB-09`: `Sprint 5` → **`Sprint 4`** (#233, closed).                                                                                                                                                                                                     |
+| **`DB-07` (Deadline Calendar) shipped in Sprint 5**       | Was `POST-MVP` after #234 removed the dead "Xem lịch →" link (PR #313). Epic **#400** then built the screen — but **at a different entry point**: it is the `Lịch` view of `/plans` (now the default view), not a Dashboard link. Functional scope is covered in full, including "Deadline sắp tới" (#439). The `<<extend>>` relation in §3.3 is updated accordingly. |
+| **`generate_question` AI schema fixed** (chốt 2026-08-11) | Response shape dropped the redundant `concept_id` field (caller already knows which concept it asked about). Affects `AE-02`'s `<<include>>` AI Service call; UC text unchanged, only the underlying schema. See §5.1.                                                                                                                                                |
+| **New table `session_notes`** landed for `FS-05`          | Ghi chú nhanh trong phiên học now has its 4 endpoints and the `session_notes` table (§4.6 Database, §111 ER redraw) — was previously only a UC with no backing schema.                                                                                                                                                                                                |
 
 The three use cases added at PA3 itself (Dashboard Overview, Study Material Management, Session
 History — named in the SAD v1.1 §3 text, detailed in Use-Case Specification v2.0) remain
@@ -112,7 +112,7 @@ against the table in §2.
 | DB-04 | Nhận nhắc nhở ôn tập chủ động (Agentic)       | Scheduling & Remediation Engine, Student | **High** | ✅          |
 | DB-05 | Lọc / Tìm kiếm khái niệm trên đồ thị          | Student                                  | **High** | ✅          |
 | DB-06 | Xem chi tiết khái niệm (Concept Detail Panel) | Student                                  | **High** | ✅          |
-| DB-07 | Xem lịch & Deadline sắp tới (Calendar View)   | Student, Scheduling & Remediation Engine | Medium   | ⚠️ POST-MVP |
+| DB-07 | Xem lịch & Deadline sắp tới (Calendar View)   | Student, Scheduling & Remediation Engine | Medium   | ✅ Sprint 5 |
 | DB-08 | Xem lịch sử phiên Focus Session               | Student                                  | Medium   | ✅ Sprint 5 |
 | DB-09 | Điều chỉnh gợi ý ôn tập (Dismiss / Snooze)    | Student                                  | Medium   | ✅ Sprint 4 |
 
@@ -121,7 +121,7 @@ against the table in §2.
 > - **FS-04** và **FS-05**: `✅ Sprint 4-5` → **`✅ Sprint 4`** (#227 và #228, cả hai đã đóng). FS-05 kèm bảng `session_notes` + 4 endpoint ghi chú.
 > - **DB-09**: `✅ Sprint 5` → **`✅ Sprint 4`** (#233 đã đóng).
 >
-> Và một dòng đi ngược lại — **DB-07**: `✅ Sprint 4-5` → **`⚠️ POST-MVP`**. #234 đã chốt **phương án A** cho MVP (PR #313, đã merge): gỡ hẳn liên kết "Xem lịch →" chết trên Dashboard thay vì dựng màn lịch. Không có issue nào được tạo cho màn lịch, nên DB-07 **nằm ngoài MVP**; nếu sau này làm thì đi theo phương án C — một màn riêng, cần issue riêng. Dữ liệu đã sẵn (`GET /plans` có `deadline`) nên hoãn không tốn gì. Quan hệ `<<extend>>` ở §3 đã đánh dấu theo.
+> **DB-07 — cập nhật 30/08/2026: đã làm, nhưng ở một lối vào KHÁC.** Dòng cũ ghi `✅ Sprint 4-5` → `⚠️ POST-MVP` theo #234 (phương án A, PR #313): gỡ liên kết "Xem lịch →" chết trên Dashboard thay vì dựng màn lịch. Epic **#400** đã dựng nó trong Sprint 5 — **không** theo phương án C (một màn riêng mở từ Dashboard) mà là **view "Lịch" của `/plans`**, nay là **view mặc định**. ⚠️ Nghĩa là câu mô tả cũ _"khi click 'Xem lịch'"_ **không còn đúng**: nút đó vẫn không tồn tại trên Dashboard, và không có kế hoạch khôi phục. Phạm vi chức năng thì phủ trọn DB-07, kể cả vế **"Deadline sắp tới"** (#439 — mốc hạn trên lưới tháng + dòng hạn chót trong panel ngày).
 >
 > Các nhãn `Sprint 5` còn lại (SP-09, AE-04, AE-10, DB-03, DB-08, FS-07) **chưa kiểm** trong đợt này — đừng suy ra là đã xong chỉ vì bốn dòng trên đã đổi.
 
@@ -198,7 +198,9 @@ AE-09 (Kết quả tổng hợp)
 DB-01 (Dashboard)
   ├── <<include>> DB-02 (mini Concept Graph)
   ├── <<include>> DB-04 (Gợi ý hôm nay từ Scheduling & Remediation Engine)
-  └── <<extend>> DB-07 (Deadline Calendar - khi click "Xem lịch") - POST-MVP, liên kết đã gỡ (#234 phương án A)
+  └── <<extend>> DB-07 (Deadline Calendar) - ✅ Sprint 5 (epic #400). ⚠️ KHÔNG còn mở rộng từ Dashboard:
+                 lối vào là view "Lịch" của /plans (view mặc định). Liên kết "Xem lịch →" trên Dashboard
+                 đã gỡ ở #234 và KHÔNG được khôi phục.
 
 DB-02 (Concept Graph)
   ├── <<extend>> DB-05 (Lọc/Tìm kiếm - khi Student click filter)
