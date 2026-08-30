@@ -1,12 +1,14 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen, waitFor } from '@/utils/test-utils';
+import { render, screen, waitFor, within } from '@/utils/test-utils';
 import HistoryPage from './HistoryPage';
 import { focusSessionApi } from '@/features/focus/api/focus.api';
 import { historyApi } from '@/features/history/api/history.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
+import { toast } from 'sonner';
 import type { FocusSessionListItem } from '@/features/focus/types/focus.types';
+import type { InterviewSessionListItem } from '@/features/history/types/history.types';
 
 // Cả ba nguồn của màn đều mock: `/interviews` (tab kia), `/plans` (tên kế hoạch + bộ lọc), và
 // `/focus-sessions` (tab này). Không có backend trong jsdom.
@@ -21,9 +23,14 @@ vi.mock('@/features/study-planner/api/plan.api', () => ({
   planApi: { listPlans: vi.fn() },
 }));
 
+// Hai hook danh sách gọi `toast.error` trong nhánh `.catch` của `loadMore` (#450) — cùng chỗ ba
+// hook khác trong repo đã đặt toast của chúng. Mock để đọc được CHUỖI, không chỉ "có toast".
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+
 const listFocus = vi.mocked(focusSessionApi.list);
 const listInterviews = vi.mocked(historyApi.listInterviews);
 const listPlans = vi.mocked(planApi.listPlans);
+const toastError = vi.mocked(toast.error);
 
 function focusSession(over: Partial<FocusSessionListItem> = {}): FocusSessionListItem {
   return {
@@ -48,7 +55,31 @@ async function openFocusTab() {
   await userEvent.click(screen.getByRole('tab', { name: 'Phiên học' }));
 }
 
+function interviewSession(id: string): InterviewSessionListItem {
+  return {
+    id,
+    startedAt: new Date(2026, 7, 30, 19, 5).toISOString(),
+    endedAt: new Date(2026, 7, 30, 19, 30).toISOString(),
+    status: 'completed',
+    fallbackMode: false,
+    plan: { id: 'plan-1', name: 'Mạng máy tính' },
+    conceptTotal: 3,
+    averageMasteryScore: 0.62,
+    concepts: [],
+  };
+}
+
+/** Trang ĐẦY của mỗi tab — `hasMore` chỉ suy được từ `page.length === PAGE_SIZE`. */
+const focusPage = (prefix: string) =>
+  Array.from({ length: 20 }, (_, i) => focusSession({ id: `${prefix}-${i}` }));
+const interviewPage = (prefix: string) =>
+  Array.from({ length: 20 }, (_, i) => interviewSession(`${prefix}-${i}`));
+
+const focusRows = () =>
+  within(screen.getByRole('region', { name: 'Danh sách phiên học' })).getAllByRole('article');
+
 beforeEach(() => {
+  toastError.mockReset();
   listFocus.mockReset();
   listInterviews.mockReset().mockResolvedValue([]);
   listPlans.mockReset().mockResolvedValue([]);
@@ -102,5 +133,146 @@ describe('HistoryPage — tab Phiên học', () => {
     await waitFor(() =>
       expect(screen.getByRole('region', { name: 'Danh sách phiên học' })).toBeInTheDocument()
     );
+  });
+});
+
+/**
+ * #450 — nợ dùng chung của CẢ HAI tab. Radix unmount `TabsContent` không hoạt động, và không hook
+ * nào có cache, nên mỗi lần quay lại một tab là một `GET ?offset=0` mới và người dùng mất đúng
+ * chỗ đang đọc. Đo LIVE ở review PR #441: 33 hàng → đổi tab → quay lại → còn 20.
+ *
+ * ⚠️ Mỗi ca dưới đây khẳng định TAB ĐÃ THẬT SỰ ĐỔI trước khi đo. Lượt đo đầu ở issue báo "vẫn giữ
+ * 33 hàng" — sai, vì `scrollIntoView` đã đẩy tab trigger ra ngoài viewport nên cú bấm bắn trượt và
+ * tab không hề đổi. Kiểm trạng thái sau thao tác, đừng kiểm chỉ kết quả.
+ */
+describe('HistoryPage — vòng đời tab (#450)', () => {
+  const switchTo = async (name: string) => {
+    await userEvent.click(screen.getByRole('tab', { name }));
+    // Chốt chặn cho đúng bẫy đo ghi trong issue: nếu cú bấm trượt thì phép đo phía sau vô nghĩa.
+    expect(screen.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+  };
+
+  it('🔴 tab Phiên học: đổi tab rồi quay lại KHÔNG tải lại, các trang đã tải còn nguyên', async () => {
+    listFocus.mockResolvedValueOnce(focusPage('a')).mockResolvedValueOnce([focusSession()]);
+
+    await openFocusTab();
+    await userEvent.click(await screen.findByRole('button', { name: 'Xem thêm phiên cũ hơn' }));
+    await waitFor(() => expect(focusRows()).toHaveLength(21));
+
+    await switchTo('Phiên kiểm tra');
+    await switchTo('Phiên học');
+
+    // Hai lời gọi: trang đầu + "Xem thêm". Lần thứ ba là dấu hiệu tab đã bị unmount rồi mount lại.
+    expect(listFocus).toHaveBeenCalledTimes(2);
+    // Và chiều còn lại của cùng một bản vá: giữ mount phải giữ luôn nội dung đang đọc.
+    expect(focusRows()).toHaveLength(21);
+  });
+
+  it('🔴 tab Phiên kiểm tra (tab MẶC ĐỊNH) cũng sống qua lần rời đi rồi quay lại', async () => {
+    // Tab mặc định vẫn bị Radix unmount khi rời sang tab kia, nên nó cần `forceMount` y như tab
+    // phụ — nửa bản vá chỉ chữa được một chiều.
+    listInterviews.mockResolvedValue([interviewSession('is-1')]);
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+    await screen.findByRole('region', { name: 'Danh sách phiên kiểm tra' });
+
+    await switchTo('Phiên học');
+    await switchTo('Phiên kiểm tra');
+
+    expect(listInterviews).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * Giá phải trả của `forceMount`, ghim thành test để nó là một quyết định chứ không phải một tai
+   * nạn: cả hai nguồn bắn ngay khi mở màn, kể cả khi người dùng không bấm sang tab kia. MỘT
+   * request thay vì N request mỗi lần đổi tab — cùng đánh đổi `PlansPage` đã nhận từ #436.
+   */
+  it('mở màn là cả hai tab cùng tải một lần, kể cả tab chưa bấm sang', async () => {
+    listInterviews.mockResolvedValue([]);
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+
+    await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(1));
+    expect(listInterviews).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('tab', { name: 'Phiên kiểm tra' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
+
+  /**
+   * 🧪 Vế LOAD-BEARING của `forceMount`, và là phép kiểm CẤU TRÚC chứ không phải hành vi.
+   *
+   * Đo được: với `forceMount`, Radix **không** đặt thuộc tính `hidden` lên panel không hoạt động
+   * — cả hai panel đều `hidden: false`, chỉ khác `data-state`. Nghĩa là `data-[state=inactive]:
+   * hidden` là thứ DUY NHẤT giữ hai tab khỏi chồng lên nhau; gỡ class đó ra là màn hiện cả hai
+   * danh sách một lúc.
+   *
+   * jsdom không áp CSS Tailwind nên hậu quả ấy không quan sát được ở đây — cùng lớp giới hạn với
+   * `min-h` ở #446. Nên test này khoá **sự có mặt của luật ẩn**, không khoá kết quả hiển thị. Ai
+   * đổi sang cơ chế ẩn khác (Radix tự đặt `hidden`, `display` inline, v.v.) phải sửa cả test này
+   * — và đó chính là lúc cần đọc lại đoạn trên.
+   */
+  it('🧪 forceMount đi kèm luật ẩn: Radix KHÔNG tự ẩn panel không hoạt động', async () => {
+    listInterviews.mockResolvedValue([]);
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+    await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(1));
+
+    const inactive = document.querySelector('[data-slot="tabs-content"][data-state="inactive"]');
+    expect(inactive).not.toBeNull();
+    expect(inactive).not.toHaveAttribute('hidden');
+    expect(inactive).toHaveClass('data-[state=inactive]:hidden');
+  });
+});
+
+/**
+ * #450 mục 2 — `.catch` của `loadMore` byte-identical ở hai hook, và cả hai chỉ tắt cờ quay. Người
+ * dùng bấm "Xem thêm", nút quay xong, **không gì xảy ra và không ai nói gì** — không phân biệt
+ * được với "hết phiên rồi".
+ *
+ * Phần "giữ nguyên danh sách đang đọc" là CỐ Ý và phải ở lại: mất danh sách vì một trang phụ lỗi
+ * là cái giá quá đắt. Nên mỗi ca khoá cả hai vế — có tiếng nói, và không mất gì.
+ */
+describe('HistoryPage — "Xem thêm" hỏng thì phải nói (#450)', () => {
+  it('🔴 tab Phiên học: toast báo lỗi, và danh sách đang đọc ở lại nguyên vẹn', async () => {
+    listFocus.mockResolvedValueOnce(focusPage('a')).mockRejectedValueOnce(new Error('mạng hỏng'));
+
+    await openFocusTab();
+    await userEvent.click(await screen.findByRole('button', { name: 'Xem thêm phiên cũ hơn' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Không tải thêm được phiên học. Kiểm tra kết nối rồi bấm lại.'
+      )
+    );
+    expect(focusRows()).toHaveLength(20);
+    // KHÔNG được rơi vào nhánh lỗi của trang đầu: đó là chỗ nuốt mất danh sách.
+    expect(screen.queryByRole('button', { name: 'Thử lại' })).not.toBeInTheDocument();
+  });
+
+  it('🔴 tab Phiên kiểm tra: cùng hành vi, câu chữ theo đúng loại phiên của nó', async () => {
+    listInterviews
+      .mockResolvedValueOnce(interviewPage('is'))
+      .mockRejectedValueOnce(new Error('mạng hỏng'));
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Xem thêm phiên cũ hơn' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Không tải thêm được phiên kiểm tra. Kiểm tra kết nối rồi bấm lại.'
+      )
+    );
+    // Hàng của tab này là `<button>` (chọn được), không phải `<article>` như tab Phiên học.
+    expect(
+      within(screen.getByRole('region', { name: 'Danh sách phiên kiểm tra' })).getAllByRole(
+        'button'
+      )
+    ).toHaveLength(21); // 20 hàng + nút "Xem thêm" vẫn còn đó để bấm lại
   });
 });

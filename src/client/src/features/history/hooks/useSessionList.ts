@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { historyApi, PAGE_SIZE } from '../api/history.api';
 import type { InterviewSessionListItem } from '../types/history.types';
@@ -90,6 +91,13 @@ export function useSessionList(planId: string | null): SessionList {
         // Tải thêm hỏng thì giữ nguyên những phiên đã có — mất danh sách đang đọc vì một trang
         // phụ lỗi là cái giá quá đắt. Nút vẫn còn đó để bấm lại.
         setLoadingMore(false);
+
+        // Nhưng giữ danh sách KHÔNG có nghĩa là im lặng. Trước #450, nhánh này chỉ tắt cờ quay:
+        // người dùng bấm "Xem thêm", nút quay xong, và **không gì xảy ra, không ai nói gì** —
+        // không phân biệt được với "hết phiên rồi". Toast ở đây vì trang đầu (`error`) cũng báo
+        // bằng toast, cùng quy ước AC #246/#247; khác chỗ nó KHÔNG bật `error`, nên danh sách
+        // đang đọc ở lại nguyên vẹn.
+        toast.error('Không tải thêm được phiên kiểm tra. Kiểm tra kết nối rồi bấm lại.');
       });
   }, [loadingMore, current, planId, key]);
 
