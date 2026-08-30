@@ -1,6 +1,11 @@
 import { cn } from '@/lib/utils';
 import { masteryColor } from '@/features/interview/utils/summary-display';
 import { normalizedTurnWeights, TURN_WEIGHTS } from '@/features/interview/utils/turn-weights';
+import {
+  countingTurns,
+  HINT_TURN_NOTE,
+  weightSlotByTurnId,
+} from '@/features/interview/utils/turn-mode';
 import { QUESTION_TYPE_LABEL } from '@/features/interview/utils/question-type';
 import type {
   InterviewTurnResponse,
@@ -115,6 +120,10 @@ function ConceptTranscript({
   concept: ConceptTranscriptData;
   defaultOpen: boolean;
 }) {
+  // Trọng số phải tra theo VỊ TRÍ SAU KHI NÉN, không theo `turnIndex` (#392 (c)) — bỏ lượt 2 ra
+  // khỏi công thức thì lượt 3 ăn trọng số thứ hai.
+  const weightSlots = weightSlotByTurnId(concept.turns);
+
   return (
     <details
       open={defaultOpen}
@@ -146,7 +155,7 @@ function ConceptTranscript({
 
       <div className="flex flex-col gap-3 pb-5 pl-[22px] pt-1">
         {concept.turns.map((turn) => (
-          <TurnBlock key={turn.id} turn={turn} />
+          <TurnBlock key={turn.id} turn={turn} weightSlot={weightSlots.get(turn.id) ?? null} />
         ))}
         <MasteryCalculation turns={concept.turns} masteryScore={concept.masteryScore} />
       </div>
@@ -160,7 +169,14 @@ const VERDICT_BORDER = {
   wrong: 'border-l-mastery-weak',
 } as const;
 
-function TurnBlock({ turn }: { turn: InterviewTurnResponse }) {
+function TurnBlock({
+  turn,
+  weightSlot,
+}: {
+  turn: InterviewTurnResponse;
+  /** Vị trí của lượt trong công thức, hoặc `null` khi nó không vào công thức (lượt gợi ý). */
+  weightSlot: number | null;
+}) {
   const typeLabel = turn.questionType ? QUESTION_TYPE_LABEL[turn.questionType] : null;
 
   return (
@@ -202,7 +218,7 @@ function TurnBlock({ turn }: { turn: InterviewTurnResponse }) {
               {turn.score.toFixed(2)}
             </span>
             {turn.verdict && <span>{turn.verdict}</span>}
-            <TurnWeightNote turnIndex={turn.turnIndex} />
+            <TurnWeightNote weightSlot={weightSlot} />
           </div>
           {/* `feedback` là `null` cho lượt tự chấm (AE-05) — không có AI nào viết gì để hiện. */}
           {turn.feedback !== null && (
@@ -214,9 +230,15 @@ function TurnBlock({ turn }: { turn: InterviewTurnResponse }) {
   );
 }
 
-/** Trọng số GỐC của lượt. Trọng số đã chuẩn hoá nằm ở phép tính cuối khối, không lặp ở đây. */
-function TurnWeightNote({ turnIndex }: { turnIndex: number }) {
-  const weight = TURN_WEIGHTS[turnIndex - 1];
+/**
+ * Trọng số GỐC của lượt. Trọng số đã chuẩn hoá nằm ở phép tính cuối khối, không lặp ở đây.
+ *
+ * `weightSlot === null` là lượt gợi ý: nó CÓ điểm và CÓ verdict nhưng không có số hạng nào trong
+ * công thức, nên chỗ này phải nói ra — bỏ trống sẽ để người đọc tự kết luận là app tính thiếu.
+ */
+function TurnWeightNote({ weightSlot }: { weightSlot: number | null }) {
+  if (weightSlot === null) return <span>· {HINT_TURN_NOTE}</span>;
+  const weight = TURN_WEIGHTS[weightSlot];
   if (weight === undefined) return null;
   return <span>· trọng số gốc {weight.toFixed(1)}</span>;
 }
@@ -236,11 +258,17 @@ function MasteryCalculation({
   turns: InterviewTurnResponse[];
   masteryScore: number | null;
 }) {
-  const scored = turns.filter((turn) => turn.score !== null);
+  // Lượt gợi ý bị loại TRƯỚC, rồi mới tới lượt chưa chấm — hai luật khác nhau (#392 (c)).
+  const scored = countingTurns(turns).filter((turn) => turn.score !== null);
   const weights = normalizedTurnWeights(scored.length);
 
   if (masteryScore === null || weights === null || scored.length === 0) return null;
 
+  // Hai lý do RẤT khác nhau cùng làm công thức có ít số hạng hơn 3, và nói nhầm lý do thì tệ
+  // hơn không nói: "thiếu lượt" = lượt chưa từng được hỏi; "loại lượt gợi ý" = lượt CÓ THẬT,
+  // đã trả lời, đã chấm, chỉ không vào công thức (#392 (c)).
+  const excluded = turns.length - countingTurns(turns).length;
+  const missing = TURN_WEIGHTS.length - turns.length;
   const isNormalized = scored.length < TURN_WEIGHTS.length;
 
   return (
@@ -253,7 +281,16 @@ function MasteryCalculation({
       ))}
       &nbsp;=&nbsp;<b className="font-semibold">{masteryScore.toFixed(2)}</b>
       <div className="text-muted-foreground mt-[7px] whitespace-normal font-sans text-[12px]">
-        {isNormalized ? (
+        {excluded > 0 ? (
+          <>
+            {excluded} lượt gợi ý không vào công thức: đó là chính câu hỏi trước được thu hẹp lại,
+            dễ hơn lượt nó theo sau, nên tính vào sẽ đặt câu dễ nhất ở trọng số nặng nhất. Lượt ấy
+            vẫn được chấm và vẫn ở trong bản ghi phía trên.{' '}
+            {missing > 0 && <>Ngoài ra còn {missing} lượt chưa được hỏi. </>}
+            Trọng số chia lại theo tỉ lệ trên {scored.length} lượt còn lại thành{' '}
+            {weights.map((weight) => weight.toFixed(1)).join(' và ')}.
+          </>
+        ) : isNormalized ? (
           <>
             Trọng số gốc của {scored.length} lượt đầu là{' '}
             {TURN_WEIGHTS.slice(0, scored.length)

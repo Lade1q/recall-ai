@@ -73,6 +73,21 @@ enum TurnSource {
   cache_fallback
 }
 
+/// Nấc thang câu hỏi mà lượt này được sinh ra ở (#392). Giá trị lấy nguyên từ `QuestionMode`
+/// (`schemas/ai-interview.schema.ts`) và `MODE_BY_STEP` (`utils/interview-state.ts`) — cùng một
+/// khái niệm, không đặt tên mới.
+///
+/// `hint` là nấc duy nhất KHÔNG vào mastery: nó là chính câu hỏi cũ được thu hẹp, dễ hơn lượt
+/// nó theo sau, nên tính nó vào trung bình có trọng số sẽ đặt câu dễ nhất ở trọng số nặng nhất.
+/// Vị từ chốt việc đó là `countsTowardMastery()` ở `utils/mastery.ts` — đường ghi và cả bốn
+/// đường đọc lại đều phải đi qua nó.
+enum TurnMode {
+  initial
+  deeper
+  probe
+  hint
+}
+
 enum FocusSessionStatus {
   running
   completed
@@ -355,6 +370,10 @@ model InterviewTurn {
   feedback         String?
   verdict          TurnVerdict?
   source           TurnSource    @default(ai)
+  /// CỐ Ý không `@default` — mặc định sẽ làm hàng flashcard (`source = cache_fallback`) tự khai
+  /// là lượt của thang AI, mà `resolveFallbackStep` cố ý không có nấc gợi ý nào. `null` nghĩa là
+  /// "không biết / không thuộc thang": hàng có trước migration này, và mọi lượt cache.
+  mode             TurnMode?
   /// Ảnh chụp neo nguồn C5 tại thời điểm hỏi (không FK — chỉ tham chiếu, xoá tài liệu không
   /// được kéo theo lượt phỏng vấn). Suy lại neo lúc đọc sẽ gắn tài liệu *hiện tại* vào câu hỏi
   /// sinh từ tài liệu *cũ* — trích dẫn sai mà không có dấu hiệu nào để phát hiện.

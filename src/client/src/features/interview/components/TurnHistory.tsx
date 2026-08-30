@@ -166,10 +166,15 @@ interface SystemNoteProps {
  * làm gì (đoán sai một lần là mất hết giá trị minh bạch của dòng này).
  *
  * Mệnh đề nhân quả "kết quả X và còn lượt →" CHỈ đúng ở chế độ AI, nơi `decideNextStep` thật
- * sự đọc verdict (`wrong` là dừng khái niệm dù còn lượt). Ở chế độ flashcard, lượt tự chấm
- * vẫn mang verdict nhưng `resolveFallbackStep` phát hết cache theo thứ tự bất kể verdict —
- * nói "kết quả chưa đúng và còn lượt → hỏi tiếp" ở đó vừa gán sai nguyên nhân, vừa dạy sai
- * luật thật. Nên chế độ này chỉ thuật lại việc đã xảy ra.
+ * sự đọc verdict. Ở chế độ flashcard, lượt tự chấm vẫn mang verdict nhưng `resolveFallbackStep`
+ * phát hết cache theo thứ tự bất kể verdict — nói "kết quả chưa đúng và còn lượt → hỏi tiếp" ở
+ * đó vừa gán sai nguyên nhân, vừa dạy sai luật thật. Nên chế độ này chỉ thuật lại việc đã xảy ra.
+ *
+ * ⚠️ (#392, review 30/08) Câu "hỏi tiếp khái niệm này" ở nhánh AI dưới đây đúng nhưng KHÔNG
+ * phân biệt được ba lý do khác nhau của việc hỏi tiếp — `deep`→đào sâu, `shallow`→hỏi thêm,
+ * `wrong`→**thu hẹp chính câu vừa hỏi** (gợi ý, không phải câu mới). API hiện không trả `mode`
+ * của lượt, nên client không có dữ liệu để nói khác đi. Cần PM/Quân quyết có cần tách câu này
+ * theo verdict hay không trước khi coi đây là xong — chưa tự thêm phân nhánh ở đây.
  */
 function SystemNote({
   verdict,

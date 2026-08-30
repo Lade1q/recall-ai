@@ -20,7 +20,7 @@ import { VerdictBadge } from '@/features/interview/components/VerdictBadge';
 import { FallbackBanner } from '@/features/interview/components/FallbackBanner';
 import { SessionSummary } from '@/features/interview/components/SessionSummary';
 import { masteryColor } from '@/features/interview/utils/summary-display';
-import { TURN_WEIGHTS } from '@/features/interview/utils/turn-weights';
+import { turnWeightLabeller } from '@/features/interview/utils/turn-mode';
 import { useInterviewSession } from '@/features/interview/hooks/useInterviewSession';
 import { interviewApi } from '@/features/interview/api/interview.api';
 import type {
@@ -356,10 +356,22 @@ export default function InterviewSessionPage() {
   // completedConcepts là số khái niệm đã chốt; +1 là khái niệm đang hỏi (không vượt tổng).
   const conceptPosition = Math.min(progress.completedConcepts + 1, progress.conceptTotal);
   const turnIndex = progress.turnIndex ?? currentQuestion?.turnIndex ?? null;
-  const currentTurnWeight =
-    turnIndex !== null && progress.maxTurnsPerConcept === TURN_WEIGHTS.length
-      ? TURN_WEIGHTS[turnIndex - 1]
-      : undefined;
+  // ⚠️ Lượt gợi ý KHÔNG có trọng số nào (#392 (c)) — gắn một con số cho nó ở đây là nói dối
+  // ngay trên màn sinh viên đang trả lời.
+  //
+  // Tra thẳng từ transcript, KHÔNG lọc `verdict`: `mode` đã được ghi lúc tạo câu hỏi, nên một
+  // lượt chưa chấm vẫn có slot và header vẫn nói đúng trọng số của nó. (Dải lượt bên dưới thì
+  // lọc `verdict !== null` nên câm ở cùng lượt đó — bất đối xứng có thật, xem issue riêng.)
+  // `undefined` chỉ xảy ra khi lượt chưa có mặt trong transcript.
+  const currentTurnRow =
+    turnIndex === null
+      ? undefined
+      : turns.find((t) => t.conceptId === currentConcept?.id && t.turnIndex === turnIndex);
+  const currentTurnLabel = turnWeightLabeller(
+    turns,
+    currentConcept?.id ?? null,
+    progress.maxTurnsPerConcept
+  )(currentTurnRow);
   // Panel xác nhận tạm dừng cần nói đúng số lượt ĐÃ CHẤM của khái niệm hiện tại (không phải
   // lượt đang chờ) — đếm thẳng từ transcript đã tải, không suy đoán từ `turnIndex`.
   const gradedTurnsForConcept = currentConcept
@@ -467,10 +479,11 @@ export default function InterviewSessionPage() {
                 <TurnPips turnIndex={turnIndex} maxTurns={progress.maxTurnsPerConcept} />
                 Lượt <strong className="text-foreground">{turnIndex}</strong>/
                 {progress.maxTurnsPerConcept}
-                {currentTurnWeight !== undefined && (
+                {currentTurnLabel !== null && (
                   <>
                     {' '}
-                    · trọng số <MetaMono className="text-[11px]">{currentTurnWeight}</MetaMono>
+                    · trọng số{' '}
+                    <MetaMono className="text-[11px]">{currentTurnLabel.replace('×', '')}</MetaMono>
                   </>
                 )}
               </span>
@@ -859,25 +872,15 @@ function ConceptQueueRail({
 }
 
 /**
- * Nhãn trọng số của một lượt (`×0.2` trong mockup) — chỉ hiện khi phiên dùng đúng trần mặc
- * định 3 lượt/khái niệm (`TURN_WEIGHTS.length`); một phiên tạo với `maxTurnsPerConcept` khác
- * (tham số tuỳ chọn của `startInterview`) sẽ không khớp mảng hằng số này, nên thà im lặng còn
- * hơn gán sai trọng số.
- */
-function turnWeightLabel(turnIndex: number, maxTurnsPerConcept: number): string | null {
-  if (maxTurnsPerConcept !== TURN_WEIGHTS.length) return null;
-  const weight: number | undefined = TURN_WEIGHTS[turnIndex - 1];
-  return weight !== undefined ? `×${weight}` : null;
-}
-
-/**
  * Ngăn xếp lượt của khái niệm đang hỏi (`.rail__turns`). Trạng thái mỗi lượt tra thẳng
  * từ transcript đã tải (`turns`) — không đếm/suy đoán phía client.
  *
- * FIX F: `maxTurnsPerConcept` là trần cứng có thật (C6), nhưng `decideNextStep` có thể
- * dừng khái niệm sớm khi đạt mastery — nên lượt chưa mở KHÔNG chắc sẽ xảy ra. Nhãn "Chưa
- * mở" cũ đọc như một lời hứa "chắc chắn sắp tới"; ở đây đổi chữ + hạ độ đậm để đọc đúng là
- * "có thể, không chắc" thay vì tháo hẳn slot (số trần vẫn là dữ liệu thật, không bịa).
+ * FIX F: `maxTurnsPerConcept` là trần cứng có thật (C6), nhưng `decideNextStep` có thể dừng
+ * khái niệm sớm hơn trần đó — nên lượt chưa mở KHÔNG chắc sẽ xảy ra. (Trước #392: một verdict
+ * `wrong` dừng ngay. Từ #392: `wrong` tốn một lượt gợi ý thay vì dừng ngay, nhưng vẫn dừng khi
+ * hết thang gợi ý hoặc chạm trần — "sớm hơn trần" vẫn đúng, chỉ đổi lý do.) Nhãn "Chưa mở" cũ
+ * đọc như một lời hứa "chắc chắn sắp tới"; ở đây đổi chữ + hạ độ đậm để đọc đúng là "có thể,
+ * không chắc" thay vì tháo hẳn slot (số trần vẫn là dữ liệu thật, không bịa).
  */
 function TurnStackRail({
   progress,
@@ -895,6 +898,9 @@ function TurnStackRail({
   if (!currentConceptId) return null;
 
   const slots = Array.from({ length: progress.maxTurnsPerConcept }, (_, i) => i + 1);
+  // MỘT nguồn slot, dùng chung với màn Lịch sử. Closure nhận chính lượt đó, nên không có đường
+  // nào truyền nhầm `turnIndex` vào — nó sẽ là lỗi biên dịch.
+  const weightLabelFor = turnWeightLabeller(turns, currentConceptId, progress.maxTurnsPerConcept);
 
   return (
     <section>
@@ -910,7 +916,10 @@ function TurnStackRail({
           // Chưa được chấm và không phải lượt đang hỏi: có thể sẽ không bao giờ mở nếu
           // khái niệm dừng sớm — hạ độ đậm để đọc như "chưa chắc" chứ không phải "sắp tới".
           const notYetReached = !graded && !isNow;
-          const weightLabel = turnWeightLabel(n, progress.maxTurnsPerConcept);
+          // `graded` đã lọc `verdict !== null` ở trên, nên lượt chưa chấm ra `undefined` và
+          // dải này câm. Đó là LỰA CHỌN của chỗ này, không phải vì slot chưa tra được — header
+          // phía trên tra được và có nói. Bất đối xứng cố ý giữ nguyên ở PR này (issue riêng).
+          const weightLabel = weightLabelFor(graded);
           return (
             <div
               key={n}

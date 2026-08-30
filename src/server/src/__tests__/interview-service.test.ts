@@ -1,7 +1,15 @@
 import { getInterview, submitAnswer, submitSelfGrade } from '../services/interview.service';
 import prisma from '../config/prisma';
 import { generateQuestion, gradeAnswer } from '../services/gemini.service';
+import { finalizeConceptResult } from '../services/concept-result.service';
 import { AppError } from '../middleware/errorHandler';
+
+// Only reached by the #392 "wrong on the last available turn" tests below (finishConcept ->
+// finalizeConceptResult), which need the concept to actually close rather than test scheduling
+// math this file has no other mocks for (reviewQueueItem, traceback, the transaction client).
+jest.mock('../services/concept-result.service', () => ({
+  finalizeConceptResult: jest.fn(),
+}));
 
 /**
  * AE-05 (I6.4) — direct unit tests of `interview.service.ts`'s flashcard-fallback branching.
@@ -63,6 +71,7 @@ const mockedPrisma = prisma as unknown as {
 };
 const mockedGenerateQuestion = generateQuestion as jest.Mock;
 const mockedGradeAnswer = gradeAnswer as jest.Mock;
+const mockedFinalizeConceptResult = finalizeConceptResult as jest.Mock;
 
 const USER_ID = 'user-uuid';
 const SESSION_ID = 'session-uuid';
@@ -108,6 +117,8 @@ interface FakeTurn {
   feedback: string | null;
   verdict: string | null;
   source: string;
+  /** #392 (c) — nấc thang đã sinh ra lượt. `null` = không đứng trên nấc nào (lượt cũ, flashcard). */
+  mode: 'initial' | 'deeper' | 'probe' | 'hint' | null;
   sourceDocumentId: string | null;
   sourcePageFrom: number | null;
   sourcePageTo: number | null;
@@ -148,6 +159,9 @@ function seedPendingTurn(overrides: Partial<FakeTurn> = {}): FakeTurn {
     feedback: null,
     verdict: null,
     source: 'ai',
+    // Mặc định `null`, không phải `'initial'`: hàng gieo sẵn KHÔNG đi qua `askQuestion`, và
+    // `null` cũng là giá trị của mọi hàng có trước migration — ca đông nhất trong DB thật.
+    mode: null,
     // Seeded turns bypass `askQuestion`, so they carry the snapshot it would have written.
     sourceDocumentId: DOCUMENT_ID,
     sourcePageFrom: 7,
@@ -230,6 +244,7 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           sourceDocumentId?: string | null;
           sourcePageFrom?: number | null;
           sourcePageTo?: number | null;
+          mode?: 'initial' | 'deeper' | 'probe' | 'hint' | null;
         };
       }) => {
         const turn: FakeTurn = {
@@ -244,6 +259,9 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           feedback: null,
           verdict: null,
           source: data.source ?? 'ai',
+          // Fake phải MANG THEO `mode` mà service ghi, không tự đặt: nếu nó nuốt trường này thì
+          // mọi test đường ghi đều đo một hàng không giống hàng thật sự được tạo.
+          mode: data.mode ?? null,
           sourceDocumentId: data.sourceDocumentId ?? null,
           sourcePageFrom: data.sourcePageFrom ?? null,
           sourcePageTo: data.sourcePageTo ?? null,
@@ -376,8 +394,8 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     sessionRow.fallbackMode = false;
     seedPendingTurn({ turnIndex: 1 });
 
-    // Turn 1 must not be graded `wrong` — that ends the concept immediately (#115's decision
-    // table) and there would be no turn 2 to grade.
+    // `shallow` here is arbitrary, not a requirement: since #392, `wrong` also leaves a turn 2 to
+    // grade (it asks a hint instead of ending the concept) — see the `wrong` ladder tests below.
     mockedGradeAnswer.mockResolvedValueOnce({
       score: 0.75,
       feedback: 'turn 1 feedback',
@@ -414,6 +432,105 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       answerText: 'câu trả lời lượt 1',
       verdict: 'shallow',
     });
+  });
+
+  /**
+   * #392 review item ②: nothing end-to-end pinned that `decideNextStep`'s `ask_hint` step
+   * actually reaches Gemini as `mode: 'hint'` — a mutant that hard-codes `mode = 'initial'` at
+   * the `askQuestion` call site survived the full suite. `interview-state.test.ts` only proves
+   * the pure function picks the right STEP; this is the one test that proves the step's mode
+   * is the one actually sent.
+   */
+  it('submitAnswer sends mode: "hint" to generateQuestion after a wrong grade with turns left (#392)', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    const result = await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    expect(mockedGenerateQuestion).toHaveBeenCalledTimes(1);
+    expect(mockedGenerateQuestion.mock.calls[0][0]).toMatchObject({ mode: 'hint' });
+    // The concept stayed open — a hint, not a close.
+    expect(result.nextQuestion).not.toBeNull();
+    expect(result.conceptCompleted).toBeNull();
+  });
+
+  /**
+   * #392 direction (c). The test above proves the right mode is SENT to Gemini; this one proves
+   * it is WRITTEN DOWN, and they are different failures.
+   *
+   * Everything (c) does downstream reads `InterviewTurn.mode`: `countsTowardMastery` keeps hint
+   * turns out of the weighted average on the write path and on all three read paths. If
+   * `askQuestion` never persists it, every row is `null`, `null` counts, nothing is ever
+   * excluded — and the whole direction is a SILENT no-op that no scoring test can see, because
+   * every scoring test would still be handed the same numbers it always was.
+   */
+  it('🔴 writes mode: "hint" onto the turn it creates, not just onto the Gemini call (#392 (c))', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    expect(mockedPrisma.interviewTurn.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ turnIndex: 2, mode: 'hint' }),
+      })
+    );
+  });
+
+  /**
+   * #392 review item ②: `decideNextStep`'s `maxTurns` comes from `session.maxTurnsPerConcept`
+   * at the call site in `advanceToNextQuestion` — nothing pinned that either, and a mutant
+   * hard-coding the call site's `maxTurns` to `3` also survived the full suite (it happened to
+   * agree with the default session config every other test in this file uses). A session
+   * configured BELOW the C6 ceiling is the one input where the hard-coded constant and the real
+   * session value disagree on whether a turn is left, so it is the only case that can catch it.
+   */
+  it("closes the concept on a wrong answer once the SESSION's own turn limit is spent, not a hard-coded 3 (#392)", async () => {
+    sessionRow.fallbackMode = false;
+    sessionRow.maxTurnsPerConcept = 1;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedFinalizeConceptResult.mockResolvedValueOnce({
+      conceptId: CONCEPT_ID,
+      masteryScore: 0,
+      reviewInDays: 1,
+      scheduledFor: new Date('2026-01-02T00:00:00.000Z'),
+      prerequisites: [],
+      tracebackSkipReason: null,
+    });
+
+    const result = await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    // maxTurnsPerConcept: 1 means turn 1 already used the session's only turn — no hint to spend,
+    // whatever `wrong`'s usual (2 hints) allowance would be under the C6 default.
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+    expect(result.conceptCompleted).not.toBeNull();
+    expect(result.conceptCompleted?.conceptId).toBe(CONCEPT_ID);
   });
 
   /**
@@ -556,6 +673,15 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           turnIndex: 1,
           questionText: 'Cached question 1',
           source: 'cache_fallback',
+          // #392 (c): a flashcard question stands on no rung of the ladder — it never went
+          // through `decideNextStep`, and `resolveFallbackStep` deliberately offers no hint
+          // step. `null` (which `countsTowardMastery` reads as "counts") is the honest value;
+          // writing `initial` here would be a guess wearing the costume of data.
+          //
+          // `objectContaining` requires the KEY to be present with value `null`, so this also
+          // fails if the field is dropped altogether — "absent" and "explicitly null" reach the
+          // same column but only one of them says the decision was made.
+          mode: null,
         }),
       })
     );
@@ -617,6 +743,75 @@ describe('interview.service — AE-05 flashcard fallback', () => {
 
     expect(result.currentQuestion).toMatchObject({ sourceCitation: EXPECTED_CITATION });
     expect(result.turns).toEqual([expect.objectContaining({ sourceCitation: EXPECTED_CITATION })]);
+  });
+
+  /**
+   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
+   *
+   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
+   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
+   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
+   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
+   *
+   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
+   * chứ không lặng lẽ vá kèm.
+   */
+  /**
+   * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
+   *
+   * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
+   * chứng minh hàng *lưu được* nó. Đúng vì thế mà fake `interviewTurn.create` đánh rơi `mode`
+   * suốt một thời gian không ai thấy: đo được, đột biến `mode: data.mode ?? null` → `mode: null`
+   * trong fake **sống 981/981**.
+   *
+   * Ca này đi hết vòng: `submitAnswer` (sai ⇒ sinh lượt gợi ý) → `getInterview` → cờ đọc ra từ
+   * transcript. Nó là ca duy nhất phân biệt "fake giữ trường" với "fake nuốt trường".
+   */
+  it('🔴 lượt gợi ý VỪA TẠO đọc lại từ transcript vẫn mang cờ không-tính (#392 (c))', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ turnIndex: 2, mode: 'hint', countsTowardMastery: false }),
+      ])
+    );
+  });
+
+  it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
+    seedPendingTurn({
+      turnIndex: 1,
+      answerText: 'trả lời sai',
+      score: 0.1,
+      verdict: 'wrong',
+      mode: 'initial',
+      answeredAt: new Date(),
+    });
+    // Lượt 2 để CHƯA trả lời: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi
+    // mới, và ta đang đo transcript chứ không đo đường sinh câu.
+    seedPendingTurn({ turnIndex: 2, mode: 'hint' });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({ turnIndex: 1, mode: 'initial', countsTowardMastery: true }),
+      // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
+      // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
+      expect.objectContaining({ turnIndex: 2, mode: 'hint', countsTowardMastery: false }),
+    ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
   });
 

@@ -6,6 +6,7 @@ import type {
   InterviewSessionListItem,
   InterviewSessionListConceptDelta,
 } from '../types/interview.types';
+import type { QuestionMode } from '../schemas/ai-interview.schema';
 
 /**
  * `GET /interviews` (SPEC_DB-03). Read-only: no `mastery_score` is written, no AI is called —
@@ -87,6 +88,7 @@ export async function listInterviews(
         conceptId: true,
         turnIndex: true,
         score: true,
+        mode: true,
         session: { select: { startedAt: true } },
       },
     }),
@@ -96,7 +98,13 @@ export async function listInterviews(
   // conceptId -> sessionId -> that session's own turns for the concept.
   const turnsByConceptSession = new Map<
     string,
-    Map<string, { startedAt: Date; turns: { turnIndex: number; score: number | null }[] }>
+    Map<
+      string,
+      {
+        startedAt: Date;
+        turns: { turnIndex: number; score: number | null; mode: QuestionMode | null }[];
+      }
+    >
   >();
   for (const turn of turns) {
     let bySession = turnsByConceptSession.get(turn.conceptId);
@@ -109,7 +117,7 @@ export async function listInterviews(
       entry = { startedAt: turn.session.startedAt, turns: [] };
       bySession.set(turn.sessionId, entry);
     }
-    entry.turns.push({ turnIndex: turn.turnIndex, score: turn.score });
+    entry.turns.push({ turnIndex: turn.turnIndex, score: turn.score, mode: turn.mode });
   }
 
   // conceptId -> every scored session's {startedAt, masteryAfter}, the timeline
