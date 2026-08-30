@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,8 +6,11 @@ import { useAsyncResource } from '@/features/dashboard/hooks/useAsyncResource';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { SessionList } from '@/features/history/components/SessionList';
 import { SessionDetailPanel } from '@/features/history/components/SessionDetailPanel';
-import { NoSessionsYet } from '@/features/history/components/NoSessionsYet';
+import { FocusSessionList } from '@/features/history/components/FocusSessionList';
+import { NoFocusSessionsYet, NoSessionsYet } from '@/features/history/components/NoSessionsYet';
+import { useFocusSessionList } from '@/features/history/hooks/useFocusSessionList';
 import { useSessionList } from '@/features/history/hooks/useSessionList';
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { InterviewSessionListItem } from '@/features/history/types/history.types';
 
 /**
@@ -22,6 +25,14 @@ import type { InterviewSessionListItem } from '@/features/history/types/history.
  * hàm liệt kê, và dựng một nửa tab đó sẽ chồng lên phạm vi của #247.
  */
 export default function HistoryPage() {
+  /**
+   * `/plans` nạp MỘT lần ở cấp trang rồi truyền xuống cả hai tab: tab Phiên kiểm tra cần nó cho
+   * bộ lọc phạm vi, tab Phiên học cần nó để tra tên kế hoạch (payload `/focus-sessions` chỉ
+   * mang `planId`). Để mỗi tab tự nạp thì đổi qua đổi lại giữa hai tab là mỗi lần một request
+   * cho cùng một danh sách — và #400 đã ghi thành luật: không nhân đôi metadata kế hoạch.
+   */
+  const plans = useAsyncResource(() => planApi.listPlans());
+
   return (
     <div className="mx-auto w-full max-w-[1180px]">
       <header className="mb-[18px]">
@@ -39,22 +50,21 @@ export default function HistoryPage() {
         </TabsList>
 
         <TabsContent value="interview">
-          <InterviewHistoryTab />
+          <InterviewHistoryTab plans={plans.data ?? []} />
         </TabsContent>
 
         <TabsContent value="focus">
-          <FocusHistoryPlaceholder />
+          <FocusHistoryTab plans={plans.data ?? []} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function InterviewHistoryTab() {
+function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
   const [planId, setPlanId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useSessionList(planId);
-  const plans = useAsyncResource(() => planApi.listPlans());
 
   // AC #246: lỗi mạng báo bằng toast kèm đường "Thử lại" (nút nằm trong khối lỗi của danh
   // sách). Chỉ báo một lần cho mỗi lần hỏng — `notified` giữ nguyên qua các lần render lại nên
@@ -91,7 +101,7 @@ function InterviewHistoryTab() {
           className="border-border bg-card text-foreground focus-visible:ring-ring/50 rounded-md border px-2.5 py-1.5 text-[13px] focus-visible:outline-none focus-visible:ring-2"
         >
           <option value="">Tất cả kế hoạch</option>
-          {(plans.data ?? []).map((plan) => (
+          {plans.map((plan) => (
             <option key={plan.id} value={plan.id}>
               {plan.name}
             </option>
@@ -147,15 +157,44 @@ function NoSelection() {
 }
 
 /**
- * Tab "Phiên học" là DB-08 (#247), một khung nhìn khác hẳn: UC-10 nhóm theo ngày và cộng thời
- * gian, không chấm điểm — phiên học không sinh `mastery_score`. Giữ chỗ ở đây để khung hai tab
- * của #246 đúng ngay từ đầu, phần nội dung thuộc issue kia.
+ * Tab "Phiên học" (DB-08 · #247) — một khung nhìn khác hẳn tab bên cạnh: UC-10 nhóm theo ngày và
+ * cộng thời gian, không chấm điểm.
+ *
+ * ⚠️ Nhãn tab **không mang số đếm**, khác mockup (nó vẽ `Phiên học 23`). `GET /focus-sessions`
+ * không trả `total` — y hệt `/interviews` — nên con số duy nhất suy được là "số phiên ĐÃ TẢI",
+ * và nó sẽ nhảy mỗi lần bấm "Xem thêm". Tab Phiên kiểm tra cạnh bên cũng đã ship không có số;
+ * bật số cho riêng một tab còn tệ hơn là cả hai đều không có. Xem ghi chú trong PR.
  */
-function FocusHistoryPlaceholder() {
+function FocusHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
+  const list = useFocusSessionList();
+
+  const planNameById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan.name])), [plans]);
+
+  // Cùng quy ước với tab Phiên kiểm tra (AC #246): lỗi mạng báo bằng toast, nút "Thử lại" nằm
+  // trong khối lỗi của danh sách. Chỉ báo một lần cho mỗi lần hỏng.
+  const notifiedError = useRef(false);
+  useEffect(() => {
+    if (list.error && !notifiedError.current) {
+      notifiedError.current = true;
+      toast.error('Không tải được lịch sử phiên học. Kiểm tra kết nối rồi thử lại.');
+    }
+    if (!list.error) notifiedError.current = false;
+  }, [list.error]);
+
+  if (!list.loading && !list.error && list.sessions.length === 0) {
+    return <NoFocusSessionsYet />;
+  }
+
   return (
-    <section className="bg-card border-border text-muted-foreground rounded-xl border px-6 py-14 text-center text-[13.5px] leading-[1.65]">
-      Lịch sử phiên học đang được xây dựng. Phiên học không chấm điểm, nên tab này sẽ nhóm theo ngày
-      kèm tổng thời gian ôn thay vì cột điểm.
-    </section>
+    <FocusSessionList
+      sessions={list.sessions}
+      planNameById={planNameById}
+      loading={list.loading}
+      loadingMore={list.loadingMore}
+      error={list.error}
+      hasMore={list.hasMore}
+      onLoadMore={list.loadMore}
+      onRetry={list.reload}
+    />
   );
 }

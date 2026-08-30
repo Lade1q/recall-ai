@@ -44,6 +44,37 @@ export interface EndFocusSessionInput {
   pomodorosCompleted?: number;
 }
 
+/** Khái niệm đã đụng tới trong một phiên. Tên đã được server resolve; khái niệm không tra
+ *  được (đã xoá, hoặc thuộc user khác) trả `'Không xác định'` chứ không bị loại khỏi mảng. */
+export interface FocusSessionConceptSummary {
+  id: string;
+  name: string;
+}
+
+/**
+ * Một mục trong lịch sử phiên học — `GET /focus-sessions?limit=&offset=` (FS-03 · DB-08 #247).
+ *
+ * `startedAt`/`endedAt` là **chuỗi ISO**: server khai `Date`, JSON tuần tự hoá thành chuỗi.
+ *
+ * ⚠️ `durationMinutes` của phiên `cancelled` LUÔN bằng `0` — có chủ ý, theo FS-01 Alt flow 4
+ * (`focus-session.service.ts`: thời gian phiên bị hủy không tính vào lịch sử học tập).
+ * `focusedSeconds` vẫn giữ số liệu thô. Hai trường này KHÁC NHAU ở phiên hủy, và chỗ nào cộng
+ * tổng thời gian phải nói rõ nó đang cộng cái nào.
+ */
+export interface FocusSessionListItem {
+  id: string;
+  planId: string | null;
+  concepts: FocusSessionConceptSummary[];
+  status: FocusSessionStatus;
+  durationMinutes: number;
+  focusedSeconds: number;
+  awayCount: number;
+  pomodorosCompleted: number;
+  strictMode: boolean;
+  startedAt: string;
+  endedAt: string | null;
+}
+
 /** Một ghi chú nhanh (FS-05), như GET/POST/PATCH /focus-sessions/:id/notes trả về. */
 export interface SessionNote {
   id: string;
