@@ -86,11 +86,20 @@ function CatalogOnboarding({ message }: { message: string | null }) {
         <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
           Bắt đầu kế hoạch ôn tập đầu tiên
         </h2>
-        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`. Đủ ở bề ngang mà câu server
-            nằm gọn một dòng — đo được 0px giật ở 1440px và 768px. KHÔNG đủ ở 360px: ở đó câu
-            xuống 2 dòng (22,9 → 45,9px) nên CTA vẫn giật 23px khi chữ về (#446). Nâng `min-h`
-            lên hai dòng sẽ chữa chỗ đó nhưng chừa một khoảng trống thừa ở mọi bề ngang khác, nên
-            để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được. */}
+        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`, nên CTA không giật khi câu
+            của server về — chừng nào câu đó còn nằm gọn một dòng.
+
+            Ngưỡng là ngưỡng của CỘT CHỮ chứ không phải của viewport: `<p>` rộng ≥ 415px thì câu
+            hiện tại nằm một dòng (22,9px), hẹp hơn thì xuống hai (45,9px) và CTA giật 23px. Với
+            bố cục Dashboard hiện tại chỗ đó rơi vào viewport ~505px — tức **455px trong bộ bề
+            ngang chuẩn cũng giật**, không riêng 360px.
+
+            ⚠️ 415px là ngưỡng của CÂU HIỆN TẠI (`NO_PLAN_MESSAGE`, 64 ký tự): đổi câu là đổi
+            ngưỡng, và dòng này lỗi thời mà không gì đỏ. Đo lại trên app thật, đừng đo trên một
+            bản dựng lại — bản thiếu khung layout cho ngưỡng viewport lệch 32px (#454).
+
+            Nâng `min-h` lên hai dòng chữa được nhưng chừa khoảng trống thừa ở mọi bề ngang khác,
+            nên để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được (#446). */}
         <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
           {message}
         </p>
