@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { historyApi, PAGE_SIZE } from '../api/history.api';
 import type { InterviewSessionListItem } from '../types/history.types';
@@ -16,11 +16,18 @@ export interface SessionList {
 }
 
 interface LoadedList {
-  /** Khoá của bộ lọc + lần thử đã sinh ra dữ liệu này. */
+  /** Khoá của bộ lọc đã sinh ra dữ liệu này. */
   key: string;
+  /** Lần tải đã sinh ra dữ liệu; dùng để chặn trang cũ ghi đè sau một lần reload. */
+  attempt: number;
   sessions: InterviewSessionListItem[];
   error: boolean;
   hasMore: boolean;
+}
+
+function pageOffsets(itemCount: number): number[] {
+  const pageCount = Math.max(1, Math.ceil(itemCount / PAGE_SIZE));
+  return Array.from({ length: pageCount }, (_, index) => index * PAGE_SIZE);
 }
 
 /**
@@ -31,38 +38,73 @@ interface LoadedList {
  * hiện thêm một lần và trang cuối trả về rỗng. Đó là điều tốt nhất hợp đồng này cho phép —
  * đoán một con số tổng rồi hiện ra sẽ sai nhiều hơn.
  *
- * `loading` suy ra từ khoá (bộ lọc hiện tại so với khoá của dữ liệu đang giữ), không phải một
- * cờ bật trong thân effect: đổi kế hoạch là danh sách cũ biến mất ngay lượt render đó.
+ * `loading` suy ra từ khoá bộ lọc, không phải một cờ bật trong thân effect: đổi kế hoạch là
+ * danh sách cũ biến mất ngay lượt render đó. Riêng `reload` giữ nguyên dữ liệu của cùng bộ lọc
+ * trong lúc nạp và gọi lại đủ số trang đã mở. Nếu xoá dữ liệu ngay khi reload thì abandon một
+ * phiên ở trang sau sẽ làm selection rơi về phiên mới nhất ở trang 1 (#397).
  */
 export function useSessionList(planId: string | null): SessionList {
   const [loaded, setLoaded] = useState<LoadedList | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const loadedRef = useRef(loaded);
 
-  const key = `${planId ?? ''}#${attempt}`;
+  useEffect(() => {
+    loadedRef.current = loaded;
+  }, [loaded]);
+
+  const key = planId ?? '';
 
   useEffect(() => {
     let alive = true;
-    historyApi
-      .listInterviews({ limit: PAGE_SIZE, offset: 0, ...(planId ? { planId } : {}) })
-      .then((page) => {
+    const previous = loadedRef.current?.key === key ? loadedRef.current : null;
+    const offsets = pageOffsets(previous?.sessions.length ?? 0);
+
+    Promise.all(
+      offsets.map((offset) =>
+        historyApi.listInterviews({
+          limit: PAGE_SIZE,
+          offset,
+          ...(planId ? { planId } : {}),
+        })
+      )
+    )
+      .then((pages) => {
         if (alive) {
-          setLoaded({ key, sessions: page, error: false, hasMore: page.length === PAGE_SIZE });
+          const lastPage = pages[pages.length - 1] ?? [];
+          setLoaded({
+            key,
+            attempt,
+            sessions: pages.flat(),
+            error: false,
+            hasMore: lastPage.length === PAGE_SIZE,
+          });
         }
       })
       .catch(() => {
-        if (alive) setLoaded({ key, sessions: [], error: true, hasMore: false });
+        if (alive) {
+          // Reload hỏng vẫn giữ các trang người dùng đang đọc. `error` đưa ra lối Thử lại,
+          // nhưng dữ liệu không bị vứt đi rồi làm selection âm thầm đổi sang phiên khác.
+          setLoaded((current) => ({
+            key,
+            attempt,
+            sessions: current?.key === key ? current.sessions : [],
+            error: true,
+            hasMore: current?.key === key ? current.hasMore : false,
+          }));
+        }
       });
     return () => {
-      // Đổi bộ lọc liên tiếp: phản hồi của bộ lọc cũ không được ghi đè bộ lọc mới.
+      // Đổi bộ lọc/reload liên tiếp: phản hồi cũ không được ghi đè lần đang cần.
       alive = false;
     };
-  }, [key, planId]);
+  }, [attempt, key, planId]);
 
   const current = loaded !== null && loaded.key === key ? loaded : null;
+  const reloading = current !== null && current.attempt !== attempt;
 
   const loadMore = useCallback(() => {
-    if (loadingMore || current === null) return;
+    if (loadingMore || reloading || current === null) return;
     setLoadingMore(true);
 
     historyApi
@@ -77,7 +119,7 @@ export function useSessionList(planId: string | null): SessionList {
         setLoadingMore(false);
         setLoaded((prev) =>
           // Bộ lọc đã đổi trong lúc chờ ⇒ trang này thuộc về danh sách không còn hiển thị nữa.
-          prev !== null && prev.key === key
+          prev !== null && prev.key === key && prev.attempt === attempt
             ? {
                 ...prev,
                 sessions: [...prev.sessions, ...page],
@@ -91,14 +133,16 @@ export function useSessionList(planId: string | null): SessionList {
         // phụ lỗi là cái giá quá đắt. Nút vẫn còn đó để bấm lại.
         setLoadingMore(false);
       });
-  }, [loadingMore, current, planId, key]);
+  }, [loadingMore, reloading, current, planId, key, attempt]);
 
   const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   return {
     sessions: current?.sessions ?? [],
     loading: current === null,
-    loadingMore,
+    // Trong lúc reload, vô hiệu hoá "Xem thêm" để một trang thuộc ảnh chụp cũ không chen vào
+    // giữa các trang đang được nạp lại. Dùng chung trạng thái spinner vì nút đã có sẵn affordance.
+    loadingMore: loadingMore || reloading,
     error: current?.error ?? false,
     hasMore: current?.hasMore ?? false,
     loadMore,

@@ -23,6 +23,15 @@ describe('timeBucketLabel', () => {
     expect(timeBucketLabel(iso(2026, 8, 9, 23), NOW)).toBe('Tuần trước');
   });
 
+  it('khi hôm nay là Chủ nhật, tuần hiện tại vẫn bắt đầu từ thứ Hai vừa qua', () => {
+    const sunday = new Date(2026, 7, 16, 21, 0, 0);
+
+    expect(timeBucketLabel(iso(2026, 8, 16, 9), sunday)).toBe('Hôm nay');
+    expect(timeBucketLabel(iso(2026, 8, 15, 23), sunday)).toBe('Tuần này');
+    expect(timeBucketLabel(iso(2026, 8, 10, 0), sunday)).toBe('Tuần này');
+    expect(timeBucketLabel(iso(2026, 8, 9, 23), sunday)).toBe('Tuần trước');
+  });
+
   it('thứ Hai của tuần trước là biên dưới của "Tuần trước"', () => {
     expect(timeBucketLabel(iso(2026, 8, 3, 0), NOW)).toBe('Tuần trước');
     expect(timeBucketLabel(iso(2026, 8, 2, 23), NOW)).toBe('Tháng 8/2026');
