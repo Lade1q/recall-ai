@@ -32,22 +32,30 @@ export function normalizedTurnWeights(turnCount: number): number[] | null {
 /**
  * Nhãn trọng số của một lượt trên dải lượt của màn vấn đáp (`×0.2` trong mockup).
  *
- * `null` — tức KHÔNG hiện gì — ở ba ca, và cả ba đều là "thà im còn hơn gán sai":
- *  - `counts === false`: lượt gợi ý không có trọng số nào (#392 (c)). Gắn một con số cho nó là
- *    nói dối ngay trên màn sinh viên đang trả lời.
+ * 🔴 Nhận **slot trong công thức**, KHÔNG nhận `turnIndex`. Đó là toàn bộ điểm của hàm này: bỏ
+ * một lượt gợi ý ra khỏi công thức thì lượt sau nó **tụt slot**, nên `TURN_WEIGHTS[turnIndex - 1]`
+ * gán 0.5 cho một lượt đang được nhân 0.6. Bản đầu của hàm này nhận `turnIndex` và làm đúng lỗi
+ * ấy — trong khi comment ở `turn-mode.ts` đang cảnh báo về chính dòng đó.
+ *
+ * Không có tham số `counts` nữa: lượt gợi ý **không có slot**, nên nó tự rơi vào `null`. Một
+ * đại lượng, một đường vào — "quên nén" trở thành thứ không diễn đạt được.
+ *
+ * `null` — tức KHÔNG hiện gì — ở ba ca, cả ba đều là "thà im còn hơn gán sai":
+ *  - `weightSlot === null`: lượt gợi ý (không có slot), hoặc lượt **chưa chấm** (slot của nó
+ *    chưa biết được — nó phụ thuộc lượt ấy có thành gợi ý hay không, mà điều đó chỉ rõ sau khi
+ *    chấm). Trước (c) nhãn ấy luôn đúng nên hiện được; dưới (c) thì không.
  *  - phiên dùng `maxTurnsPerConcept` khác trần mặc định: mảng hằng số này không mô tả nó.
- *  - `turnIndex` vượt ngoài mảng.
+ *  - slot vượt ngoài mảng.
  *
  * Ở đây thay vì trong `InterviewSessionPage` vì nó là hàm thuần của `TURN_WEIGHTS` — và vì một
  * hàm chỉ sống trong tệp trang thì không ai ghim được nó mà không dựng cả trang.
  */
 export function turnWeightLabel(
-  turnIndex: number,
-  maxTurnsPerConcept: number,
-  counts: boolean
+  weightSlot: number | null,
+  maxTurnsPerConcept: number
 ): string | null {
-  if (!counts) return null;
+  if (weightSlot === null) return null;
   if (maxTurnsPerConcept !== TURN_WEIGHTS.length) return null;
-  const weight: number | undefined = TURN_WEIGHTS[turnIndex - 1];
+  const weight: number | undefined = TURN_WEIGHTS[weightSlot];
   return weight !== undefined ? `×${weight}` : null;
 }

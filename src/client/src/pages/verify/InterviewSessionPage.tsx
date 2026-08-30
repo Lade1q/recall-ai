@@ -20,7 +20,7 @@ import { VerdictBadge } from '@/features/interview/components/VerdictBadge';
 import { FallbackBanner } from '@/features/interview/components/FallbackBanner';
 import { SessionSummary } from '@/features/interview/components/SessionSummary';
 import { masteryColor } from '@/features/interview/utils/summary-display';
-import { TURN_WEIGHTS, turnWeightLabel } from '@/features/interview/utils/turn-weights';
+import { turnWeightLabeller } from '@/features/interview/utils/turn-mode';
 import { useInterviewSession } from '@/features/interview/hooks/useInterviewSession';
 import { interviewApi } from '@/features/interview/api/interview.api';
 import type {
@@ -363,12 +363,11 @@ export default function InterviewSessionPage() {
     turnIndex === null
       ? undefined
       : turns.find((t) => t.conceptId === currentConcept?.id && t.turnIndex === turnIndex);
-  const currentTurnWeight =
-    turnIndex !== null &&
-    progress.maxTurnsPerConcept === TURN_WEIGHTS.length &&
-    currentTurnRow?.countsTowardMastery !== false
-      ? TURN_WEIGHTS[turnIndex - 1]
-      : undefined;
+  const currentTurnLabel = turnWeightLabeller(
+    turns,
+    currentConcept?.id ?? null,
+    progress.maxTurnsPerConcept
+  )(currentTurnRow);
   // Panel xác nhận tạm dừng cần nói đúng số lượt ĐÃ CHẤM của khái niệm hiện tại (không phải
   // lượt đang chờ) — đếm thẳng từ transcript đã tải, không suy đoán từ `turnIndex`.
   const gradedTurnsForConcept = currentConcept
@@ -476,10 +475,11 @@ export default function InterviewSessionPage() {
                 <TurnPips turnIndex={turnIndex} maxTurns={progress.maxTurnsPerConcept} />
                 Lượt <strong className="text-foreground">{turnIndex}</strong>/
                 {progress.maxTurnsPerConcept}
-                {currentTurnWeight !== undefined && (
+                {currentTurnLabel !== null && (
                   <>
                     {' '}
-                    · trọng số <MetaMono className="text-[11px]">{currentTurnWeight}</MetaMono>
+                    · trọng số{' '}
+                    <MetaMono className="text-[11px]">{currentTurnLabel.replace('×', '')}</MetaMono>
                   </>
                 )}
               </span>
@@ -894,6 +894,9 @@ function TurnStackRail({
   if (!currentConceptId) return null;
 
   const slots = Array.from({ length: progress.maxTurnsPerConcept }, (_, i) => i + 1);
+  // MỘT nguồn slot, dùng chung với màn Lịch sử. Closure nhận chính lượt đó, nên không có đường
+  // nào truyền nhầm `turnIndex` vào — nó sẽ là lỗi biên dịch.
+  const weightLabelFor = turnWeightLabeller(turns, currentConceptId, progress.maxTurnsPerConcept);
 
   return (
     <section>
@@ -909,11 +912,10 @@ function TurnStackRail({
           // Chưa được chấm và không phải lượt đang hỏi: có thể sẽ không bao giờ mở nếu
           // khái niệm dừng sớm — hạ độ đậm để đọc như "chưa chắc" chứ không phải "sắp tới".
           const notYetReached = !graded && !isNow;
-          const weightLabel = turnWeightLabel(
-            n,
-            progress.maxTurnsPerConcept,
-            graded?.countsTowardMastery !== false
-          );
+          // Lượt CHƯA chấm không có slot để mà tra: slot của nó phụ thuộc việc nó có thành
+          // lượt gợi ý hay không, và điều đó chỉ rõ sau khi chấm. In một con số rồi để nó sai
+          // là đúng thứ bản vá này đang gỡ.
+          const weightLabel = weightLabelFor(graded);
           return (
             <div
               key={n}

@@ -8,6 +8,7 @@
  * và hai bản sẽ trôi khỏi nhau. `mode` chỉ dùng để NÓI ("đây là lượt gợi ý"), không để TÍNH.
  */
 import type { InterviewTurnResponse, SessionSummaryTurnResponse } from '../types/interview.types';
+import { turnWeightLabel } from './turn-weights';
 
 /**
  * Chữ của client — mockup `claude-design/` không có ô nào cho lượt gợi ý (nó có trước #392), nên
@@ -38,6 +39,44 @@ export function weightSlotByTurnId(turns: readonly InterviewTurnResponse[]): Map
     if (turn.countsTowardMastery) slots.set(turn.id, slot++);
   }
   return slots;
+}
+
+/**
+ * Slot công thức của các lượt thuộc MỘT khái niệm, tra theo `id`.
+ *
+ * Bọc `weightSlotByTurnId` kèm việc lọc-theo-khái-niệm và sắp-theo-`turnIndex`, để mọi màn lấy
+ * slot từ **một** nguồn. Trước khi có hàm này, màn Lịch sử nén slot còn màn vấn đáp thì không —
+ * cùng một lượt hiện hai trọng số khác nhau ở hai màn.
+ */
+export function weightSlotsForConcept(
+  turns: readonly InterviewTurnResponse[],
+  conceptId: string | null
+): Map<string, number> {
+  if (conceptId === null) return new Map();
+  return weightSlotByTurnId(
+    turns.filter((turn) => turn.conceptId === conceptId).sort((a, b) => a.turnIndex - b.turnIndex)
+  );
+}
+
+/**
+ * Hàm tra nhãn trọng số cho các lượt của MỘT khái niệm.
+ *
+ * 🔴 Trả về một closure nhận **chính lượt đó**, không nhận số. Đó là điểm của nó: chữ ký khiến
+ * "truyền `turnIndex` thay vì slot" trở thành **lỗi biên dịch** thay vì một con số sai lặng lẽ.
+ * Bản trước để call site tự tra slot rồi truyền số — và đo được: đột biến truyền `n - 1` ở call
+ * site **sống qua cả suite**, vì màn ấy không có test render. Ghim được đơn vị mà không ghim
+ * được dây nối thì bug chỉ dời chỗ.
+ *
+ * `undefined` (lượt chưa chấm) và lượt gợi ý cùng ra `null` — cả hai đều là "chưa/không có slot".
+ */
+export function turnWeightLabeller(
+  turns: readonly InterviewTurnResponse[],
+  conceptId: string | null,
+  maxTurnsPerConcept: number
+): (turn: InterviewTurnResponse | undefined) => string | null {
+  const slots = weightSlotsForConcept(turns, conceptId);
+  return (turn) =>
+    turnWeightLabel(turn === undefined ? null : (slots.get(turn.id) ?? null), maxTurnsPerConcept);
 }
 
 /** Các lượt thực sự đi vào công thức, giữ nguyên thứ tự đã hỏi. */
