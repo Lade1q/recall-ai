@@ -98,6 +98,11 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
         {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`, nên CTA không giật khi câu
             của server về — chừng nào câu đó còn nằm gọn một dòng.
 
+            ⚠️ Ca `message === null` nay TÁCH ĐÔI (#445): `pending` vẽ vạch tải vào đúng chỗ trống
+            đó, chỉ ca LỖI mới còn là khoảng trắng thật. Chỗ giữ vẫn là một dòng ở cả hai — vạch
+            cao `h-3` < `1.7em` — nên toàn bộ lập luận ngưỡng bên dưới không đổi. Nhưng ai đọc
+            dòng đầu mà tưởng chỉ có một ca thì sẽ đo nhầm: đo ngưỡng phải đo ở ca LỖI.
+
             Ngưỡng là ngưỡng của CỘT CHỮ chứ không phải của viewport: `<p>` rộng ≥ 415px thì câu
             hiện tại nằm một dòng (22,9px), hẹp hơn thì xuống hai (45,9px) và CTA giật 23px.
             Quy ra viewport thì cộng phần khung bao quanh — `<main>` `p-4` của `MainLayout` (32px),
@@ -119,9 +124,6 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
           )}
         >
           {pending ? (
-            // Vạch tải nằm GỌN trong đúng một dòng `min-h` đã giữ sẵn (`h-3` < `1.7em`), nên nó
-            // không đụng gì tới lập luận ngưỡng ở trên: chỗ trống một dòng nay có nội dung, và
-            // CTA vẫn không giật khi câu server về (#445).
             <span
               className="bg-border block h-3 w-[70%] max-w-[290px] animate-pulse rounded"
               aria-hidden="true"
