@@ -1,7 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen, waitFor, within } from '@/utils/test-utils';
+import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import HistoryPage from './HistoryPage';
 import { focusSessionApi } from '@/features/focus/api/focus.api';
 import { historyApi } from '@/features/history/api/history.api';
@@ -222,10 +222,93 @@ describe('HistoryPage — vòng đời tab (#450)', () => {
     render(<HistoryPage />);
     await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(1));
 
+    // (a) CẢ HAI panel phải mang luật ẩn. Bản cũ chỉ hỏi panel đang `inactive`, nên gỡ class ở
+    // panel KIA vẫn xanh — mà panel kia sẽ thành panel ẩn ngay khi người dùng đổi tab.
+    const panels = document.querySelectorAll('[data-slot="tabs-content"]');
+    // ⛔ Đừng bỏ dòng này: `forEach` trên NodeList rỗng chạy 0 lần và vẫn xanh, nên phép đếm là
+    // thứ duy nhất phân biệt "cả hai đều đúng" với "không tìm thấy panel nào".
+    expect(panels).toHaveLength(2);
+    panels.forEach((el) => expect(el).toHaveClass('data-[state=inactive]:hidden'));
+
+    // (b) và Radix KHÔNG tự đặt `hidden` khi có `forceMount` — nên (a) là thứ duy nhất giữ hai
+    // panel khỏi chồng lên nhau, chứ không phải một lớp phòng thủ thứ hai.
     const inactive = document.querySelector('[data-slot="tabs-content"][data-state="inactive"]');
     expect(inactive).not.toBeNull();
     expect(inactive).not.toHaveAttribute('hidden');
-    expect(inactive).toHaveClass('data-[state=inactive]:hidden');
+  });
+});
+
+/**
+ * #450 — `forceMount` làm tab Phiên học tải NGAY khi mở màn, nên nó có thể hỏng lúc người dùng
+ * còn chưa bấm sang. Đo LIVE: toast nổ về một tab chưa mở, và nút "Thử lại" mà nó bảo bấm nằm
+ * trong panel ẩn — `rect 0×0`, `checkVisibility()` false, không nhận focus. Lời khuyên không thi
+ * hành được, và nó tự tắt sau ~3s.
+ */
+describe('HistoryPage — tab chưa mở thì không được nói (#450)', () => {
+  it('🔴 hỏng lúc tab còn ẩn: im lặng; bấm sang tab đó mới báo', async () => {
+    listFocus.mockRejectedValue(new Error('mạng hỏng'));
+    listInterviews.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+
+    // Mốc lắng: panel ẩn vẫn ở trong DOM (`forceMount`) nên khối lỗi của nó tìm được — đợi nó
+    // hiện ra rồi mới hỏi "có toast không". Hỏi ngay sau `listFocus` được gọi là hỏi trước khi
+    // trạng thái lỗi kịp chảy tới.
+    expect(await screen.findByText('Không tải được lịch sử phiên học.')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Phiên kiểm tra' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(toastError).not.toHaveBeenCalled();
+
+    // Vế thứ hai, và nó là thứ phân biệt bản vá này với một cái gate "luôn im": khi người dùng
+    // đã ở đúng tab thì lỗi PHẢI được nói ra — lúc đó nút "Thử lại" mới thật sự bấm được.
+    await userEvent.click(screen.getByRole('tab', { name: 'Phiên học' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Không tải được lịch sử phiên học. Kiểm tra kết nối rồi thử lại.'
+      )
+    );
+  });
+
+  /**
+   * Cùng bất biến, chiều ngược lại. Cửa sổ hẹp hơn vì đây là tab mặc định, nhưng tới được: người
+   * dùng bấm sang tab Phiên học trong lúc `/interviews` còn bay, rồi nó hỏng.
+   *
+   * Ca này tồn tại để hai tab không mang hai luật khác nhau trong cùng một tệp — đó mới là thứ
+   * người sửa sau đọc thành "chắc có lý do" rồi đi vòng qua.
+   */
+  it('🔴 chiều ngược lại: tab Phiên kiểm tra hỏng lúc đang ẩn cũng im lặng', async () => {
+    let rejectInterviews!: (reason: unknown) => void;
+    listInterviews.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectInterviews = reject;
+      })
+    );
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+
+    // Rời khỏi tab mặc định TRƯỚC khi `/interviews` trả lời — đó là toàn bộ cửa sổ của ca này.
+    await userEvent.click(screen.getByRole('tab', { name: 'Phiên học' }));
+    expect(screen.getByRole('tab', { name: 'Phiên học' })).toHaveAttribute('aria-selected', 'true');
+
+    // Đẩy lỗi trong `act` để `setState` của nhánh `.catch` chảy hết trước khi hỏi màn hình.
+    await act(async () => {
+      rejectInterviews(new Error('mạng hỏng'));
+    });
+
+    expect(screen.getByText('Không tải được danh sách phiên kiểm tra.')).toBeInTheDocument();
+    expect(toastError).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Phiên kiểm tra' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Không tải được danh sách phiên kiểm tra. Kiểm tra kết nối rồi thử lại.'
+      )
+    );
   });
 });
 
