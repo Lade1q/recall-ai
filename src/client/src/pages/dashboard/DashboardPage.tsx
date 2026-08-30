@@ -60,6 +60,20 @@ export default function DashboardPage() {
   // ghim (#454).
   const todayFailed = today.error && today.data === null;
 
+  // Anh em của `todayFailed`, cùng lý do gộp thành MỘT hằng dùng ở hai nơi: nhánh
+  // `TodayNudgeSkeleton` ngay dưới, và `noPlanMessagePending` của `PlanCatalog`. Cả hai trả lời
+  // cùng một câu hỏi — "khối today đã có gì để hiện chưa" — nên chép tay hai lần là để ngỏ đúng
+  // kiểu lệch mà #454 vừa dẹp ở `todayFailed`.
+  //
+  // Thẻ onboarding A1 lấy thân bài từ `/review-queue/today`, nên nó có một khoảng chưa-biết-gì
+  // dài đúng bằng khoảng endpoint đó về SAU `/plans`. Không có cờ này thì khoảng đó im lặng
+  // tuyệt đối: thẻ trông như đã tải xong nhưng rỗng ruột (#445 cơ chế ①).
+  //
+  // Vế `&& today.data === null` gánh hành vi thật, y như ở `todayFailed`: bỏ nó đi thì MỌI lần
+  // đọc lại — kể cả lần sau khi hoãn một mục — giật khối gợi ý về skeleton, tức nội dung đang
+  // đọc biến mất trong lúc chẳng có gì hỏng.
+  const todayPending = today.loading && today.data === null;
+
   // A1 (DB-01 [E1]) — tài khoản hoàn toàn trống: mọi chỉ số bằng 0. Ẩn hẳn dải chỉ số thay vì
   // hiện ba số 0 cạnh khối gợi ý rỗng ("trông như app hỏng", mockup A1). Chỉ ẩn khi đã tải xong
   // và thật sự toàn 0 — plan `active` bất kỳ đều làm `conceptsTotal > 0`.
@@ -90,7 +104,7 @@ export default function DashboardPage() {
           #446 dẹp.) */}
       {(!isBrandNewAccount || todayFailed) && (
         <section className="mb-5">
-          {today.loading && today.data === null ? (
+          {todayPending ? (
             <TodayNudgeSkeleton />
           ) : todayFailed ? (
             <BlockError message="Không tải được gợi ý hôm nay." onRetry={today.reload} />
@@ -127,6 +141,7 @@ export default function DashboardPage() {
             hasAnyPlan={plans.data.length > 0}
             currentPlanId={currentPlanId}
             noPlanMessage={today.data?.message ?? null}
+            noPlanMessagePending={todayPending}
           />
         ) : null}
       </section>

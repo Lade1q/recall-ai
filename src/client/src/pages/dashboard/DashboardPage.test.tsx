@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@/utils/test-utils';
+import { act, fireEvent, render, screen, waitFor, within } from '@/utils/test-utils';
 import DashboardPage from './DashboardPage';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
@@ -488,5 +488,123 @@ describe('DashboardPage — mỗi khối tự phục hồi được (#454)', () 
     await screen.findByText(LOADED_STATS_TEXT);
 
     expect(pulseCount(container)).toBe(0);
+  });
+});
+
+/**
+ * #445 — hai cơ chế làm tài khoản 0 kế hoạch nhìn thấy một thẻ **trông như đã tải xong nhưng
+ * rỗng ruột**. Cả hai chỉ lộ ra khi `/review-queue/today` về CHẬM HƠN `/plans`; ở localhost
+ * khoảng đó đo được `-3ms` nên không ca nào trước đây chạm tới. Dựng lại bằng một promise không
+ * bao giờ resolve — cùng khuôn `mockReturnValue(new Promise(() => {}))` các ca trên đã dùng.
+ */
+describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => {
+  /**
+   * Cơ chế ① — chữ của thẻ đến từ endpoint KHÁC với thẻ. `PlanCatalog` lấy thân bài từ
+   * `today.data?.message`, nên trong lúc `/review-queue/today` còn bay thì thẻ đã dựng xong mà
+   * thân bài rỗng: không skeleton, không lỗi, không tín hiệu nào phân biệt *đang chờ* với
+   * *server bảo rỗng*. Đo ở issue: thẻ câm 79→879ms ở mức trễ 800ms.
+   */
+  it('🔴 today chưa về: thẻ onboarding báo ĐANG TẢI, không phải thân bài trống câm', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    vi.mocked(reviewQueueApi.getToday).mockReturnValue(new Promise(() => {}));
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    const cta = await screen.findByRole('link', { name: 'Tạo kế hoạch đầu tiên' });
+    const card = cta.closest('div');
+
+    // Hai vế, khoá CẢ HAI: vạch cho người nhìn màn hình, `role="status"` cho người dùng trình
+    // đọc màn hình. Bỏ riêng vế thị giác thì vế kia vẫn xanh — cùng cái bẫy "nút có mặt ≠ nút
+    // chạy được" của #446 ở dạng khác.
+    //
+    // Đếm TRONG thẻ chứ không cả trang: ở nhịp này `/dashboard/stats` cũng chưa lắng, và tổng
+    // vạch của hai khối KIA trùng khít số vạch của khối đang kiểm — một phép đếm toàn trang sẽ
+    // xanh cả khi thẻ không vẽ gì.
+    expect(pulseCount(card as HTMLElement)).toBe(1);
+    // Khoá NỘI DUNG của live region, không khoá sự tồn tại: vùng `role="status"` được mount sẵn
+    // ở mọi trạng thái (nếu chỉ mount lúc `pending` thì AT thường không đọc — xem comment tại
+    // `PlanCatalog`), nên `getByRole('status')` một mình sẽ xanh cả với bản mount có điều kiện.
+    //
+    // Hỏi TRONG thẻ, cùng lý do đã hỏi `pulseCount` trong thẻ: một assertion chữ quét cả trang
+    // bị bất kỳ component nào ở bất kỳ đâu render cùng chuỗi lật đổ — và `TodayNudgeSkeleton`
+    // ngay trên đầu màn này có một chuỗi "Đang tải …" của riêng nó.
+    expect(within(card as HTMLElement).getByRole('status')).toHaveTextContent(
+      'Đang tải gợi ý hôm nay'
+    );
+  });
+
+  /**
+   * Đối chứng âm, và chốt chặn cho cách sửa quá tay: ca LỖI vẫn phải im. `BlockError` + "Thử
+   * lại" ngay phía trên đã nói chuyện hỏng đúng một lần; nói lần hai bằng một vạch đang chạy là
+   * sai sự thật — không có gì đang tải cả.
+   */
+  it('today LỖI: thân bài trống như cũ, không có vạch tải nào', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    vi.mocked(reviewQueueApi.getToday).mockRejectedValue(new Error('network down'));
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    expect(await screen.findByText('Không tải được gợi ý hôm nay.')).toBeInTheDocument();
+
+    // Vùng live vẫn ở đó (phải mount sẵn để lần sau còn đọc được) nhưng KHÔNG nói gì: không có
+    // gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên. Khoá NỘI DUNG
+    // chứ không khoá sự vắng mặt — bản cũ dùng `queryByRole(...).not.toBeInTheDocument()`, và
+    // chính assertion đó CẤM khuôn gắn-vô-điều-kiện mà mã bây giờ dùng.
+    const card = screen.getByRole('link', { name: 'Tạo kế hoạch đầu tiên' }).closest('div');
+    expect(within(card as HTMLElement).getByRole('status')).toHaveTextContent('');
+    expect(within(card as HTMLElement).queryByText(/Đang tải/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Cơ chế ② — nặng hơn, và nó có SẴN TRƯỚC #408. `useAsyncResource.reload()` từng hạ `error` về
+   * `false` ngay lúc bấm, nên trong lúc lần tải lại còn bay thì trạng thái trùng khít ca *tải
+   * lần đầu* (`{data: null, loading: true, error: false}`): cổng `todayFailed` tắt, cả
+   * `<section>` unmount, **nút vừa bấm biến mất** — và chỉ quay lại nếu request hỏng LẦN NỮA.
+   */
+  it('🔴 bấm "Thử lại" lúc mạng chậm: khối gợi ý KHÔNG biến mất, nó chuyển sang đang tải', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    vi.mocked(reviewQueueApi.getToday)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockReturnValue(new Promise(() => {}));
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Thử lại' }));
+    await waitFor(() => expect(reviewQueueApi.getToday).toHaveBeenCalledTimes(2));
+
+    // Khối vẫn trên màn, ở dạng "đang tải" — không bốc hơi cùng cái nút vừa bấm.
+    expect(screen.getByText('Đang tải · Gợi ý hôm nay')).toBeInTheDocument();
+  });
+
+  /**
+   * Mặt kia của `todayPending`, và là bất biến `useAsyncResource` tự khai: *"`data` cũ được giữ
+   * lại khi tải lại … để nội dung đang hiển thị không biến mất."* Bỏ vế `&& today.data === null`
+   * khỏi `todayPending` thì MỌI lần đọc lại — kể cả lần sau khi hoãn một mục — giật khối gợi ý
+   * về skeleton, tức nội dung đang đọc biến mất trong lúc chẳng có gì hỏng.
+   *
+   * Song song với ca `todayFailed` mà #454 vừa ghim: cùng một vế, cùng lý do, ở hằng anh em.
+   */
+  it('🔴 đọc lại khi ĐÃ CÓ dữ liệu: giữ nguyên nội dung, không giật về skeleton', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan({ status: 'draft' })]);
+    vi.mocked(reviewQueueApi.getToday)
+      .mockResolvedValueOnce(makeTodayResponse({ items: [makeItem()], totalEstimatedMinutes: 14 }))
+      .mockReturnValue(new Promise(() => {}));
+    vi.mocked(reviewQueueApi.snoozeReviewQueueItem).mockResolvedValue({
+      id: 'item-1',
+      conceptId: 'concept-1',
+      planId: 'plan-1',
+      status: 'pending',
+      scheduledFor: '2026-08-30T17:00:00.000Z',
+    });
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Hoãn đến mai' }));
+    await waitFor(() => expect(reviewQueueApi.getToday).toHaveBeenCalledTimes(2));
+
+    // Lần đọc lại còn đang bay, nhưng khối vẫn là khối gợi ý THẬT với đủ lối thoát của nó — hỏi
+    // theo nút vì tên khái niệm và câu lý do đều xuất hiện ở nhiều chỗ trong khối.
+    expect(screen.getByRole('button', { name: 'Hoãn đến mai' })).toBeInTheDocument();
+    expect(screen.queryByText('Đang tải · Gợi ý hôm nay')).not.toBeInTheDocument();
   });
 });
