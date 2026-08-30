@@ -957,6 +957,14 @@ export interface ReviewQueueItemUpdate {
 /** Kết quả của "hoãn đến mai" (#233): thêm mốc mới để người gọi thấy ngày do server tự chốt. */
 export interface ReviewQueueItemSnooze extends ReviewQueueItemUpdate {
   scheduledFor: Date | null;
+  /**
+   * #433 — có thật sự hoãn được hàng nào trong cụm không. `false` khi cụm không có hàng nào
+   * đang đến hạn (kể cả khi cụm khác có hàng chưa đến hạn mà lời gọi này không đụng tới) — phân
+   * biệt với `scheduledFor`, vốn chỉ nói về đúng hàng `itemId`. Một cụm lẫn (một hàng đến hạn +
+   * một hàng chưa, ca thường gặp ở AE-07) có thể trả `changed: true` trong khi `scheduledFor`
+   * của `itemId` không đổi, nếu `itemId` không phải là hàng vừa dời.
+   */
+  changed: boolean;
 }
 
 /**
@@ -1000,16 +1008,30 @@ async function findOwnedQueueItem(
  * màn hình gộp mọi hàng của một khái niệm thành MỘT mục, nên hoãn đúng một hàng sẽ để khái niệm
  * đó quay lại ngay lần đọc sau từ một hàng anh em — nút bấm trông như không làm gì.
  *
- * Hai bộ lọc thu hẹp phạm vi, cả hai đều cố ý:
- * - `scheduledFor <= now` — chỉ dời phần **đang đến hạn**. Hàng đã được xếp cho một ngày trong
- *   tương lai mà bị "hoãn đến mai" thì hoá ra là **kéo sớm lên**, ngược nghĩa nút bấm.
- * - `ON_SCHEDULE_WHERE` — không đụng hàng đã bị gỡ (`skipped`). Ngày đến hạn của chúng là thứ
- *   nút "Đưa lại vào lịch" (#225) dựa vào; viết đè lên đây là lặng lẽ đổi lịch của một khái
- *   niệm mà sinh viên còn chưa đưa trở lại.
+ * 🔴 Guard 1 (#433, đối xứng với #426): `itemId` phải TỰ nó đang on-schedule, từ chối
+ * `ITEM_NOT_ON_SCHEDULE` (409) nếu không — cùng lý do `setReviewQueueItemScheduledFor`: ngày
+ * đến hạn của một hàng `skipped`/`done` là thứ nút "Đưa lại vào lịch" (#225) dựa vào, và đọc lại
+ * đúng hàng đó sau khi các hàng anh em đã dời sẽ báo "không đổi" trong khi cụm THẬT SỰ đã dời.
  *
- * `scheduledFor` trả về được **đọc lại từ DB** sau khi ghi, không phải mốc vừa tính: gọi thẳng
- * API cho một hàng không đến hạn là hợp lệ và sẽ không dời gì cả, response phải nói đúng sự
- * thật đó thay vì báo một ngày mai không có ai ghi.
+ * Bộ lọc thứ hai — `scheduledFor <= now` — KHÔNG được vá bằng cách từ chối, khác Guard 1. Chỉ dời
+ * phần **đang đến hạn**: hàng đã xếp cho một ngày tương lai mà bị "hoãn đến mai" thì hoá ra là
+ * **kéo sớm lên**, ngược nghĩa nút bấm — nên việc `itemId` trỏ vào một hàng chưa đến hạn vẫn là
+ * lời gọi HỢP LỆ, không phải lỗi. Điều đã SAI trước #433 không phải việc chấp nhận nó, mà là
+ * `scheduledFor` đọc lại chỉ phản ánh đúng hàng `itemId` — nếu cụm LẪN (một hàng đến hạn dời được,
+ * hàng `itemId` thì không), response báo "không đổi" trong khi hàng anh em đã dời. `changed`
+ * (dưới) tách rời hai câu hỏi "hàng NÀY đổi gì" và "CỤM đổi gì" thay vì gộp làm một qua
+ * `scheduledFor` như bản cũ.
+ *
+ * Cụm lẫn không phải ca hiếm: mỗi khái niệm bị truy ngược (AE-07) có một hàng `traceback` đến
+ * hạn NGAY (`concept-schedule.service.ts` — `scheduledFor: now`) nằm cạnh hàng `spaced_repetition`
+ * luôn ở TƯƠNG LAI (`addDays(now, reviewIntervalDays(...))`, tối thiểu 1 ngày) — hai hàng, hai
+ * `sourceSessionId`, một đến hạn một chưa, sinh ra bởi thiết kế mỗi khi một khái niệm vừa là tiền
+ * đề bị truy ngược vừa được chấm ở một phiên khác.
+ *
+ * `scheduledFor`/`status` trả về được **đọc lại từ DB** sau khi ghi, không phải mốc vừa tính —
+ * đúng hàng `itemId`, vì Guard 1 đã xác nhận nó nằm trong tập ĐỦ ĐIỀU KIỆN on-schedule; việc nó có
+ * thực sự đến hạn (nên có mặt trong tập vừa ghi) hay không là thứ `changed` nói, không phải
+ * `scheduledFor`.
  */
 export async function snoozeReviewQueueItem(
   itemId: string,
@@ -1018,7 +1040,15 @@ export async function snoozeReviewQueueItem(
 ): Promise<ReviewQueueItemSnooze> {
   const item = await findOwnedQueueItem(itemId, userId);
 
-  await prisma.reviewQueueItem.updateMany({
+  if (OFF_SCHEDULE_STATUSES.includes(item.status)) {
+    throw new AppError(
+      'Không thể hoãn: mục này đã bị gỡ khỏi lịch, không còn đại diện cho cụm.',
+      409,
+      'ITEM_NOT_ON_SCHEDULE'
+    );
+  }
+
+  const written = await prisma.reviewQueueItem.updateMany({
     where: {
       planId: item.planId,
       conceptId: item.conceptId,
@@ -1033,7 +1063,12 @@ export async function snoozeReviewQueueItem(
     select: { status: true, scheduledFor: true },
   });
 
-  return { ...item, status: updated.status, scheduledFor: updated.scheduledFor };
+  return {
+    ...item,
+    status: updated.status,
+    scheduledFor: updated.scheduledFor,
+    changed: written.count > 0,
+  };
 }
 
 /**
@@ -1117,10 +1152,13 @@ export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
  * Ngày quá khứ (theo lịch VN) bị từ chối bằng `VALIDATION_ERROR` đã có sẵn — engine không bao giờ
  * xếp lịch vào quá khứ, và mã này không cần mapper client riêng (đã có case ở nơi khác).
  *
- * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB**. ⚠️ KHÁC `snoozeReviewQueueItem`, vốn chưa
- * có guard tương ứng nên bước đọc-lại của nó vẫn nói sai được (#433): ở ĐÂY thì Guard
- * 1 ở trên là thứ làm cho việc đọc lại đúng `item.id` luôn an toàn — tới đây `item.id` đã được xác
- * nhận nằm trong tập vừa ghi.
+ * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB** — Guard 1 ở trên là thứ làm việc đọc lại
+ * đúng `item.id` luôn an toàn ở đây, vì tới đó `item.id` đã được xác nhận nằm trong tập vừa ghi.
+ * `snoozeReviewQueueItem` (#433) dùng CHUNG Guard 1 này nên có cùng đảm bảo đó cho hàng `skipped`/
+ * `done` — nhưng nó còn một bộ lọc thứ hai (`scheduledFor <= now`) mà hàm này không có, và bộ lọc
+ * đó KHÔNG được vá bằng cách từ chối (xem docstring của `snoozeReviewQueueItem` để biết lý do bất
+ * đối xứng): một hàng "hoãn" hợp lệ vẫn có thể không nằm trong tập vừa ghi, nên `snoozeReviewQueueItem`
+ * trả thêm `changed` thay vì chỉ dựa vào `scheduledFor` đọc lại.
  */
 export async function setReviewQueueItemScheduledFor(
   itemId: string,

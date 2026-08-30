@@ -1,5 +1,6 @@
 import type { ReviewItemStatus, ReviewReason, StudyPlanStatus } from '@prisma/client';
 import prisma from '../config/prisma';
+import { getVnTomorrowStartUtc } from '../utils/dashboard-stats';
 import {
   ALL_PLANS_ARCHIVED_MESSAGE,
   COMPLETED_PLAN_MESSAGE,
@@ -10,6 +11,7 @@ import {
   getReviewQueueForPlan,
   getTodayReviewQueue,
   setReviewQueueItemScheduledFor,
+  snoozeReviewQueueItem,
   updateReviewQueueItemStatus,
 } from '../services/scheduling.service';
 
@@ -578,6 +580,133 @@ describe('setReviewQueueItemScheduledFor (#403)', () => {
     await expect(
       setReviewQueueItemScheduledFor('item-avl-active', USER_ID, '2026-08-25', NOW)
     ).resolves.toMatchObject({ scheduledFor: new Date('2026-08-25T03:00:00.000Z') });
+  });
+});
+
+/**
+ * #433 — `snoozeReviewQueueItem` had no direct unit test at all before this ("no test touches
+ * the body of the function" was literally true — the only other caller mocks it away). It
+ * carries the same read-after-`updateMany` shape `setReviewQueueItemScheduledFor` did before
+ * #426, plus a second filter (`scheduledFor <= now`) that endpoint doesn't have, so the fix here
+ * is asymmetric: Guard 1 (`ON_SCHEDULE_WHERE`) rejects like #426; the "not due yet" filter does
+ * NOT reject (snoozing a future-dated row is a legitimate no-op — moving it would pull it
+ * earlier, the opposite of the button) but the response must stop pretending `scheduledFor` alone
+ * tells the whole cluster's story, hence `changed`.
+ */
+describe('snoozeReviewQueueItem (#433)', () => {
+  const NOW = new Date('2026-08-20T03:00:00.000Z');
+  const TOMORROW_VN_START = getVnTomorrowStartUtc(NOW);
+
+  it('moves a due row and reports changed: true (homogeneous cluster, positive control)', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })]; // default scheduledFor = ALREADY_DUE
+
+    const result = await snoozeReviewQueueItem('item-avl', USER_ID, NOW);
+
+    expect(result.scheduledFor).toEqual(TOMORROW_VN_START);
+    expect(result.changed).toBe(true);
+  });
+
+  it('no-ops on a row that is not due yet and reports changed: false (homogeneous cluster, the ORIGINAL positive control this bug hid behind)', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl', scheduledFor: FAR_FUTURE })];
+
+    const result = await snoozeReviewQueueItem('item-avl', USER_ID, NOW);
+
+    expect(result.scheduledFor).toEqual(FAR_FUTURE);
+    expect(result.changed).toBe(false);
+  });
+
+  /**
+   * The bug this issue fixes, built in the shape it actually occurs (not two arbitrary dates):
+   * AE-07 traceback rows are due IMMEDIATELY (`scheduledFor: now`, `concept-schedule.service.ts`)
+   * while a `spaced_repetition` row from a later session is always >= 1 day out — the same
+   * concept can carry both, one due and one not, by design rather than coincidence.
+   *
+   * Snoozing the NOT-due row: its own `scheduledFor` correctly stays put (no "kéo sớm lên"), but
+   * the sibling traceback row — due — DOES move. Before #433, the response's `scheduledFor` (read
+   * back on `item.id` alone) reported "nothing changed", lying about the cluster. `changed: true`
+   * is the fix.
+   */
+  it('reports changed: true from a mixed AE-07 cluster even when the targeted row itself did not move', async () => {
+    queueRows = [
+      row({
+        id: 'item-traceback',
+        conceptId: 'concept-avl',
+        reason: 'traceback',
+        sourceConceptId: 'concept-dfs',
+        scheduledFor: NOW, // AE-07: due immediately
+      }),
+      row({
+        id: 'item-spaced',
+        conceptId: 'concept-avl',
+        reason: 'spaced_repetition',
+        scheduledFor: FAR_FUTURE, // a later session's measurement, always >= 1 day out
+      }),
+    ];
+
+    const result = await snoozeReviewQueueItem('item-spaced', USER_ID, NOW);
+
+    // The targeted row itself: correctly untouched (it was not due).
+    expect(result.scheduledFor).toEqual(FAR_FUTURE);
+    // The cluster: the sibling traceback row DID move — `changed` must say so.
+    expect(result.changed).toBe(true);
+    expect(queueRows.find((candidate) => candidate.id === 'item-traceback')?.scheduledFor).toEqual(
+      TOMORROW_VN_START
+    );
+    // And the row the caller asked about is, correctly, still exactly where it was.
+    expect(queueRows.find((candidate) => candidate.id === 'item-spaced')?.scheduledFor).toEqual(
+      FAR_FUTURE
+    );
+  });
+
+  it('rejects snoozing a row that has itself been removed from the schedule (Guard 1, symmetric with #426)', async () => {
+    queueRows = [
+      row({ id: 'item-skipped', conceptId: 'concept-avl', status: 'skipped' }),
+      row({ id: 'item-due', conceptId: 'concept-avl' }),
+    ];
+
+    await expect(snoozeReviewQueueItem('item-skipped', USER_ID, NOW)).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'ITEM_NOT_ON_SCHEDULE',
+    });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
+    // Rejected early — the sibling due row must not have moved either.
+    expect(queueRows.find((candidate) => candidate.id === 'item-due')?.scheduledFor).toEqual(
+      ALREADY_DUE
+    );
+  });
+
+  /**
+   * Write-scope regression: a mutant that drops `ON_SCHEDULE_WHERE` from the `updateMany` `where`
+   * would move this `skipped` sibling too, and a fake that hard-codes its own status predicate
+   * (instead of reading `where.status.notIn`, as `matches()` here genuinely does) would hide that
+   * mutant behind a byte-identical result. Targeting the ON-SCHEDULE row keeps this test distinct
+   * from the Guard 1 test above, which never reaches `updateMany` at all.
+   */
+  it('does not move a skipped sibling when snoozing the due row in the same cluster', async () => {
+    queueRows = [
+      row({ id: 'item-skipped', conceptId: 'concept-avl', status: 'skipped' }),
+      row({ id: 'item-due', conceptId: 'concept-avl' }),
+    ];
+
+    await snoozeReviewQueueItem('item-due', USER_ID, NOW);
+
+    expect(queueRows.find((candidate) => candidate.id === 'item-skipped')?.scheduledFor).toEqual(
+      ALREADY_DUE
+    );
+  });
+
+  it('404s on an item belonging to someone else, without touching the row', async () => {
+    queueRows = [row({ id: 'item-avl', conceptId: 'concept-avl' })];
+    mockedPrisma.reviewQueueItem.findUnique.mockResolvedValue({
+      id: 'item-avl',
+      plan: { userId: 'someone-else' },
+    });
+
+    await expect(snoozeReviewQueueItem('item-avl', USER_ID, NOW)).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'NOT_FOUND',
+    });
+    expect(mockedPrisma.reviewQueueItem.updateMany).not.toHaveBeenCalled();
   });
 });
 

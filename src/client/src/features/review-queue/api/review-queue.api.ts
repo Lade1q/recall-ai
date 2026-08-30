@@ -77,6 +77,12 @@ interface SnoozeReviewQueueItemResponseData {
   item: UpdateReviewQueueItemResponseData['item'] & {
     /** Mốc mới do SERVER chốt (00:00 ngày mai giờ VN) — client không gửi ngày lên, chỉ đọc về. */
     scheduledFor: string | null;
+    /**
+     * #433 — có hàng nào trong CỤM (không chỉ đúng hàng `itemId`) thật sự vừa được dời không.
+     * `scheduledFor` ở trên chỉ nói về hàng `itemId`; một cụm lẫn (một hàng đến hạn, một hàng
+     * chưa) có thể trả `changed: true` trong khi `scheduledFor` của chính `itemId` không đổi.
+     */
+    changed: boolean;
   };
 }
 
