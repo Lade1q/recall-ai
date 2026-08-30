@@ -86,11 +86,23 @@ function CatalogOnboarding({ message }: { message: string | null }) {
         <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
           Bắt đầu kế hoạch ôn tập đầu tiên
         </h2>
-        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`. Đủ ở bề ngang mà câu server
-            nằm gọn một dòng — đo được 0px giật ở 1440px và 768px. KHÔNG đủ ở 360px: ở đó câu
-            xuống 2 dòng (22,9 → 45,9px) nên CTA vẫn giật 23px khi chữ về (#446). Nâng `min-h`
-            lên hai dòng sẽ chữa chỗ đó nhưng chừa một khoảng trống thừa ở mọi bề ngang khác, nên
-            để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được. */}
+        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`, nên CTA không giật khi câu
+            của server về — chừng nào câu đó còn nằm gọn một dòng.
+
+            Ngưỡng là ngưỡng của CỘT CHỮ chứ không phải của viewport: `<p>` rộng ≥ 415px thì câu
+            hiện tại nằm một dòng (22,9px), hẹp hơn thì xuống hai (45,9px) và CTA giật 23px.
+            Quy ra viewport thì cộng phần khung bao quanh — `<main>` `p-4` của `MainLayout` (32px),
+            viền thẻ (2px), `px-7` của thẻ (56px) = 90px — nên `415 + 90 ≈ 505px`. Tức là MỌI bề
+            ngang dưới ~505px đều giật, kể cả 455px, không riêng 360px.
+
+            ⚠️ Hai thứ làm dòng này lỗi thời mà KHÔNG gì đỏ (jsdom không dựng layout):
+            ① đổi `NO_PLAN_MESSAGE` (hiện 64 ký tự) là đổi ngưỡng 415px;
+            ② hạ trần `max-w-[460px]` ngay trên xuống dưới 415px thì câu xuống hai dòng ở MỌI bề
+            ngang — dư địa hiện chỉ 45px. Đo lại thì đo trên app thật: một trang dựng lại thiếu
+            `<main>` `p-4` sẽ cho ngưỡng viewport lệch đúng 32px (#454).
+
+            Nâng `min-h` lên hai dòng chữa được nhưng chừa khoảng trống thừa ở mọi bề ngang khác,
+            nên để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được (#446). */}
         <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
           {message}
         </p>
