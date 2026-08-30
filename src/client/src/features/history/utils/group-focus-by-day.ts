@@ -63,6 +63,12 @@ export interface FocusDayGroup {
   dayStart: number;
   label: string;
   totalMinutes: number;
+  /**
+   * `true` khi ngày này có thể còn phiên CHƯA TẢI ⇒ `totalMinutes` là tổng **một phần**, không
+   * phải tổng của ngày. Đi kèm ngay cạnh con số thay vì để nơi gọi tự suy: ai đọc `totalMinutes`
+   * cũng buộc phải thấy điều kiện làm nó đáng tin (#446 review PR #441).
+   */
+  totalIsPartial: boolean;
   sessions: FocusSessionListItem[];
 }
 
@@ -73,10 +79,17 @@ export interface FocusDayGroup {
  * Hệ quả cố ý của việc "chỉ mở nhóm khi ĐỔI ngày": nếu server trả về thứ tự không đơn điệu thì
  * một ngày có thể xuất hiện hai nhóm. Đó là phản ánh trung thực dữ liệu nhận được, tốt hơn là
  * gộp lại rồi che mất một hợp đồng đã vỡ.
+ *
+ * `hasMore` là tham số **bắt buộc**, không phải tuỳ chọn: hàm này chỉ cộng những hàng ĐÃ TẢI,
+ * nên khi còn trang chưa tải thì nhóm cuối cùng có thể đang bị ranh giới trang cắt ngang. Bắt
+ * mọi nơi gọi phải trả lời "hết hàng chưa" là cách duy nhất để không ai vô tình in một tổng
+ * một-phần như tổng đầy đủ — đúng lỗi đo được ở review PR #441 (`08/08 — 0 phút` → `30 phút`
+ * sau khi bấm "Xem thêm", vi phạm AC #247 dòng 68).
  */
 export function groupFocusSessionsByDay(
   sessions: readonly FocusSessionListItem[],
-  now: Date
+  now: Date,
+  hasMore: boolean
 ): FocusDayGroup[] {
   const groups: FocusDayGroup[] = [];
 
@@ -95,10 +108,18 @@ export function groupFocusSessionsByDay(
         dayStart,
         label: dayLabel(session.startedAt, now),
         totalMinutes: minutesTowardDayTotal(session),
+        totalIsPartial: false,
         sessions: [session],
       });
     }
   }
+
+  // Chỉ nhóm CUỐI mới có thể thiếu hàng: server sắp `startedAt` giảm dần, nên mọi nhóm phía trên
+  // đã gặp một ngày cũ hơn ⇒ ngày của chúng đã đóng. Cố ý bảo thủ hơi thừa — khi ranh giới trang
+  // rơi trúng ranh giới ngày thì tổng vốn đã đúng nhưng vẫn bị giấu. Đổi lại, không cần biết
+  // kích thước trang, và không có ca nào in ra một con số sai.
+  const lastGroup = groups[groups.length - 1];
+  if (hasMore && lastGroup !== undefined) lastGroup.totalIsPartial = true;
 
   return groups;
 }

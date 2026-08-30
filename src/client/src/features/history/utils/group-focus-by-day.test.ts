@@ -74,7 +74,8 @@ describe('groupFocusSessionsByDay', () => {
         session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
         session({ id: 'b', startedAt: new Date(2026, 6, 27, 18, 20).toISOString() }),
       ],
-      NOW
+      NOW,
+      false
     );
 
     expect(groups).toHaveLength(1);
@@ -90,7 +91,8 @@ describe('groupFocusSessionsByDay', () => {
         session({ id: 'b', startedAt: new Date(2026, 6, 26, 20, 50).toISOString() }),
         session({ id: 'c', startedAt: new Date(2026, 6, 24, 19, 5).toISOString() }),
       ],
-      NOW
+      NOW,
+      false
     );
 
     expect(groups.map((g) => g.label)).toEqual(['Hôm nay · 27/07', '26/07', '24/07']);
@@ -105,7 +107,8 @@ describe('groupFocusSessionsByDay', () => {
         session({ id: 'a', durationMinutes: 25 }),
         session({ id: 'b', durationMinutes: 7, startedAt: session().startedAt }),
       ],
-      NOW
+      NOW,
+      false
     );
     expect(groups[0].totalMinutes).toBe(32);
   });
@@ -123,7 +126,8 @@ describe('groupFocusSessionsByDay', () => {
           startedAt: new Date(2026, 6, 24, 17, 40).toISOString(),
         }),
       ],
-      NOW
+      NOW,
+      false
     );
 
     expect(groups).toHaveLength(1);
@@ -132,16 +136,54 @@ describe('groupFocusSessionsByDay', () => {
   });
 
   it('danh sách rỗng trả mảng rỗng, không ném', () => {
-    expect(groupFocusSessionsByDay([], NOW)).toEqual([]);
+    expect(groupFocusSessionsByDay([], NOW, false)).toEqual([]);
   });
 
   it('hàng có ngày hỏng không làm sập nhóm còn lại', () => {
     const groups = groupFocusSessionsByDay(
       [session({ id: 'a' }), session({ id: 'x', startedAt: 'rác' })],
-      NOW
+      NOW,
+      false
     );
 
     expect(groups.map((g) => g.label)).toEqual(['Hôm nay · 27/07', 'Không rõ thời gian']);
+  });
+
+  /**
+   * Lỗi đo được ở review PR #441: một ngày vắt qua ranh giới 20 hàng thì nhóm cuối chỉ cộng phần
+   * ĐÃ TẢI, mà vẫn in ra như tổng của cả ngày (`08/08 — 0 phút` → `30 phút` sau "Xem thêm").
+   * Chỉ nhóm cuối bị — server sắp giảm dần nên mọi nhóm trên đã gặp một ngày cũ hơn, tức đã đóng.
+   */
+  it('còn trang chưa tải: CHỈ nhóm cuối bị đánh dấu tổng một-phần', () => {
+    const groups = groupFocusSessionsByDay(
+      [
+        session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
+        session({ id: 'b', startedAt: new Date(2026, 6, 26, 20, 50).toISOString() }),
+      ],
+      NOW,
+      true
+    );
+
+    expect(groups.map((g) => g.totalIsPartial)).toEqual([false, true]);
+    // Con số vẫn được cộng như cũ — cờ chỉ nói nó đáng tin tới đâu, không đổi phép cộng.
+    expect(groups.map((g) => g.totalMinutes)).toEqual([25, 25]);
+  });
+
+  it('ĐỐI CHỨNG ÂM: hết hàng thì không nhóm nào bị đánh dấu', () => {
+    const groups = groupFocusSessionsByDay(
+      [
+        session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
+        session({ id: 'b', startedAt: new Date(2026, 6, 26, 20, 50).toISOString() }),
+      ],
+      NOW,
+      false
+    );
+
+    expect(groups.map((g) => g.totalIsPartial)).toEqual([false, false]);
+  });
+
+  it('danh sách rỗng + còn trang: không ném, vẫn là mảng rỗng', () => {
+    expect(groupFocusSessionsByDay([], NOW, true)).toEqual([]);
   });
 });
 

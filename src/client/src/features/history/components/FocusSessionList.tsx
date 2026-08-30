@@ -47,7 +47,7 @@ export function FocusSessionList({
 
   // `now` chốt một lần cho cả lượt render: nhóm theo từng phần tử sẽ cho hai hàng cạnh nhau rơi
   // vào hai nhóm khác nhau nếu render vắt qua nửa đêm.
-  const groups = groupFocusSessionsByDay(sessions, new Date());
+  const groups = groupFocusSessionsByDay(sessions, new Date(), hasMore);
 
   return (
     <section
@@ -58,8 +58,12 @@ export function FocusSessionList({
         // Khoá theo vị trí kèm mốc ngày: `dayStart` là `NaN` cho hàng ngày hỏng, và `NaN` không
         // dùng làm khoá duy nhất được khi có nhiều hàng như vậy.
         <div key={`${group.dayStart}-${index}`}>
+          {/* Bỏ HẲN tổng khi nó mới là tổng một phần, thay vì in kèm dấu hiệu: `0 phút` ở nhóm
+              cuối đọc thành "hôm ấy bạn không học gì" — một câu SAI, tệ hơn hẳn việc chưa nói
+              gì. Bấm "Xem thêm" là ngày đó đóng lại và tổng hiện ra. */}
           <h3 className="text-muted-foreground px-[18px] pb-1.5 pt-3 text-[11px] uppercase tracking-[0.06em]">
-            {group.label} — {formatDuration(group.totalMinutes)}
+            {group.label}
+            {!group.totalIsPartial && ` — ${formatDuration(group.totalMinutes)}`}
           </h3>
           {group.sessions.map((session) => (
             <FocusSessionRow

@@ -23,7 +23,7 @@ function session(overrides: Partial<FocusSessionListItem> = {}): FocusSessionLis
 
 const PLANS = new Map([['plan-1', 'Cấu trúc dữ liệu & Giải thuật']]);
 
-function renderList(sessions: FocusSessionListItem[], plans = PLANS) {
+function renderList(sessions: FocusSessionListItem[], plans = PLANS, hasMore = false) {
   return render(
     <FocusSessionList
       sessions={sessions}
@@ -31,7 +31,7 @@ function renderList(sessions: FocusSessionListItem[], plans = PLANS) {
       loading={false}
       loadingMore={false}
       error={false}
-      hasMore={false}
+      hasMore={hasMore}
       onLoadMore={vi.fn()}
       onRetry={vi.fn()}
     />
@@ -89,6 +89,65 @@ describe('FocusSessionList — thời lượng', () => {
     // Mockup ghi 32 phút ở ca này; hợp đồng cho 25 — xem `minutesTowardDayTotal`.
     expect(screen.getByText(/— 25 phút/)).toBeInTheDocument();
     expect(screen.queryByText(/— 32 phút/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Ranh giới trang cắt ngang một ngày ⇒ nhóm cuối chỉ cộng phần đã tải. Đo được ở review PR
+   * #441: `08/08 — 0 phút` biến thành `30 phút` sau khi bấm "Xem thêm". AC #247 dòng 68 đòi
+   * "tổng thời lượng CỦA NGÀY ĐÓ", nên in tổng một-phần ở đó là in một con số sai.
+   */
+  it('🔴 còn trang chưa tải: nhóm CUỐI không in tổng, nhóm trên vẫn in', () => {
+    renderList(
+      [
+        session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
+        session({ id: 'b', startedAt: new Date(2026, 6, 26, 20, 50).toISOString() }),
+      ],
+      PLANS,
+      true
+    );
+
+    // Ngày đã đóng (có ngày cũ hơn bên dưới) vẫn in tổng như thường. Không khẳng định tiền tố
+    // "Hôm nay" ở đây: component đọc `new Date()` thật, nên nhãn đó đổi theo ngày chạy test.
+    expect(screen.getByText(/27\/07 — 25 phút/)).toBeInTheDocument();
+    // Ngày cuối chỉ còn nhãn — chưa biết đủ thì chưa nói.
+    expect(screen.getByText('26/07')).toBeInTheDocument();
+    expect(screen.queryByText(/26\/07 —/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Ca tệ nhất: phần đã tải của ngày cuối toàn phiên hủy ⇒ tổng một-phần là `0`. In ra thành
+   * "0 phút" thì nó đọc như "hôm ấy bạn không học gì" — đúng thứ tính năng này ra đời để phủ
+   * nhận, và là một câu SAI chứ không chỉ thiếu.
+   */
+  it('🔴 nhóm cuối toàn phiên hủy: không in "0 phút"', () => {
+    renderList(
+      [
+        session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
+        session({
+          id: 'b',
+          status: 'cancelled',
+          durationMinutes: 0,
+          startedAt: new Date(2026, 6, 26, 20, 50).toISOString(),
+        }),
+      ],
+      PLANS,
+      true
+    );
+
+    expect(screen.queryByText(/0 phút/)).not.toBeInTheDocument();
+  });
+
+  it('ĐỐI CHỨNG ÂM: hết hàng thì nhóm cuối in tổng như thường', () => {
+    renderList(
+      [
+        session({ id: 'a', startedAt: new Date(2026, 6, 27, 19, 5).toISOString() }),
+        session({ id: 'b', startedAt: new Date(2026, 6, 26, 20, 50).toISOString() }),
+      ],
+      PLANS,
+      false
+    );
+
+    expect(screen.getByText(/26\/07 — 25 phút/)).toBeInTheDocument();
   });
 });
 
