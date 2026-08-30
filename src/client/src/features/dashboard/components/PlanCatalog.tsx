@@ -133,12 +133,17 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
           )}
         </p>
         {/* Vạch tải ở trên là tín hiệu THỊ GIÁC; trình đọc màn hình không thấy `animate-pulse`.
-            Cùng khuôn `sr-only` + `role="status"` + `aria-live` đã dùng ở `RunningSession`. */}
-        {pending && (
-          <p className="sr-only" role="status" aria-live="polite">
-            Đang tải gợi ý mở đầu
-          </p>
-        )}
+            Cùng khuôn `sr-only` + `role="status"` + `aria-live` ở `RunningSession.tsx` — và khuôn
+            đó gồm cả chi tiết dễ bỏ sót: **vùng luôn có mặt, chỉ CHỮ đổi**.
+
+            ⚠️ `{pending && <p role="status">…</p>}` trông tương đương nhưng không phải: live
+            region xuất hiện CÙNG LÚC với nội dung của nó thì AT không có gì để so sánh và thường
+            không đọc. Phải mount sẵn vùng rỗng rồi mới đổ chữ vào. Test `getByRole('status')` chỉ
+            hỏi "có trong DOM không", nên nó KHÔNG bắt được lỗi này — đó là lý do ca dưới đây khoá
+            *nội dung* của vùng ở cả hai trạng thái chứ không khoá sự tồn tại. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {pending ? 'Đang tải gợi ý mở đầu' : ''}
+        </p>
         <Button asChild size="lg">
           <Link to="/plan/new">Tạo kế hoạch đầu tiên</Link>
         </Button>

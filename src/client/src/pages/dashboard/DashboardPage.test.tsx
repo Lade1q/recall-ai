@@ -521,6 +521,9 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     // vạch của hai khối KIA trùng khít số vạch của khối đang kiểm — một phép đếm toàn trang sẽ
     // xanh cả khi thẻ không vẽ gì.
     expect(pulseCount(card as HTMLElement)).toBe(1);
+    // Khoá NỘI DUNG của live region, không khoá sự tồn tại: vùng `role="status"` được mount sẵn
+    // ở mọi trạng thái (nếu chỉ mount lúc `pending` thì AT thường không đọc — xem comment tại
+    // `PlanCatalog`), nên `getByRole('status')` một mình sẽ xanh cả với bản mount có điều kiện.
     expect(screen.getByRole('status')).toHaveTextContent('Đang tải gợi ý mở đầu');
   });
 
@@ -536,7 +539,9 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     render(<DashboardPage />, LOGGED_IN);
 
     expect(await screen.findByText('Không tải được gợi ý hôm nay.')).toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    // Vùng live region vẫn ở đó (nó phải mount sẵn để lần sau còn đọc được) nhưng KHÔNG nói gì:
+    // không có gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên.
+    expect(screen.getByRole('status')).toHaveTextContent('');
   });
 
   /**
