@@ -57,8 +57,17 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
  * `null` khi `/review-queue/today` chưa tải xong hoặc lỗi: chỉ ẩn đoạn thân bài, không thay bằng
  * chữ bịa ra. Ca lỗi không vì thế mà câm — `DashboardPage` giữ `BlockError` + "Thử lại" ngay
  * phía trên (`todayFailed`), nên chuyện hỏng đã được nói đúng một lần, ở đúng khối của nó.
+ *
+ * Nhưng "chưa tải xong" và "lỗi" là HAI ca, và chỉ ca sau mới có người nói hộ. `pending` tách
+ * chúng ra: lúc `/review-queue/today` còn bay thì chỗ của câu server là một vạch đang tải, không
+ * phải khoảng trống. Không có vế này thì thẻ trông như đã tải xong nhưng rỗng ruột, đúng bằng
+ * khoảng `/review-queue/today` về sau `/plans` — đo được 79→879ms ở mức trễ 800ms (#445 cơ chế ①).
+ *
+ * Vạch tải KHÔNG phá quy tắc "chỉ A2b được client tự đặt chữ" (mockup `claude-design/
+ * screen-dashboard.html`): nó không phải chữ, và chú thích khối A1 của chính mockup chỉ vẽ ca ĐÃ
+ * CÓ `message` — nó cấm thay câu server bằng câu client, không cấm báo "đang tải".
  */
-function CatalogOnboarding({ message }: { message: string | null }) {
+function CatalogOnboarding({ message, pending }: { message: string | null; pending: boolean }) {
   return (
     <div className="border-border bg-card rounded-xl border px-7 py-10">
       <div className="mx-auto max-w-[460px] text-center">
@@ -103,9 +112,31 @@ function CatalogOnboarding({ message }: { message: string | null }) {
 
             Nâng `min-h` lên hai dòng chữa được nhưng chừa khoảng trống thừa ở mọi bề ngang khác,
             nên để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được (#446). */}
-        <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
-          {message}
+        <p
+          className={cn(
+            'text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]',
+            pending && 'flex items-center justify-center'
+          )}
+        >
+          {pending ? (
+            // Vạch tải nằm GỌN trong đúng một dòng `min-h` đã giữ sẵn (`h-3` < `1.7em`), nên nó
+            // không đụng gì tới lập luận ngưỡng ở trên: chỗ trống một dòng nay có nội dung, và
+            // CTA vẫn không giật khi câu server về (#445).
+            <span
+              className="bg-border block h-3 w-[70%] max-w-[290px] animate-pulse rounded"
+              aria-hidden="true"
+            />
+          ) : (
+            message
+          )}
         </p>
+        {/* Vạch tải ở trên là tín hiệu THỊ GIÁC; trình đọc màn hình không thấy `animate-pulse`.
+            Cùng khuôn `sr-only` + `role="status"` + `aria-live` đã dùng ở `RunningSession`. */}
+        {pending && (
+          <p className="sr-only" role="status" aria-live="polite">
+            Đang tải gợi ý mở đầu
+          </p>
+        )}
         <Button asChild size="lg">
           <Link to="/plan/new">Tạo kế hoạch đầu tiên</Link>
         </Button>
@@ -136,14 +167,20 @@ export function PlanCatalog({
   hasAnyPlan,
   currentPlanId,
   noPlanMessage,
+  noPlanMessagePending,
 }: {
   activePlans: PlanSummary[];
   hasAnyPlan: boolean;
   currentPlanId: string | null;
   noPlanMessage: string | null;
+  noPlanMessagePending: boolean;
 }) {
   if (activePlans.length === 0) {
-    return hasAnyPlan ? <CatalogNoActive /> : <CatalogOnboarding message={noPlanMessage} />;
+    return hasAnyPlan ? (
+      <CatalogNoActive />
+    ) : (
+      <CatalogOnboarding message={noPlanMessage} pending={noPlanMessagePending} />
+    );
   }
 
   return (
