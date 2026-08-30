@@ -307,6 +307,7 @@ describe('DashboardPage — mỗi khối tự phục hồi được (#454)', () 
       planId: 'plan-1',
       status: 'pending',
       scheduledFor: '2026-08-30T17:00:00.000Z',
+      changed: true,
     });
 
     render(<DashboardPage />, LOGGED_IN);
@@ -449,6 +450,7 @@ describe('DashboardPage — mỗi khối tự phục hồi được (#454)', () 
       planId: 'plan-1',
       status: 'pending',
       scheduledFor: '2026-08-30T17:00:00.000Z',
+      changed: true,
     });
 
     render(<DashboardPage />, LOGGED_IN);
@@ -597,6 +599,7 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
       planId: 'plan-1',
       status: 'pending',
       scheduledFor: '2026-08-30T17:00:00.000Z',
+      changed: true,
     });
 
     render(<DashboardPage />, LOGGED_IN);
