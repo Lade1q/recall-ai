@@ -15,6 +15,12 @@ ALTER TABLE "interview_turns" ADD COLUMN "mode" "TurnMode";
 --
 -- `interview_turns` has no `@updatedAt` column (only `asked_at DEFAULT now()` and `answered_at`),
 -- so this UPDATE bumps no timestamp and cannot disturb anything that reads recency.
+--
+-- Note what holds the predicate up: it constrains `t.source = 'ai'` but NOT `p.source`. That is
+-- safe only because `InterviewSession.fallbackMode` is a ONE-WAY latch — the code writes `true`
+-- in three places and `false` in none — so within a session an `ai` turn can never follow a
+-- `cache_fallback` one. If fallback ever becomes recoverable, this predicate starts matching
+-- pairs it was never meant to, and nothing here would say so.
 UPDATE "interview_turns" AS t
 SET "mode" = 'hint'
 FROM "interview_turns" AS p

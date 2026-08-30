@@ -117,6 +117,8 @@ interface FakeTurn {
   feedback: string | null;
   verdict: string | null;
   source: string;
+  /** #392 (c) — nấc thang đã sinh ra lượt. `null` = không đứng trên nấc nào (lượt cũ, flashcard). */
+  mode: 'initial' | 'deeper' | 'probe' | 'hint' | null;
   sourceDocumentId: string | null;
   sourcePageFrom: number | null;
   sourcePageTo: number | null;
@@ -157,6 +159,9 @@ function seedPendingTurn(overrides: Partial<FakeTurn> = {}): FakeTurn {
     feedback: null,
     verdict: null,
     source: 'ai',
+    // Mặc định `null`, không phải `'initial'`: hàng gieo sẵn KHÔNG đi qua `askQuestion`, và
+    // `null` cũng là giá trị của mọi hàng có trước migration — ca đông nhất trong DB thật.
+    mode: null,
     // Seeded turns bypass `askQuestion`, so they carry the snapshot it would have written.
     sourceDocumentId: DOCUMENT_ID,
     sourcePageFrom: 7,
@@ -239,6 +244,7 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           sourceDocumentId?: string | null;
           sourcePageFrom?: number | null;
           sourcePageTo?: number | null;
+          mode?: 'initial' | 'deeper' | 'probe' | 'hint' | null;
         };
       }) => {
         const turn: FakeTurn = {
@@ -253,6 +259,9 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           feedback: null,
           verdict: null,
           source: data.source ?? 'ai',
+          // Fake phải MANG THEO `mode` mà service ghi, không tự đặt: nếu nó nuốt trường này thì
+          // mọi test đường ghi đều đo một hàng không giống hàng thật sự được tạo.
+          mode: data.mode ?? null,
           sourceDocumentId: data.sourceDocumentId ?? null,
           sourcePageFrom: data.sourcePageFrom ?? null,
           sourcePageTo: data.sourcePageTo ?? null,
@@ -734,6 +743,40 @@ describe('interview.service — AE-05 flashcard fallback', () => {
 
     expect(result.currentQuestion).toMatchObject({ sourceCitation: EXPECTED_CITATION });
     expect(result.turns).toEqual([expect.objectContaining({ sourceCitation: EXPECTED_CITATION })]);
+  });
+
+  /**
+   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
+   *
+   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
+   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
+   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
+   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
+   *
+   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
+   * chứ không lặng lẽ vá kèm.
+   */
+  it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
+    seedPendingTurn({
+      turnIndex: 1,
+      answerText: 'trả lời sai',
+      score: 0.1,
+      verdict: 'wrong',
+      mode: 'initial',
+      answeredAt: new Date(),
+    });
+    // Lượt 2 để CHƯA trả lời: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi
+    // mới, và ta đang đo transcript chứ không đo đường sinh câu.
+    seedPendingTurn({ turnIndex: 2, mode: 'hint' });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({ turnIndex: 1, mode: 'initial', countsTowardMastery: true }),
+      // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
+      // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
+      expect.objectContaining({ turnIndex: 2, mode: 'hint', countsTowardMastery: false }),
+    ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
   });
 

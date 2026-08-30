@@ -33,6 +33,7 @@ export function excludedTurnsNote(count: number): string {
  * được nhân 0.6 — con số trên màn không cộng ra chính con số bên cạnh nó.
  */
 export function weightSlotByTurnId(turns: readonly InterviewTurnResponse[]): Map<string, number> {
+  // Thứ tự đầu vào là thứ tự slot, nên hàm này TIN người gọi đã sắp theo `turnIndex`.
   const slots = new Map<string, number>();
   let slot = 0;
   for (const turn of turns) {
@@ -53,6 +54,10 @@ export function weightSlotsForConcept(
   conceptId: string | null
 ): Map<string, number> {
   if (conceptId === null) return new Map();
+  // `.sort()` là nhánh PHÒNG THỦ, không phải nhánh đang cứu ai: bỏ nó đi thì suite vẫn xanh, vì
+  // cả hai nguồn nuôi màn này đã sắp sẵn ở server (`interview.service.ts` và
+  // `session-summary.service.ts` đều `orderBy: { turnIndex: 'asc' }`). Nó đứng nhờ một bảo đảm ở
+  // TẦNG KHÁC — nên giữ, và nêu tên bảo đảm đó ra đây thay vì để người sau tưởng nó thừa.
   return weightSlotByTurnId(
     turns.filter((turn) => turn.conceptId === conceptId).sort((a, b) => a.turnIndex - b.turnIndex)
   );
@@ -61,8 +66,11 @@ export function weightSlotsForConcept(
 /**
  * Hàm tra nhãn trọng số cho các lượt của MỘT khái niệm.
  *
- * 🔴 Trả về một closure nhận **chính lượt đó**, không nhận số. Đó là điểm của nó: chữ ký khiến
- * "truyền `turnIndex` thay vì slot" trở thành **lỗi biên dịch** thay vì một con số sai lặng lẽ.
+ * 🔴 Trả về một closure nhận **chính lượt đó**, không nhận số. Chữ ký khiến "truyền `turnIndex`
+ * thay vì slot" thành **lỗi biên dịch — nhưng chỉ ở biên `page → labeller`**. Bên trong tệp này
+ * luật cũ vẫn viết được và vẫn hợp kiểu (đo: đổi thân hàm sang `turn.turnIndex - 1` ⇒ `tsc`
+ * XANH, test đỏ). Kiểu che một biên; phần còn lại do test che. Đừng đọc câu này thành "kiểu che
+ * cả hàm".
  * Bản trước để call site tự tra slot rồi truyền số — và đo được: đột biến truyền `n - 1` ở call
  * site **sống qua cả suite**, vì màn ấy không có test render. Ghim được đơn vị mà không ghim
  * được dây nối thì bug chỉ dời chỗ.

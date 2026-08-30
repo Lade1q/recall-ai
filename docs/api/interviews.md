@@ -473,7 +473,8 @@ Header `Authorization: Bearer <TOKEN>`.
   (`concepts`) vẫn luôn đầy đủ và chính xác trong mọi trường hợp.
 
   `concepts[].masteryScore` là điểm **phiên này** tạo ra cho khái niệm — trung bình có trọng số
-  `[0.2, 0.3, 0.5]` trên các turn đã chấm của chính phiên `:id`, không phải điểm live hiện tại của
+  `[0.2, 0.3, 0.5]` trên các turn đã chấm **và có tính** của chính phiên `:id` (lượt `hint` bị
+  loại — `countsTowardMastery`, #392 (c)), không phải điểm live hiện tại của
   khái niệm (`Concept.mastery_score` có thể đã bị một phiên sau đè lên). `null` nghĩa là phiên này
   không chấm được khái niệm nào — không phải `0`.
 
