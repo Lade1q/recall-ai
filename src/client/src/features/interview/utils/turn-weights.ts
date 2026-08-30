@@ -42,10 +42,17 @@ export function normalizedTurnWeights(turnCount: number): number[] | null {
  *
  * `null` — tức KHÔNG hiện gì — ở ba ca, cả ba đều là "thà im còn hơn gán sai":
  *  - `weightSlot === null`: lượt gợi ý (không có slot), hoặc **người gọi không đưa lượt nào**.
- *    ⚠️ Ca thứ hai KHÔNG phải "chưa biết được slot": `mode` được ghi ngay lúc TẠO câu hỏi, cùng
- *    `create` với `questionText`, nên một lượt chưa chấm vẫn tra được slot — và header của màn
- *    vấn đáp làm đúng thế. Dải lượt câm vì **chính nó lọc `verdict !== null` trước khi tra**, tức
- *    một lựa chọn hiển thị của người gọi, không phải giới hạn nhận thức.
+ *
+ *    ⚠️ Ca thứ hai KHÔNG phải "chưa biết được slot". Sự thật này đã có sẵn trong repo, ở comment
+ *    ngay trên dòng `mode,` trong `create` của `askQuestion` (`interview.service.ts`) — trích
+ *    nguyên văn, đừng diễn đạt lại:
+ *
+ *      > "`mode` was already decided above and handed to `generateQuestion`; this only writes
+ *      >  down what was asked for — the AI call surface is untouched (C4)."
+ *
+ *    `mode` được quyết và GHI ngay lúc tạo câu hỏi ⇒ một lượt chưa chấm vẫn tra được slot, và
+ *    header của màn vấn đáp làm đúng thế. Dải lượt câm vì **chính nó lọc `verdict !== null`
+ *    trước khi tra** — lựa chọn hiển thị của người gọi, không phải giới hạn nhận thức.
  *  - phiên dùng `maxTurnsPerConcept` khác trần mặc định: mảng hằng số này không mô tả nó.
  *  - slot vượt ngoài mảng.
  *
