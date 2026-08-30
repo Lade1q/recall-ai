@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
+import { Check } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -55,6 +56,49 @@ function DropdownMenuItem({
   );
 }
 
+/**
+ * Mục có ô tick, giữ menu MỞ sau mỗi lần bấm (`onSelect` bị chặn mặc định ở đây).
+ *
+ * Thêm vào tệp này thay vì dựng một `checkbox.tsx` riêng: repo không có primitive checkbox nào,
+ * và người dùng duy nhất — bộ lọc kế hoạch của màn Lịch (#405) — cần đúng một ô tick *bên trong
+ * một menu*. Một component checkbox độc lập sẽ là API thứ hai cho cùng một ý niệm, còn
+ * `DropdownMenuPrimitive.CheckboxItem` thì đã mang sẵn `role="menuitemcheckbox"` +
+ * `aria-checked`, thứ một `<button>` tự vẽ phải khai lại bằng tay.
+ *
+ * `onSelect` chặn mặc định vì bộ lọc là thao tác NHIỀU LẦN: bật/tắt bốn kế hoạch mà menu đóng lại
+ * sau mỗi lần bấm là bốn lần mở lại menu. Nơi gọi vẫn ghi đè được bằng `onSelect` của mình.
+ */
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  checked,
+  onSelect,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
+  return (
+    <DropdownMenuPrimitive.CheckboxItem
+      data-slot="dropdown-menu-checkbox-item"
+      checked={checked}
+      onSelect={onSelect ?? ((event) => event.preventDefault())}
+      className={cn(
+        'outline-hidden focus:bg-accent data-disabled:pointer-events-none data-disabled:opacity-50 group relative flex w-full cursor-pointer select-none items-center gap-2.5 rounded-sm px-2.5 py-2 text-[13px]',
+        className
+      )}
+      {...props}
+    >
+      <span
+        aria-hidden="true"
+        className="border-muted-foreground group-data-[state=checked]:bg-primary group-data-[state=checked]:border-primary grid size-[15px] flex-none place-items-center rounded-[4px] border-[1.5px]"
+      >
+        <DropdownMenuPrimitive.ItemIndicator>
+          <Check className="text-primary-foreground size-2.5" strokeWidth={3.5} />
+        </DropdownMenuPrimitive.ItemIndicator>
+      </span>
+      {children}
+    </DropdownMenuPrimitive.CheckboxItem>
+  );
+}
+
 function DropdownMenuSeparator({
   className,
   ...props
@@ -70,6 +114,7 @@ function DropdownMenuSeparator({
 
 export {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,

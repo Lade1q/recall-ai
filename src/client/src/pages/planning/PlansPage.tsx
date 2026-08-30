@@ -49,15 +49,30 @@ const VIEWS = [
   { value: 'plans', label: 'Kế hoạch' },
 ] as const;
 
+type ViewValue = (typeof VIEWS)[number]['value'];
+
+/** Radix trả `string`; thu hẹp bằng chính `VIEWS` để không có nhánh dự phòng nào nuốt giá trị lạ. */
+function isViewValue(value: string): value is ViewValue {
+  return VIEWS.some((view) => view.value === value);
+}
+
 /**
- * Lịch là view mặc định **của epic**, nhưng chưa phải hôm nay: lưới tháng còn rỗng cho tới #404,
- * nên mở thẳng vào Lịch là màn trắng. Đo LIVE bắt được một hồi quy thật từ đó — tài khoản chỉ có
- * kế hoạch `draft` mất luôn bằng chứng duy nhất trên màn rằng họ CÓ kế hoạch (badge
- * `Chưa xác nhận 1` trên dải tab trạng thái), vì cả dải tab lẫn lưới thẻ đều nằm trong view kia.
+ * Lịch là view mặc định — quyết định của epic #400, và tới #405 mới **an toàn** để bật.
  *
- * ⇒ Mặc định là `plans` cho tới khi lưới có nội dung. **Bật lại `schedule` là AC của #404.**
+ * Hai lý do hoãn trước đây đều đã hết, theo thứ tự:
+ * - #401 hoãn vì lưới còn rỗng ⇒ mở thẳng vào Lịch là màn trắng. #404 đổ nội dung vào lưới.
+ * - #404 hoãn vì ca **tài khoản chỉ có kế hoạch `draft`**: `hasNoPlansAtAll` là `false` nên
+ *   `<Tabs>` vẫn render, nhưng `review-schedule.service.ts` lọc `plan.status === 'active'` ⇒ kế
+ *   hoạch `draft` góp 0 mục ⇒ lịch rỗng **theo định nghĩa**, còn badge `Chưa xác nhận 1` thì nằm
+ *   trong `TabsContent value="plans"` nên không nhìn thấy. Bật cờ lúc đó là tái tạo đúng hồi quy
+ *   đã đo ở PR #409: người dùng mất bằng chứng duy nhất trên màn rằng họ CÓ kế hoạch.
+ *
+ * #405 chữa đúng ca đó bằng banner "N kế hoạch chưa xác nhận đồ thị" — nó đếm `plans` (chứ không
+ * đếm mục lịch, vốn bằng 0 ở đây) và `onShowDraftPlans` đưa thẳng sang tab "Chưa xác nhận". Nên
+ * điều kiện để bật cờ không phải "lưới đã có nội dung" mà là "lịch rỗng vẫn nói được vì sao nó
+ * rỗng và cho đi tiếp" — và đó là thứ ghim ở `PlansPage.test.tsx`, không phải ở dòng này.
  */
-const DEFAULT_VIEW: (typeof VIEWS)[number]['value'] = 'plans';
+const DEFAULT_VIEW: ViewValue = 'schedule';
 
 const POLL_INTERVAL_MS = 2500;
 const CLOCK_INTERVAL_MS = 1000;
@@ -66,6 +81,7 @@ export default function PlansPage() {
   const [plans, setPlans] = useState<PlanSummary[] | null>(null);
   const [hasError, setHasError] = useState(false);
   const [activeTab, setActiveTab] = useState<PlanStatus>('active');
+  const [view, setView] = useState<ViewValue>(DEFAULT_VIEW);
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
   const [planPendingDelete, setPlanPendingDelete] = useState<PlanSummary | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -79,6 +95,16 @@ export default function PlansPage() {
       console.error('Failed to load plans', error);
       setHasError(true);
     }
+  }, []);
+
+  /**
+   * Điểm vào của #405: banner trên lịch đưa người dùng sang đúng chỗ xác nhận đồ thị. Đổi HAI
+   * state cùng lúc và cả hai sống ở đây, nên nó phải đi từ trên xuống — đó cũng là lý do `<Tabs>`
+   * bên dưới là controlled chứ không còn `defaultValue`.
+   */
+  const showDraftPlans = useCallback(() => {
+    setView('plans');
+    setActiveTab('draft');
   }, []);
 
   useEffect(() => {
@@ -212,7 +238,12 @@ export default function PlansPage() {
            `--muted` vs. gạch chân): hai control này lọc hai thứ khác nhau, và nếu chúng trông
            giống nhau thì `Lịch / Kế hoạch` sẽ bị đọc thành một bộ lọc trạng thái thứ hai. Dải tab
            trạng thái vẫn là `role="tablist"` viết tay như trước — nó đang chạy đúng, không thay. */
-        <Tabs defaultValue={DEFAULT_VIEW}>
+        <Tabs
+          value={view}
+          onValueChange={(value) => {
+            if (isViewValue(value)) setView(value);
+          }}
+        >
           <TabsList aria-label="Chế độ xem" className="mb-2 rounded-full">
             {VIEWS.map(({ value, label }) => (
               <TabsTrigger
@@ -225,8 +256,13 @@ export default function PlansPage() {
             ))}
           </TabsList>
 
-          <TabsContent value="schedule">
-            <ScheduleView plans={plans ?? []} />
+          {/* `forceMount` + ẩn bằng CSS thay vì để Radix unmount. Đo LIVE ở PR #412: mỗi lần
+              bấm sang view Lịch là một `GET /review-queue/schedule` MỚI (đếm 1 → 2 → 3 qua ba
+              vòng), và vì con bị unmount nên `monthCursor`, ngày đang chọn, panel đang mở đều
+              reset. Giữ mount là cách duy nhất để hai thứ đó cùng sống. Giá phải trả: lịch tải
+              ngay khi mở `/plans`, kể cả khi người dùng không bấm sang — một request thay vì N. */}
+          <TabsContent value="schedule" forceMount className="data-[state=inactive]:hidden">
+            <ScheduleView plans={plans ?? []} onShowDraftPlans={showDraftPlans} />
           </TabsContent>
 
           <TabsContent value="plans">

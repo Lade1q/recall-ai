@@ -84,17 +84,16 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'forbids it. The UI hides the control in exactly those statuses.',
   WRONG_PASSWORD: 'DEBT: user.service.ts — the change-password form has no mapper yet.',
 
-  // --- Calendar screen (#400 epic), not built yet. No mapper file exists for review-queue.api.ts
-  // at all, so there is nothing to branch this into until #404/#405 land.
-  TRACEBACK_REPRESENTATIVE_LOCKED:
-    'scheduling.service.ts — PATCH {scheduledFor} guard rejecting a reschedule on a cluster ' +
-    'still represented by a weak-traceback row (#403). Not reachable yet: the calendar screen ' +
-    'that calls this endpoint (#404/#405) has not shipped, and review-queue.api.ts has no error ' +
-    'mapper of its own to add a case to.',
+  // --- Calendar screen (#400) HAS shipped. TRACEBACK_REPRESENTATIVE_LOCKED left this list in
+  // #437, which added the review-queue mapper and a case for it. This one stays, for a reason
+  // that is about reachability rather than about the mapper not existing yet.
   ITEM_NOT_ON_SCHEDULE:
     'scheduling.service.ts — PATCH {scheduledFor} guard rejecting a reschedule pointed at a row ' +
-    'that is itself skipped/done (#426). Same unreachable surface as ' +
-    'TRACEBACK_REPRESENTATIVE_LOCKED above: no calendar screen yet, no mapper to add a case to.',
+    'that is itself skipped/done (#426). The calendar cannot reach it: getReviewSchedule applies ' +
+    'ON_SCHEDULE_WHERE (review-schedule.service.ts), so a skipped/done row is never surfaced as ' +
+    'an item the user can drag. It fires only for a stale client, a second tab racing the first, ' +
+    'or a direct API call — none of which has a sentence worth writing for a student. A generic ' +
+    'message is the honest answer here; give it a case the day a surface can actually hit it.',
 };
 
 /** `getInterviewErrorMessage` handles every Gemini failure by prefix, not case-by-case. */

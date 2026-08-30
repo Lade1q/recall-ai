@@ -84,3 +84,59 @@ export function formatDayLabel(dateKey: string): string {
   const weekday = WEEKDAY_LABELS[new Date(`${dateKey}T00:00:00Z`).getUTCDay()];
   return `${weekday}, ${dateKey.slice(8)}/${dateKey.slice(5, 7)}`;
 }
+
+/** Một ô của lưới tháng (#404). Ô tràn của tháng trước/sau vẫn có `dateKey` thật. */
+export interface MonthCell {
+  dateKey: string;
+  /** 1–31, tách sẵn để lưới không phải cắt lại chuỗi ở 42 chỗ. */
+  dayOfMonth: number;
+  /** `false` = ô tràn. Chúng vẫn hiện mục của mình nhưng không bấm được. */
+  inMonth: boolean;
+}
+
+/** 6 hàng × 7 cột. Đủ phủ trọn mọi tháng, kể cả tháng 31 ngày bắt đầu Chủ nhật (6 + 31 = 37). */
+const MONTH_GRID_CELL_COUNT = 42;
+
+/**
+ * 42 ô của `cursor`, tuần bắt đầu **thứ Hai**.
+ *
+ * Đây là chỗ DUY NHẤT trong feature dựng `Date` **trong không gian UTC**, và dựng bằng `Date.UTC`
+ * — `dateKey` vốn đã là ngày VN do server cắt, nên mọi phép đổi múi giờ ở đây chỉ có thể làm lệch
+ * một ngày. Đọc lại cũng bằng `getUTC*`/`toISOString()`, nên hàm này độc lập múi giờ. Ra khỏi hàm
+ * là quay lại chuỗi `YYYY-MM-DD`.
+ *
+ * ⚠️ Có một chỗ thứ hai dựng `Date`, ở **không gian địa phương**: `utils/picker-date.ts`, cây cầu
+ * cho `react-day-picker` (thư viện đó chỉ đọc `getFullYear`/`getMonth`/`getDate`). Ở bên đó
+ * `toISOString()` **sai một ngày** với người dùng UTC+7. Hai tệp không mâu thuẫn — chúng làm việc
+ * ở hai không gian; đừng bê cách làm của tệp này sang đó.
+ *
+ * Trả về ô cho TẤT CẢ 42 vị trí thay vì chỉ ngày trong tháng: lưới không được lọc dữ liệu theo
+ * tháng (#400), nó chỉ tra `dateKey` — nên ô tràn phải mang `dateKey` thật thì mục ngày 01 của
+ * tháng sau mới không biến mất ở hàng cuối.
+ */
+export function buildMonthCells(cursor: MonthCursor): MonthCell[] {
+  const zeroBasedMonth = cursor.month - 1;
+  // `getUTCDay()` đếm từ Chủ nhật; +6 %7 xoay về thứ Hai = 0.
+  const leading = (new Date(Date.UTC(cursor.year, zeroBasedMonth, 1)).getUTCDay() + 6) % 7;
+
+  return Array.from({ length: MONTH_GRID_CELL_COUNT }, (_, index) => {
+    // `Date.UTC` tự tràn sang tháng/năm bên cạnh khi đối số ngày âm hoặc quá số ngày của tháng.
+    const date = new Date(Date.UTC(cursor.year, zeroBasedMonth, 1 - leading + index));
+    return {
+      dateKey: date.toISOString().slice(0, 10),
+      dayOfMonth: date.getUTCDate(),
+      inMonth: date.getUTCMonth() === zeroBasedMonth,
+    };
+  });
+}
+
+/**
+ * `{ year: 2026, month: 8 }` → `'Tháng 8 2026'`.
+ *
+ * Có năm ở mọi chỗ dùng, kể cả thẻ "chưa có buổi ôn nào" (mockup bỏ năm ở thẻ đó). Lịch cho phép
+ * đi tới lui không giới hạn, nên "Tháng 9" một mình là câu mơ hồ ngay khi người dùng bấm ‹ quá 12
+ * lần — và ca đó không có gì chặn.
+ */
+export function formatMonthLabel(cursor: MonthCursor): string {
+  return `Tháng ${cursor.month} ${cursor.year}`;
+}

@@ -1,4 +1,7 @@
+import { X } from 'lucide-react';
 import type { ScheduleItem } from '../types/schedule.types';
+import { formatDayLabel } from '../utils/schedule-date';
+import { ScheduleItemRow } from './ScheduleItemRow';
 
 /**
  * Panel đang nói về cái gì. Union có nhãn chứ không phải hai component: hai ca khác nhau đúng ở
@@ -13,29 +16,128 @@ export interface DayPanelProps {
   items: ScheduleItem[];
   /** `id` của mục đang mở rộng tại chỗ, `null` khi không mục nào mở. */
   expandedItemId: string | null;
+  /** `id` các mục đang có PATCH chạy — khoá nút của đúng mục đó. */
+  pendingItemIds: ReadonlySet<string>;
   onToggleItem: (id: string) => void;
   onClose: () => void;
-  onReschedule: (item: ScheduleItem) => void;
+  onReschedule: (item: ScheduleItem, dateKey: string) => void;
   onRemove: (item: ScheduleItem) => void;
 }
 
 /**
- * Panel chi tiết — **khung rỗng của Giai đoạn 0 (#401)**. Nội dung thật là việc của #405.
+ * Số ngày từ `from` tới `to`, cả hai là `dateKey` **đã là ngày VN**.
  *
- * DÙNG CHUNG cho cả panel-theo-ngày lẫn panel-"Còn nợ", phân biệt bằng `scope`.
+ * Dựng `Date` ở UTC từ hai chuỗi rồi trừ: cùng kỹ thuật `formatDayLabel` dùng, và vì cả hai đầu
+ * đều ở UTC nên không có phép đổi múi giờ nào — đổi thêm một lần là lệch một ngày. `Date.UTC` cũng
+ * miễn nhiễm với giờ mùa hè, thứ sẽ làm phép trừ mốc-địa-phương ra 23 hoặc 25 giờ.
+ */
+function daysBetween(from: string, to: string): number {
+  const MS_PER_DAY = 86_400_000;
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / MS_PER_DAY);
+}
+
+/**
+ * Panel chi tiết — DÙNG CHUNG cho cả panel-theo-ngày lẫn panel-"Còn nợ", phân biệt bằng `scope`.
  *
  * Panel tự dựng LẤY câu chữ của mình — tiêu đề, "N khái niệm · ≈ M phút", "quá hạn N ngày", câu
  * cho ngày trống — từ `scope` + `items` + `todayDateKey`. Cố ý KHÔNG nhận `title`/`subtitle` dựng
  * sẵn: #405 sở hữu microcopy, nên microcopy phải nằm trong tệp #405 sở hữu, chứ không phải trong
- * `ScheduleView.tsx` mà #404 cũng đang sửa. (Bản chữ ký đầu tiên nhận chuỗi, và chính ví dụ của
- * nó — `"… · quá hạn 2 ngày"` — là thứ `ScheduleView` không dựng nổi vì không có `dateKey`.)
+ * `ScheduleView.tsx` mà #404 cũng đang sửa.
  *
  * Cũng vì vậy KHÔNG nhận props đếm sẵn: số mục và tổng phút suy từ `items`, một nguồn.
- * `formatDayLabel` (`utils/schedule-date.ts`) là hàm dựng tiêu đề ngày, đã có test biên múi giờ.
  *
  * Không giữ state nào — kể cả `expandedItemId`: nó sống ở `ScheduleView` để mở một mục rồi đổi
  * ngày không để lại một mục mở lơ lửng.
  */
-export function DayPanel(_props: DayPanelProps) {
-  return null;
+export function DayPanel({
+  scope,
+  todayDateKey,
+  items,
+  expandedItemId,
+  pendingItemIds,
+  onToggleItem,
+  onClose,
+  onReschedule,
+  onRemove,
+}: DayPanelProps) {
+  const totalMinutes = items.reduce((sum, item) => sum + item.estimatedMinutes, 0);
+  const countLine = `${items.length} khái niệm · ≈ ${totalMinutes} phút`;
+  const isDebt = scope.kind === 'debt';
+  const overdueDays = isDebt ? 0 : daysBetween(scope.dateKey, todayDateKey);
+
+  const heading = isDebt
+    ? 'Còn nợ'
+    : scope.dateKey === todayDateKey
+      ? 'Hôm nay'
+      : formatDayLabel(scope.dateKey);
+
+  return (
+    <aside
+      aria-label={isDebt ? 'Các khái niệm còn nợ' : `Lịch ôn ${heading}`}
+      className="border-border bg-card flex flex-col overflow-hidden rounded-xl border"
+    >
+      <div className="border-border flex items-start justify-between gap-2 border-b px-4 py-3.5">
+        <div className="min-w-0">
+          <h3 className="font-heading text-[19px] leading-[1.2]">{heading}</h3>
+          <div className="text-muted-foreground mt-0.75 text-[12px]">
+            {isDebt ? (
+              <>
+                <span className="text-mastery-weak font-semibold">{countLine}</span> · quá hạn,
+                không thuộc tháng nào
+              </>
+            ) : (
+              <>
+                {items.length > 0 ? countLine : 'không có gì được xếp'}
+                {overdueDays > 0 && (
+                  <>
+                    {' · '}
+                    <span className="text-mastery-weak font-semibold">
+                      quá hạn {overdueDays} ngày
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng bảng chi tiết"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground -mr-1 shrink-0 rounded-md p-1"
+        >
+          <X aria-hidden="true" className="size-4" />
+        </button>
+      </div>
+
+      {items.length > 0 ? (
+        <ul className="min-h-0 flex-1 overflow-auto py-1.5">
+          {items.map((item) => (
+            <ScheduleItemRow
+              key={item.id}
+              item={item}
+              todayDateKey={todayDateKey}
+              isExpanded={expandedItemId === item.id}
+              isPending={pendingItemIds.has(item.id)}
+              onToggle={onToggleItem}
+              onReschedule={onReschedule}
+              onRemove={onRemove}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-muted-foreground px-4.5 py-6.5 text-center text-[12.5px] leading-[1.6]">
+          {isDebt ? (
+            'Không còn nợ gì.'
+          ) : (
+            <>
+              Ngày này trống.
+              <br />
+              Engine chỉ xếp ngày ôn sau mỗi phiên kiểm tra.
+            </>
+          )}
+        </p>
+      )}
+    </aside>
+  );
 }
