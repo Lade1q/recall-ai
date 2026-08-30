@@ -103,6 +103,10 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
             cao `h-3` < `1.7em` — nên toàn bộ lập luận ngưỡng bên dưới không đổi. Nhưng ai đọc
             dòng đầu mà tưởng chỉ có một ca thì sẽ đo nhầm: đo ngưỡng phải đo ở ca LỖI.
 
+            ⚠️ Và ĐỪNG bỏ `min-h` vì "vạch đã có chiều cao riêng": vạch là `h-3` (12px) còn chỗ
+            giữ là `1.7em` (22,95px). Bỏ đi là tạo một cú giật **11px** chưa từng tồn tại trước
+            #458, ở đúng ca vốn không giật. `min-h` giữ chỗ cho CẢ HAI ca, không riêng ca trống.
+
             Ngưỡng là ngưỡng của CỘT CHỮ chứ không phải của viewport: `<p>` rộng ≥ 415px thì câu
             hiện tại nằm một dòng (22,9px), hẹp hơn thì xuống hai (45,9px) và CTA giật 23px.
             Quy ra viewport thì cộng phần khung bao quanh — `<main>` `p-4` của `MainLayout` (32px),
@@ -133,16 +137,26 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
           )}
         </p>
         {/* Vạch tải ở trên là tín hiệu THỊ GIÁC; trình đọc màn hình không thấy `animate-pulse`.
-            Cùng khuôn `sr-only` + `role="status"` + `aria-live` ở `RunningSession.tsx` — và khuôn
-            đó gồm cả chi tiết dễ bỏ sót: **vùng luôn có mặt, chỉ CHỮ đổi**.
 
-            ⚠️ `{pending && <p role="status">…</p>}` trông tương đương nhưng không phải: live
-            region xuất hiện CÙNG LÚC với nội dung của nó thì AT không có gì để so sánh và thường
-            không đọc. Phải mount sẵn vùng rỗng rồi mới đổ chữ vào. Test `getByRole('status')` chỉ
-            hỏi "có trong DOM không", nên nó KHÔNG bắt được lỗi này — đó là lý do ca dưới đây khoá
-            *nội dung* của vùng ở cả hai trạng thái chứ không khoá sự tồn tại. */}
+            Vùng live gắn **vô điều kiện**, chỉ NỘI DUNG đổi. `{pending && <p role="status">…</p>}`
+            trông tương đương nhưng ngược cơ chế: vùng sinh ra khi đã có sẵn chữ bên trong, và
+            WAI-ARIA đòi vùng có mặt TRƯỚC khi nội dung đổi. Ba vùng live còn lại của `src/client`
+            (`NotesPanel`, `MonthGrid`, `RunningSession`) đều gắn vô điều kiện, và `sonner` cũng
+            chèn vùng rỗng trước rồi mới đổ chữ — dạng có điều kiện sẽ là chỗ duy nhất trong repo
+            làm khác.
+
+            ⚠️ Đo LIVE trên bus AT-SPI KHÔNG phân biệt được hai dạng: Chromium chỉ phát
+            `text-changed`, phần quyết định đọc hay không nằm ở trình đọc màn hình. Nên căn cứ ở
+            đây là nhất quán với repo + đặc tả, không phải một phép đo. Kèm theo: test
+            `getByRole('status')` chỉ hỏi "có trong DOM không" nên KHÔNG bắt được dạng sai — ca
+            dưới đây vì vậy khoá *nội dung* của vùng ở cả hai trạng thái.
+
+            Chuỗi dùng TÊN ĐANG CÓ của khối ("Gợi ý hôm nay", 33 chỗ trong repo), không đặt tên
+            mới. Cố ý KHÔNG trùng khít chuỗi `"Đang tải · Gợi ý hôm nay"` của `TodayNudgeSkeleton`
+            — hai khối khác nhau, và trùng chuỗi làm mọi assertion quét-cả-trang không phân biệt
+            được chúng. */}
         <p className="sr-only" role="status" aria-live="polite">
-          {pending ? 'Đang tải gợi ý mở đầu' : ''}
+          {pending ? 'Đang tải gợi ý hôm nay' : ''}
         </p>
         <Button asChild size="lg">
           <Link to="/plan/new">Tạo kế hoạch đầu tiên</Link>

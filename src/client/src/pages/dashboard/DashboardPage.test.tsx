@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@/utils/test-utils';
+import { act, fireEvent, render, screen, waitFor, within } from '@/utils/test-utils';
 import DashboardPage from './DashboardPage';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
@@ -524,7 +524,13 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     // Khoá NỘI DUNG của live region, không khoá sự tồn tại: vùng `role="status"` được mount sẵn
     // ở mọi trạng thái (nếu chỉ mount lúc `pending` thì AT thường không đọc — xem comment tại
     // `PlanCatalog`), nên `getByRole('status')` một mình sẽ xanh cả với bản mount có điều kiện.
-    expect(screen.getByRole('status')).toHaveTextContent('Đang tải gợi ý mở đầu');
+    //
+    // Hỏi TRONG thẻ, cùng lý do đã hỏi `pulseCount` trong thẻ: một assertion chữ quét cả trang
+    // bị bất kỳ component nào ở bất kỳ đâu render cùng chuỗi lật đổ — và `TodayNudgeSkeleton`
+    // ngay trên đầu màn này có một chuỗi "Đang tải …" của riêng nó.
+    expect(within(card as HTMLElement).getByRole('status')).toHaveTextContent(
+      'Đang tải gợi ý hôm nay'
+    );
   });
 
   /**
@@ -539,9 +545,14 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     render(<DashboardPage />, LOGGED_IN);
 
     expect(await screen.findByText('Không tải được gợi ý hôm nay.')).toBeInTheDocument();
-    // Vùng live region vẫn ở đó (nó phải mount sẵn để lần sau còn đọc được) nhưng KHÔNG nói gì:
-    // không có gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên.
-    expect(screen.getByRole('status')).toHaveTextContent('');
+
+    // Vùng live vẫn ở đó (phải mount sẵn để lần sau còn đọc được) nhưng KHÔNG nói gì: không có
+    // gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên. Khoá NỘI DUNG
+    // chứ không khoá sự vắng mặt — bản cũ dùng `queryByRole(...).not.toBeInTheDocument()`, và
+    // chính assertion đó CẤM khuôn gắn-vô-điều-kiện mà mã bây giờ dùng.
+    const card = screen.getByRole('link', { name: 'Tạo kế hoạch đầu tiên' }).closest('div');
+    expect(within(card as HTMLElement).getByRole('status')).toHaveTextContent('');
+    expect(within(card as HTMLElement).queryByText(/Đang tải/)).not.toBeInTheDocument();
   });
 
   /**

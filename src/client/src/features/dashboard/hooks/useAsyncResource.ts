@@ -51,8 +51,13 @@ export function useAsyncResource<T>(loader: () => Promise<T>): AsyncResource<T> 
     // `error` cố ý KHÔNG bị hạ về `false` ở đây. Hạ sớm làm ca "tải lại sau lỗi" trùng khít ca
     // "tải lần đầu" — cả hai đều `{data: null, loading: true, error: false}` — và người tiêu thụ
     // mất mọi cách phân biệt. Hậu quả đo được ở #445 cơ chế ②: cổng `todayFailed` của
-    // `DashboardPage` tắt ngay lúc bấm, cả `<section>` unmount, nên **nút "Thử lại" vừa bấm biến
-    // mất** và chỉ quay lại khi request hỏng LẦN NỮA.
+    // `DashboardPage` tắt ngay lúc bấm, nên **cả `<section>` gợi ý biến mất** trong lúc lần tải
+    // lại còn bay, và chỉ hiện lại khi request hỏng LẦN NỮA.
+    //
+    // ⚠️ KHÔNG phải "nút Thử lại thôi biến mất" — đo LIVE bác mệnh đề đó: nút mất ở CẢ HAI build
+    // (`todayPending` thắng `todayFailed` trong thứ tự nhánh nên chỗ đó vẽ `TodayNudgeSkeleton`),
+    // và `stats`/`plans` cũng vậy. Thứ đổi là khối gợi ý ở lại màn dưới dạng ĐANG TẢI thay vì
+    // bốc hơi: `pulse` 0 → 6.
     //
     // Effect luôn ghi đè `error` bằng kết quả thật (`false` khi resolve, `true` khi reject), nên
     // giữ giá trị cũ ở đây chỉ kéo dài nó đúng khoảng request đang bay, không tạo trạng thái kẹt.
