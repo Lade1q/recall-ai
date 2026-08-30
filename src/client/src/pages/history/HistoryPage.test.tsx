@@ -1,7 +1,7 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { render, screen, waitFor, within } from '@/utils/test-utils';
+import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import HistoryPage from './HistoryPage';
 import { focusSessionApi } from '@/features/focus/api/focus.api';
 import { historyApi } from '@/features/history/api/history.api';
@@ -268,6 +268,45 @@ describe('HistoryPage — tab chưa mở thì không được nói (#450)', () =
     await waitFor(() =>
       expect(toastError).toHaveBeenCalledWith(
         'Không tải được lịch sử phiên học. Kiểm tra kết nối rồi thử lại.'
+      )
+    );
+  });
+
+  /**
+   * Cùng bất biến, chiều ngược lại. Cửa sổ hẹp hơn vì đây là tab mặc định, nhưng tới được: người
+   * dùng bấm sang tab Phiên học trong lúc `/interviews` còn bay, rồi nó hỏng.
+   *
+   * Ca này tồn tại để hai tab không mang hai luật khác nhau trong cùng một tệp — đó mới là thứ
+   * người sửa sau đọc thành "chắc có lý do" rồi đi vòng qua.
+   */
+  it('🔴 chiều ngược lại: tab Phiên kiểm tra hỏng lúc đang ẩn cũng im lặng', async () => {
+    let rejectInterviews!: (reason: unknown) => void;
+    listInterviews.mockReturnValue(
+      new Promise((_, reject) => {
+        rejectInterviews = reject;
+      })
+    );
+    listFocus.mockResolvedValue([]);
+
+    render(<HistoryPage />);
+
+    // Rời khỏi tab mặc định TRƯỚC khi `/interviews` trả lời — đó là toàn bộ cửa sổ của ca này.
+    await userEvent.click(screen.getByRole('tab', { name: 'Phiên học' }));
+    expect(screen.getByRole('tab', { name: 'Phiên học' })).toHaveAttribute('aria-selected', 'true');
+
+    // Đẩy lỗi trong `act` để `setState` của nhánh `.catch` chảy hết trước khi hỏi màn hình.
+    await act(async () => {
+      rejectInterviews(new Error('mạng hỏng'));
+    });
+
+    expect(screen.getByText('Không tải được danh sách phiên kiểm tra.')).toBeInTheDocument();
+    expect(toastError).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Phiên kiểm tra' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Không tải được danh sách phiên kiểm tra. Kiểm tra kết nối rồi thử lại.'
       )
     );
   });

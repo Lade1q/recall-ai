@@ -73,7 +73,7 @@ export default function HistoryPage() {
             dùng không bấm sang tab Phiên học — MỘT request thay vì N request mỗi lần đổi tab.
             Cùng đánh đổi PlansPage đã chấp nhận cho `GET /review-queue/schedule`. */}
         <TabsContent value="interview" forceMount className="data-[state=inactive]:hidden">
-          <InterviewHistoryTab plans={plans.data ?? []} />
+          <InterviewHistoryTab plans={plans.data ?? []} active={tab === 'interview'} />
         </TabsContent>
 
         <TabsContent value="focus" forceMount className="data-[state=inactive]:hidden">
@@ -84,7 +84,14 @@ export default function HistoryPage() {
   );
 }
 
-function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
+function InterviewHistoryTab({
+  plans,
+  active,
+}: {
+  plans: readonly PlanSummary[];
+  /** Xem `active` ở `FocusHistoryTab` — cùng một lý do, cùng một hình dạng. */
+  active: boolean;
+}) {
   const [planId, setPlanId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useSessionList(planId);
@@ -92,14 +99,19 @@ function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
   // AC #246: lỗi mạng báo bằng toast kèm đường "Thử lại" (nút nằm trong khối lỗi của danh
   // sách). Chỉ báo một lần cho mỗi lần hỏng — `notified` giữ nguyên qua các lần render lại nên
   // toast không bắn lại mỗi khi đổi phiên đang chọn.
+  //
+  // `active` giống hệt tab kia. Cửa sổ hẹp hơn — tab này là tab mặc định nên thường đang hiện
+  // lúc `/interviews` về — nhưng vẫn tới được: bấm sang tab Phiên học trong lúc request còn bay
+  // rồi nó hỏng. Hẹp không phải lý do để chừa, và một bản vá đối xứng chỉ áp một nửa còn tệ hơn:
+  // hai tab cạnh nhau trong cùng một tệp mang hai luật khác nhau mà không gì nói vì sao.
   const notifiedError = useRef(false);
   useEffect(() => {
-    if (list.error && !notifiedError.current) {
+    if (list.error && active && !notifiedError.current) {
       notifiedError.current = true;
       toast.error('Không tải được danh sách phiên kiểm tra. Kiểm tra kết nối rồi thử lại.');
     }
     if (!list.error) notifiedError.current = false;
-  }, [list.error]);
+  }, [active, list.error]);
 
   /**
    * Phiên đang xem được SUY RA, không đồng bộ bằng effect: phiên đã chọn nếu nó còn trong danh
