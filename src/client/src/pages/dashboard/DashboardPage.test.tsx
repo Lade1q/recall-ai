@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@/utils/test-utils';
+import { act, fireEvent, render, screen, waitFor } from '@/utils/test-utils';
 import DashboardPage from './DashboardPage';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { dashboardApi } from '@/features/dashboard/api/dashboard.api';
-import type { ReviewQueueListResponse } from '@/features/review-queue/types/review-queue.types';
+import type {
+  ReviewQueueItem,
+  ReviewQueueListResponse,
+} from '@/features/review-queue/types/review-queue.types';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
 
 /**
@@ -13,7 +16,9 @@ import type { PlanSummary } from '@/features/study-planner/types/concept';
  * thật được trong jsdom. Mock cả ba mới dựng lại được đúng các tổ hợp trạng thái bên dưới.
  */
 vi.mock('@/features/review-queue/api/review-queue.api', () => ({
-  reviewQueueApi: { getToday: vi.fn() },
+  // `snoozeReviewQueueItem` là bước ĐẦU của đường "hoãn": `TodayNudge` gọi nó, rồi mới gọi
+  // `onChanged`. Không mock thì cú bấm chết ở lời gọi mạng và không tới được cái dây đang đo.
+  reviewQueueApi: { getToday: vi.fn(), snoozeReviewQueueItem: vi.fn() },
 }));
 
 // `getPlan` phục vụ mini Concept Graph — chỉ render khi có plan `active`, và nó tự bắt lỗi nên
@@ -58,12 +63,56 @@ function makePlan(overrides: Partial<PlanSummary> = {}): PlanSummary {
   };
 }
 
+function makeItem(overrides: Partial<ReviewQueueItem> = {}): ReviewQueueItem {
+  return {
+    id: 'item-1',
+    conceptId: 'concept-1',
+    name: 'Ngăn xếp',
+    planId: 'plan-1',
+    planName: 'Mạng máy tính',
+    priority: 0.42,
+    reason: 'traceback',
+    reasonText: "Nền tảng của 'Duyệt đồ thị DFS' mà bạn còn yếu",
+    sourceConceptName: 'Duyệt đồ thị DFS',
+    depth: 1,
+    masteryScore: 0.31,
+    status: 'pending',
+    estimatedMinutes: 14,
+    sourceSessionEndedAt: null,
+    ...overrides,
+  };
+}
+
 const EMPTY_STATS = {
   studyStreakDays: 0,
   weeklyStudyMinutes: 0,
   conceptsMastered: 0,
   conceptsTotal: 0,
 };
+
+/** Khác EMPTY_STATS ở cả ba ô ⇒ `statsAllZero` sai ⇒ dải chỉ số HIỆN. `1h 35m` (95 phút) là chuỗi
+ *  chỉ ra đời khi số của `/dashboard/stats` đi hết đường tới `StatStrip`. */
+const LOADED_STATS = {
+  studyStreakDays: 5,
+  weeklyStudyMinutes: 95,
+  conceptsMastered: 3,
+  conceptsTotal: 12,
+};
+const LOADED_STATS_TEXT = '1h 35m';
+
+/** Câu backend cho ca "có kế hoạch nhưng còn draft" — dùng làm mốc "khối gợi ý đã tải xong". */
+const DRAFT_MESSAGE = 'Kế hoạch của bạn còn ở dạng nháp.';
+const NO_ACTIVE_PLAN_TEXT = 'Chưa có kế hoạch nào đang hoạt động.';
+
+/**
+ * Đếm ô giữ chỗ đang nhấp nháy trong CẢ trang. Ba skeleton của Dashboard đều `aria-hidden` và
+ * KHÔNG có chữ (trừ khối gợi ý), nên trong jsdom — vốn không có layout — sự hiện diện trong DOM
+ * là thứ duy nhất quan sát được. Cùng cách `App.test.tsx` đọc `.animate-spin`.
+ *
+ * Chỉ có nghĩa khi hai nguồn còn lại ĐÃ lắng: xem test "chứng dụng cụ" ở cuối describe, nó đo
+ * đúng bố cục này với cả ba nguồn xong và đòi số 0.
+ */
+const pulseCount = (container: HTMLElement) => container.querySelectorAll('.animate-pulse').length;
 
 const LOGGED_IN = {
   authUser: { id: 'user-1', email: 'a@b.c', name: null, createdAt: '2026-01-01T00:00:00Z' },
@@ -222,5 +271,222 @@ describe('DashboardPage — không hồi quy ca đã có kế hoạch', () => {
       expect(screen.getByText('Chưa có kế hoạch nào đang hoạt động.')).toBeInTheDocument();
     });
     expect(screen.queryByRole('link', { name: 'Tạo kế hoạch đầu tiên' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Ba nguồn của Dashboard mỗi cái có HAI dây phải nối: nút "Thử lại" của `BlockError` → `reload`
+ * của đúng nguồn đó, và nhánh skeleton → trạng thái "đang tải" của đúng nguồn đó. #446/#452 mới
+ * ghim được nửa của khối `today`; đo đột biến trên `main` sau #452 cho thấy bốn dây còn lại cắt
+ * đứt vẫn xanh 411/411 (#454).
+ *
+ * Mỗi test dưới đây giữ CẢ HAI vế mà #452 đo được là KHÔNG chồng lấn:
+ *  - `toHaveBeenCalledTimes(2)` — dây có nối tới đúng nguồn không (mock luôn-hỏng vẫn xanh vế này);
+ *  - một assertion hồi phục — UI có đi tiếp sau khi dữ liệu về không (cắt dây cũng đủ làm nó đỏ).
+ * Bỏ vế nào cũng mất một lớp.
+ */
+describe('DashboardPage — mỗi khối tự phục hồi được (#454)', () => {
+  /**
+   * ⭐ Dây SINH ĐÔI của `onRetry`, cách nó 4 dòng, cùng khối, cùng `today.reload` — và lọt qua
+   * cả review PR #452. `onChanged` là đường đọc lại sau khi hoãn / bỏ qua một mục (DB-09 #233):
+   * cắt nó thì PATCH vẫn đi, toast vẫn báo "Sẽ nhắc lại vào ngày mai", nhưng danh sách đứng im —
+   * mục vừa hoãn còn nguyên trên màn, đúng kiểu hỏng mà người dùng đọc thành "bấm không ăn".
+   *
+   * `TodayNudge.test.tsx` đã khoá phía component (bấm → PATCH → gọi `onChanged`). Cái CHƯA ai
+   * khoá là `DashboardPage` có cắm `onChanged` vào `today.reload` hay không — hai chuyện khác
+   * nhau, và đây là chuyện thứ hai.
+   */
+  it('🔴 hoãn một gợi ý: khối gợi ý tự đọc lại hàng đợi, không cần F5', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan()]);
+    vi.mocked(reviewQueueApi.getToday)
+      .mockResolvedValueOnce(makeTodayResponse({ items: [makeItem()], totalEstimatedMinutes: 14 }))
+      .mockResolvedValue(makeTodayResponse({ message: 'Bạn đã hoàn thành kế hoạch hôm nay 🎉' }));
+    vi.mocked(reviewQueueApi.snoozeReviewQueueItem).mockResolvedValue({
+      id: 'item-1',
+      conceptId: 'concept-1',
+      planId: 'plan-1',
+      status: 'pending',
+      scheduledFor: '2026-08-30T17:00:00.000Z',
+    });
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Hoãn đến mai' }));
+
+    // Dây `onChanged` phải chạy tới đúng nguồn của khối này — không phải `/plans`, không phải
+    // `/dashboard/stats`: hoãn chỉ đổi hàng đợi hôm nay.
+    await waitFor(() => expect(reviewQueueApi.getToday).toHaveBeenCalledTimes(2));
+    expect(planApi.listPlans).toHaveBeenCalledTimes(1);
+    expect(dashboardApi.getStats).toHaveBeenCalledTimes(1);
+
+    // Và khối đi tiếp: hàng đợi rỗng sau khi hoãn mục cuối ⇒ chuyển sang trạng thái "xong hôm
+    // nay", mục vừa hoãn biến mất.
+    expect(await screen.findByText('Bạn đã hoàn thành kế hoạch hôm nay 🎉')).toBeInTheDocument();
+    expect(screen.queryByText('Ngăn xếp')).not.toBeInTheDocument();
+  });
+
+  /**
+   * `/plans` và `/review-queue/today` về bình thường ⇒ trên trang chỉ có ĐÚNG MỘT nút "Thử lại",
+   * nên `getByRole` không cần lọc thêm và cũng không thể bấm nhầm nút của khối khác. Kế hoạch để
+   * `draft` để mini Concept Graph không render (nó có skeleton nhấp nháy riêng).
+   */
+  it('🔴 bấm "Thử lại" ở dải chỉ số: gọi lại /dashboard/stats và dải hiện ra tại chỗ', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan({ status: 'draft' })]);
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: DRAFT_MESSAGE })
+    );
+    vi.mocked(dashboardApi.getStats)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValue(LOADED_STATS);
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    expect(await screen.findByText('Không tải được các chỉ số nhanh.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+
+    await waitFor(() => expect(dashboardApi.getStats).toHaveBeenCalledTimes(2));
+
+    expect(await screen.findByText(LOADED_STATS_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText('Không tải được các chỉ số nhanh.')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Ở đây `stats` để nguyên EMPTY_STATS của `beforeEach` ⇒ `statsAllZero` ⇒ dải chỉ số ẩn hẳn,
+   * nên lại chỉ còn ĐÚNG MỘT nút "Thử lại" trên trang.
+   */
+  it('🔴 bấm "Thử lại" ở danh mục kế hoạch: gọi lại /plans và danh mục hiện ra tại chỗ', async () => {
+    vi.mocked(planApi.listPlans)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValue([makePlan()]);
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: DRAFT_MESSAGE })
+    );
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    expect(await screen.findByText('Không tải được danh mục kế hoạch.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+
+    await waitFor(() => expect(planApi.listPlans).toHaveBeenCalledTimes(2));
+
+    // Nhãn của thẻ kế hoạch, không phải chữ "Mạng máy tính" trần: tên kế hoạch còn xuất hiện ở
+    // mini Concept Graph nữa, so chuỗi trần sẽ khớp nhiều nơi.
+    expect(
+      await screen.findByRole('link', { name: 'Mở kế hoạch Mạng máy tính' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Không tải được danh mục kế hoạch.')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Bỏ nhánh `StatStripSkeleton` thì ternary rơi về `stats.data ? … : null` ⇒ `null` ⇒ khối trống
+   * trơn suốt lúc `/dashboard/stats` còn bay. Không có chữ nào để bắt (skeleton là ô xám
+   * `aria-hidden`), nên đo bằng sự hiện diện trong DOM.
+   *
+   * Đợi HAI nguồn kia lắng trước rồi mới đếm: sau đó ô nhấp nháy còn lại chỉ có thể là của khối
+   * chỉ số — kế hoạch `draft` ⇒ không thẻ kế hoạch, không mini graph; khối gợi ý đã có chữ.
+   */
+  it('🔴 /dashboard/stats đang tải: dải chỉ số hiện skeleton chứ không trống trơn', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan({ status: 'draft' })]);
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: DRAFT_MESSAGE })
+    );
+    vi.mocked(dashboardApi.getStats).mockReturnValue(new Promise(() => {}));
+
+    const { container } = render(<DashboardPage />, LOGGED_IN);
+
+    await screen.findByText(DRAFT_MESSAGE);
+    await screen.findByText(NO_ACTIVE_PLAN_TEXT);
+
+    expect(pulseCount(container)).toBeGreaterThan(0);
+    // Đang tải thì chưa được hiện số, cũng chưa được báo lỗi.
+    expect(screen.queryByText('ngày ôn liên tiếp')).not.toBeInTheDocument();
+    expect(screen.queryByText('Không tải được các chỉ số nhanh.')).not.toBeInTheDocument();
+  });
+
+  /** Nửa còn lại của cặp trên, ở khối danh mục kế hoạch. */
+  it('🔴 /plans đang tải: khối danh mục hiện skeleton chứ không trống trơn', async () => {
+    vi.mocked(planApi.listPlans).mockReturnValue(new Promise(() => {}));
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: DRAFT_MESSAGE })
+    );
+    vi.mocked(dashboardApi.getStats).mockResolvedValue(LOADED_STATS);
+
+    const { container } = render(<DashboardPage />, LOGGED_IN);
+
+    await screen.findByText(DRAFT_MESSAGE);
+    await screen.findByText(LOADED_STATS_TEXT);
+
+    expect(pulseCount(container)).toBeGreaterThan(0);
+    // Chưa biết có kế hoạch hay không thì chưa được đoán sang thẻ onboarding, cũng chưa báo lỗi.
+    expect(screen.queryByRole('link', { name: 'Tạo kế hoạch đầu tiên' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Không tải được danh mục kế hoạch.')).not.toBeInTheDocument();
+  });
+
+  /**
+   * 🔴 Vế `&& today.data === null` của `todayFailed`. Issue #454 mục 3 đoán nó không có hành vi
+   * quan sát được — đúng cho CỔNG `<section>` (ở đó chỉ tài khoản 0 kế hoạch mới cần tới nó, và
+   * tài khoản đó chưa từng mount được nút nào để gọi `reload`), nhưng `todayFailed` còn dùng ở
+   * NHÁNH `BlockError` bên trong, nơi tài khoản không bị giới hạn như vậy.
+   *
+   * Đường tới trạng thái đó: tài khoản CÓ kế hoạch → hoãn một mục → `onChanged` đọc lại → lần
+   * đọc lại hỏng. `useAsyncResource` cố ý giữ `data` cũ ("để nội dung đang hiển thị không biến
+   * mất"), nên `error === true` mà `data !== null`. Bỏ vế kia đi thì cả khối gợi ý bị thay bằng
+   * `BlockError` — người dùng mất luôn danh sách đang đọc vì một lần refetch nền hỏng.
+   */
+  it('🔴 reload hỏng sau khi đã có dữ liệu: giữ nội dung cũ, KHÔNG nuốt nó bằng khối lỗi', async () => {
+    let rejectSecondRead!: (reason: unknown) => void;
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan()]);
+    vi.mocked(reviewQueueApi.getToday)
+      .mockResolvedValueOnce(makeTodayResponse({ items: [makeItem()], totalEstimatedMinutes: 14 }))
+      .mockReturnValue(
+        new Promise((_, reject) => {
+          rejectSecondRead = reject;
+        })
+      );
+    vi.mocked(reviewQueueApi.snoozeReviewQueueItem).mockResolvedValue({
+      id: 'item-1',
+      conceptId: 'concept-1',
+      planId: 'plan-1',
+      status: 'pending',
+      scheduledFor: '2026-08-30T17:00:00.000Z',
+    });
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Hoãn đến mai' }));
+    await waitFor(() => expect(reviewQueueApi.getToday).toHaveBeenCalledTimes(2));
+
+    // Đẩy lỗi vào TRONG `act` để `setState` của nhánh `.catch` chảy hết trước khi hỏi màn hình —
+    // "thứ không được có mặt" chỉ hỏi được sau một mốc lắng chắc chắn, không phải sau `waitFor`
+    // của lời gọi (lời gọi xảy ra trước lúc promise từ chối).
+    await act(async () => {
+      rejectSecondRead(new Error('network down'));
+    });
+
+    // Tiêu đề khối, không phải chuỗi trần: tên khái niệm còn xuất hiện lần nữa trong cột hàng đợi.
+    expect(screen.getByRole('heading', { name: 'Ngăn xếp' })).toBeInTheDocument();
+    expect(screen.queryByText('Không tải được gợi ý hôm nay.')).not.toBeInTheDocument();
+  });
+
+  /**
+   * 🧪 Chứng DỤNG CỤ, không phải chứng sản phẩm. Hai test trên đòi `pulseCount > 0`; nếu bố cục
+   * này còn một ô `.animate-pulse` nào khác thì chúng xanh mà chẳng giữ gì. Test này chạy ĐÚNG
+   * bố cục đó với cả ba nguồn đã lắng và đòi số 0 — nên `> 0` ở trên chỉ có thể đến từ chính
+   * nguồn bị treo, và phép đo có đường để SAI.
+   */
+  it('🧪 ba nguồn đã tải xong: không còn ô nhấp nháy nào (chứng dụng cụ đọc được số 0)', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan({ status: 'draft' })]);
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: DRAFT_MESSAGE })
+    );
+    vi.mocked(dashboardApi.getStats).mockResolvedValue(LOADED_STATS);
+
+    const { container } = render(<DashboardPage />, LOGGED_IN);
+
+    await screen.findByText(DRAFT_MESSAGE);
+    await screen.findByText(NO_ACTIVE_PLAN_TEXT);
+    await screen.findByText(LOADED_STATS_TEXT);
+
+    expect(pulseCount(container)).toBe(0);
   });
 });

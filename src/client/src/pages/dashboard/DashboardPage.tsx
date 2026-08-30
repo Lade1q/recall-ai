@@ -42,11 +42,22 @@ export default function DashboardPage() {
   // ba-nguồn-độc-lập ở đầu file bị phá: khối của nguồn `/plans` im lặng nuốt lỗi của nguồn
   // `/review-queue/today`.
   //
-  // Viết TRÙNG KHÍT điều kiện của nhánh `BlockError` bên trong `<section>` ngay dưới — cổng và
-  // nội dung khoá vào nhau, không ai sửa một bên mà quên bên kia. Cố ý KHÔNG dùng
-  // `today.data !== null`: `useAsyncResource` khởi tạo `data: null`, nên điều kiện đó gộp cả ca
-  // ĐANG TẢI vào, làm skeleton gợi ý nhấp nháy rồi tan ở mọi tài khoản trống — đúng thứ mockup
-  // A1 cấm.
+  // Đúng MỘT biểu thức dùng ở CẢ HAI nơi — cổng của `<section>` ngay dưới, và nhánh `BlockError`
+  // bên trong nó. Trước #454 hai chỗ chép tay cùng một điều kiện kèm lời hứa "không ai sửa một
+  // bên mà quên bên kia"; lời hứa đó không có gì cưỡng chế — đột biến bỏ một vế ở MỘT bên sống
+  // qua toàn bộ suite. Nay thay bằng thứ không thể lệch: cùng một hằng.
+  //
+  // Cố ý KHÔNG dùng `today.data !== null`: `useAsyncResource` khởi tạo `data: null`, nên điều
+  // kiện đó gộp cả ca ĐANG TẢI vào, làm skeleton gợi ý nhấp nháy rồi tan ở mọi tài khoản trống —
+  // đúng thứ mockup A1 cấm.
+  //
+  // Vế `&& today.data === null` gánh hành vi THẬT, và chính việc gộp thành một hằng làm nó lộ
+  // ra: ở CỔNG thì nó chỉ đụng tài khoản 0 kế hoạch (nơi chưa nút nào mount được để gọi
+  // `reload`, nên có vẻ vô hại), nhưng ở NHÁNH `BlockError` dưới đây thì không có giới hạn ấy.
+  // Đường tới: tài khoản CÓ kế hoạch hoãn một mục → `onChanged` đọc lại → lần đọc lại hỏng ⇒
+  // `error` bật trong khi `data` cũ vẫn còn (`useAsyncResource` cố ý giữ). Bỏ vế này đi thì cả
+  // khối gợi ý đang đọc dở bị thay bằng `BlockError` chỉ vì một lần refetch nền hỏng. Có test
+  // ghim (#454).
   const todayFailed = today.error && today.data === null;
 
   // A1 (DB-01 [E1]) — tài khoản hoàn toàn trống: mọi chỉ số bằng 0. Ẩn hẳn dải chỉ số thay vì
@@ -68,15 +79,20 @@ export default function DashboardPage() {
           `todayFailed`.
 
           ⚠️ `!isBrandNewAccount` cũng đang là thứ DUY NHẤT chặn nhánh `NO_PLAN_MESSAGE` của
-          `TodayNudge` (`TodayNudge.tsx:255`). Nhánh đó vẫn còn nguyên CTA `/plans`, mà `/plans`
-          với người mới lại là một màn trống nữa (#383 mục 1) — nên bỏ điều kiện này mà không sửa
-          CTA kia sẽ làm lỗi #389 vừa đóng sống lại một cách lặng lẽ. `todayFailed` thì an toàn:
-          ca lỗi không bao giờ đi tới nhánh đó, nó dừng ở `BlockError`. */}
+          `TodayNudge` — nhánh `EmptyNudge` cuối cùng, ca "hàng đợi rỗng nhưng CÓ `message`".
+          Nhánh đó vẫn còn nguyên CTA `/plans`, mà `/plans` với người mới lại là một màn trống
+          nữa (#383 mục 1) — nên bỏ điều kiện này mà không sửa CTA kia sẽ làm lỗi #389 vừa đóng
+          sống lại một cách lặng lẽ. `todayFailed` thì an toàn: ca lỗi không bao giờ đi tới nhánh
+          đó, nó dừng ở `BlockError`.
+
+          (Trỏ TÊN nhánh chứ không phải số dòng. Trích dẫn cũ ở đây là `TodayNudge.tsx:255`, và
+          dòng 255 nay nằm trong thân `TodayNudgeSkeleton` — lệch mà không gì đỏ, đúng lớp lỗi
+          #446 dẹp.) */}
       {(!isBrandNewAccount || todayFailed) && (
         <section className="mb-5">
           {today.loading && today.data === null ? (
             <TodayNudgeSkeleton />
-          ) : today.error && today.data === null ? (
+          ) : todayFailed ? (
             <BlockError message="Không tải được gợi ý hôm nay." onRetry={today.reload} />
           ) : today.data ? (
             // `onChanged` = đọc lại đúng khối này sau khi hoãn / bỏ qua (DB-09 #233). Hai thao tác
