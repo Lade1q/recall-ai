@@ -20,7 +20,7 @@ import { VerdictBadge } from '@/features/interview/components/VerdictBadge';
 import { FallbackBanner } from '@/features/interview/components/FallbackBanner';
 import { SessionSummary } from '@/features/interview/components/SessionSummary';
 import { masteryColor } from '@/features/interview/utils/summary-display';
-import { TURN_WEIGHTS } from '@/features/interview/utils/turn-weights';
+import { TURN_WEIGHTS, turnWeightLabel } from '@/features/interview/utils/turn-weights';
 import { useInterviewSession } from '@/features/interview/hooks/useInterviewSession';
 import { interviewApi } from '@/features/interview/api/interview.api';
 import type {
@@ -356,8 +356,17 @@ export default function InterviewSessionPage() {
   // completedConcepts là số khái niệm đã chốt; +1 là khái niệm đang hỏi (không vượt tổng).
   const conceptPosition = Math.min(progress.completedConcepts + 1, progress.conceptTotal);
   const turnIndex = progress.turnIndex ?? currentQuestion?.turnIndex ?? null;
+  // ⚠️ Lượt gợi ý KHÔNG có trọng số nào (#392 (c)) — gắn một con số cho nó ở đây là nói dối
+  // ngay trên màn sinh viên đang trả lời. Tra `countsTowardMastery` từ transcript đã tải; lượt
+  // chưa có trong transcript thì chưa biết loại, và ca đó rơi vào nhánh `undefined` bên dưới.
+  const currentTurnRow =
+    turnIndex === null
+      ? undefined
+      : turns.find((t) => t.conceptId === currentConcept?.id && t.turnIndex === turnIndex);
   const currentTurnWeight =
-    turnIndex !== null && progress.maxTurnsPerConcept === TURN_WEIGHTS.length
+    turnIndex !== null &&
+    progress.maxTurnsPerConcept === TURN_WEIGHTS.length &&
+    currentTurnRow?.countsTowardMastery !== false
       ? TURN_WEIGHTS[turnIndex - 1]
       : undefined;
   // Panel xác nhận tạm dừng cần nói đúng số lượt ĐÃ CHẤM của khái niệm hiện tại (không phải
@@ -859,18 +868,6 @@ function ConceptQueueRail({
 }
 
 /**
- * Nhãn trọng số của một lượt (`×0.2` trong mockup) — chỉ hiện khi phiên dùng đúng trần mặc
- * định 3 lượt/khái niệm (`TURN_WEIGHTS.length`); một phiên tạo với `maxTurnsPerConcept` khác
- * (tham số tuỳ chọn của `startInterview`) sẽ không khớp mảng hằng số này, nên thà im lặng còn
- * hơn gán sai trọng số.
- */
-function turnWeightLabel(turnIndex: number, maxTurnsPerConcept: number): string | null {
-  if (maxTurnsPerConcept !== TURN_WEIGHTS.length) return null;
-  const weight: number | undefined = TURN_WEIGHTS[turnIndex - 1];
-  return weight !== undefined ? `×${weight}` : null;
-}
-
-/**
  * Ngăn xếp lượt của khái niệm đang hỏi (`.rail__turns`). Trạng thái mỗi lượt tra thẳng
  * từ transcript đã tải (`turns`) — không đếm/suy đoán phía client.
  *
@@ -912,7 +909,11 @@ function TurnStackRail({
           // Chưa được chấm và không phải lượt đang hỏi: có thể sẽ không bao giờ mở nếu
           // khái niệm dừng sớm — hạ độ đậm để đọc như "chưa chắc" chứ không phải "sắp tới".
           const notYetReached = !graded && !isNow;
-          const weightLabel = turnWeightLabel(n, progress.maxTurnsPerConcept);
+          const weightLabel = turnWeightLabel(
+            n,
+            progress.maxTurnsPerConcept,
+            graded?.countsTowardMastery !== false
+          );
           return (
             <div
               key={n}

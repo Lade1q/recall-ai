@@ -200,6 +200,29 @@ describe('QaTranscript — lượt gợi ý (#392)', () => {
   });
 
   /**
+   * 🔴 Câu giải thích dưới công thức phải nói ĐÚNG LÝ DO. "Thiếu lượt" (chưa từng được hỏi) và
+   * "loại lượt gợi ý" (có thật, đã trả lời, đã chấm) cùng làm công thức ngắn đi — nói nhầm lý do
+   * còn tệ hơn không nói, vì nó bảo sinh viên rằng một lượt họ VỪA làm là không tồn tại.
+   */
+  it('🔴 giải thích là "loại lượt gợi ý", KHÔNG phải "thiếu lượt"', () => {
+    render(
+      <QaTranscript
+        turns={[
+          turn('t1', 'c1', 'Ngăn xếp', 1, 0.4),
+          hintTurn('t2', 'c1', 'Ngăn xếp', 2, 0.9),
+          turn('t3', 'c1', 'Ngăn xếp', 3, 0.8),
+        ]}
+        summary={summary([concept])}
+      />
+    );
+
+    expect(screen.getByText(/1 lượt gợi ý không vào công thức/)).toBeInTheDocument();
+    // Ba lượt đều đã được hỏi ⇒ không có lượt nào "thiếu".
+    expect(screen.queryByText(/thiếu lượt/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/chưa được hỏi/)).not.toBeInTheDocument();
+  });
+
+  /**
    * Trục của trọng số là VỊ TRÍ SAU KHI NÉN, không phải `turnIndex`. Lượt 2 là gợi ý ⇒ lượt 3 ăn
    * trọng số thứ HAI (0.3). Đọc theo `turnIndex` sẽ ghi 0.5 cho một lượt đang được nhân 0.6, và
    * phép tính trên màn không cộng ra con số ngay bên cạnh nó.

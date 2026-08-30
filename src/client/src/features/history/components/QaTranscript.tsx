@@ -264,6 +264,11 @@ function MasteryCalculation({
 
   if (masteryScore === null || weights === null || scored.length === 0) return null;
 
+  // Hai lý do RẤT khác nhau cùng làm công thức có ít số hạng hơn 3, và nói nhầm lý do thì tệ
+  // hơn không nói: "thiếu lượt" = lượt chưa từng được hỏi; "loại lượt gợi ý" = lượt CÓ THẬT,
+  // đã trả lời, đã chấm, chỉ không vào công thức (#392 (c)).
+  const excluded = turns.length - countingTurns(turns).length;
+  const missing = TURN_WEIGHTS.length - turns.length;
   const isNormalized = scored.length < TURN_WEIGHTS.length;
 
   return (
@@ -276,7 +281,16 @@ function MasteryCalculation({
       ))}
       &nbsp;=&nbsp;<b className="font-semibold">{masteryScore.toFixed(2)}</b>
       <div className="text-muted-foreground mt-[7px] whitespace-normal font-sans text-[12px]">
-        {isNormalized ? (
+        {excluded > 0 ? (
+          <>
+            {excluded} lượt gợi ý không vào công thức: đó là chính câu hỏi trước được thu hẹp lại,
+            dễ hơn lượt nó theo sau, nên tính vào sẽ đặt câu dễ nhất ở trọng số nặng nhất. Lượt ấy
+            vẫn được chấm và vẫn ở trong bản ghi phía trên.{' '}
+            {missing > 0 && <>Ngoài ra còn {missing} lượt chưa được hỏi. </>}
+            Trọng số chia lại theo tỉ lệ trên {scored.length} lượt còn lại thành{' '}
+            {weights.map((weight) => weight.toFixed(1)).join(' và ')}.
+          </>
+        ) : isNormalized ? (
           <>
             Trọng số gốc của {scored.length} lượt đầu là{' '}
             {TURN_WEIGHTS.slice(0, scored.length)

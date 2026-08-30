@@ -28,3 +28,26 @@ export function normalizedTurnWeights(turnCount: number): number[] | null {
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   return weights.map((weight) => weight / total);
 }
+
+/**
+ * Nhãn trọng số của một lượt trên dải lượt của màn vấn đáp (`×0.2` trong mockup).
+ *
+ * `null` — tức KHÔNG hiện gì — ở ba ca, và cả ba đều là "thà im còn hơn gán sai":
+ *  - `counts === false`: lượt gợi ý không có trọng số nào (#392 (c)). Gắn một con số cho nó là
+ *    nói dối ngay trên màn sinh viên đang trả lời.
+ *  - phiên dùng `maxTurnsPerConcept` khác trần mặc định: mảng hằng số này không mô tả nó.
+ *  - `turnIndex` vượt ngoài mảng.
+ *
+ * Ở đây thay vì trong `InterviewSessionPage` vì nó là hàm thuần của `TURN_WEIGHTS` — và vì một
+ * hàm chỉ sống trong tệp trang thì không ai ghim được nó mà không dựng cả trang.
+ */
+export function turnWeightLabel(
+  turnIndex: number,
+  maxTurnsPerConcept: number,
+  counts: boolean
+): string | null {
+  if (!counts) return null;
+  if (maxTurnsPerConcept !== TURN_WEIGHTS.length) return null;
+  const weight: number | undefined = TURN_WEIGHTS[turnIndex - 1];
+  return weight !== undefined ? `×${weight}` : null;
+}
