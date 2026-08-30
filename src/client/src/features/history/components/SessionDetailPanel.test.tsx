@@ -174,8 +174,14 @@ describe('SessionDetailPanel — phiên nào thì đọc API nào', () => {
     render(<SessionDetailPanel session={listItem('completed')} onSessionChanged={() => {}} />);
 
     expect(await screen.findByText('Không tải được chi tiết phiên này.')).toBeInTheDocument();
-    expect(toast.error).toHaveBeenCalledWith(
-      'Không tải được chi tiết phiên. Kiểm tra kết nối rồi thử lại.'
+    // `waitFor`, không assert thẳng: `findByText` được MutationObserver đánh thức tại COMMIT,
+    // còn `toast.error` nằm trong một `useEffect` nên chỉ chạy ở nhịp passive-effect SAU đó.
+    // Assert đồng bộ ngay sau `findBy*` là đọc trạng thái trước khi effect kịp chạy — thường
+    // thắng, thỉnh thoảng thua, và lúc thua thì trông y như sản phẩm hỏng (#468).
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Không tải được chi tiết phiên. Kiểm tra kết nối rồi thử lại.'
+      )
     );
 
     mockedApi.getInterview.mockResolvedValueOnce(transcript('completed'));
