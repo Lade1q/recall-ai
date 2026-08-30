@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { SCHEDULE_SAMPLE } from '../__fixtures__/schedule-sample';
 import type { ScheduleItem } from '../types/schedule.types';
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import {
+  buildDeadlineMarks,
   buildMonthCells,
   formatDayLabel,
   formatMonthLabel,
@@ -213,5 +215,97 @@ describe('buildMonthCells', () => {
       '2026-09-05',
       '2026-09-06',
     ]);
+  });
+});
+
+describe('buildDeadlineMarks', () => {
+  const TODAY = '2026-08-30';
+
+  function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
+    return {
+      id: 'plan-1',
+      name: 'Kiến trúc phần mềm',
+      deadline: null,
+      status: 'active',
+      conceptCount: 4,
+      masteryDistribution: { strong: 1, learning: 1, weak: 1, untested: 1 },
+      analysisStatus: 'done',
+      analysisStartedAt: null,
+      analysisErrorMessage: null,
+      document: null,
+      createdAt: '2026-08-01T00:00:00.000Z',
+      reviewQueueConceptCount: 0,
+      ...overrides,
+    };
+  }
+  const build = (plans: PlanSummary[], hidden: string[] = []) =>
+    buildDeadlineMarks(plans, new Set(hidden), TODAY);
+
+  /**
+   * 🔴 Ca đắt nhất của cả hàm. API lưu deadline là `23:59:59.999Z` của đúng ngày người học chọn,
+   * nên ngày-UTC của mốc CHÍNH LÀ ngày đã chọn. Cắt sang giờ VN — như lưới làm với `scheduledFor`
+   * — đẩy nó sang hôm sau. Và nó chỉ lệch trên hình dạng MỚI: hàng cũ lưu `T00:00:00.000Z` vẫn
+   * đúng ⇒ hỏng một nửa, loại khó chẩn đoán nhất.
+   */
+  it('keeps the day the student picked, for both shapes the DB holds', () => {
+    const marks = build([
+      plan({ id: 'mới', deadline: '2026-09-10T23:59:59.999Z' }),
+      plan({ id: 'cũ', deadline: '2026-09-11T00:00:00.000Z' }),
+    ]);
+    expect([...marks.keys()].sort()).toEqual(['2026-09-10', '2026-09-11']);
+    // Đối chứng: nếu ai đó đổi sang VN (UTC+7) thì hàng "mới" thành 11/09 và hai kế hoạch dồn
+    // vào một ngày — phép đo này phân biệt được đúng chỗ đó.
+    expect(marks.get('2026-09-10')?.plans.map((p) => p.id)).toEqual(['mới']);
+    expect(marks.get('2026-09-11')?.plans.map((p) => p.id)).toEqual(['cũ']);
+  });
+
+  it('counts every plan that shares a deadline day', () => {
+    const marks = build([
+      plan({ id: 'a', deadline: '2026-09-10T23:59:59.999Z' }),
+      plan({ id: 'b', name: 'Cơ sở dữ liệu', deadline: '2026-09-10T23:59:59.999Z' }),
+    ]);
+    // Giữ nguyên OBJECT kế hoạch, không chỉ đếm: panel nêu tên từ chính đây, nên nếu hàm này chỉ
+    // trả số thì panel buộc phải lọc lại `plans` và bộ vị từ có bản sao thứ hai.
+    expect(marks.get('2026-09-10')?.isPast).toBe(false);
+    expect(marks.get('2026-09-10')?.plans.map((p) => p.name)).toEqual([
+      'Kiến trúc phần mềm',
+      'Cơ sở dữ liệu',
+    ]);
+  });
+
+  it('tells a passed deadline from an upcoming one, and today is not past', () => {
+    const marks = build([
+      plan({ id: 'a', deadline: '2026-08-29T23:59:59.999Z' }),
+      plan({ id: 'b', deadline: `${TODAY}T23:59:59.999Z` }),
+      plan({ id: 'c', deadline: '2026-08-31T23:59:59.999Z' }),
+    ]);
+    expect(marks.get('2026-08-29')?.isPast).toBe(true);
+    expect(marks.get(TODAY)?.isPast).toBe(false);
+    expect(marks.get('2026-08-31')?.isPast).toBe(false);
+  });
+
+  it('ignores plans the calendar does not draw — the grid must not outrun the filter', () => {
+    const marks = build(
+      [
+        plan({ id: 'draft', status: 'draft', deadline: '2026-09-10T23:59:59.999Z' }),
+        plan({ id: 'archived', status: 'archived', deadline: '2026-09-11T23:59:59.999Z' }),
+        plan({ id: 'ẩn', deadline: '2026-09-12T23:59:59.999Z' }),
+      ],
+      ['ẩn']
+    );
+    expect(marks.size).toBe(0);
+  });
+
+  it('treats a plan without a deadline as ordinary, not as an edge case', () => {
+    expect(build([plan({ deadline: null })]).size).toBe(0);
+  });
+
+  /**
+   * Hàm không chạm `Date` một lần nào — thuần phép so chuỗi. Mạnh hơn một test ghim `TZ`: không có
+   * đường nào cho múi giờ máy chạy vào kết quả, nên không cần chạy lại dưới hai zone.
+   */
+  it('reads the same under any machine timezone, because it never builds a Date', () => {
+    const source = buildDeadlineMarks.toString();
+    expect(source).not.toMatch(/new Date|Date\.|toISOString|getTimezoneOffset/);
   });
 });

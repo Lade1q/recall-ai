@@ -1,3 +1,4 @@
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
 
 /**
@@ -139,4 +140,64 @@ export function buildMonthCells(cursor: MonthCursor): MonthCell[] {
  */
 export function formatMonthLabel(cursor: MonthCursor): string {
   return `Tháng ${cursor.month} ${cursor.year}`;
+}
+
+/** Ngày này là hạn chót của những kế hoạch nào, và hạn đó đã trôi qua chưa (#439). */
+export interface DeadlineMark {
+  /**
+   * Các kế hoạch có hạn chót rơi đúng ngày này, ≥1 phần tử.
+   *
+   * Mang cả OBJECT chứ không mang số đếm, dù lưới chỉ cần đếm: panel phải nêu TÊN, và nếu nó tự
+   * lọc lại `plans` để lấy tên thì bộ vị từ (`active` + `hiddenPlanIds` + khoá ngày) có **hai bản
+   * sao**, mà một bản sao lệch đi thì ô có vạt còn panel im lặng. Đo được: bỏ một bộ lọc ở bản
+   * chép thứ hai, 398/398 vẫn xanh.
+   */
+  plans: PlanSummary[];
+  /**
+   * `dateKey < todayDateKey`. Suy đúng **một chỗ** — panel đọc lại cờ này chứ không so `scope.dateKey`
+   * với `todayDateKey` lần nữa; hai phép so cùng nghĩa là hai chỗ để lệch.
+   */
+  isPast: boolean;
+}
+
+/**
+ * Ngày hạn chót của các kế hoạch ĐANG HIỆN trên lịch, tra được theo `dateKey`.
+ *
+ * 🔑 **Khoá ngày là `plan.deadline.slice(0, 10)` — KHÔNG đổi sang giờ VN.** Đây là chỗ duy nhất
+ * trên màn Lịch đi ngược quy ước "ngày VN do server cắt", nên lý do phải nằm ngay đây: server ghi
+ * deadline bằng cách lấy phần NGÀY người dùng gõ rồi ghim vào `T23:59:59.999Z`
+ * (`plan.service.ts`). Nên ngày-UTC của mốc đó **chính là** ngày người dùng đã chọn, và `slice`
+ * là **phép chiếu ngược của phép ghi đó** — không phải một phép đổi múi giờ.
+ * Cắt sang VN thì `2026-08-30T23:59:59.999Z` thành `2026-08-31`: lệch một ngày, và chỉ lệch trên
+ * hình dạng MỚI (hàng cũ lưu `T00:00:00.000Z` vẫn đúng) ⇒ hỏng một nửa, loại khó chẩn đoán nhất.
+ *
+ * Lọc `status === 'active'` vì `GET /plans` trả MỌI trạng thái còn lịch chỉ vẽ plan `active`; lọc
+ * `hiddenPlanIds` vì tắt một kế hoạch ở bộ lọc mà lưới vẫn còn dấu thì bấm vào panel rỗng.
+ * Dùng `PlanSummary` (`deadline: string | null`), KHÔNG phải `PlanDetails` (`deadline?: string`) —
+ * nhầm thì `undefined` và `null` đi hai nhánh khác nhau mà TypeScript không kêu.
+ */
+export function buildDeadlineMarks(
+  plans: readonly PlanSummary[],
+  hiddenPlanIds: ReadonlySet<string>,
+  todayDateKey: string
+): Map<string, DeadlineMark> {
+  const marks = new Map<string, DeadlineMark>();
+  for (const plan of plans) {
+    // `!= null` chứ không `!== null`: nếu ai truyền vào một object hình dạng `PlanDetails`
+    // (`deadline?: string`) thì `undefined !== null` lọt qua và `.slice` ném — đúng cái bẫy hai
+    // kiểu mà docstring dưới đây cảnh báo. Kiểu đã chặn, đây là lưới cho lúc kiểu không được tôn trọng.
+    if (plan.status !== 'active' || plan.deadline == null) continue;
+    if (hiddenPlanIds.has(plan.id)) continue;
+
+    const dateKey = plan.deadline.slice(0, 10);
+    const existing = marks.get(dateKey);
+    if (existing === undefined) {
+      marks.set(dateKey, { plans: [plan], isPast: dateKey < todayDateKey });
+    } else {
+      // Không tính lại `isPast`: cùng một `dateKey` thì cùng một phía của hôm nay, nên ca "một hạn
+      // đã qua và một hạn sắp tới trong cùng ô" là bất khả.
+      existing.plans.push(plan);
+    }
+  }
+  return marks;
 }

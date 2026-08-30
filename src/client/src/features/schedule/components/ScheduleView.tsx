@@ -12,7 +12,7 @@ import { useSchedule, type UseScheduleReturn } from '../hooks/useSchedule';
 import { useScheduleViewState } from '../hooks/useScheduleViewState';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
-import { groupByDateKey } from '../utils/schedule-date';
+import { buildDeadlineMarks, groupByDateKey } from '../utils/schedule-date';
 
 export interface ScheduleViewProps {
   /**
@@ -109,6 +109,14 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
     [visibleItems, todayDateKey]
   );
 
+  // Hạn chót đi từ `plans` chứ KHÔNG từ payload lịch: #400 cấm nhân đôi metadata kế hoạch vào
+  // `/schedule`, và `ScheduleView` đã có mảng plans trong tay. Lọc `active` + `hiddenPlanIds` nằm
+  // trong `buildDeadlineMarks` để lưới và panel không thể nói hai tập khác nhau.
+  const deadlines = useMemo(
+    () => buildDeadlineMarks(plans, state.hiddenPlanIds, todayDateKey),
+    [plans, state.hiddenPlanIds, todayDateKey]
+  );
+
   const draftCount = plans.filter((plan) => plan.status === 'draft').length;
   const hasActivePlan = plans.some((plan) => plan.status === 'active');
   const debtItems = days.filter((day) => day.isOverdue).flatMap((day) => day.items);
@@ -173,6 +181,7 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 monthCursor={state.monthCursor}
                 todayDateKey={todayDateKey}
                 selectedDateKey={state.selectedDateKey}
+                deadlines={deadlines}
                 days={days}
                 onSelectDay={state.selectDay}
                 onShiftMonth={state.shiftMonth}
@@ -204,6 +213,13 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 scope={panel.scope}
                 todayDateKey={todayDateKey}
                 items={panel.items}
+                // Panel đọc CHÍNH cái map lưới đang dùng — cả danh sách kế hoạch lẫn cờ "đã qua".
+                // Lọc lại ở đây là đẻ ra bản sao thứ hai của bộ vị từ, và bản sao lệch đi thì ô có
+                // vạt mà panel im lặng. `debtOpen` và `selectedDateKey` loại trừ nhau, nên khoá
+                // theo `selectedDateKey` đủ để panel "Còn nợ" không nhận hạn chót nào.
+                deadline={
+                  state.selectedDateKey === null ? undefined : deadlines.get(state.selectedDateKey)
+                }
                 expandedItemId={state.expandedItemId}
                 pendingItemIds={schedule.pendingItemIds}
                 onToggleItem={state.toggleItem}
