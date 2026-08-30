@@ -456,6 +456,39 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
+   * #392 direction (c). The test above proves the right mode is SENT to Gemini; this one proves
+   * it is WRITTEN DOWN, and they are different failures.
+   *
+   * Everything (c) does downstream reads `InterviewTurn.mode`: `countsTowardMastery` keeps hint
+   * turns out of the weighted average on the write path and on all three read paths. If
+   * `askQuestion` never persists it, every row is `null`, `null` counts, nothing is ever
+   * excluded — and the whole direction is a SILENT no-op that no scoring test can see, because
+   * every scoring test would still be handed the same numbers it always was.
+   */
+  it('🔴 writes mode: "hint" onto the turn it creates, not just onto the Gemini call (#392 (c))', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    expect(mockedPrisma.interviewTurn.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ turnIndex: 2, mode: 'hint' }),
+      })
+    );
+  });
+
+  /**
    * #392 review item ②: `decideNextStep`'s `maxTurns` comes from `session.maxTurnsPerConcept`
    * at the call site in `advanceToNextQuestion` — nothing pinned that either, and a mutant
    * hard-coding the call site's `maxTurns` to `3` also survived the full suite (it happened to
@@ -631,6 +664,15 @@ describe('interview.service — AE-05 flashcard fallback', () => {
           turnIndex: 1,
           questionText: 'Cached question 1',
           source: 'cache_fallback',
+          // #392 (c): a flashcard question stands on no rung of the ladder — it never went
+          // through `decideNextStep`, and `resolveFallbackStep` deliberately offers no hint
+          // step. `null` (which `countsTowardMastery` reads as "counts") is the honest value;
+          // writing `initial` here would be a guess wearing the costume of data.
+          //
+          // `objectContaining` requires the KEY to be present with value `null`, so this also
+          // fails if the field is dropped altogether — "absent" and "explicitly null" reach the
+          // same column but only one of them says the decision was made.
+          mode: null,
         }),
       })
     );

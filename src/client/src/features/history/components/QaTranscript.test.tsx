@@ -28,6 +28,23 @@ function turn(
     askedAt: `2026-08-30T10:0${turnIndex}:00.000Z`,
     answeredAt: score === null ? null : `2026-08-30T10:0${turnIndex + 1}:00.000Z`,
     sourceCitation: null,
+    mode: null,
+    countsTowardMastery: true,
+  };
+}
+
+/** Lượt gợi ý: được chấm, vẫn hiện, nhưng không vào công thức (#392 (c)). */
+function hintTurn(
+  id: string,
+  conceptId: string,
+  conceptName: string,
+  turnIndex: number,
+  score: number
+): InterviewTurnResponse {
+  return {
+    ...turn(id, conceptId, conceptName, turnIndex, score),
+    mode: 'hint',
+    countsTowardMastery: false,
   };
 }
 
@@ -143,5 +160,65 @@ describe('QaTranscript', () => {
     expect(details[1]).toHaveAttribute('open');
     expect(details[1]).toHaveTextContent('Khái niệm B');
     expect(details[1]).toHaveTextContent('—');
+  });
+});
+
+/**
+ * #392 hướng (c) ở màn Lịch sử. Hai mệnh đề, và chúng hỏng theo hai kiểu khác nhau:
+ *
+ * 1. Lượt gợi ý **vẫn hiện đủ** — câu hỏi, câu trả lời, điểm, nhận xét. Một bản vá "cho đúng
+ *    điểm" bằng cách giấu lượt đi cũng ra đúng con số, mà lại phá chính thứ màn này tồn tại vì
+ *    nó: cho sinh viên kiểm chứng điểm được tính ra sao.
+ * 2. Nhưng nó **không có trọng số**, và chỗ trống đó phải được NÓI ra — bỏ trống thì người đọc
+ *    kết luận app tính thiếu.
+ */
+describe('QaTranscript — lượt gợi ý (#392)', () => {
+  const concept = { conceptId: 'c1', name: 'Ngăn xếp', masteryScore: 0.4, turns: [] };
+
+  it('🔴 vẫn hiện lượt gợi ý, nhưng thay trọng số bằng lời giải thích', () => {
+    const { container } = render(
+      <QaTranscript
+        turns={[turn('t1', 'c1', 'Ngăn xếp', 1, 0.4), hintTurn('t2', 'c1', 'Ngăn xếp', 2, 0.9)]}
+        summary={summary([concept])}
+      />
+    );
+
+    // (1) còn nguyên trong bản ghi
+    expect(screen.getByText('Câu hỏi t2')).toBeInTheDocument();
+    expect(screen.getByText('Nhận xét t2')).toBeInTheDocument();
+    // (2) và nói rõ vì sao nó không có trọng số
+    expect(screen.getByText('· lượt gợi ý, không tính điểm')).toBeInTheDocument();
+    // Lượt thường vẫn giữ trọng số gốc của nó.
+    expect(screen.getByText('· trọng số gốc 0.2')).toBeInTheDocument();
+
+    // (3) Và khối CÔNG THỨC chỉ có số hạng của lượt được tính. Không có vế này thì việc lọc ở
+    // `MasteryCalculation` không bị gì giữ: công thức sẽ in `0.40 × 0.4 + 0.90 × 0.6 = 0.40`,
+    // tức một phép tính không ra chính con số nó vừa viết bên phải dấu bằng.
+    const formula = container.querySelector('.whitespace-nowrap');
+    expect(formula?.textContent).toContain('0.40 × 1.0');
+    expect(formula?.textContent).not.toContain('0.90');
+  });
+
+  /**
+   * Trục của trọng số là VỊ TRÍ SAU KHI NÉN, không phải `turnIndex`. Lượt 2 là gợi ý ⇒ lượt 3 ăn
+   * trọng số thứ HAI (0.3). Đọc theo `turnIndex` sẽ ghi 0.5 cho một lượt đang được nhân 0.6, và
+   * phép tính trên màn không cộng ra con số ngay bên cạnh nó.
+   */
+  it('🔴 trọng số bám vị trí trong CÔNG THỨC, không bám turnIndex', () => {
+    render(
+      <QaTranscript
+        turns={[
+          turn('t1', 'c1', 'Ngăn xếp', 1, 0.4),
+          hintTurn('t2', 'c1', 'Ngăn xếp', 2, 0.9),
+          turn('t3', 'c1', 'Ngăn xếp', 3, 0.8),
+        ]}
+        summary={summary([concept])}
+      />
+    );
+
+    expect(screen.getByText('· trọng số gốc 0.2')).toBeInTheDocument();
+    expect(screen.getByText('· trọng số gốc 0.3')).toBeInTheDocument();
+    // 0.5 là trọng số của lượt thứ BA trong công thức — ở đây công thức chỉ có hai lượt.
+    expect(screen.queryByText('· trọng số gốc 0.5')).not.toBeInTheDocument();
   });
 });

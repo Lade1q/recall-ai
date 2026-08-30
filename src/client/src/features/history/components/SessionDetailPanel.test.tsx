@@ -82,6 +82,8 @@ function transcript(status: InterviewSessionStatus): GetInterviewResponse {
         askedAt: new Date(2026, 7, 13, 21, 41).toISOString(),
         answeredAt: new Date(2026, 7, 13, 21, 43).toISOString(),
         sourceCitation: null,
+        mode: null,
+        countsTowardMastery: true,
       },
     ],
     fallback: null,
@@ -99,7 +101,9 @@ function abandonedSummary(): SessionSummaryResponse {
         conceptId: 'concept-1',
         name: 'Duyệt đồ thị DFS',
         masteryScore: 0.42,
-        turns: [{ turnIndex: 1, score: 0.42, verdict: 'shallow' }],
+        turns: [
+          { turnIndex: 1, score: 0.42, verdict: 'shallow', mode: null, countsTowardMastery: true },
+        ],
       },
     ],
     summary: {
@@ -291,9 +295,15 @@ describe('SessionDetailPanel — "chấm trên N/3 lượt" chỉ đếm lượt
           name: 'Duyệt đồ thị DFS',
           masteryScore: 0.42,
           turns: [
-            { turnIndex: 1, score: 0.42, verdict: 'shallow' },
+            {
+              turnIndex: 1,
+              score: 0.42,
+              verdict: 'shallow',
+              mode: null,
+              countsTowardMastery: true,
+            },
             // Câu đã hỏi, chưa trả lời — server vẫn trả lượt này.
-            { turnIndex: 2, score: null, verdict: null },
+            { turnIndex: 2, score: null, verdict: null, mode: null, countsTowardMastery: true },
           ],
         },
       ],

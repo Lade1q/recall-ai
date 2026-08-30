@@ -1,0 +1,49 @@
+/**
+ * Lượt gợi ý (#392 hướng (c)): được chấm, vẫn hiện trong bản ghi, nhưng KHÔNG vào trung bình có
+ * trọng số. Nó là chính câu hỏi cũ được thu hẹp lại nên dễ hơn lượt nó theo sau; tính vào công
+ * thức sẽ đặt câu dễ nhất của chuỗi ở trọng số nặng nhất.
+ *
+ * ⛔ Client KHÔNG tự suy "lượt này có tính không" từ `mode`. Server trả sẵn `countsTowardMastery`
+ * và đó là bản DUY NHẤT của luật chấm; suy lại ở đây là dựng bản thứ hai bằng một ngôn ngữ khác,
+ * và hai bản sẽ trôi khỏi nhau. `mode` chỉ dùng để NÓI ("đây là lượt gợi ý"), không để TÍNH.
+ */
+import type { InterviewTurnResponse, SessionSummaryTurnResponse } from '../types/interview.types';
+
+/**
+ * ⚠️ CHỜ CHỐT — chữ của client, mockup `claude-design/` không có ô nào cho lượt gợi ý (nó có
+ * trước #392). Gom vào một chỗ để đổi bằng một dòng khi có quyết định.
+ *
+ * Câu này thay vào đúng chỗ `· trọng số gốc 0.x` từng đứng, vì đó chính là chỗ người đọc hỏi
+ * "sao lượt này không có trọng số?".
+ */
+export const HINT_TURN_NOTE = 'lượt gợi ý, không tính điểm';
+
+/** Dòng tóm tắt ở khối công thức: bao nhiêu lượt đã hỏi nhưng không vào phép tính. */
+export function excludedTurnsNote(count: number): string {
+  return `${count} lượt gợi ý không tính`;
+}
+
+/**
+ * Vị trí của mỗi lượt TRONG công thức, theo `id`. Lượt không tính ⇒ vắng mặt khỏi map.
+ *
+ * Trục là **vị trí sau khi nén**, không phải `turnIndex`: bỏ lượt 2 ra khỏi công thức thì lượt 3
+ * ăn trọng số thứ HAI. Đọc `TURN_WEIGHTS[turnIndex - 1]` sẽ gán trọng số 0.5 cho một lượt đang
+ * được nhân 0.6 — con số trên màn không cộng ra chính con số bên cạnh nó.
+ */
+export function weightSlotByTurnId(turns: readonly InterviewTurnResponse[]): Map<string, number> {
+  const slots = new Map<string, number>();
+  let slot = 0;
+  for (const turn of turns) {
+    if (turn.countsTowardMastery) slots.set(turn.id, slot++);
+  }
+  return slots;
+}
+
+/** Các lượt thực sự đi vào công thức, giữ nguyên thứ tự đã hỏi. */
+export function countingTurns<T extends { countsTowardMastery: boolean }>(
+  turns: readonly T[]
+): T[] {
+  return turns.filter((turn) => turn.countsTowardMastery);
+}
+
+export type SummaryTurn = SessionSummaryTurnResponse;

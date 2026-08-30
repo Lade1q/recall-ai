@@ -55,6 +55,8 @@ function detail(): GetInterviewResponse {
         askedAt: '2026-08-30T10:01:00.000Z',
         answeredAt: '2026-08-30T10:02:00.000Z',
         sourceCitation: null,
+        mode: null,
+        countsTowardMastery: true,
       },
       {
         id: 'turn-2',
@@ -70,6 +72,8 @@ function detail(): GetInterviewResponse {
         askedAt: '2026-08-30T10:03:00.000Z',
         answeredAt: null,
         sourceCitation: null,
+        mode: null,
+        countsTowardMastery: true,
       },
     ],
     fallback: null,

@@ -75,6 +75,9 @@ export interface InterviewQuestionResponse {
 }
 
 /** Một dòng transcript. Lượt đã trả lời mang theo điểm AI đã chấm. */
+/** Mirror của `TurnMode` (Prisma) / `QuestionMode` (server) — cùng bốn nấc, không tên mới. */
+export type TurnMode = 'initial' | 'deeper' | 'probe' | 'hint';
+
 export interface InterviewTurnResponse {
   id: string;
   conceptId: string;
@@ -88,6 +91,16 @@ export interface InterviewTurnResponse {
   verdict: TurnVerdict | null;
   askedAt: string;
   answeredAt: string | null;
+  /**
+   * Nấc thang câu hỏi đã sinh ra lượt này (#392); `null` khi nó không đứng trên nấc nào — lượt
+   * có trước cột `mode`, và mọi lượt flashcard. Dùng để NÓI, không để tính.
+   */
+  mode: TurnMode | null;
+  /**
+   * Lượt này có vào trung bình có trọng số không. Server quyết, client chỉ đọc — xem
+   * `features/interview/utils/turn-mode.ts` để biết vì sao không suy lại từ `mode`.
+   */
+  countsTowardMastery: boolean;
   sourceCitation: QuestionSourceResponse | null;
 }
 
@@ -160,6 +173,16 @@ export interface SessionSummaryTurnResponse {
   turnIndex: number;
   score: number | null;
   verdict: TurnVerdict | null;
+  /**
+   * Nấc thang câu hỏi đã sinh ra lượt này (#392); `null` khi nó không đứng trên nấc nào — lượt
+   * có trước cột `mode`, và mọi lượt flashcard. Dùng để NÓI, không để tính.
+   */
+  mode: TurnMode | null;
+  /**
+   * Lượt này có vào trung bình có trọng số không. Server quyết, client chỉ đọc — xem
+   * `features/interview/utils/turn-mode.ts` để biết vì sao không suy lại từ `mode`.
+   */
+  countsTowardMastery: boolean;
 }
 
 /** One concept's full result for the session, oldest turn first. */

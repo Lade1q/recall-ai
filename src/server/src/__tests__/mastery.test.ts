@@ -104,13 +104,22 @@ describe('calculateMasteryScore', () => {
 
 describe('gradedTurnScores', () => {
   it('keeps the graded turns in the order they were asked', () => {
-    expect(gradedTurnScores([{ score: 0.5 }, { score: 1 }])).toEqual([0.5, 1]);
+    expect(
+      gradedTurnScores([
+        { score: 0.5, mode: null },
+        { score: 1, mode: null },
+      ])
+    ).toEqual([0.5, 1]);
   });
 
   it('drops an ungraded turn instead of reading it as a zero', () => {
     // The half-finished concept of a session ended early (#243): turn 3 was never answered,
     // so the score is the two-turn one, not a three-turn average dragged down by a phantom 0.
-    const scores = gradedTurnScores([{ score: 0.5 }, { score: 1 }, { score: null }]);
+    const scores = gradedTurnScores([
+      { score: 0.5, mode: null },
+      { score: 1, mode: null },
+      { score: null, mode: null },
+    ]);
 
     expect(scores).toEqual([0.5, 1]);
     expect(calculateMasteryScore(scores)).toBe(0.8);
@@ -118,63 +127,118 @@ describe('gradedTurnScores', () => {
   });
 
   it('returns an empty array when nothing was graded, which reads as "never assessed"', () => {
-    expect(gradedTurnScores([{ score: null }])).toEqual([]);
-    expect(calculateMasteryScore(gradedTurnScores([{ score: null }]))).toBeNull();
+    expect(gradedTurnScores([{ score: null, mode: null }])).toEqual([]);
+    expect(calculateMasteryScore(gradedTurnScores([{ score: null, mode: null }]))).toBeNull();
   });
 
   it('keeps a genuine 0 — answered and completely wrong is not the same as ungraded', () => {
-    expect(gradedTurnScores([{ score: 0 }])).toEqual([0]);
+    expect(gradedTurnScores([{ score: 0, mode: null }])).toEqual([0]);
+  });
+
+  /**
+   * #392 direction (c). A hint turn re-asks the SAME question narrowed down, so it is easier
+   * than the turn it followed; letting it into the weighted average puts the least demanding
+   * question of the run at the heaviest weight — the exact inversion `TURN_WEIGHTS` assumes
+   * cannot happen. It is still graded and still shown, it just does not move the number.
+   */
+  it('🔴 drops a hint turn even though it WAS graded', () => {
+    expect(
+      gradedTurnScores([
+        { score: 0.2, mode: 'initial' as const },
+        { score: 0.9, mode: 'hint' as const },
+      ])
+    ).toEqual([0.2]);
+  });
+
+  /**
+   * Đối chứng của ca trên. Không có nó thì một vị từ trả `false` cho MỌI lượt cũng xanh — và
+   * `null` là ca đông nhất trong DB thật: mọi hàng có trước cột `mode`, cộng mọi lượt flashcard.
+   */
+  it('keeps every other mode, and keeps null — pre-migration and flashcard turns still count', () => {
+    expect(
+      gradedTurnScores([
+        { score: 0.4, mode: null },
+        { score: 0.5, mode: 'initial' as const },
+        { score: 0.6, mode: 'deeper' as const },
+        { score: 0.7, mode: 'probe' as const },
+      ])
+    ).toEqual([0.4, 0.5, 0.6, 0.7]);
   });
 });
 
 describe('sessionMasteryScore', () => {
   it("derives the score from this session's own 3 graded turns, weighted [0.2, 0.3, 0.5]", () => {
     const turns = [
-      { turnIndex: 1, score: 1.0 },
-      { turnIndex: 2, score: 0.5 },
-      { turnIndex: 3, score: 0.0 },
+      { turnIndex: 1, score: 1.0, mode: null },
+      { turnIndex: 2, score: 0.5, mode: null },
+      { turnIndex: 3, score: 0.0, mode: null },
     ];
     expect(sessionMasteryScore(turns)).toBe(0.35);
   });
 
   it('renormalises to [0.4, 0.6] for a 2-turn concept', () => {
     const turns = [
-      { turnIndex: 1, score: 1.0 },
-      { turnIndex: 2, score: 0.0 },
+      { turnIndex: 1, score: 1.0, mode: null },
+      { turnIndex: 2, score: 0.0, mode: null },
     ];
     expect(sessionMasteryScore(turns)).toBe(0.4);
   });
 
   it('returns null — not 0 — when no turn of this concept could be graded', () => {
     const turns = [
-      { turnIndex: 1, score: null },
-      { turnIndex: 2, score: null },
+      { turnIndex: 1, score: null, mode: null },
+      { turnIndex: 2, score: null, mode: null },
     ];
     expect(sessionMasteryScore(turns)).toBeNull();
   });
 
   it('sorts by turnIndex before weighting, regardless of input order', () => {
     const inOrder = sessionMasteryScore([
-      { turnIndex: 1, score: 1.0 },
-      { turnIndex: 2, score: 0.5 },
-      { turnIndex: 3, score: 0.0 },
+      { turnIndex: 1, score: 1.0, mode: null },
+      { turnIndex: 2, score: 0.5, mode: null },
+      { turnIndex: 3, score: 0.0, mode: null },
     ]);
     const shuffled = sessionMasteryScore([
-      { turnIndex: 3, score: 0.0 },
-      { turnIndex: 1, score: 1.0 },
-      { turnIndex: 2, score: 0.5 },
+      { turnIndex: 3, score: 0.0, mode: null },
+      { turnIndex: 1, score: 1.0, mode: null },
+      { turnIndex: 2, score: 0.5, mode: null },
     ]);
     expect(shuffled).toBe(inOrder);
+  });
+
+  /**
+   * `wrong` ở lượt 1 → lượt 2 là gợi ý. Hai lượt được hỏi, MỘT lượt được tính — và lượt còn lại
+   * ăn trọng số `[1.0]` chứ không phải `[0.2]`, nếu không thì khái niệm bị phạt vì đã được gợi ý.
+   */
+  it('🔴 excludes a hint turn and renormalises over what is left', () => {
+    const turns = [
+      { turnIndex: 1, score: 0.4, mode: 'initial' as const },
+      { turnIndex: 2, score: 1.0, mode: 'hint' as const },
+    ];
+
+    expect(sessionMasteryScore(turns)).toBe(0.4);
+    // Con số của bản KHÔNG lọc, viết ra để assertion trên phân biệt được hai bản: tính cả lượt
+    // gợi ý thì `[0.4, 0.6]` cho `0.4×0.4 + 1.0×0.6 = 0.76`.
+    expect(sessionMasteryScore(turns)).not.toBe(0.76);
+  });
+
+  it('returns null when the only counting turns are ungraded and the rest are hints', () => {
+    expect(
+      sessionMasteryScore([
+        { turnIndex: 1, score: null, mode: 'initial' as const },
+        { turnIndex: 2, score: 0.9, mode: 'hint' as const },
+      ])
+    ).toBeNull();
   });
 
   it('falls back to a plain mean instead of throwing when given more turns than C6 allows', () => {
     // A read path over whatever the database holds: a summary must not 500 just because the
     // data violates an invariant that should have been enforced elsewhere.
     const turns = [
-      { turnIndex: 1, score: 1.0 },
-      { turnIndex: 2, score: 1.0 },
-      { turnIndex: 3, score: 1.0 },
-      { turnIndex: 4, score: 0.0 },
+      { turnIndex: 1, score: 1.0, mode: null },
+      { turnIndex: 2, score: 1.0, mode: null },
+      { turnIndex: 3, score: 1.0, mode: null },
+      { turnIndex: 4, score: 0.0, mode: null },
     ];
     expect(sessionMasteryScore(turns)).toBe(0.75);
   });
@@ -186,7 +250,7 @@ describe('conceptMasteryForSession', () => {
   const DAY_3 = new Date('2026-07-10T10:00:00.000Z').getTime();
 
   it('is the first assessment when there is no prior scored session', () => {
-    const turns = [{ turnIndex: 1, score: 0.8 }];
+    const turns = [{ turnIndex: 1, score: 0.8, mode: null }];
 
     const result = conceptMasteryForSession(turns, DAY_2, []);
 
@@ -194,7 +258,7 @@ describe('conceptMasteryForSession', () => {
   });
 
   it("carries the most recent prior session's score as masteryBefore, not the raw history order", () => {
-    const turns = [{ turnIndex: 1, score: 0.9 }];
+    const turns = [{ turnIndex: 1, score: 0.9, mode: null }];
     const priorPoints = [
       { startedAt: DAY_1, masteryAfter: 0.3 },
       { startedAt: DAY_2, masteryAfter: 0.6 }, // most recent before DAY_3 — this one wins
@@ -206,7 +270,7 @@ describe('conceptMasteryForSession', () => {
   });
 
   it('skips a prior session that touched the concept but graded nothing, instead of resetting before to null', () => {
-    const turns = [{ turnIndex: 1, score: 0.7 }];
+    const turns = [{ turnIndex: 1, score: 0.7, mode: null }];
     const priorPoints = [
       { startedAt: DAY_1, masteryAfter: 0.5 },
       { startedAt: DAY_2, masteryAfter: null }, // e.g. abandoned before this concept was reached
@@ -219,7 +283,7 @@ describe('conceptMasteryForSession', () => {
   });
 
   it('ignores prior sessions that happened after the target session', () => {
-    const turns = [{ turnIndex: 1, score: 0.5 }];
+    const turns = [{ turnIndex: 1, score: 0.5, mode: null }];
     const priorPoints = [{ startedAt: DAY_3, masteryAfter: 0.9 }]; // later, must not count as "before"
 
     const result = conceptMasteryForSession(turns, DAY_2, priorPoints);

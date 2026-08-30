@@ -2,7 +2,7 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { loadSession, parseConceptQueue } from './interview.service';
 import { summarizeSession, type SessionConceptSummaryInput } from './gemini.service';
-import { sessionMasteryScore } from '../utils/mastery';
+import { countsTowardMastery, sessionMasteryScore } from '../utils/mastery';
 import type { Verdict } from '../schemas/ai-interview.schema';
 import type {
   SessionSummaryConceptResponse,
@@ -102,7 +102,7 @@ async function loadConceptSummaries(
     prisma.interviewTurn.findMany({
       where: { sessionId },
       orderBy: [{ conceptId: 'asc' }, { turnIndex: 'asc' }],
-      select: { conceptId: true, turnIndex: true, score: true, verdict: true },
+      select: { conceptId: true, turnIndex: true, score: true, verdict: true, mode: true },
     }),
   ]);
 
@@ -136,6 +136,10 @@ async function loadConceptSummaries(
         turnIndex: turn.turnIndex,
         score: turn.score,
         verdict: turn.verdict,
+        mode: turn.mode,
+        // The formula on the results screen must add up to the number printed next to it, so
+        // the client needs to know which turns the server left out — not guess it (#392 (c)).
+        countsTowardMastery: countsTowardMastery(turn),
       })),
     });
   }
