@@ -60,8 +60,15 @@ const MAX_CHIPS = 3;
  * **tràn 4–20px** — tức nó chỉ dời chỗ hỏng ra ngoài ô. Phải đi kèm cắt bớt số chấm.
  *
  * Ngân sách ở 320px (lòng ô 30px): 4 chấm 5px + 3 khe 3px = 29px vừa khít khi KHÔNG có đuôi;
- * 2 chấm + 2 khe + đuôi một chữ số ≈ 28px khi CÓ đuôi. Đuôi hai chữ số cần >12 mục trong một
- * ngày — bất khả sau khi fold `(planId, conceptId)`, nên không tối ưu cho nó.
+ * 2 chấm + 2 khe + đuôi một chữ số ≈ 28px khi CÓ đuôi.
+ *
+ * Đuôi HAI chữ số (`+10`) bắt đầu từ **n = 12** mục trong một ngày (đuôi = `n − 2`), và ở 320px nó
+ * tràn ~3px ⇒ bị `overflow-hidden` xén. ⚠️ KHÔNG viết "bất khả": fold `(planId, conceptId)` chỉ gộp
+ * nhiều hàng của CÙNG một khái niệm, nó không chặn nhiều khái niệm KHÁC NHAU rơi cùng ngày — và
+ * `concept-schedule.service.ts:196` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
+ * phiên truy ngược 12 tiền đề đặt đúng 12 mục lên ô hôm nay. Phát biểu đúng là **"chưa dựng được
+ * từ dữ liệu dev hôm nay (8 mục / 7 ngày)"**. "Bất khả" là loại chữ người sau dựa vào để bỏ qua
+ * một ca.
  */
 const MAX_DOTS = 4;
 
@@ -392,13 +399,18 @@ function cellLabel(
   isOverdue: boolean,
   deadline: DeadlineMark | undefined
 ): string {
-  const parts = [itemCount === 0 ? 'không có gì được xếp' : `${itemCount} khái niệm`];
+  const parts: string[] = [];
+  if (itemCount > 0) parts.push(`${itemCount} khái niệm`);
   if (isOverdue) parts.push('quá hạn');
   if (deadline !== undefined) {
     const verb = deadline.isPast ? 'hạn chót đã qua của' : 'hạn chót của';
-    parts.push(`${verb} ${deadline.planCount} kế hoạch`);
+    parts.push(`${verb} ${deadline.plans.length} kế hoạch`);
   }
-  return `${formatDayLabel(cell.dateKey)} — ${parts.join(', ')}`;
+  // "không có gì được xếp" là FALLBACK khi ô thật sự trống, không phải mệnh đề mở đầu: ghép nó
+  // trước một hạn chót cho ra câu tự cãi — "không có gì được xếp, hạn chót của 2 kế hoạch" — và ở
+  // ≤679px nhãn này được ĐỌC THÀNH LỜI, nơi mâu thuẫn nghe rõ nhất.
+  const body = parts.length > 0 ? parts.join(', ') : 'không có gì được xếp';
+  return `${formatDayLabel(cell.dateKey)} — ${body}`;
 }
 
 /**

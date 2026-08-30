@@ -255,8 +255,8 @@ describe('buildDeadlineMarks', () => {
     expect([...marks.keys()].sort()).toEqual(['2026-09-10', '2026-09-11']);
     // Đối chứng: nếu ai đó đổi sang VN (UTC+7) thì hàng "mới" thành 11/09 và hai kế hoạch dồn
     // vào một ngày — phép đo này phân biệt được đúng chỗ đó.
-    expect(marks.get('2026-09-10')?.planCount).toBe(1);
-    expect(marks.get('2026-09-11')?.planCount).toBe(1);
+    expect(marks.get('2026-09-10')?.plans.map((p) => p.id)).toEqual(['mới']);
+    expect(marks.get('2026-09-11')?.plans.map((p) => p.id)).toEqual(['cũ']);
   });
 
   it('counts every plan that shares a deadline day', () => {
@@ -264,7 +264,13 @@ describe('buildDeadlineMarks', () => {
       plan({ id: 'a', deadline: '2026-09-10T23:59:59.999Z' }),
       plan({ id: 'b', name: 'Cơ sở dữ liệu', deadline: '2026-09-10T23:59:59.999Z' }),
     ]);
-    expect(marks.get('2026-09-10')).toEqual({ planCount: 2, isPast: false });
+    // Giữ nguyên OBJECT kế hoạch, không chỉ đếm: panel nêu tên từ chính đây, nên nếu hàm này chỉ
+    // trả số thì panel buộc phải lọc lại `plans` và bộ vị từ có bản sao thứ hai.
+    expect(marks.get('2026-09-10')?.isPast).toBe(false);
+    expect(marks.get('2026-09-10')?.plans.map((p) => p.name)).toEqual([
+      'Kiến trúc phần mềm',
+      'Cơ sở dữ liệu',
+    ]);
   });
 
   it('tells a passed deadline from an upcoming one, and today is not past', () => {

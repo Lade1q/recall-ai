@@ -117,22 +117,6 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
     [plans, state.hiddenPlanIds, todayDateKey]
   );
 
-  // Panel nêu TÊN kế hoạch, lưới chỉ đánh dấu (#439). Lọc lại từ cùng ba điều kiện của
-  // `buildDeadlineMarks` — nếu hai chỗ lệch nhau thì ô có vạt mà panel không giải thích được.
-  const deadlinePlans = useMemo(
-    () =>
-      state.selectedDateKey === null
-        ? []
-        : plans.filter(
-            (plan) =>
-              plan.status === 'active' &&
-              !state.hiddenPlanIds.has(plan.id) &&
-              plan.deadline !== null &&
-              plan.deadline.slice(0, 10) === state.selectedDateKey
-          ),
-    [plans, state.hiddenPlanIds, state.selectedDateKey]
-  );
-
   const draftCount = plans.filter((plan) => plan.status === 'draft').length;
   const hasActivePlan = plans.some((plan) => plan.status === 'active');
   const debtItems = days.filter((day) => day.isOverdue).flatMap((day) => day.items);
@@ -229,7 +213,13 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 scope={panel.scope}
                 todayDateKey={todayDateKey}
                 items={panel.items}
-                deadlinePlans={deadlinePlans}
+                // Panel đọc CHÍNH cái map lưới đang dùng — cả danh sách kế hoạch lẫn cờ "đã qua".
+                // Lọc lại ở đây là đẻ ra bản sao thứ hai của bộ vị từ, và bản sao lệch đi thì ô có
+                // vạt mà panel im lặng. `debtOpen` và `selectedDateKey` loại trừ nhau, nên khoá
+                // theo `selectedDateKey` đủ để panel "Còn nợ" không nhận hạn chót nào.
+                deadline={
+                  state.selectedDateKey === null ? undefined : deadlines.get(state.selectedDateKey)
+                }
                 expandedItemId={state.expandedItemId}
                 pendingItemIds={schedule.pendingItemIds}
                 onToggleItem={state.toggleItem}

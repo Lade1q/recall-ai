@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { render, screen, within } from '@/utils/test-utils';
 import { MonthGrid, type MonthGridProps } from './MonthGrid';
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
 
 const TODAY = '2026-08-29';
@@ -321,7 +322,31 @@ describe('MonthGrid — bề ngang hẹp (<680px)', () => {
 });
 
 describe('MonthGrid — mốc hạn chót (#439)', () => {
-  const marks = (entries: [string, { planCount: number; isPast: boolean }][]) => new Map(entries);
+  /** Kế hoạch tối thiểu — chỉ `id`/`name` được đọc ở tầng này, phần còn lại là khung bắt buộc. */
+  const somePlan = (name: string): PlanSummary => ({
+    id: `plan-${name}`,
+    name,
+    deadline: '2026-09-02T23:59:59.999Z',
+    status: 'active',
+    conceptCount: 1,
+    masteryDistribution: { strong: 0, learning: 0, weak: 0, untested: 1 },
+    analysisStatus: 'done',
+    analysisStartedAt: null,
+    analysisErrorMessage: null,
+    document: null,
+    createdAt: '2026-08-01T00:00:00.000Z',
+    reviewQueueConceptCount: 0,
+  });
+  const marks = (entries: [string, { planCount: number; isPast: boolean }][]) =>
+    new Map(
+      entries.map(([dateKey, { planCount, isPast }]) => [
+        dateKey,
+        {
+          plans: Array.from({ length: planCount }, (_, i) => somePlan(`KH ${i + 1}`)),
+          isPast,
+        },
+      ])
+    );
   const wedgeIn = (name: RegExp | string) => cell(name).querySelector('[data-deadline]');
 
   it('marks a day that is the deadline of at least one plan', () => {
@@ -364,10 +389,17 @@ describe('MonthGrid — mốc hạn chót (#439)', () => {
    */
   it('still names the deadline on a day with nothing scheduled', () => {
     renderGrid({ deadlines: marks([['2026-08-26', { planCount: 2, isPast: false }]]) });
+    // KHÔNG có "không có gì được xếp" ở đây: ghép nó trước một hạn chót cho ra câu tự cãi, và ở
+    // ≤679px nhãn này được đọc thành lời. Mệnh đề rỗng chỉ là FALLBACK khi ô thật sự trống.
     expect(
-      screen.getByRole('button', {
-        name: 'T4, 26/08 — không có gì được xếp, hạn chót của 2 kế hoạch',
-      })
+      screen.getByRole('button', { name: 'T4, 26/08 — hạn chót của 2 kế hoạch' })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the empty phrase for a day that really has nothing', () => {
+    renderGrid({ deadlines: marks([['2026-08-26', { planCount: 1, isPast: false }]]) });
+    expect(
+      screen.getByRole('button', { name: 'T5, 27/08 — không có gì được xếp' })
     ).toBeInTheDocument();
   });
 
@@ -397,6 +429,26 @@ describe('MonthGrid — mốc hạn chót (#439)', () => {
   it('does not dim the mark on a day inside the month', () => {
     renderGrid({ deadlines: marks([['2026-08-20', { planCount: 1, isPast: false }]]) });
     expect(wedgeIn(/T5, 20\/08/)?.className).not.toContain('opacity-30');
+  });
+
+  /**
+   * `data-deadline` ghim TRẠNG THÁI nào, không ghim VẼ RA SAO. Đảo hai nhánh mực thì thuộc tính
+   * vẫn đúng và cả bộ test vẫn xanh, còn màn hình nói ngược: hạn đã qua thành mực đặc, hạn sắp
+   * tới thành nét rỗng. Hai assert dưới ghim **ánh xạ** giữa trạng thái và hình — không phải soi
+   * gương một chuỗi, vì thứ chúng khoá là quan hệ chứ không phải tên class.
+   */
+  it('draws an upcoming deadline solid and a passed one as an outline', () => {
+    renderGrid({
+      deadlines: marks([
+        ['2026-08-20', { planCount: 1, isPast: true }],
+        ['2026-09-02', { planCount: 1, isPast: false }],
+      ]),
+    });
+    expect(wedgeIn(/T4, 02\/09/)?.className).toContain('bg-foreground');
+    expect(wedgeIn(/T5, 20\/08/)?.className).toContain('border-foreground');
+    // Và không lẫn sang nhau.
+    expect(wedgeIn(/T4, 02\/09/)?.className).not.toContain('border-foreground');
+    expect(wedgeIn(/T5, 20\/08/)?.className).not.toContain('bg-foreground');
   });
 });
 

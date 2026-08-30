@@ -142,11 +142,21 @@ export function formatMonthLabel(cursor: MonthCursor): string {
   return `Tháng ${cursor.month} ${cursor.year}`;
 }
 
-/** Ngày này là hạn chót của bao nhiêu kế hoạch, và hạn đó đã trôi qua chưa (#439). */
+/** Ngày này là hạn chót của những kế hoạch nào, và hạn đó đã trôi qua chưa (#439). */
 export interface DeadlineMark {
-  /** ≥1. Lưới chỉ ĐÁNH DẤU nên không vẽ con số này — nó sống ở `aria-label` và ở panel. */
-  planCount: number;
-  /** `dateKey < todayDateKey`. Suy đúng một chỗ, cùng phép so chuỗi ISO của `groupByDateKey`. */
+  /**
+   * Các kế hoạch có hạn chót rơi đúng ngày này, ≥1 phần tử.
+   *
+   * Mang cả OBJECT chứ không mang số đếm, dù lưới chỉ cần đếm: panel phải nêu TÊN, và nếu nó tự
+   * lọc lại `plans` để lấy tên thì bộ vị từ (`active` + `hiddenPlanIds` + khoá ngày) có **hai bản
+   * sao**, mà một bản sao lệch đi thì ô có vạt còn panel im lặng. Đo được: bỏ một bộ lọc ở bản
+   * chép thứ hai, 398/398 vẫn xanh.
+   */
+  plans: PlanSummary[];
+  /**
+   * `dateKey < todayDateKey`. Suy đúng **một chỗ** — panel đọc lại cờ này chứ không so `scope.dateKey`
+   * với `todayDateKey` lần nữa; hai phép so cùng nghĩa là hai chỗ để lệch.
+   */
   isPast: boolean;
 }
 
@@ -173,17 +183,20 @@ export function buildDeadlineMarks(
 ): Map<string, DeadlineMark> {
   const marks = new Map<string, DeadlineMark>();
   for (const plan of plans) {
-    if (plan.status !== 'active' || plan.deadline === null) continue;
+    // `!= null` chứ không `!== null`: nếu ai truyền vào một object hình dạng `PlanDetails`
+    // (`deadline?: string`) thì `undefined !== null` lọt qua và `.slice` ném — đúng cái bẫy hai
+    // kiểu mà docstring dưới đây cảnh báo. Kiểu đã chặn, đây là lưới cho lúc kiểu không được tôn trọng.
+    if (plan.status !== 'active' || plan.deadline == null) continue;
     if (hiddenPlanIds.has(plan.id)) continue;
 
     const dateKey = plan.deadline.slice(0, 10);
     const existing = marks.get(dateKey);
     if (existing === undefined) {
-      marks.set(dateKey, { planCount: 1, isPast: dateKey < todayDateKey });
+      marks.set(dateKey, { plans: [plan], isPast: dateKey < todayDateKey });
     } else {
       // Không tính lại `isPast`: cùng một `dateKey` thì cùng một phía của hôm nay, nên ca "một hạn
       // đã qua và một hạn sắp tới trong cùng ô" là bất khả.
-      existing.planCount += 1;
+      existing.plans.push(plan);
     }
   }
   return marks;
