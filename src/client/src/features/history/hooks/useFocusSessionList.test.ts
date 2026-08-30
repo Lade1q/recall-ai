@@ -218,6 +218,38 @@ describe('useFocusSessionList — reload và các lượt tải chồng nhau', (
     expect(result.current.sessions.map((s) => s.id)).toEqual(['moi']);
   });
 
+  /**
+   * Cùng chuyện trên nhưng ở nhánh `.catch` — hook có HAI guard `alive`, ca trên chỉ ghim cái ở
+   * `.then`. Đột biến: bỏ `alive` trong `.catch` ⇒ lượt cũ hỏng về sau ghi `{error: true}` đè lên
+   * lượt mới đã thành công ⇒ danh sách đang hiện biến mất về trạng thái lỗi.
+   *
+   * 📌 Review đã truy và kết luận trạng thái này **không tới được qua đường UI**: `reload()` chỉ
+   * có một nơi gọi (`HistoryPage.tsx onRetry={list.reload}`), nút đó chỉ render khi `error === true`,
+   * và `error` chỉ thành `true` qua chính `.catch` này — nên lúc `reload()` chạy thì lượt trước đã
+   * settle, hai request không thể cùng bay. Ghim ở đây vì guard gánh một bất biến cấu trúc và
+   * `deferred()` đã có sẵn `reject`, không phải vì có đường tới.
+   */
+  it('phản hồi LỖI của lần thử CŨ không đè lên lần thử mới đã thành công', async () => {
+    const first = deferred<FocusSessionListItem[]>();
+    const second = deferred<FocusSessionListItem[]>();
+    list.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+
+    const { result } = renderHook(() => useFocusSessionList());
+    act(() => {
+      result.current.reload();
+    });
+
+    await act(async () => {
+      second.resolve([session('moi')]);
+    });
+    await act(async () => {
+      first.reject(new Error('lượt cũ hỏng, về sau'));
+    });
+
+    expect(result.current.error).toBe(false);
+    expect(result.current.sessions.map((s) => s.id)).toEqual(['moi']);
+  });
+
   it('trang phụ của lượt CŨ không đổ vào danh sách của lượt mới', async () => {
     // Đột biến: bỏ kiểm `prev.key === key` trong `loadMore`.
     list.mockResolvedValue(fullPage('p1'));

@@ -14,10 +14,20 @@ import { EmptyState } from '@/components/ui/empty-state';
  * khỏi nhau trước cả khi bản thứ ba nhập kho: tiêu đề `19px`/`20px`, `tracking` `-0.01`/`-0.02`,
  * thân `leading` `1.65`/`1.7`. Gộp lại là chọn một bộ, và bộ đúng là bộ của `EmptyState`.
  *
- * Khung thẻ (`bg-card border rounded-xl`) ở lại **nơi gọi**, không đi vào `EmptyState`: hai người
- * dùng cũ của nó (`AllRemovedState`, `EmptyQueueMessage`) không có khung, và nướng khung vào
- * component sẽ ép chúng ghi đè ngay từ ngày đầu — cùng lý do `className` đã được để lại cho nơi
- * gọi.
+ * Khung thẻ (`bg-card border rounded-xl`) ở lại **nơi gọi**, không đi vào `EmptyState`: bốn người
+ * dùng cũ của nó (`AllRemovedState`, `EmptyQueueMessage`, `ScheduleView`, `PlansPage`) không có
+ * khung, và nướng khung vào component sẽ ép chúng ghi đè ngay từ ngày đầu — cùng lý do
+ * `className` đã được để lại cho nơi gọi.
+ *
+ * ⚠️ Gộp còn đổi một thứ KHÔNG phải con số: **ràng buộc bề rộng đổi chỗ**. Bản chép cũ đặt
+ * `max-w-[52ch]` trên chính `<p>` thân bài ⇒ chỉ thân bài bị giới hạn, `h3` tự do. `EmptyState`
+ * đặt `max-w-130` trên khối bọc (`empty-state.tsx`) ⇒ `h3` + thân + action **cả khối** bị giới
+ * hạn. Hai tiêu đề hiện tại đều ngắn nên không cắn, nhưng một tiêu đề dài trong tương lai nay sẽ
+ * xuống dòng ở 520px trong khi trước đó không bao giờ xuống. Con số 465→520px chỉ là hệ quả.
+ *
+ * `ch` và `rem` không phân kỳ được ở đây: `EmptyState` nướng cứng `text-[13.5px] leading-[1.7]`
+ * vào `<p>` của nó, còn `className` của nơi gọi đi vào thẻ bọc ngoài — không nơi gọi nào đổi được
+ * cỡ chữ thân bài. Chỉ hại nếu sau này ai mở cỡ chữ ra cho nơi gọi chỉnh.
  */
 function HistoryEmptyCard({
   icon,
