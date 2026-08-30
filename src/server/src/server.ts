@@ -11,20 +11,26 @@ import { startStaleJobCleanupJob } from './jobs/stale-job-cleanup.job';
 const PORT = process.env.PORT || 3001;
 
 // #438: a bind failure (most commonly EADDRINUSE from another worktree's server already holding
-// the port) used to be silent — the process kept running, looking alive, while every request
-// actually landed on whatever else is holding the port (measured: a session ran a ~40-minute LIVE
-// test against another worktree's backend/database this way, undetected).
+// the port) used to be reported as SUCCESS. Measured on `main`: the process prints "Server is
+// running" *and exits with code 0* — it does not stay up. The HTTP server never reaches
+// `listening` so it holds no handle, and `startStaleJobCleanupJob`'s interval is `unref()`ed, so
+// the event loop drains and Node exits cleanly. Both signals a caller could check therefore lie:
+// a human reading the log sees success, and a supervisor reading the exit code sees success too.
+// (A session lost ~40 minutes of LIVE measurement to this, running against another worktree's
+// backend and database without noticing.)
 //
-// ⚠️ Passing a callback to `app.listen(PORT, cb)` does NOT fix this on its own, even with a
-// separate `server.on('error', ...)` beside it: Express's own `app.listen` (lib/application.js)
-// wraps that callback with `once()` and ALSO attaches it as an `error` listener —
-// `server.once('error', done)` — so on EADDRINUSE, Express itself calls `cb` (with the error as
-// its unused first argument), printing "Server is running" from the success branch anyway.
-// Measured on this repo's Express 5.2.1: an occupied-port run with a `.listen(PORT, cb)` callback
-// prints "Server is running" 3/3 times even with `server.on('error', ...)` attached separately.
-// Not passing a callback to `.listen()` — attaching `listening`/`error` directly on the returned
-// server instead — sidesteps that wrapping entirely: 2/2 occupied-port runs then log ONLY the
-// error, and a free-port run logs ONLY the success line.
+// ⚠️ Adding `server.on('error', ...)` while KEEPING the `app.listen(PORT, cb)` callback does fix
+// the exit code (1) and does kill the process — but it does NOT stop the false success line.
+// Express's own `app.listen` (lib/application.js:598-606) wraps that callback with `once()` and
+// ALSO attaches it as an error listener — `server.once('error', done)` — so on EADDRINUSE Express
+// itself calls `cb` (with the error as its unused first argument) and the success branch prints
+// anyway. Measured on this repo's Express 5.2.1: 3/3 occupied-port runs still print it.
+//
+// That log line is worth fixing precisely because nothing but a human reads it — a repo-wide grep
+// finds no script, CI step or readiness probe consuming it, so nothing else can catch the lie.
+// Not passing a callback to `.listen()` — attaching `listening`/`error` on the returned server
+// instead — sidesteps the wrapping entirely: 2/2 occupied-port runs then log ONLY the error, and
+// a free-port run logs ONLY the success line.
 const server = app.listen(PORT);
 
 server.on('listening', () => {
