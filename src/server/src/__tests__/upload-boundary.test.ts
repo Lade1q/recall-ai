@@ -27,11 +27,15 @@ function listStagingFiles(): string[] {
   return fs.readdirSync(STAGING_DIR);
 }
 
-// multer's cleanup of a rejected file's partial write is asynchronous: the response can land
-// before `unlink` finishes, so a rejected file is briefly still visible in staging (#427 —
-// measured window 16–243ms under full-suite load). An immediate read races that window and
-// flakes ~5.6% of the time even though the file always ends up removed. Poll instead of
-// asserting instantly; 2s is ~8x the longest observed window, so a real leak still fails fast.
+// `.staging` is shared by every jest worker: STAGING_DIR resolves from process.cwd()
+// (upload.middleware.ts:9), and plan.controller.ts:98 stages pasted text under the SAME
+// `${Date.now()}-${random}.txt` shape multer uses. So "no NEW file appeared" also catches
+// another suite's staging file — that, not a multer race, is what makes this flake (#427).
+// multer's unlink always finishes before the response: its callback is what calls done()
+// (measured 0/1560 completions after the response). Longest foreign-file lifetime observed:
+// 323ms across 3 full-suite runs, 0 above 1s. Poll up to 2s (~6x) instead of reading
+// instantly; a real leak still fails fast, and a >2s straggler still fails rather than
+// being waited out forever.
 async function waitForNoNewStagingFiles(before: Set<string>, timeoutMs = 2000): Promise<string[]> {
   const deadline = Date.now() + timeoutMs;
   let after: string[];
@@ -87,7 +91,8 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
       .attach('file', buffer, { filename: 'test.txt', contentType: 'text/plain' });
 
     // busboy abort ngay tại mốc limit → MulterError LIMIT_FILE_SIZE, và multer tự xoá file đã
-    // ghi dở — nhưng dọn bất đồng bộ (`unlink`), luôn dọn xong, quan sát được trong ~250ms (#427).
+    // ghi dở XONG rồi mới trả response. File "mới" bắt được ở đây là của suite khác đang dùng
+    // chung `.staging` — chờ nó tự dọn (#427).
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('FILE_TOO_LARGE');
 
