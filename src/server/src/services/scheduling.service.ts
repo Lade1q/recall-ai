@@ -967,17 +967,23 @@ export interface ReviewQueueItemSnooze extends ReviewQueueItemUpdate {
 async function findOwnedQueueItem(
   itemId: string,
   userId: string
-): Promise<{ id: string; conceptId: string; planId: string }> {
+): Promise<{ id: string; conceptId: string; planId: string; status: ReviewItemStatus }> {
   const item = await prisma.reviewQueueItem.findUnique({
     where: { id: itemId },
-    select: { id: true, conceptId: true, planId: true, plan: { select: { userId: true } } },
+    select: {
+      id: true,
+      conceptId: true,
+      planId: true,
+      status: true,
+      plan: { select: { userId: true } },
+    },
   });
 
   if (!item || item.plan.userId !== userId) {
     throw new AppError('Review queue item not found', 404, 'NOT_FOUND');
   }
 
-  return { id: item.id, conceptId: item.conceptId, planId: item.planId };
+  return { id: item.id, conceptId: item.conceptId, planId: item.planId, status: item.status };
 }
 
 /**
@@ -1065,6 +1071,12 @@ export async function updateReviewQueueItemStatus(
 /** Kết quả của "dời ngày" (#403): cùng hình dạng với `ReviewQueueItemSnooze`, mốc do NGƯỜI DÙNG chọn. */
 export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
   scheduledFor: Date | null;
+  /**
+   * Ngày VN đã cắt sẵn (#426) — cùng khoá mà một mục của `GET /review-queue/schedule` mang
+   * (`getReviewSchedule`). Thiếu nó buộc client hoặc gọi lại cả `/schedule` sau mỗi lần kéo, hoặc
+   * tự cắt ngày VN ở phía mình — đúng quy ước ngày thứ hai mà #402 tránh.
+   */
+  dateKey: string | null;
 }
 
 /**
@@ -1079,17 +1091,34 @@ export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
  * gộp nhiều hàng thành một mục trên màn hình (#232), nên dời một hàng để hàng anh em kéo mục đó
  * về ngày cũ ở lần đọc sau — nút bấm trông như không làm gì.
  *
- * 🔴 Guard: khi cụm đang được MỘT hàng traceback tier-0 đại diện (`pickRepresentative` +
- * `isWeakTraceback`, cùng luật đại diện #400 dùng cho màn Lịch), từ chối dời — nền tảng còn yếu
- * thì lịch phải do hệ thống giữ, không phải người dùng kéo đi đâu tuỳ ý. Guard đọc CỤM đã lọc
- * `ON_SCHEDULE_WHERE`, đúng tập hợp mà `getReviewSchedule` fold để chọn đại diện, nên "mục đang
- * đại diện" ở đây và trên màn Lịch không bao giờ lệch nhau.
+ * 🔴 Guard 1 (#426): `itemId` phải TỰ nó đang on-schedule (`ON_SCHEDULE_WHERE`), từ chối
+ * `ITEM_NOT_ON_SCHEDULE` nếu không. `updateMany` bên dưới chỉ ghi các hàng on-schedule của cụm —
+ * nếu hàng được trỏ tới là `skipped`/`done`, nó KHÔNG nằm trong tập được ghi, nhưng hàng đợi
+ * (anh em) vẫn dời như thường; đọc lại đúng `item.id` sau đó sẽ báo "không đổi" trong khi cụm THẬT
+ * SỰ đã dời — hợp đồng tự mâu thuẫn. Từ chối sớm thay vì báo sai.
+ *
+ * 🔴 Guard 2: từ chối dời khi cụm còn **ít nhất một** hàng `reason='traceback'` có
+ * `masteryScore < MASTERY_THRESHOLD` — nền tảng còn yếu thì lịch phải do hệ thống giữ, không phải
+ * người dùng kéo đi đâu tuỳ ý.
+ * ⚠️ Viết bằng `pickRepresentative` cho khớp luật đại diện #400, nhưng ở chỗ gọi này nó **tương
+ * đương định lý** với `rows.some(isWeakTraceback)`: `beats()` cho tier thắng tuyệt đối trước
+ * `createdAt`, và cụm khoá `(planId, conceptId)` nên mọi hàng chung một `masteryScore` ⇒ nhánh
+ * `createdAt` không bao giờ đổi kết quả. **Đừng suy rằng guard đi theo luật đại diện** — nó hỏi một
+ * câu hẹp hơn. (Ghim bằng bài "locks the cluster even when the weak traceback row is not first".)
+ * ⚠️ Cụm guard đọc KHÔNG bằng tập `getReviewSchedule` fold: bên đó lọc thêm `plan.status='active'`,
+ * `ACTIVE_CONCEPT_WHERE` và `scheduledFor: { not: null }`. Hai bên không lệch nhau **chỉ nhờ**
+ * `ReviewItemDraft.scheduledFor` là `Date` không nullable (`concept-schedule.service.ts:43,57`) —
+ * bất biến đó ở tệp khác, nêu tên ở đây để ai nới nó biết phải quay lại.
+ * Trả 409 (không phải 400): body hợp lệ, thứ chặn là trạng thái của cụm — cùng lớp
+ * `PLAN_NOT_ACTIVE`/`SESSION_ALREADY_RUNNING` (#426).
  *
  * Ngày quá khứ (theo lịch VN) bị từ chối bằng `VALIDATION_ERROR` đã có sẵn — engine không bao giờ
  * xếp lịch vào quá khứ, và mã này không cần mapper client riêng (đã có case ở nơi khác).
  *
- * `scheduledFor` trả về được **đọc lại từ DB**, cùng lý do `snoozeReviewQueueItem`: một lệnh hợp
- * lệ trên hàng không thuộc cụm (đã lọc `ON_SCHEDULE_WHERE`) sẽ không dời gì cả.
+ * `scheduledFor`/`dateKey` trả về được **đọc lại từ DB**. ⚠️ KHÁC `snoozeReviewQueueItem`, vốn chưa
+ * có guard tương ứng nên bước đọc-lại của nó vẫn nói sai được (#433): ở ĐÂY thì Guard
+ * 1 ở trên là thứ làm cho việc đọc lại đúng `item.id` luôn an toàn — tới đây `item.id` đã được xác
+ * nhận nằm trong tập vừa ghi.
  */
 export async function setReviewQueueItemScheduledFor(
   itemId: string,
@@ -1098,6 +1127,14 @@ export async function setReviewQueueItemScheduledFor(
   now: Date
 ): Promise<ReviewQueueItemReschedule> {
   const item = await findOwnedQueueItem(itemId, userId);
+
+  if (OFF_SCHEDULE_STATUSES.includes(item.status)) {
+    throw new AppError(
+      'Không thể dời ngày: mục này đã được gỡ khỏi lịch. Đưa nó lại vào lịch trước khi đổi ngày.',
+      409,
+      'ITEM_NOT_ON_SCHEDULE'
+    );
+  }
 
   if (dateKey < toVnDateKey(now)) {
     throw new AppError(
@@ -1131,7 +1168,7 @@ export async function setReviewQueueItemScheduledFor(
         masteryScore: null,
         sourceConceptName: sourceConcept?.name ?? null,
       })}, nên lịch của mục này do hệ thống giữ nguyên.`,
-      400,
+      409,
       'TRACEBACK_REPRESENTATIVE_LOCKED'
     );
   }
@@ -1146,5 +1183,10 @@ export async function setReviewQueueItemScheduledFor(
     select: { status: true, scheduledFor: true },
   });
 
-  return { ...item, status: updated.status, scheduledFor: updated.scheduledFor };
+  return {
+    ...item,
+    status: updated.status,
+    scheduledFor: updated.scheduledFor,
+    dateKey: updated.scheduledFor ? toVnDateKey(updated.scheduledFor) : null,
+  };
 }

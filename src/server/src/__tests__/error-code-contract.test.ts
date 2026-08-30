@@ -83,6 +83,17 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'DEBT: plan.service.ts — archive/unarchive from a status that ' +
     'forbids it. The UI hides the control in exactly those statuses.',
   WRONG_PASSWORD: 'DEBT: user.service.ts — the change-password form has no mapper yet.',
+
+  // --- Calendar screen (#400) HAS shipped. TRACEBACK_REPRESENTATIVE_LOCKED left this list in
+  // #437, which added the review-queue mapper and a case for it. This one stays, for a reason
+  // that is about reachability rather than about the mapper not existing yet.
+  ITEM_NOT_ON_SCHEDULE:
+    'scheduling.service.ts — PATCH {scheduledFor} guard rejecting a reschedule pointed at a row ' +
+    'that is itself skipped/done (#426). The calendar cannot reach it: getReviewSchedule applies ' +
+    'ON_SCHEDULE_WHERE (review-schedule.service.ts), so a skipped/done row is never surfaced as ' +
+    'an item the user can drag. It fires only for a stale client, a second tab racing the first, ' +
+    'or a direct API call — none of which has a sentence worth writing for a student. A generic ' +
+    'message is the honest answer here; give it a case the day a surface can actually hit it.',
 };
 
 /** `getInterviewErrorMessage` handles every Gemini failure by prefix, not case-by-case. */
