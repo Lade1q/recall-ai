@@ -138,23 +138,33 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
         </p>
         {/* Vạch tải ở trên là tín hiệu THỊ GIÁC; trình đọc màn hình không thấy `animate-pulse`.
 
-            Vùng live gắn **vô điều kiện**, chỉ NỘI DUNG đổi. `{pending && <p role="status">…</p>}`
-            trông tương đương nhưng ngược cơ chế: vùng sinh ra khi đã có sẵn chữ bên trong, và
-            WAI-ARIA đòi vùng có mặt TRƯỚC khi nội dung đổi. Ba vùng live còn lại của `src/client`
-            (`NotesPanel`, `MonthGrid`, `RunningSession`) đều gắn vô điều kiện, và `sonner` cũng
-            chèn vùng rỗng trước rồi mới đổ chữ — dạng có điều kiện sẽ là chỗ duy nhất trong repo
-            làm khác.
+            Vùng live này gắn **vô điều kiện**, chỉ NỘI DUNG đổi. `{pending && <p role="status">…
+            </p>}` trông tương đương nhưng ngược cơ chế: vùng sinh ra khi đã có sẵn chữ bên trong,
+            còn WAI-ARIA đòi vùng có mặt TRƯỚC khi nội dung của nó đổi.
 
-            ⚠️ Đo LIVE trên bus AT-SPI KHÔNG phân biệt được hai dạng: Chromium chỉ phát
-            `text-changed`, phần quyết định đọc hay không nằm ở trình đọc màn hình. Nên căn cứ ở
-            đây là nhất quán với repo + đặc tả, không phải một phép đo. Kèm theo: test
-            `getByRole('status')` chỉ hỏi "có trong DOM không" nên KHÔNG bắt được dạng sai — ca
-            dưới đây vì vậy khoá *nội dung* của vùng ở cả hai trạng thái.
+            ⚠️ Trục chịu lực là *"phần tử có mặt trước khi CHÍNH NỘI DUNG CỦA NÓ đổi"*, KHÔNG phải
+            "tổ tiên luôn mount". `<p>` này nằm trong `CatalogOnboarding`, mà khối đó cũng chỉ
+            mount ở ca A1 — không sao: lúc khối mount thì `<p>` đã ở đó RỖNG, chữ đến sau.
 
-            Chuỗi dùng TÊN ĐANG CÓ của khối ("Gợi ý hôm nay", 33 chỗ trong repo), không đặt tên
-            mới. Cố ý KHÔNG trùng khít chuỗi `"Đang tải · Gợi ý hôm nay"` của `TodayNudgeSkeleton`
-            — hai khối khác nhau, và trùng chuỗi làm mọi assertion quét-cả-trang không phân biệt
-            được chúng. */}
+            Repo dùng CẢ HAI khuôn, nên đừng đọc đoạn trên thành "khuôn duy nhất được phép".
+            Đếm trong `src/client` (bỏ tệp test):
+              · vô điều kiện (4) — khối này · `NotesPanel` · `RunningSession` · `MonthGrid`
+              · có điều kiện (4) — `ReviewQueueItemRow` (chỉ nhánh `variant === 'gone'`) và
+                `InterviewSessionPage` ×3 (ba chỉ báo chờ, mỗi cái sinh ra đã kèm sẵn chữ)
+              · dạng thứ ba (1) — `SystemMessage`: phần tử LUÔN mount, chỉ `role` bật/tắt theo
+                `isLive`. Không rơi vào ô nào ở trên.
+              · tắt tiếng cố ý (1) — `PomodoroClockRing` (`aria-live="off"`)
+            `sonner` cũng chèn vùng rỗng trước rồi mới đổ chữ.
+
+            ⚠️ Bảng trên là ĐỌC MÃ, không phải phép đo. Đo LIVE trên bus AT-SPI KHÔNG phân biệt
+            được hai dạng: Chromium chỉ phát `text-changed`, phần quyết định đọc hay không nằm ở
+            trình đọc màn hình. Kèm theo: test `getByRole('status')` chỉ hỏi "có trong DOM không"
+            nên KHÔNG bắt được dạng sai — ca dưới đây vì vậy khoá *nội dung* của vùng ở cả hai
+            trạng thái.
+
+            Chuỗi dùng TÊN ĐANG CÓ của khối ("Gợi ý hôm nay"), không đặt tên mới. Cố ý KHÔNG
+            trùng khít chuỗi `"Đang tải · Gợi ý hôm nay"` của `TodayNudgeSkeleton` — hai khối khác
+            nhau, và trùng chuỗi làm mọi assertion quét-cả-trang không phân biệt được chúng. */}
         <p className="sr-only" role="status" aria-live="polite">
           {pending ? 'Đang tải gợi ý hôm nay' : ''}
         </p>

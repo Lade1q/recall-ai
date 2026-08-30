@@ -20,9 +20,13 @@ import type { PlanSummary } from '@/features/study-planner/types/concept';
  * lại. Giá trị của nó là cho sinh viên **kiểm chứng** cách từng điểm được tính ra, cùng tinh
  * thần với ràng buộc C5 ở màn phỏng vấn.
  *
- * Khung hai tab dùng chung với DB-08 (lịch sử phiên Focus). Tab "Phiên học" là issue riêng
- * (#247) nên ở đây chỉ có chỗ giữ chỗ và **không gọi API nào** — `focus.api.ts` hiện chưa có
- * hàm liệt kê, và dựng một nửa tab đó sẽ chồng lên phạm vi của #247.
+ * Khung hai tab dùng chung với DB-08 (lịch sử phiên Focus). Cả hai tab nay đã có nội dung thật:
+ * tab "Phiên học" (#247) gọi `GET /focus-sessions`, và nó gọi **ngay khi mở màn** — không đợi
+ * người dùng bấm sang — vì `forceMount` giữ cả hai panel sống để đổi tab không mất trạng thái
+ * (#450). Đánh đổi đó được ghim bằng test, xem khối comment ở `<TabsContent>` bên dưới.
+ *
+ * Hệ quả của việc tải sớm: một tab CHƯA được mở vẫn có thể hỏng, nên nó không được phép nói ra
+ * bằng toast — xem `active` ở `FocusHistoryTab`.
  */
 export default function HistoryPage() {
   /**
@@ -32,6 +36,13 @@ export default function HistoryPage() {
    * cho cùng một danh sách — và #400 đã ghi thành luật: không nhân đôi metadata kế hoạch.
    */
   const plans = useAsyncResource(() => planApi.listPlans());
+
+  /**
+   * Tab đang mở phải là STATE, không để Radix tự giữ: `FocusHistoryTab` cần biết nó có đang
+   * được nhìn hay không để quyết định có bật toast lỗi hay không (#450). `defaultValue` không
+   * cho ai đọc giá trị đó.
+   */
+  const [tab, setTab] = useState('interview');
 
   return (
     <div className="mx-auto w-full max-w-[1180px]">
@@ -43,7 +54,7 @@ export default function HistoryPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="interview">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList variant="line" className="mb-5">
           <TabsTrigger value="interview">Phiên kiểm tra</TabsTrigger>
           <TabsTrigger value="focus">Phiên học</TabsTrigger>
@@ -66,7 +77,7 @@ export default function HistoryPage() {
         </TabsContent>
 
         <TabsContent value="focus" forceMount className="data-[state=inactive]:hidden">
-          <FocusHistoryTab plans={plans.data ?? []} />
+          <FocusHistoryTab plans={plans.data ?? []} active={tab === 'focus'} />
         </TabsContent>
       </Tabs>
     </div>
@@ -176,21 +187,40 @@ function NoSelection() {
  * và nó sẽ nhảy mỗi lần bấm "Xem thêm". Tab Phiên kiểm tra cạnh bên cũng đã ship không có số;
  * bật số cho riêng một tab còn tệ hơn là cả hai đều không có. Xem ghi chú trong PR.
  */
-function FocusHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
+function FocusHistoryTab({
+  plans,
+  active,
+}: {
+  plans: readonly PlanSummary[];
+  /** Tab này có đang được nhìn không. Chỉ quyết định TOAST, không quyết định việc tải. */
+  active: boolean;
+}) {
   const list = useFocusSessionList();
 
   const planNameById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan.name])), [plans]);
 
   // Cùng quy ước với tab Phiên kiểm tra (AC #246): lỗi mạng báo bằng toast, nút "Thử lại" nằm
   // trong khối lỗi của danh sách. Chỉ báo một lần cho mỗi lần hỏng.
+  //
+  // `active` vì `forceMount` làm tab này tải ngay khi mở màn (#450): không có nó thì toast nổ về
+  // một tab người dùng CHƯA bấm vào, và nút "Thử lại" mà nó bảo bấm thì đang nằm trong panel ẩn
+  // — đo LIVE: `rect 0×0`, `checkVisibility()` false, không nhận được focus. Toast sống ≥3s rồi
+  // tự tắt, để lại một lời khuyên không thi hành được.
+  //
+  // 🔴 Gate ĐÚNG nhánh toast, KHÔNG gate cả effect. `if (!active) return;` ở đầu sẽ nuốt luôn
+  // dòng reset bên dưới, nên một lần hỏng lúc tab đang ẩn sẽ khoá cờ vĩnh viễn và lần hỏng SAU
+  // — lúc người dùng đã mở tab — im lặng. Đổi một bug lấy một bug.
+  //
+  // 🔴 `active` PHẢI nằm trong deps. Thiếu nó thì lúc người dùng bấm sang đây, effect không chạy
+  // lại và lỗi có thật không bao giờ được nói ra.
   const notifiedError = useRef(false);
   useEffect(() => {
-    if (list.error && !notifiedError.current) {
+    if (list.error && active && !notifiedError.current) {
       notifiedError.current = true;
       toast.error('Không tải được lịch sử phiên học. Kiểm tra kết nối rồi thử lại.');
     }
     if (!list.error) notifiedError.current = false;
-  }, [list.error]);
+  }, [active, list.error]);
 
   if (!list.loading && !list.error && list.sessions.length === 0) {
     return <NoFocusSessionsYet />;

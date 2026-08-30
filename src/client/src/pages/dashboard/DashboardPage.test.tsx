@@ -521,9 +521,10 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     // vạch của hai khối KIA trùng khít số vạch của khối đang kiểm — một phép đếm toàn trang sẽ
     // xanh cả khi thẻ không vẽ gì.
     expect(pulseCount(card as HTMLElement)).toBe(1);
-    // Khoá NỘI DUNG của live region, không khoá sự tồn tại: vùng `role="status"` được mount sẵn
-    // ở mọi trạng thái (nếu chỉ mount lúc `pending` thì AT thường không đọc — xem comment tại
-    // `PlanCatalog`), nên `getByRole('status')` một mình sẽ xanh cả với bản mount có điều kiện.
+    // Khoá NỘI DUNG của live region, không khoá sự tồn tại: vùng `role="status"` ở khối này gắn
+    // vô điều kiện và chỉ đổi chữ bên trong — WAI-ARIA đòi vùng có mặt TRƯỚC khi nội dung đổi
+    // (repo còn dùng cả khuôn có điều kiện ở chỗ khác; bảng phân loại nằm ở `PlanCatalog`).
+    // `getByRole('status')` một mình sẽ xanh cả với bản mount có điều kiện, nên phải hỏi chữ.
     //
     // Hỏi TRONG thẻ, cùng lý do đã hỏi `pulseCount` trong thẻ: một assertion chữ quét cả trang
     // bị bất kỳ component nào ở bất kỳ đâu render cùng chuỗi lật đổ — và `TodayNudgeSkeleton`
@@ -546,7 +547,8 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
 
     expect(await screen.findByText('Không tải được gợi ý hôm nay.')).toBeInTheDocument();
 
-    // Vùng live vẫn ở đó (phải mount sẵn để lần sau còn đọc được) nhưng KHÔNG nói gì: không có
+    // Vùng live vẫn ở đó (gắn vô điều kiện, để lần sau chữ đổi là có vùng nhận) nhưng KHÔNG
+    // nói gì: không có
     // gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên. Khoá NỘI DUNG
     // chứ không khoá sự vắng mặt — bản cũ dùng `queryByRole(...).not.toBeInTheDocument()`, và
     // chính assertion đó CẤM khuôn gắn-vô-điều-kiện mà mã bây giờ dùng.
