@@ -548,8 +548,8 @@ describe('DashboardPage — khoảng câm của thẻ onboarding (#445)', () => 
     expect(await screen.findByText('Không tải được gợi ý hôm nay.')).toBeInTheDocument();
 
     // Vùng live vẫn ở đó (gắn vô điều kiện, để lần sau chữ đổi là có vùng nhận) nhưng KHÔNG
-    // nói gì: không có
-    // gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở trên. Khoá NỘI DUNG
+    // nói gì: không có gì đang tải, và chuyện hỏng đã được `BlockError` nói đúng một lần ở
+    // trên. Khoá NỘI DUNG
     // chứ không khoá sự vắng mặt — bản cũ dùng `queryByRole(...).not.toBeInTheDocument()`, và
     // chính assertion đó CẤM khuôn gắn-vô-điều-kiện mà mã bây giờ dùng.
     const card = screen.getByRole('link', { name: 'Tạo kế hoạch đầu tiên' }).closest('div');

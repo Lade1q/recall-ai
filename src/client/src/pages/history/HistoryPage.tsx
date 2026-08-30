@@ -219,9 +219,17 @@ function FocusHistoryTab({
   // — đo LIVE: `rect 0×0`, `checkVisibility()` false, không nhận được focus. Toast sống ≥3s rồi
   // tự tắt, để lại một lời khuyên không thi hành được.
   //
-  // 🔴 Gate ĐÚNG nhánh toast, KHÔNG gate cả effect. `if (!active) return;` ở đầu sẽ nuốt luôn
-  // dòng reset bên dưới, nên một lần hỏng lúc tab đang ẩn sẽ khoá cờ vĩnh viễn và lần hỏng SAU
-  // — lúc người dùng đã mở tab — im lặng. Đổi một bug lấy một bug.
+  // 🔴 Gate ĐÚNG nhánh toast, KHÔNG gate cả effect — nhưng lý do KHÔNG phải "cờ bị khoá".
+  // `notifiedError.current = true` nằm TRONG nhánh toast, nên một early-return ở đầu bỏ qua cả
+  // nhánh và cờ không hề được đặt. (Đo được: đột biến early-return sống 500/500; dựng đúng thế
+  // giới mà cơ chế "khoá cờ" mô tả thì mới đỏ — tức cơ chế ấy không xảy ra được.)
+  //
+  // Thứ early-return THẬT SỰ làm mất là dòng reset chạy khi một lần tải **thành công** về lúc
+  // tab đang ẩn. Hôm nay chuỗi phân biệt hai hình dạng không dựng nổi, và nó đóng nhờ một chi
+  // tiết mỏng: `loadMore` cố ý KHÔNG set `error` ở cả hai hook, nên `error` chỉ đổi qua một lần
+  // `reload` — mà `reload` chỉ bấm được từ panel đang hiện. Cho `loadMore` set `error` (một sửa
+  // trông rất vô hại) là chuỗi ấy mở ra ngay. Giữ hình dạng hẹp vì nó không tốn gì, và vì cái
+  // giữ nó đóng nằm ở tệp khác.
   //
   // 🔴 `active` PHẢI nằm trong deps. Thiếu nó thì lúc người dùng bấm sang đây, effect không chạy
   // lại và lỗi có thật không bao giờ được nói ra.

@@ -146,15 +146,23 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
             "tổ tiên luôn mount". `<p>` này nằm trong `CatalogOnboarding`, mà khối đó cũng chỉ
             mount ở ca A1 — không sao: lúc khối mount thì `<p>` đã ở đó RỖNG, chữ đến sau.
 
-            Repo dùng CẢ HAI khuôn, nên đừng đọc đoạn trên thành "khuôn duy nhất được phép".
-            Đếm trong `src/client` (bỏ tệp test):
-              · vô điều kiện (4) — khối này · `NotesPanel` · `RunningSession` · `MonthGrid`
-              · có điều kiện (4) — `ReviewQueueItemRow` (chỉ nhánh `variant === 'gone'`) và
-                `InterviewSessionPage` ×3 (ba chỉ báo chờ, mỗi cái sinh ra đã kèm sẵn chữ)
+            ⚠️ Và trục đúng KHÔNG phải "vô điều kiện tốt / có điều kiện xấu" — nó là **vùng đó
+            được đọc MẤY LẦN**. `role="status"` báo lặp (đang tải → xong → lỗi) nên phải có mặt
+            trước để lần đổi chữ nào cũng có chỗ nhận; `role="alert"` chỉ đọc MỘT nhát đúng lúc
+            chèn vào, nên mount-có-điều-kiện mới là khuôn ĐÚNG cho nó. Đếm trong `src/client`
+            (bỏ tệp test):
+              · vô điều kiện (4) — khối này · `NotesPanel` · `RunningSession` · `MonthGrid`,
+                tất cả `role="status"` báo lặp
+              · có điều kiện (5) — `FieldError` (`role="alert"`, `if (!content) return null`) ·
+                `ReviewQueueItemRow` (nhánh `variant === 'gone'`) · `InterviewSessionPage` ×3
+                (ba chỉ báo chờ, mỗi cái sinh ra đã kèm sẵn chữ). `FieldError` là thành viên
+                MẠNH nhất của ô này: nó có điều kiện vì nó nên thế, không phải vì ai quên.
               · dạng thứ ba (1) — `SystemMessage`: phần tử LUÔN mount, chỉ `role` bật/tắt theo
                 `isLive`. Không rơi vào ô nào ở trên.
               · tắt tiếng cố ý (1) — `PomodoroClockRing` (`aria-live="off"`)
-            `sonner` cũng chèn vùng rỗng trước rồi mới đổ chữ.
+            `sonner` cũng chèn vùng rỗng trước rồi mới đổ chữ. `FieldRequirement` ngay dưới
+            `FieldError` đã lập luận sẵn đúng trục này: nó luôn hiện nên cố ý KHÔNG dùng
+            `role="alert"`.
 
             ⚠️ Bảng trên là ĐỌC MÃ, không phải phép đo. Đo LIVE trên bus AT-SPI KHÔNG phân biệt
             được hai dạng: Chromium chỉ phát `text-changed`, phần quyết định đọc hay không nằm ở
