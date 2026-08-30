@@ -10,8 +10,8 @@ import { FocusSessionList } from '@/features/history/components/FocusSessionList
 import { NoFocusSessionsYet, NoSessionsYet } from '@/features/history/components/NoSessionsYet';
 import { useFocusSessionList } from '@/features/history/hooks/useFocusSessionList';
 import { useSessionList } from '@/features/history/hooks/useSessionList';
+import { selectInterviewSession } from '@/features/history/utils/select-session';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
-import type { InterviewSessionListItem } from '@/features/history/types/history.types';
 
 /**
  * Trang "Lịch sử & Tiến độ" (DB-03 · #246).
@@ -95,8 +95,7 @@ function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
    * sách, ngược lại là phiên mới nhất. Nhờ vậy đổi bộ lọc kế hoạch tự nhảy sang phiên mới nhất
    * của kế hoạch đó mà không cần một lượt render trung gian nào chọn nhầm phiên của kế hoạch cũ.
    */
-  const selected: InterviewSessionListItem | null =
-    list.sessions.find((session) => session.id === selectedId) ?? list.sessions[0] ?? null;
+  const selected = selectInterviewSession(list.sessions, selectedId);
 
   const isEmpty = !list.loading && !list.error && list.sessions.length === 0;
 

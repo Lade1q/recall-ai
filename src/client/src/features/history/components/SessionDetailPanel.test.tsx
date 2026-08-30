@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 import { render, screen, waitFor } from '@/utils/test-utils';
 import { SessionDetailPanel } from './SessionDetailPanel';
 import { interviewApi } from '@/features/interview/api/interview.api';
@@ -17,6 +18,10 @@ vi.mock('@/features/interview/api/interview.api', () => ({
     abandonInterview: vi.fn(),
   },
   getInterviewErrorMessage: () => 'lỗi',
+}));
+
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const mockedApi = vi.mocked(interviewApi);
@@ -156,6 +161,29 @@ describe('SessionDetailPanel — phiên nào thì đọc API nào', () => {
     expect(await screen.findByText(/Phiên này vẫn đang mở/)).toBeInTheDocument();
     expect(mockedApi.getInterview).not.toHaveBeenCalled();
     expect(mockedApi.getSummary).not.toHaveBeenCalled();
+  });
+
+  it('lỗi tải hiện toast và khối Thử lại; retry tải lại cả transcript lẫn summary', async () => {
+    mockedApi.getInterview.mockRejectedValueOnce(new Error('network down'));
+    mockedApi.getSummary.mockRejectedValueOnce(new Error('network down'));
+
+    render(<SessionDetailPanel session={listItem('completed')} onSessionChanged={() => {}} />);
+
+    expect(await screen.findByText('Không tải được chi tiết phiên này.')).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      'Không tải được chi tiết phiên. Kiểm tra kết nối rồi thử lại.'
+    );
+
+    mockedApi.getInterview.mockResolvedValueOnce(transcript('completed'));
+    mockedApi.getSummary.mockResolvedValueOnce({
+      ...abandonedSummary(),
+      status: 'completed',
+    });
+    screen.getByRole('button', { name: 'Thử lại' }).click();
+
+    expect(await screen.findByText('Biến động mastery_score')).toBeInTheDocument();
+    expect(mockedApi.getInterview).toHaveBeenCalledTimes(2);
+    expect(mockedApi.getSummary).toHaveBeenCalledTimes(2);
   });
 });
 
