@@ -66,7 +66,9 @@ export async function getConceptDetail(
     }),
     prisma.interviewTurn.findMany({
       where: { conceptId },
-      select: { sessionId: true, turnIndex: true, askedAt: true, score: true },
+      // `mode` is what keeps this list scoring by the same rule as the session summary and the
+      // interview history (#392 (c)) — three read paths, one predicate.
+      select: { sessionId: true, turnIndex: true, askedAt: true, score: true, mode: true },
     }),
     // FocusSession.conceptIds is a JSON string[] (no relation to Concept), so it can't be
     // filtered in SQL — every session of the plan is pulled and matched in-process instead.

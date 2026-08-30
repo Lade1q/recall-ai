@@ -99,7 +99,7 @@ Header `Authorization: Bearer <TOKEN>`.
 - **Dùng để:** FE dựng lại màn phỏng vấn (I6.6) — câu hỏi đang chờ, tiến độ, và toàn bộ transcript. Là **nguồn chân lý** khi client không chắc trạng thái (vd sau reload, sau double-click `/answers` bị `replayed`).
 - **Ràng buộc quan trọng:**
   - `currentQuestion = null` khi phiên đã kết thúc (`completed`/`abandoned`) hoặc đang chờ AI sinh câu.
-  - `turns` là transcript đầy đủ, cũ → mới, tối đa **5 khái niệm × 3 lượt**. Lượt đã trả lời mang điểm/verdict; lượt trong fallback có `source = "cache_fallback"`.
+  - `turns` là transcript đầy đủ, cũ → mới, tối đa **5 khái niệm × 3 lượt**. Lượt đã trả lời mang điểm/verdict; lượt trong fallback có `source = "cache_fallback"`. `mode` là nấc thang câu hỏi (`initial`/`deeper`/`probe`/`hint`, `null` cho lượt cũ và lượt fallback); `countsTowardMastery` là `false` đúng cho lượt `hint` — nó vẫn được chấm và vẫn nằm trong `turns`, chỉ không vào trung bình có trọng số (#392 hướng (c)). ⚠️ Client đọc **cờ**, không tự suy từ `mode`: suy lại là dựng bản thứ hai của luật chấm ở phía client.
   - `fallback ≠ null` khi phiên đang ở chế độ flashcard (AE-05).
 
 - **Response thành công (HTTP 200 OK):**
@@ -122,6 +122,8 @@ Header `Authorization: Bearer <TOKEN>`.
           "score": 0.7,
           "feedback": "Đúng ý chính, thiếu điều kiện giữ biến khác cố định.",
           "verdict": "shallow",
+          "mode": "initial",
+          "countsTowardMastery": true,
           "askedAt": "...",
           "answeredAt": "...",
           "sourceCitation": {
@@ -418,7 +420,15 @@ Header `Authorization: Bearer <TOKEN>`.
           "conceptId": "b2d3e4f5-...-uuid",
           "name": "Đạo hàm riêng",
           "masteryScore": 0.83,
-          "turns": [{ "turnIndex": 1, "score": 0.7, "verdict": "shallow" }]
+          "turns": [
+            {
+              "turnIndex": 1,
+              "score": 0.7,
+              "verdict": "shallow",
+              "mode": "initial",
+              "countsTowardMastery": true
+            }
+          ]
         }
       ],
       "summary": {
@@ -463,7 +473,8 @@ Header `Authorization: Bearer <TOKEN>`.
   (`concepts`) vẫn luôn đầy đủ và chính xác trong mọi trường hợp.
 
   `concepts[].masteryScore` là điểm **phiên này** tạo ra cho khái niệm — trung bình có trọng số
-  `[0.2, 0.3, 0.5]` trên các turn đã chấm của chính phiên `:id`, không phải điểm live hiện tại của
+  `[0.2, 0.3, 0.5]` trên các turn đã chấm **và có tính** của chính phiên `:id` (lượt `hint` bị
+  loại — `countsTowardMastery`, #392 (c)), không phải điểm live hiện tại của
   khái niệm (`Concept.mastery_score` có thể đã bị một phiên sau đè lên). `null` nghĩa là phiên này
   không chấm được khái niệm nào — không phải `0`.
 

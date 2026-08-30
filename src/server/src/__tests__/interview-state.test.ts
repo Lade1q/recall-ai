@@ -53,9 +53,20 @@ describe('decideNextStep — continuing the same concept', () => {
     expect(step('shallow', 2)).toBe('ask_probe');
   });
 
+  /**
+   * #392 phương án B: `wrong` no longer ends a concept on the spot. It gets the same
+   * "turns left?" treatment as `deep`/`shallow` — just routed to `ask_hint`, which narrows the
+   * very question just missed instead of moving on or ending.
+   */
+  it('hints after a wrong answer while turns remain, instead of ending the concept', () => {
+    expect(step('wrong', 1)).toBe('ask_hint');
+    expect(step('wrong', 2)).toBe('ask_hint');
+  });
+
   it('maps each continuing step to the generate_question mode the caller must use', () => {
     expect(questionModeForStep('ask_deeper')).toBe('deeper');
     expect(questionModeForStep('ask_probe')).toBe('probe');
+    expect(questionModeForStep('ask_hint')).toBe('hint');
   });
 
   it('has no mode for the two terminal steps — they end a concept instead of asking', () => {
@@ -65,13 +76,12 @@ describe('decideNextStep — continuing the same concept', () => {
 });
 
 describe('decideNextStep — ending a concept', () => {
-  it('ends the concept immediately on a wrong answer, even with turns to spare', () => {
-    expect(step('wrong', 1)).toBe('finish_concept');
-    expect(step('wrong', 2)).toBe('finish_concept');
+  it('ends the concept when a wrong answer has no turns left to spend on a hint', () => {
+    expect(step('wrong', MAX_TURNS)).toBe('finish_concept');
   });
 
-  it('ends the session instead when the wrong answer was on the last concept', () => {
-    expect(step('wrong', 1, 0)).toBe('finish_session');
+  it('ends the session instead when that wrong answer was on the last concept', () => {
+    expect(step('wrong', MAX_TURNS, 0)).toBe('finish_session');
   });
 
   it('ends the concept when the turn budget runs out, whatever the verdict (C6)', () => {
@@ -106,10 +116,11 @@ describe('decideNextStep — the whole table (C6 hard limit)', () => {
     }
   });
 
-  it('never routes a wrong answer to another question on the same concept', () => {
-    for (let turnIndex = 1; turnIndex <= MAX_TURNS; turnIndex++) {
-      expect(questionModeForStep(step('wrong', turnIndex))).toBeNull();
+  it('routes a wrong answer to ask_hint on every turn except the last (#392)', () => {
+    for (let turnIndex = 1; turnIndex < MAX_TURNS; turnIndex++) {
+      expect(questionModeForStep(step('wrong', turnIndex))).toBe('hint');
     }
+    expect(questionModeForStep(step('wrong', MAX_TURNS))).toBeNull();
   });
 
   it('has no traceback branch — that decision belongs to finalizeConceptResult (audit A5)', () => {
@@ -122,10 +133,56 @@ describe('decideNextStep — the whole table (C6 hard limit)', () => {
     }
     expect([...decisions].sort()).toEqual([
       'ask_deeper',
+      'ask_hint',
       'ask_probe',
       'finish_concept',
       'finish_session',
     ]);
+  });
+});
+
+/**
+ * #392 phương án B — the hint ladder end to end: `wrong` narrows the same question instead of
+ * ending the concept, up to the C6 ceiling; a good answer after a hint returns to the normal
+ * `ask_deeper`/`ask_probe` rule (the PR's own confirmed default for AC item 3, since #392 leaves
+ * that a "propose in the PR" call rather than a locked decision).
+ */
+describe('decideNextStep — the wrong→hint ladder (#392)', () => {
+  it('wrong → hint → wrong → hint → closes at the C6 ceiling (2 hints max)', () => {
+    // Turn 1 wrong: still 2 turns left (MAX_TURNS=3) → hint.
+    expect(step('wrong', 1)).toBe('ask_hint');
+    // Turn 2 (first hint) answered wrong again: 1 turn left → hint again.
+    expect(step('wrong', 2)).toBe('ask_hint');
+    // Turn 3 (second hint) answered wrong: 0 turns left → the C6 ceiling closes it, not a third hint.
+    expect(step('wrong', MAX_TURNS)).toBe('finish_concept');
+  });
+
+  it('wrong → hint → deep → returns to the normal ask_deeper rule', () => {
+    expect(step('wrong', 1)).toBe('ask_hint');
+    // Turn 2 (the hint) answered deep, still a turn left → normal rule resumes.
+    expect(step('deep', 2)).toBe('ask_deeper');
+  });
+
+  it('wrong → hint → shallow → returns to the normal ask_probe rule', () => {
+    expect(step('wrong', 1)).toBe('ask_hint');
+    expect(step('shallow', 2)).toBe('ask_probe');
+  });
+
+  it('a wrong answer on the very last C6 turn closes the concept, never a third hint', () => {
+    expect(step('wrong', MAX_TURNS)).toBe('finish_concept');
+    expect(step('wrong', MAX_TURNS, 0)).toBe('finish_session');
+  });
+
+  it('a session-specific lower turn limit shortens the ladder the same way (no hard-coded 2)', () => {
+    // maxTurns = 2: turn 1 wrong still has a turn left → one hint; turn 2 wrong has none → closes.
+    // Only 1 hint fits, not #392's usual 2 — the cap is `maxTurns - 1`, always derived, never a
+    // separate constant that could drift out of sync with C6.
+    expect(
+      decideNextStep({ verdict: 'wrong', turnIndex: 1, maxTurns: 2, remainingConcepts: 1 })
+    ).toBe('ask_hint');
+    expect(
+      decideNextStep({ verdict: 'wrong', turnIndex: 2, maxTurns: 2, remainingConcepts: 1 })
+    ).toBe('finish_concept');
   });
 });
 

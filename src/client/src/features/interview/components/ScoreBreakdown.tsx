@@ -10,7 +10,8 @@ import type {
   SessionSummaryTurnResponse,
 } from '../types/interview.types';
 import { TRACEBACK_THRESHOLD, masteryColor } from '../utils/summary-display';
-import { normalizedTurnWeights } from '../utils/turn-weights';
+import { normalizedTurnWeights, TURN_WEIGHTS } from '../utils/turn-weights';
+import { countingTurns, excludedTurnsNote } from '../utils/turn-mode';
 import { QUESTION_TYPE_LABEL } from '../utils/question-type';
 
 interface ScoreBreakdownProps {
@@ -226,20 +227,27 @@ function WeightedFormula({
   turns: SessionSummaryTurnResponse[];
   masteryScore: number | null;
 }) {
-  const weights = normalizedTurnWeights(turns.length);
-  const allScored = turns.every((turn) => turn.score !== null);
+  // Công thức chạy trên các lượt ĐƯỢC TÍNH, không phải mọi lượt đã hỏi (#392 (c)): lượt gợi ý
+  // vẫn hiện ở danh sách bên dưới nhưng không có số hạng nào trong đây.
+  const counting = countingTurns(turns);
+  const excluded = turns.length - counting.length;
+  const weights = normalizedTurnWeights(counting.length);
+  const allScored = counting.every((turn) => turn.score !== null);
 
   if (!weights || !allScored || masteryScore === null) {
     return <div className="text-muted-foreground text-xs">{turns.length} lượt</div>;
   }
 
-  const isEarlyStop = turns.length < 3;
+  // "Kết thúc sớm" là chuyện SỐ LƯỢT ĐÃ HỎI, nên vẫn đo trên `turns`. Đổi sang `counting` sẽ
+  // gọi một khái niệm chạy đủ 3 lượt (một trong đó là gợi ý) là "kết thúc sớm" — nó không hề.
+  const isEarlyStop = turns.length < TURN_WEIGHTS.length;
 
   return (
     <div className="text-muted-foreground text-xs leading-[1.7]">
-      {turns.length} lượt{isEarlyStop && ' · kết thúc sớm'} ·{' '}
+      {turns.length} lượt{excluded > 0 && ` · ${excludedTurnsNote(excluded)}`}
+      {isEarlyStop && ' · kết thúc sớm'} ·{' '}
       <span className="font-mono">
-        {turns.map((turn, idx) => (
+        {counting.map((turn, idx) => (
           <span key={turn.turnIndex}>
             {idx > 0 && ' + '}
             {(turn.score ?? 0).toFixed(2)} ×{(weights[idx] ?? 0).toFixed(1)}

@@ -18,6 +18,9 @@ function turn(overrides: Partial<InterviewTurnRow> = {}): InterviewTurnRow {
     turnIndex: 1,
     askedAt: at('2026-07-26T21:40:00.000Z'),
     score: 0.5,
+    // Mặc định `null` = "không thuộc thang gợi ý" ⇒ lượt được TÍNH, giữ nguyên hành vi mọi ca
+    // dưới đây đã khẳng định trước #392. Ca gợi ý phải nói ra bằng `mode: 'hint'`.
+    mode: null,
     ...overrides,
   };
 }

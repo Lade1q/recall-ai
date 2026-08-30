@@ -35,7 +35,7 @@ import {
   buildTurnCitation,
   type CitedDocumentRow,
 } from '../utils/question-citation';
-import { gradedTurnScores } from '../utils/mastery';
+import { countsTowardMastery, gradedTurnScores } from '../utils/mastery';
 import type {
   AbandonInterviewResponse,
   ConceptCompletedResponse,
@@ -114,6 +114,9 @@ const turnSelect = {
   feedback: true,
   verdict: true,
   source: true,
+  // Which rung of the ladder produced this turn (#392). The client needs it to say why a hint
+  // turn carries a grade but no weight.
+  mode: true,
   // The C5 anchor frozen when this turn was asked (#240) — read back as-is, never re-derived.
   sourceDocumentId: true,
   sourcePageFrom: true,
@@ -387,6 +390,10 @@ function toTurnResponse(
     verdict: turn.verdict,
     askedAt: turn.askedAt,
     answeredAt: turn.answeredAt,
+    mode: turn.mode,
+    // Computed here, not in the client: one predicate decides it for the write path and every
+    // read path (#392 (c)).
+    countsTowardMastery: countsTowardMastery(turn),
     sourceCitation: buildTurnCitation(turn, documents),
   };
 }
@@ -551,6 +558,11 @@ async function askQuestion(
         ...identity,
         questionText: question.question_text,
         questionType: question.question_type,
+        // The rung this question came from, kept so scoring and the transcript can tell a hint
+        // turn apart later (#392 (c)). `mode` was already decided above and handed to
+        // `generateQuestion`; this only writes down what was asked for — the AI call surface is
+        // untouched (C4).
+        mode,
         ...toAnchorSnapshot(anchor),
       },
       select: turnSelect,
@@ -610,7 +622,10 @@ async function finishConcept(
   const turns = await prisma.interviewTurn.findMany({
     where: { sessionId: view.session.id, conceptId: concept.id },
     orderBy: { turnIndex: 'asc' },
-    select: { score: true },
+    // `mode` alongside `score`: `gradedTurnScores` drops hint turns (#392 (c)), and this path
+    // must agree with `scoreConceptSoFar` below — the normal close and the abandoned-session
+    // close cannot grade by two different rules.
+    select: { score: true, mode: true },
   });
   const turnScores = gradedTurnScores(turns);
 
@@ -731,8 +746,10 @@ async function advanceToNextQuestion(
  * `advanceToNextQuestion`'s fallback-mode counterpart (AE-05 / I6.4): serves the concept's
  * pre-generated cache instead of calling Gemini. Unlike AI mode, `deep`/`shallow` verdicts do
  * not steer question selection — a flashcard concept asks every cached question it has, in
- * order, then finishes. But a `wrong` verdict still ends the concept immediately (CF-03/CF-04),
- * same rule as `decideNextStep`: the student does not have this material.
+ * order, then finishes. A `wrong` verdict still ends the concept immediately (CF-03/CF-04) —
+ * this is now a DELIBERATE divergence from `decideNextStep` (#392 gave AI mode a hint ladder
+ * instead), not the same rule: fallback has no live AI call to narrow a question with, only a
+ * fixed set of pre-generated flashcards, so there is nothing to serve as a "hint" here.
  */
 async function advanceFallback(
   view: SessionView,
@@ -832,6 +849,11 @@ async function askCachedQuestion(
         questionText: cacheRow.questionText,
         questionType: toQuestionType(cacheRow.questionType),
         source: 'cache_fallback',
+        // `mode` stays NULL on purpose. A cached flashcard question does not come from
+        // `decideNextStep`, so it sits on no rung — and `resolveFallbackStep` deliberately has no
+        // hint step at all. Writing `initial` here would be a guess dressed as data, and
+        // `countsTowardMastery` reads NULL as "counts", which is what a self-graded turn should do.
+        mode: null,
         ...toAnchorSnapshot(questionAnchor),
       },
       select: turnSelect,
@@ -1496,7 +1518,8 @@ async function scoreConceptSoFar(
   const turns = await prisma.interviewTurn.findMany({
     where: { sessionId: view.session.id, conceptId: concept.id },
     orderBy: { turnIndex: 'asc' },
-    select: { score: true },
+    // Same pair as `finishConcept` — see the note there.
+    select: { score: true, mode: true },
   });
 
   const turnScores = gradedTurnScores(turns);
