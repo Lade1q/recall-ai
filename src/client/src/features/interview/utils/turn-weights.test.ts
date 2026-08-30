@@ -26,7 +26,8 @@ describe('turnWeightLabel', () => {
 
   /**
    * `null` gộp hai ca, và cả hai đều là "thà im còn hơn gán sai": lượt gợi ý (không có slot) và
-   * lượt CHƯA chấm (slot chưa biết được — nó phụ thuộc lượt ấy có thành gợi ý hay không).
+   * lượt mà người gọi không đưa vào. Ca sau KHÔNG phải "chưa biết slot" — `mode` ghi lúc tạo
+   * câu hỏi nên lượt chưa chấm vẫn tra được; dải lượt câm vì chính nó lọc `verdict !== null`.
    */
   it('im lặng khi không có slot', () => {
     expect(turnWeightLabel(null, 3)).toBeNull();

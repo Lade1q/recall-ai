@@ -52,6 +52,22 @@ function makeTurn(
   };
 }
 
+/** Lượt đã được HỎI nhưng chưa chấm — có `mode`, chưa có `verdict`. */
+function makeUngraded(
+  id: string,
+  turnIndex: number,
+  countsTowardMastery: boolean
+): InterviewTurnResponse {
+  return {
+    ...makeTurn(id, turnIndex, countsTowardMastery),
+    answerText: null,
+    score: null,
+    feedback: null,
+    verdict: null,
+    answeredAt: null,
+  };
+}
+
 function session(turnIndex: number | null): InterviewSessionState {
   return {
     id: 'session-1',
@@ -125,12 +141,53 @@ describe('InterviewSessionPage — dải lượt và trọng số (#392 (c))', (
   });
 
   /**
-   * Chốt của review: lượt CHƯA chấm không được gắn nhãn — slot của nó phụ thuộc việc nó có
-   * thành lượt gợi ý hay không, và điều đó chỉ rõ sau khi chấm.
+   * Dải lượt câm cho lượt chưa chấm vì **chính nó lọc `verdict !== null`** trước khi tra — một
+   * lựa chọn hiển thị, KHÔNG phải vì slot chưa biết được (`mode` ghi lúc tạo câu hỏi). Ca dưới
+   * đây dùng lượt VẮNG MẶT khỏi transcript; ca "có mặt nhưng chưa chấm" nằm ở describe kế tiếp,
+   * nơi header nói còn dải lượt im.
    */
-  it('lượt chưa chấm ⇒ không nhãn', () => {
+  it('lượt vắng mặt trong transcript ⇒ không nhãn', () => {
     mountWith([makeTurn('t1', 1, true)], 2);
 
     expect(railWeights()).toEqual(['×0.2', null, null]);
+  });
+});
+
+/** Chuỗi của header `Lượt N/3 · trọng số X`, lấy nguyên văn để hỏi được cả có lẫn không. */
+function headerText(): string {
+  const el = [...document.querySelectorAll('span')].find((node) =>
+    /Lượt \d+\/\d+/.test(node.textContent ?? '')
+  );
+  return el?.textContent ?? '';
+}
+
+/**
+ * Header đọc transcript KHÔNG lọc `verdict`, nên nó nói được trọng số của một lượt chưa chấm —
+ * và trước bản vá blocker nó nói `0.5` cho đúng lượt mà công thức nhân `0.6`.
+ *
+ * Đo được: đột biến `)(currentTurnRow)` → `)(turns[0])` **sống 515/515**, vì tệp test này chỉ
+ * bám tiêu đề `Lượt — <khái niệm>` của dải lượt.
+ */
+describe('InterviewSessionPage — header trọng số (#392 (c))', () => {
+  const withHint = () => [
+    makeTurn('t1', 1, true),
+    makeTurn('t2', 2, false),
+    makeUngraded('t3', 3, true),
+  ];
+
+  it('🔴 t3 chưa chấm sau một lượt gợi ý ⇒ header nói 0.3', () => {
+    mountWith(withHint(), 3);
+
+    expect(headerText()).toContain('trọng số 0.3');
+  });
+
+  /**
+   * Hỏi RIÊNG sự vắng mặt. `0.5` là con số bản trước blocker in ra ở đúng chỗ này; "có 0.3"
+   * không tự suy ra "không có 0.5" — hai mệnh đề, hai assertion.
+   */
+  it('🔴 và KHÔNG in 0.5 — con số của trục thô', () => {
+    mountWith(withHint(), 3);
+
+    expect(headerText()).not.toContain('0.5');
   });
 });

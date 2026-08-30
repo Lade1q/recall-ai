@@ -41,9 +41,11 @@ export function normalizedTurnWeights(turnCount: number): number[] | null {
  * đại lượng, một đường vào — "quên nén" trở thành thứ không diễn đạt được.
  *
  * `null` — tức KHÔNG hiện gì — ở ba ca, cả ba đều là "thà im còn hơn gán sai":
- *  - `weightSlot === null`: lượt gợi ý (không có slot), hoặc lượt **chưa chấm** (slot của nó
- *    chưa biết được — nó phụ thuộc lượt ấy có thành gợi ý hay không, mà điều đó chỉ rõ sau khi
- *    chấm). Trước (c) nhãn ấy luôn đúng nên hiện được; dưới (c) thì không.
+ *  - `weightSlot === null`: lượt gợi ý (không có slot), hoặc **người gọi không đưa lượt nào**.
+ *    ⚠️ Ca thứ hai KHÔNG phải "chưa biết được slot": `mode` được ghi ngay lúc TẠO câu hỏi, cùng
+ *    `create` với `questionText`, nên một lượt chưa chấm vẫn tra được slot — và header của màn
+ *    vấn đáp làm đúng thế. Dải lượt câm vì **chính nó lọc `verdict !== null` trước khi tra**, tức
+ *    một lựa chọn hiển thị của người gọi, không phải giới hạn nhận thức.
  *  - phiên dùng `maxTurnsPerConcept` khác trần mặc định: mảng hằng số này không mô tả nó.
  *  - slot vượt ngoài mảng.
  *

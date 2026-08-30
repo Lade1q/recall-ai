@@ -17,10 +17,14 @@ ALTER TABLE "interview_turns" ADD COLUMN "mode" "TurnMode";
 -- so this UPDATE bumps no timestamp and cannot disturb anything that reads recency.
 --
 -- Note what holds the predicate up: it constrains `t.source = 'ai'` but NOT `p.source`. That is
--- safe only because `InterviewSession.fallbackMode` is a ONE-WAY latch — the code writes `true`
--- in three places and `false` in none — so within a session an `ai` turn can never follow a
--- `cache_fallback` one. If fallback ever becomes recoverable, this predicate starts matching
--- pairs it was never meant to, and nothing here would say so.
+-- safe only because `InterviewSession.fallbackMode` is a ONE-WAY latch — two writes of `true`,
+-- none of `false` — so within a session an `ai` turn can never follow a `cache_fallback` one. If
+-- fallback ever becomes recoverable, this predicate starts matching pairs it was never meant to,
+-- and nothing here would say so.
+--
+-- Count with `data: {`, NOT with `fallbackMode: true`: the latter also matches Prisma `select`
+-- blocks, and that one grep has now produced three different published numbers (4 → 3 → 2) for
+-- the same fact. `@default(false)` in the schema is the initial state, not a reset.
 UPDATE "interview_turns" AS t
 SET "mode" = 'hint'
 FROM "interview_turns" AS p

@@ -357,8 +357,12 @@ export default function InterviewSessionPage() {
   const conceptPosition = Math.min(progress.completedConcepts + 1, progress.conceptTotal);
   const turnIndex = progress.turnIndex ?? currentQuestion?.turnIndex ?? null;
   // ⚠️ Lượt gợi ý KHÔNG có trọng số nào (#392 (c)) — gắn một con số cho nó ở đây là nói dối
-  // ngay trên màn sinh viên đang trả lời. Tra `countsTowardMastery` từ transcript đã tải; lượt
-  // chưa có trong transcript thì chưa biết loại, và ca đó rơi vào nhánh `undefined` bên dưới.
+  // ngay trên màn sinh viên đang trả lời.
+  //
+  // Tra thẳng từ transcript, KHÔNG lọc `verdict`: `mode` đã được ghi lúc tạo câu hỏi, nên một
+  // lượt chưa chấm vẫn có slot và header vẫn nói đúng trọng số của nó. (Dải lượt bên dưới thì
+  // lọc `verdict !== null` nên câm ở cùng lượt đó — bất đối xứng có thật, xem issue riêng.)
+  // `undefined` chỉ xảy ra khi lượt chưa có mặt trong transcript.
   const currentTurnRow =
     turnIndex === null
       ? undefined
@@ -912,9 +916,9 @@ function TurnStackRail({
           // Chưa được chấm và không phải lượt đang hỏi: có thể sẽ không bao giờ mở nếu
           // khái niệm dừng sớm — hạ độ đậm để đọc như "chưa chắc" chứ không phải "sắp tới".
           const notYetReached = !graded && !isNow;
-          // Lượt CHƯA chấm không có slot để mà tra: slot của nó phụ thuộc việc nó có thành
-          // lượt gợi ý hay không, và điều đó chỉ rõ sau khi chấm. In một con số rồi để nó sai
-          // là đúng thứ bản vá này đang gỡ.
+          // `graded` đã lọc `verdict !== null` ở trên, nên lượt chưa chấm ra `undefined` và
+          // dải này câm. Đó là LỰA CHỌN của chỗ này, không phải vì slot chưa tra được — header
+          // phía trên tra được và có nói. Bất đối xứng cố ý giữ nguyên ở PR này (issue riêng).
           const weightLabel = weightLabelFor(graded);
           return (
             <div

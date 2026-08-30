@@ -756,6 +756,41 @@ describe('interview.service — AE-05 flashcard fallback', () => {
    * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
    * chứ không lặng lẽ vá kèm.
    */
+  /**
+   * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
+   *
+   * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
+   * chứng minh hàng *lưu được* nó. Đúng vì thế mà fake `interviewTurn.create` đánh rơi `mode`
+   * suốt một thời gian không ai thấy: đo được, đột biến `mode: data.mode ?? null` → `mode: null`
+   * trong fake **sống 981/981**.
+   *
+   * Ca này đi hết vòng: `submitAnswer` (sai ⇒ sinh lượt gợi ý) → `getInterview` → cờ đọc ra từ
+   * transcript. Nó là ca duy nhất phân biệt "fake giữ trường" với "fake nuốt trường".
+   */
+  it('🔴 lượt gợi ý VỪA TẠO đọc lại từ transcript vẫn mang cờ không-tính (#392 (c))', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ turnIndex: 2, mode: 'hint', countsTowardMastery: false }),
+      ])
+    );
+  });
+
   it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
     seedPendingTurn({
       turnIndex: 1,
