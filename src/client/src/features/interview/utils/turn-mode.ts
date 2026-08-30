@@ -10,11 +10,12 @@
 import type { InterviewTurnResponse, SessionSummaryTurnResponse } from '../types/interview.types';
 
 /**
- * ⚠️ CHỜ CHỐT — chữ của client, mockup `claude-design/` không có ô nào cho lượt gợi ý (nó có
- * trước #392). Gom vào một chỗ để đổi bằng một dòng khi có quyết định.
+ * Chữ của client — mockup `claude-design/` không có ô nào cho lượt gợi ý (nó có trước #392), nên
+ * đây là ca client tự đặt chữ. **Quân chốt phương án A, 30/08/2026**: câu này thay vào ĐÚNG chỗ
+ * `· trọng số gốc 0.x` từng đứng, vì đó chính là chỗ người đọc hỏi "sao lượt này không có
+ * trọng số?" — trả lời tại chỗ câu hỏi nảy ra, không thêm thành phần thị giác mới.
  *
- * Câu này thay vào đúng chỗ `· trọng số gốc 0.x` từng đứng, vì đó chính là chỗ người đọc hỏi
- * "sao lượt này không có trọng số?".
+ * Giữ ở một chỗ duy nhất: hai màn dùng chung, sửa chữ là sửa một dòng.
  */
 export const HINT_TURN_NOTE = 'lượt gợi ý, không tính điểm';
 
