@@ -12,7 +12,7 @@ import { useSchedule, type UseScheduleReturn } from '../hooks/useSchedule';
 import { useScheduleViewState } from '../hooks/useScheduleViewState';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
-import { groupByDateKey } from '../utils/schedule-date';
+import { buildDeadlineMarks, groupByDateKey } from '../utils/schedule-date';
 
 export interface ScheduleViewProps {
   /**
@@ -109,6 +109,30 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
     [visibleItems, todayDateKey]
   );
 
+  // Hạn chót đi từ `plans` chứ KHÔNG từ payload lịch: #400 cấm nhân đôi metadata kế hoạch vào
+  // `/schedule`, và `ScheduleView` đã có mảng plans trong tay. Lọc `active` + `hiddenPlanIds` nằm
+  // trong `buildDeadlineMarks` để lưới và panel không thể nói hai tập khác nhau.
+  const deadlines = useMemo(
+    () => buildDeadlineMarks(plans, state.hiddenPlanIds, todayDateKey),
+    [plans, state.hiddenPlanIds, todayDateKey]
+  );
+
+  // Panel nêu TÊN kế hoạch, lưới chỉ đánh dấu (#439). Lọc lại từ cùng ba điều kiện của
+  // `buildDeadlineMarks` — nếu hai chỗ lệch nhau thì ô có vạt mà panel không giải thích được.
+  const deadlinePlans = useMemo(
+    () =>
+      state.selectedDateKey === null
+        ? []
+        : plans.filter(
+            (plan) =>
+              plan.status === 'active' &&
+              !state.hiddenPlanIds.has(plan.id) &&
+              plan.deadline !== null &&
+              plan.deadline.slice(0, 10) === state.selectedDateKey
+          ),
+    [plans, state.hiddenPlanIds, state.selectedDateKey]
+  );
+
   const draftCount = plans.filter((plan) => plan.status === 'draft').length;
   const hasActivePlan = plans.some((plan) => plan.status === 'active');
   const debtItems = days.filter((day) => day.isOverdue).flatMap((day) => day.items);
@@ -173,6 +197,7 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 monthCursor={state.monthCursor}
                 todayDateKey={todayDateKey}
                 selectedDateKey={state.selectedDateKey}
+                deadlines={deadlines}
                 days={days}
                 onSelectDay={state.selectDay}
                 onShiftMonth={state.shiftMonth}
@@ -204,6 +229,7 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 scope={panel.scope}
                 todayDateKey={todayDateKey}
                 items={panel.items}
+                deadlinePlans={deadlinePlans}
                 expandedItemId={state.expandedItemId}
                 pendingItemIds={schedule.pendingItemIds}
                 onToggleItem={state.toggleItem}

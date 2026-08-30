@@ -9,6 +9,7 @@ import {
   formatMonthLabel,
   monthCursorFromDateKey,
   monthsBetween,
+  type DeadlineMark,
   type MonthCell,
   type MonthCursor,
 } from '../utils/schedule-date';
@@ -30,6 +31,14 @@ export interface MonthGridProps {
    * con trỏ tháng được lưu ra sao.
    */
   onShiftMonth: (delta: number) => void;
+  /**
+   * Ngày nào là hạn chót của ≥1 kế hoạch ĐANG HIỆN (#439), tra theo `dateKey`. Dựng ở
+   * `ScheduleView` bằng `buildDeadlineMarks` — lưới không tự lọc `status`/`hiddenPlanIds`.
+   *
+   * `Map` chứ không phải mảng: `DayCell` là `memo` trên 42 ô, nên nó phải nhận một **giá trị vô
+   * hướng** cho riêng ngày của nó. Truyền cả map xuống con là biến memo thành no-op.
+   */
+  deadlines: ReadonlyMap<string, DeadlineMark>;
 }
 
 /** Đầu cột, tuần bắt đầu **thứ Hai** — phải khớp phép xoay trong `buildMonthCells`. */
@@ -38,8 +47,26 @@ const WEEKDAY_HEADS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
 /** Tối đa 3 chip chữ trong một ô; phần dôi gộp thành "+n mục nữa". */
 const MAX_CHIPS = 3;
 
-/** Tối đa 4 chấm mật độ ở bề ngang hẹp, rồi "+n". */
+/**
+ * Tối đa 4 chấm mật độ ở bề ngang hẹp, rồi "+n" — nhưng **bớt xuống 2 khi có đuôi**, vì đuôi phải
+ * có chỗ THẬT chứ không phải chỗ đi mượn.
+ *
+ * 🔴 Lý do là một hồi quy đo được của #404: `<i>` là flex item, `flex-shrink: 1` mặc định, nên khi
+ * hàng chật Chrome **bóp chính các chấm** thay vì đẩy đuôi ra ngoài. Đo ở 320px: 5 mục ⇒ chấm còn
+ * **1,44px**, 14 mục ⇒ chấm còn **0px, biến mất hẳn**. Tín hiệu mật độ khi đó chạy NGƯỢC nghĩa —
+ * càng nhiều mục chấm càng nhỏ. Và vì hàng không bao giờ tràn, không phép đo tràn nào bắt được.
+ *
+ * ⛔ Bản vá KHÔNG phải là `shrink-0` một mình: đo được, `shrink-0` giữ chấm 5px nhưng làm hàng
+ * **tràn 4–20px** — tức nó chỉ dời chỗ hỏng ra ngoài ô. Phải đi kèm cắt bớt số chấm.
+ *
+ * Ngân sách ở 320px (lòng ô 30px): 4 chấm 5px + 3 khe 3px = 29px vừa khít khi KHÔNG có đuôi;
+ * 2 chấm + 2 khe + đuôi một chữ số ≈ 28px khi CÓ đuôi. Đuôi hai chữ số cần >12 mục trong một
+ * ngày — bất khả sau khi fold `(planId, conceptId)`, nên không tối ưu cho nó.
+ */
 const MAX_DOTS = 4;
+
+/** Số chấm khi đã có đuôi "+n" — xem ngân sách px ở `MAX_DOTS`. */
+const MAX_DOTS_WITH_TAIL = 2;
 
 /**
  * 🔴 MỌI tên class trong tệp này phải là **literal viết thẳng**, không ghép từ biến.
@@ -79,6 +106,7 @@ export function MonthGrid({
   days,
   onSelectDay,
   onShiftMonth,
+  deadlines,
 }: MonthGridProps) {
   const cells = useMemo(() => buildMonthCells(monthCursor), [monthCursor]);
   const dayByDateKey = useMemo(() => new Map(days.map((day) => [day.dateKey, day])), [days]);
@@ -157,6 +185,7 @@ export function MonthGrid({
               day={dayByDateKey.get(cell.dateKey)}
               isToday={cell.dateKey === todayDateKey}
               isSelected={cell.dateKey === selectedDateKey}
+              deadline={deadlines.get(cell.dateKey)}
               onSelectDay={onSelectDay}
             />
           ))}
@@ -178,6 +207,8 @@ interface DayCellProps {
   day: ScheduleDay | undefined;
   isToday: boolean;
   isSelected: boolean;
+  /** `undefined` = ngày này không phải hạn chót của kế hoạch nào đang hiện. */
+  deadline: DeadlineMark | undefined;
   onSelectDay: (dateKey: string) => void;
 }
 
@@ -191,6 +222,7 @@ const DayCell = memo(function DayCell({
   day,
   isToday,
   isSelected,
+  deadline,
   onSelectDay,
 }: DayCellProps) {
   const items = day?.items ?? [];
@@ -199,6 +231,7 @@ const DayCell = memo(function DayCell({
   const isOverdue = day?.isOverdue === true;
   const chips = items.slice(0, MAX_CHIPS);
   const hiddenChipCount = items.length - chips.length;
+  const dotCount = items.length > MAX_DOTS ? MAX_DOTS_WITH_TAIL : MAX_DOTS;
 
   return (
     <button
@@ -207,9 +240,12 @@ const DayCell = memo(function DayCell({
       onClick={() => onSelectDay(cell.dateKey)}
       aria-current={isToday ? 'date' : undefined}
       aria-pressed={cell.inMonth ? isSelected : undefined}
-      aria-label={cellLabel(cell, items.length, isOverdue)}
+      aria-label={cellLabel(cell, items.length, isOverdue, deadline)}
       className={cn(
-        'border-border relative flex min-h-[104px] flex-col gap-[3px] border-b border-r px-1.5 py-[5px] text-left [&:nth-child(7n)]:border-r-0',
+        // `overflow-hidden` để vạt hạn chót bị cắt thành tam giác góc. Đo trước khi thêm: hàng
+        // chấm KHÔNG tràn (`scrollWidth === clientWidth` ở mọi bề ngang) nên nó không xén gì —
+        // nhưng tính chất đó phụ thuộc `MAX_DOTS_WITH_TAIL`, đừng nới cái kia mà quên cái này.
+        'border-border relative flex min-h-[104px] flex-col gap-[3px] overflow-hidden border-b border-r px-1.5 py-[5px] text-left [&:nth-child(7n)]:border-r-0',
         'max-[680px]:min-h-[58px] max-[680px]:p-1',
         cell.inMonth ? 'hover:bg-muted/55 cursor-pointer' : 'bg-muted/35 cursor-default',
         // Tint /7, KHÔNG phải /10 hay /14: chữ `--muted-foreground` 10–12px nằm ngay trên nền này,
@@ -262,18 +298,47 @@ const DayCell = memo(function DayCell({
 
       {items.length > 0 && (
         <span aria-hidden="true" className="mt-0.5 hidden items-center gap-[3px] max-[680px]:flex">
-          {items.slice(0, MAX_DOTS).map((item) => (
+          {items.slice(0, dotCount).map((item) => (
             <i
               key={item.id}
-              className={cn('block size-[5px] rounded-full', DOT_ACCENT[accentOf(item, isOverdue)])}
+              // `shrink-0` là bắt buộc, không phải phòng xa: thiếu nó thì chấm bị bóp thành lát
+              // mỏng thay vì hàng tràn ra (xem `MAX_DOTS`).
+              className={cn(
+                'block size-[5px] shrink-0 rounded-full',
+                DOT_ACCENT[accentOf(item, isOverdue)]
+              )}
             />
           ))}
-          {items.length > MAX_DOTS && (
-            <b className="text-muted-foreground font-mono text-[10px] font-semibold">
-              +{items.length - MAX_DOTS}
+          {items.length > dotCount && (
+            <b className="text-muted-foreground ml-px font-mono text-[10px] font-semibold">
+              +{items.length - dotCount}
             </b>
           )}
         </span>
+      )}
+
+      {deadline !== undefined && (
+        <i
+          aria-hidden="true"
+          data-deadline={deadline.isPast ? 'past' : 'upcoming'}
+          className={cn(
+            // Hình vuông 18px xoay 45°, tâm đặt lệch vào trong 6px mỗi trục ⇒ phần còn lại sau khi
+            // ô cắt là một tam giác ở góc dưới-phải. Lệch vào (không phải -9px, tức không đặt tâm
+            // đúng góc) là để né cung bo của KHUNG lưới: `rounded-xl` có bán kính TUYỆT ĐỐI 13,5px
+            // trong khi ô co theo màn, nên ở 360px cung đó ăn ~29% bề ngang ô cuối — chỉ ô 42 dính,
+            // nhưng ở màn hẹp thì nó ngoạm hẳn cái mũi chứ không phải vài pixel.
+            'pointer-events-none absolute bottom-[-6px] right-[-6px] size-[18px] rotate-45',
+            // Mực, KHÔNG phải hue: ba dải mastery + truy ngược đã tiêu hết trục màu (C6). Đặc =
+            // sắp tới (còn hành động được), chỉ còn nét = đã qua (dấu vết). Quá hạn đã được nói
+            // bằng NỀN của ô, nên dồn thêm mực đặc vào quá khứ là nói hai lần một điều.
+            deadline.isPast ? 'border-foreground border-[1.5px]' : 'bg-foreground',
+            // KHÔNG tự thừa hưởng `opacity-30` của ô tràn tháng — nó là con tuyệt đối của
+            // `<button>`, không nằm trong `<span>` số ngày. Thiếu dòng này thì ô mờ lại mang dấu
+            // chói nhất lưới, ở đúng ô bấm không được. Đĩa HÔM NAY đã mờ theo ô, vạt cùng hạng
+            // DẤU TRẠNG THÁI nên mờ theo; chip và chấm là NỘI DUNG nên không mờ.
+            !cell.inMonth && 'opacity-30'
+          )}
+        />
       )}
     </button>
   );
@@ -309,11 +374,31 @@ function accentOf(item: ScheduleItem, isOverdue: boolean): Accent {
   return isOverdue ? 'overdue' : 'normal';
 }
 
-/** Nhãn trợ năng của ô — ở bề ngang hẹp đây là thứ duy nhất còn đọc được (xem ghi chú 680px). */
-function cellLabel(cell: MonthCell, itemCount: number, isOverdue: boolean): string {
-  const day = formatDayLabel(cell.dateKey);
-  if (itemCount === 0) return `${day} — không có gì được xếp`;
-  return `${day} — ${itemCount} khái niệm${isOverdue ? ', quá hạn' : ''}`;
+/**
+ * Nhãn trợ năng của ô — ở bề ngang hẹp đây là thứ duy nhất còn đọc được (xem ghi chú 680px).
+ *
+ * 🔴 Ghép MẢNH, không return sớm. Bản trước thoát ngay ở `itemCount === 0`, mà **ô rỗng lại là ca
+ * PHỔ BIẾN NHẤT của hạn chót** — hạn hiếm khi trùng đúng ngày engine xếp buổi ôn. Mọi mệnh đề nối
+ * sau một return sớm là code chết cho đúng ca cần nó nhất, và ô đó sẽ đọc thành "không có gì được
+ * xếp" khi thật ra có một hạn chót: **nói dối, không phải nói thiếu**.
+ *
+ * "quá hạn" ở lại đúng phạm vi MỤC ÔN. Hạn chót dùng từ riêng — dùng lại "quá hạn" thì ô có cả hai
+ * đọc ra "…, quá hạn, quá hạn của 2 kế hoạch". Và vế hạn chót không mặc định là quá khứ: phần lớn
+ * hạn nằm ở TƯƠNG LAI, đó là cả lý do hiện nó.
+ */
+function cellLabel(
+  cell: MonthCell,
+  itemCount: number,
+  isOverdue: boolean,
+  deadline: DeadlineMark | undefined
+): string {
+  const parts = [itemCount === 0 ? 'không có gì được xếp' : `${itemCount} khái niệm`];
+  if (isOverdue) parts.push('quá hạn');
+  if (deadline !== undefined) {
+    const verb = deadline.isPast ? 'hạn chót đã qua của' : 'hạn chót của';
+    parts.push(`${verb} ${deadline.planCount} kế hoạch`);
+  }
+  return `${formatDayLabel(cell.dateKey)} — ${parts.join(', ')}`;
 }
 
 /**

@@ -46,6 +46,7 @@ function renderGrid(overrides: Partial<MonthGridProps> = {}) {
     todayDateKey: TODAY,
     selectedDateKey: null,
     days: [],
+    deadlines: new Map(),
     onSelectDay: vi.fn(),
     onShiftMonth: vi.fn(),
     ...overrides,
@@ -254,7 +255,9 @@ describe('MonthGrid — bề ngang hẹp (<680px)', () => {
     ...cell(name).querySelectorAll('span[aria-hidden="true"] i'),
   ];
 
-  it('shows one density dot per item, up to four, then a "+n" tail', () => {
+  // ⚠️ Ca này từng ghim "4 chấm + đuôi". Đổi ở #439: khi CÓ đuôi thì số chấm hạ xuống 2 để đuôi có
+  // chỗ thật — xem `MAX_DOTS` trong `MonthGrid.tsx`. Tổng vẫn nói đủ 6 (2 chấm + "+4").
+  it('shows dots plus a "+n" tail, and the two together still account for every item', () => {
     renderGrid({
       days: [
         day(
@@ -263,8 +266,8 @@ describe('MonthGrid — bề ngang hẹp (<680px)', () => {
         ),
       ],
     });
-    expect(dotsIn(/T5, 20\/08/)).toHaveLength(4);
-    expect(within(cell(/T5, 20\/08/)).getByText('+2')).toBeInTheDocument();
+    expect(dotsIn(/T5, 20\/08/)).toHaveLength(2);
+    expect(within(cell(/T5, 20\/08/)).getByText('+4')).toBeInTheDocument();
   });
 
   it('does not add a tail at exactly four items', () => {
@@ -314,5 +317,135 @@ describe('MonthGrid — bề ngang hẹp (<680px)', () => {
     expect(target.querySelector('span[aria-hidden="true"]')?.className).toContain(
       'max-[680px]:flex'
     );
+  });
+});
+
+describe('MonthGrid — mốc hạn chót (#439)', () => {
+  const marks = (entries: [string, { planCount: number; isPast: boolean }][]) => new Map(entries);
+  const wedgeIn = (name: RegExp | string) => cell(name).querySelector('[data-deadline]');
+
+  it('marks a day that is the deadline of at least one plan', () => {
+    renderGrid({ deadlines: marks([['2026-09-02', { planCount: 1, isPast: false }]]) });
+    expect(wedgeIn(/T4, 02\/09/)).toHaveAttribute('data-deadline', 'upcoming');
+  });
+
+  it('tells a passed deadline apart from an upcoming one', () => {
+    renderGrid({
+      deadlines: marks([
+        ['2026-08-20', { planCount: 1, isPast: true }],
+        ['2026-09-02', { planCount: 1, isPast: false }],
+      ]),
+    });
+    expect(wedgeIn(/T5, 20\/08/)).toHaveAttribute('data-deadline', 'past');
+    expect(wedgeIn(/T4, 02\/09/)).toHaveAttribute('data-deadline', 'upcoming');
+  });
+
+  /**
+   * Ca "kế hoạch không có deadline" là chuyện THƯỜNG, không phải ca biên — nên phải hỏi riêng rằng
+   * dấu **không** có mặt. `getByRole`/`getByText` chỉ hỏi thứ chúng đi tìm; một phần tử THỪA không
+   * làm assertion nào đỏ. (Đột biến sống sót duy nhất của #437 đúng là loại này.)
+   */
+  it('puts no mark on a day that is nobody deadline', () => {
+    renderGrid({ deadlines: marks([['2026-09-02', { planCount: 1, isPast: false }]]) });
+    expect(wedgeIn(/T5, 20\/08/)).toBeNull();
+    expect(cell(/T7, 29\/08/).querySelector('[data-deadline]')).toBeNull();
+  });
+
+  it('renders no mark at all when no plan has a deadline', () => {
+    renderGrid({ deadlines: new Map() });
+    expect(document.querySelectorAll('[data-deadline]')).toHaveLength(0);
+  });
+
+  /**
+   * Ô rỗng là ca PHỔ BIẾN NHẤT của hạn chót — hạn hiếm khi trùng đúng ngày engine xếp buổi ôn.
+   * Bản `cellLabel` cũ return sớm ở `itemCount === 0`, nên ô này sẽ đọc thành "không có gì được
+   * xếp" trong khi thật ra có hạn chót: nói dối, không phải nói thiếu. Và ở ≤679px nhãn này là
+   * thứ DUY NHẤT trình đọc màn hình còn đọc được.
+   */
+  it('still names the deadline on a day with nothing scheduled', () => {
+    renderGrid({ deadlines: marks([['2026-08-26', { planCount: 2, isPast: false }]]) });
+    expect(
+      screen.getByRole('button', {
+        name: 'T4, 26/08 — không có gì được xếp, hạn chót của 2 kế hoạch',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps "quá hạn" for review items and separate wording for the deadline', () => {
+    renderGrid({
+      days: [day('2026-08-20', [item('A')])],
+      deadlines: marks([['2026-08-20', { planCount: 1, isPast: true }]]),
+    });
+    // KHÔNG được đọc ra "…, quá hạn, quá hạn của 1 kế hoạch" — hai chủ ngữ khác nhau.
+    expect(
+      screen.getByRole('button', {
+        name: 'T5, 20/08 — 1 khái niệm, quá hạn, hạn chót đã qua của 1 kế hoạch',
+      })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Vạt là con TUYỆT ĐỐI của `<button>`, không nằm trong `<span>` số ngày ⇒ nó **không tự thừa
+   * hưởng** `opacity-30` của ô tràn tháng. Thiếu mệnh đề riêng thì ô mờ lại mang dấu chói nhất
+   * lưới, ở đúng ô bấm không được.
+   */
+  it('dims the mark on an overflow cell, like the today disc already does', () => {
+    renderGrid({ deadlines: marks([['2026-09-02', { planCount: 1, isPast: false }]]) });
+    expect(wedgeIn(/T4, 02\/09/)?.className).toContain('opacity-30');
+  });
+
+  it('does not dim the mark on a day inside the month', () => {
+    renderGrid({ deadlines: marks([['2026-08-20', { planCount: 1, isPast: false }]]) });
+    expect(wedgeIn(/T5, 20\/08/)?.className).not.toContain('opacity-30');
+  });
+});
+
+describe('MonthGrid — chấm mật độ nhường chỗ cho đuôi (hồi quy #404)', () => {
+  const dotsIn2 = (name: RegExp | string) => [
+    ...cell(name).querySelectorAll('span[aria-hidden="true"] i'),
+  ];
+
+  /**
+   * Đo được ở 320px: `<i>` là flex item nên khi hàng chật Chrome bóp CHÍNH CÁC CHẤM — 5 mục ⇒
+   * 1,44px, 14 mục ⇒ 0px, biến mất hẳn. Hàng không bao giờ tràn nên không phép đo tràn nào bắt
+   * được. Bản vá là `shrink-0` **cộng** cắt bớt số chấm; `shrink-0` một mình chỉ dời chỗ hỏng ra
+   * ngoài ô (đo: tràn 4–20px).
+   */
+  it('drops to two dots once there is a tail, so the tail has real room', () => {
+    renderGrid({
+      days: [
+        day(
+          '2026-08-20',
+          ['A', 'B', 'C', 'D', 'E'].map((n) => item(n))
+        ),
+      ],
+    });
+    expect(dotsIn2(/T5, 20\/08/)).toHaveLength(2);
+    expect(within(cell(/T5, 20\/08/)).getByText('+3')).toBeInTheDocument();
+  });
+
+  it('still shows four dots when they fit without a tail', () => {
+    renderGrid({
+      days: [
+        day(
+          '2026-08-20',
+          ['A', 'B', 'C', 'D'].map((n) => item(n))
+        ),
+      ],
+    });
+    expect(dotsIn2(/T5, 20\/08/)).toHaveLength(4);
+    expect(cell(/T5, 20\/08/).querySelector('span[aria-hidden="true"] b')).toBeNull();
+  });
+
+  it('never lets a dot be squeezed into a sliver', () => {
+    renderGrid({
+      days: [
+        day(
+          '2026-08-20',
+          ['A', 'B', 'C', 'D', 'E'].map((n) => item(n))
+        ),
+      ],
+    });
+    for (const dot of dotsIn2(/T5, 20\/08/)) expect(dot.className).toContain('shrink-0');
   });
 });

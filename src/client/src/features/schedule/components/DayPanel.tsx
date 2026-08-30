@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleItem } from '../types/schedule.types';
 import { formatDayLabel } from '../utils/schedule-date';
 import { ScheduleItemRow } from './ScheduleItemRow';
@@ -14,6 +15,12 @@ export interface DayPanelProps {
   /** Hôm nay theo giờ VN — để panel tự biết "Hôm nay" và tự đếm số ngày quá hạn. */
   todayDateKey: string;
   items: ScheduleItem[];
+  /**
+   * Kế hoạch có hạn chót RƠI ĐÚNG ngày đang mở (#439) — lưới chỉ đánh dấu, panel mới nêu TÊN.
+   * Rỗng ở panel "Còn nợ" và ở mọi ngày không phải hạn chót. Nhận cả object chứ không nhận số
+   * đếm: đếm thì panel không nói được tên, mà tên chính là thứ nó tồn tại để nói.
+   */
+  deadlinePlans: readonly PlanSummary[];
   /** `id` của mục đang mở rộng tại chỗ, `null` khi không mục nào mở. */
   expandedItemId: string | null;
   /** `id` các mục đang có PATCH chạy — khoá nút của đúng mục đó. */
@@ -53,6 +60,7 @@ export function DayPanel({
   scope,
   todayDateKey,
   items,
+  deadlinePlans,
   expandedItemId,
   pendingItemIds,
   onToggleItem,
@@ -99,6 +107,19 @@ export function DayPanel({
               </>
             )}
           </div>
+          {deadlinePlans.length > 0 && (
+            // Nêu TÊN, không nêu số — lưới đã nói "có hạn ở đây", câu duy nhất panel thêm được là
+            // "của kế hoạch NÀO". Dùng `·` giữa các tên như mọi dòng meta khác của màn này.
+            <div className="text-foreground mt-1.5 text-[12px]">
+              <span className="font-semibold">
+                {isDebt || scope.kind !== 'day' || scope.dateKey >= todayDateKey
+                  ? 'Hạn chót'
+                  : 'Hạn chót đã qua'}
+              </span>
+              {': '}
+              {deadlinePlans.map((plan) => plan.name).join(' · ')}
+            </div>
+          )}
         </div>
         <button
           type="button"

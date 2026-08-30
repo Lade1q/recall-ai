@@ -1,3 +1,4 @@
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleDay, ScheduleItem } from '../types/schedule.types';
 
 /**
@@ -139,4 +140,51 @@ export function buildMonthCells(cursor: MonthCursor): MonthCell[] {
  */
 export function formatMonthLabel(cursor: MonthCursor): string {
   return `Tháng ${cursor.month} ${cursor.year}`;
+}
+
+/** Ngày này là hạn chót của bao nhiêu kế hoạch, và hạn đó đã trôi qua chưa (#439). */
+export interface DeadlineMark {
+  /** ≥1. Lưới chỉ ĐÁNH DẤU nên không vẽ con số này — nó sống ở `aria-label` và ở panel. */
+  planCount: number;
+  /** `dateKey < todayDateKey`. Suy đúng một chỗ, cùng phép so chuỗi ISO của `groupByDateKey`. */
+  isPast: boolean;
+}
+
+/**
+ * Ngày hạn chót của các kế hoạch ĐANG HIỆN trên lịch, tra được theo `dateKey`.
+ *
+ * 🔑 **Khoá ngày là `plan.deadline.slice(0, 10)` — KHÔNG đổi sang giờ VN.** Đây là chỗ duy nhất
+ * trên màn Lịch đi ngược quy ước "ngày VN do server cắt", nên lý do phải nằm ngay đây: server ghi
+ * deadline bằng cách lấy phần NGÀY người dùng gõ rồi ghim vào `T23:59:59.999Z`
+ * (`plan.service.ts`). Nên ngày-UTC của mốc đó **chính là** ngày người dùng đã chọn, và `slice`
+ * là **phép chiếu ngược của phép ghi đó** — không phải một phép đổi múi giờ.
+ * Cắt sang VN thì `2026-08-30T23:59:59.999Z` thành `2026-08-31`: lệch một ngày, và chỉ lệch trên
+ * hình dạng MỚI (hàng cũ lưu `T00:00:00.000Z` vẫn đúng) ⇒ hỏng một nửa, loại khó chẩn đoán nhất.
+ *
+ * Lọc `status === 'active'` vì `GET /plans` trả MỌI trạng thái còn lịch chỉ vẽ plan `active`; lọc
+ * `hiddenPlanIds` vì tắt một kế hoạch ở bộ lọc mà lưới vẫn còn dấu thì bấm vào panel rỗng.
+ * Dùng `PlanSummary` (`deadline: string | null`), KHÔNG phải `PlanDetails` (`deadline?: string`) —
+ * nhầm thì `undefined` và `null` đi hai nhánh khác nhau mà TypeScript không kêu.
+ */
+export function buildDeadlineMarks(
+  plans: readonly PlanSummary[],
+  hiddenPlanIds: ReadonlySet<string>,
+  todayDateKey: string
+): Map<string, DeadlineMark> {
+  const marks = new Map<string, DeadlineMark>();
+  for (const plan of plans) {
+    if (plan.status !== 'active' || plan.deadline === null) continue;
+    if (hiddenPlanIds.has(plan.id)) continue;
+
+    const dateKey = plan.deadline.slice(0, 10);
+    const existing = marks.get(dateKey);
+    if (existing === undefined) {
+      marks.set(dateKey, { planCount: 1, isPast: dateKey < todayDateKey });
+    } else {
+      // Không tính lại `isPast`: cùng một `dateKey` thì cùng một phía của hôm nay, nên ca "một hạn
+      // đã qua và một hạn sắp tới trong cùng ô" là bất khả.
+      existing.planCount += 1;
+    }
+  }
+  return marks;
 }
