@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@/utils/test-utils';
+import { fireEvent, render, screen, waitFor } from '@/utils/test-utils';
 import DashboardPage from './DashboardPage';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
@@ -85,7 +85,9 @@ describe('DashboardPage — ca A1 (tài khoản 0 kế hoạch)', () => {
     const cta = await screen.findByRole('link', { name: 'Tạo kế hoạch đầu tiên' });
     expect(cta).toHaveAttribute('href', '/plan/new');
 
-    // Thân bài phải là chuỗi của server, không phải copy client (#273/#278).
+    // Thân bài phải là chuỗi của server, không phải copy client. Quy tắc ở mockup
+    // `claude-design/screen-dashboard.html`, khối A2b — KHÔNG phải #273/#278: #278 là một PR
+    // chứ không phải issue, và #273 chỉ cấm SERVER trả fallback, không nói gì về client (#446).
     expect(screen.getByText(NO_PLAN_MESSAGE)).toBeInTheDocument();
 
     // Và chỉ MỘT thẻ: khối "Gợi ý hôm nay" bị ẩn hẳn ở ca này (mockup A1).
@@ -121,6 +123,47 @@ describe('DashboardPage — ca A1 (tài khoản 0 kế hoạch)', () => {
   });
 
   /**
+   * Test trên khoá nút "Thử lại" CÓ MẶT; test này khoá nó CHẠY ĐƯỢC — hai chuyện khác nhau.
+   * Đo đột biến ở #446 cho thấy cắt dây `onRetry={today.reload}` thành `onRetry={() => {}}` vẫn
+   * xanh toàn bộ: cả #389 tồn tại vì tài khoản 0 kế hoạch mất ĐƯỜNG PHỤC HỒI, nên "nút có mặt"
+   * là triệu chứng, "nút gọi lại được API" mới là cách chữa.
+   */
+  it('🔴 bấm "Thử lại" gọi lại API và thẻ hồi phục tại chỗ, không cần F5', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    vi.mocked(reviewQueueApi.getToday)
+      .mockRejectedValueOnce(new Error('network down'))
+      .mockResolvedValue(makeTodayResponse());
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Thử lại' }));
+
+    // Dây `onRetry` phải chạy tới đúng nguồn của khối này.
+    await waitFor(() => expect(reviewQueueApi.getToday).toHaveBeenCalledTimes(2));
+
+    // Và hồi phục về đúng ca A1 gộp: câu server hiện ra, khối lỗi biến mất.
+    expect(await screen.findByText(NO_PLAN_MESSAGE)).toBeInTheDocument();
+    expect(screen.queryByText('Không tải được gợi ý hôm nay.')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Bất biến `DashboardPage.tsx:35` tự viết ra: *"`plans` chưa tải xong: chưa biết ca nào thì
+   * không được đoán."* Đổi `isBrandNewAccount` sang `plans.data === null || …` là đoán, và trước
+   * test này thì không có gì đỏ (#446). Đoán sai làm khối gợi ý biến mất ở tài khoản CÓ kế hoạch
+   * trong suốt lúc `/plans` còn đang bay.
+   */
+  it('plans chưa tải xong: KHÔNG đoán là tài khoản trống, khối gợi ý vẫn hiện', async () => {
+    vi.mocked(planApi.listPlans).mockReturnValue(new Promise(() => {}));
+    vi.mocked(reviewQueueApi.getToday).mockResolvedValue(
+      makeTodayResponse({ message: 'Bạn đã hoàn thành kế hoạch hôm nay 🎉' })
+    );
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    expect(await screen.findByText('Bạn đã hoàn thành kế hoạch hôm nay 🎉')).toBeInTheDocument();
+  });
+
+  /**
    * Chốt chặn cho cách sửa SAI đã bị loại: `isBrandNewAccount && today.data !== null`.
    * `useAsyncResource` khởi tạo `data: null`, nên điều kiện đó gộp cả ca đang tải vào ca lỗi —
    * skeleton gợi ý hiện lên rồi tan ở MỌI tài khoản trống, đúng thứ mockup A1 cấm.
@@ -151,6 +194,20 @@ describe('DashboardPage — không hồi quy ca đã có kế hoạch', () => {
     expect(await screen.findByText('Bạn đã hoàn thành kế hoạch hôm nay 🎉')).toBeInTheDocument();
     // Không rơi nhầm vào ca A1 — thẻ onboarding chỉ dành cho tài khoản 0 kế hoạch.
     expect(screen.queryByRole('link', { name: 'Tạo kế hoạch đầu tiên' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Nhánh `TodayNudgeSkeleton` không được test nào ghim trước #446 — bỏ hẳn nó vẫn xanh, và hậu
+   * quả là khối gợi ý trống trơn trong suốt lúc `/review-queue/today` còn bay thay vì báo "đang
+   * tải". Đây là nửa còn lại của cặp "rỗng hay đang tải" mà ca A1 ở trên khoá nửa kia.
+   */
+  it('có plan + today đang tải: hiện skeleton khối gợi ý', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([makePlan()]);
+    vi.mocked(reviewQueueApi.getToday).mockReturnValue(new Promise(() => {}));
+
+    render(<DashboardPage />, LOGGED_IN);
+
+    expect(await screen.findByText('Đang tải · Gợi ý hôm nay')).toBeInTheDocument();
   });
 
   it('chỉ có plan draft: vẫn là "có kế hoạch", không phải A1', async () => {
