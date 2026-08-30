@@ -49,11 +49,23 @@ export default function HistoryPage() {
           <TabsTrigger value="focus">Phiên học</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="interview">
+        {/* `forceMount` + ẩn bằng CSS thay vì để Radix unmount — cùng khuôn `PlansPage` đã dùng
+            từ #436, và ở đây cần cho CẢ HAI tab chứ không chỉ tab phụ: Radix unmount tab không
+            hoạt động, nên đi từ tab mặc định sang tab kia rồi quay về cũng mất trạng thái.
+
+            Đo LIVE ở review PR #441: tải thêm lên 33 hàng → đổi tab → quay lại → còn 20 hàng
+            cộng một `GET ?offset=0` nữa. Hai hook danh sách không có cache, nên mỗi lần quay lại
+            là một trang đầu mới và người dùng mất đúng chỗ đang đọc. Giữ mount là cách duy nhất
+            để các trang đã tải, phiên đang chọn và bộ lọc phạm vi cùng sống qua lần đổi tab.
+
+            Giá phải trả, ghi thẳng ra: `GET /focus-sessions` bắn ngay khi mở màn kể cả khi người
+            dùng không bấm sang tab Phiên học — MỘT request thay vì N request mỗi lần đổi tab.
+            Cùng đánh đổi PlansPage đã chấp nhận cho `GET /review-queue/schedule`. */}
+        <TabsContent value="interview" forceMount className="data-[state=inactive]:hidden">
           <InterviewHistoryTab plans={plans.data ?? []} />
         </TabsContent>
 
-        <TabsContent value="focus">
+        <TabsContent value="focus" forceMount className="data-[state=inactive]:hidden">
           <FocusHistoryTab plans={plans.data ?? []} />
         </TabsContent>
       </Tabs>
