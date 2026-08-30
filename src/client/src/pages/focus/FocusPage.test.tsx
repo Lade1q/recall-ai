@@ -500,4 +500,25 @@ describe('FocusPage — two-column document layout (#373)', () => {
     expect(mark.tagName).toBe('MARK');
     expect(mark.parentElement?.textContent).toBe('“Tầng Mạng trong mô hình TCP/IP…”');
   });
+
+  /**
+   * #301 · Dưới 900px cột đồng hồ được đưa LÊN TRÊN bằng `order`, KHÔNG bằng cách đổi thứ tự DOM —
+   * đó là điều kiện để thứ tự đọc/Tab vẫn là "tài liệu → cụm điều khiển" giống hệt desktop, thay vì
+   * để nút "Mở toàn văn" đứng trước chính nội dung mà nó điều khiển.
+   *
+   * Test này ghim THỨ TỰ DOM, không ghim class: đột biến "hoán vị hai khối trong JSX rồi đổi
+   * `order-first`/`order-last` cho nhau" render ra hình ảnh y hệt ở MỌI bề rộng (không một công cụ
+   * đo pixel nào bắt được) nhưng đảo ngược thứ tự Tab và thứ tự đọc của screen reader. Chỉ có phép
+   * so sánh vị trí trong cây DOM mới giết được nó.
+   */
+  it('keeps the document before the clock column in DOM order (tab order, not visual order)', async () => {
+    await startSessionWithDocument();
+
+    const excerpt = await screen.findByText('Tầng Mạng trong mô hình TCP/IP');
+    const clockColumnLabel = screen.getByText('Đang học');
+
+    expect(
+      excerpt.compareDocumentPosition(clockColumnLabel) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
 });

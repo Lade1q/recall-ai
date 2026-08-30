@@ -35,21 +35,31 @@ function SessionTally({
   awayTotalMs: number;
 }) {
   return (
-    <p className="text-muted-foreground -mt-1 flex flex-wrap items-center justify-center gap-x-0 gap-y-1 text-xs">
-      <span className="px-2.5">
+    // #301 · mockup `@media (max-width:560px)` dòng 1449: `.tally{flex-direction:column;gap:5px}`
+    // + `.tally__item{padding:0}`. App tách các mục bằng `px-2.5` (20px giữa hai mục) chứ không
+    // dùng dấu chấm `::before` như mockup, nên khi xếp dọc phải hạ về `px-0` — không thì mỗi dòng
+    // bị thụt vào 10px vô cớ. Vì thế rule `.tally__item + .tally__item::before{display:none}`
+    // (dòng 1455) là NO-OP với app: không có pseudo-element nào để ẩn ⇒ cố ý không port.
+    // `gap-y-[5px]` là số ĐO NGUYÊN VĂN từ mockup dòng 1450 (`gap:5px`), không phải bước thang
+    // Tailwind — giữ literal để đối chiếu được với mockup.
+    // ⚠️ Ghi chú chung cho mọi mốc `min-[N]px:` trong file: Tailwind sinh `min-width:Npx`, lệch
+    // 1px so với `max-width:Npx` của mockup — đúng tại N px app đã ở nhánh rộng, mockup vẫn ở
+    // nhánh hẹp. Chênh 1px này chấp nhận được và áp cho cả 560px lẫn 900px bên dưới.
+    <p className="text-muted-foreground -mt-1 flex flex-col flex-wrap items-center justify-center gap-x-0 gap-y-[5px] text-xs min-[560px]:flex-row min-[560px]:gap-y-1">
+      <span className="px-0 min-[560px]:px-2.5">
         Tập trung{' '}
         <span className="text-foreground font-mono text-[13px] font-semibold tabular-nums">
           {formatClock(focusedMs)}
         </span>
       </span>
       {strictMode && (
-        <span className="text-focus-session flex items-center gap-1.5 px-2.5">
+        <span className="text-focus-session flex items-center gap-1.5 px-0 min-[560px]:px-2.5">
           <ShieldCheck className="size-3.5 shrink-0" />
           Nghiêm ngặt đang bật
         </span>
       )}
       {awayCount > 0 && (
-        <span className="px-2.5">
+        <span className="px-0 min-[560px]:px-2.5">
           Rời tab{' '}
           <span className="text-foreground font-mono text-[13px] tabular-nums">
             {awayCount} lần ({formatClock(awayTotalMs)})
@@ -282,7 +292,13 @@ export function RunningSession({
         Tới cụm điều khiển phiên
       </a>
 
-      <header className="border-border bg-card grid shrink-0 grid-cols-[1fr_auto] items-center gap-5 border-b px-5 py-3">
+      {/* #301 · mockup `@media (max-width:560px)` dòng 1440: `.fs-top{grid-template-columns:minmax(0,1fr);
+          row-gap:10px}`. Dưới 560px cụm phải (bộ chọn tài liệu + 2 nút) đã chiếm ~298px, track
+          `1fr` của cụm trái co còn ~13px và nút "Hủy phiên" tràn đè lên bộ chọn — hai thứ bấm được
+          nằm chồng nhau. Cho mỗi cụm một hàng riêng thì hết chồng, đổi lại thanh trên cao thêm một
+          dòng. `gap-y-2.5` = 10px, đúng `row-gap:10px` của mockup; `min-[560px]:gap-y-5` trả
+          computed style ≥560px về đúng `gap:20px` cũ. */}
+      <header className="border-border bg-card grid shrink-0 grid-cols-[minmax(0,1fr)] items-center gap-x-5 gap-y-2.5 border-b px-5 py-3 min-[560px]:grid-cols-[1fr_auto] min-[560px]:gap-y-5">
         <div className="flex min-w-0 items-center gap-3.5">
           <button
             type="button"
@@ -297,10 +313,39 @@ export function RunningSession({
           </button>
           <div className="flex min-w-0 items-baseline gap-2.5">
             <span className="whitespace-nowrap text-sm font-semibold">Phiên học</span>
-            <span className="text-muted-foreground truncate text-[13px]">{item.planName}</span>
+            {/* #301 · mockup `@media (max-width:900px)` dòng 1419: `.fs-top__plan{display:none}`.
+                Tên kế hoạch là ngữ cảnh phụ; dưới 900px nó tranh chỗ với nhãn "Phiên học" và nút
+                "Hủy phiên" trong cùng một track. Mốc 900px trùng với `.split` bên dưới. Rule này
+                nằm cùng block `@media` với `.split` nhưng bị sót khỏi checklist issue — port kèm.
+                `sr-only` chứ không phải `hidden`: rule mockup là một quyết định THỊ GIÁC, và
+                `sr-only` trả đúng chi phí thị giác = 0 (box 1×1px, `clip-path:inset(50%)`, absolute
+                nên không chiếm chỗ). Nhưng `display:none` còn cắt luôn khỏi a11y tree, mà
+                `RunningSession` là nơi DUY NHẤT tên KẾ HOẠCH xuất hiện trong màn phiên học
+                (`item.name` ở cột phải là tên KHÁI NIỆM, không thay thế được) — người dùng screen
+                reader sẽ mất hẳn thông tin đó dưới 900px. `sr-only` giữ nó trong cây và đúng thứ
+                tự đọc, không thêm nội dung mới nên vẫn là thuần layout.
+                ⚠️ Dùng variant NGHỊCH `not-min-[900px]:` (`@media not (width>=900px)`) chứ KHÔNG
+                dùng cặp `sr-only` ở base + utility khôi phục ở `min-[900px]:`. Đã grep CSS build:
+                `.truncate` sinh ở offset ~25.8k, còn utility khôi phục (`white-space:normal;
+                overflow:visible`) rơi vào block `@media (width>=900px)` ở ~83.3k — mà `@media`
+                KHÔNG cộng độ đặc hiệu, nên nó GHI ĐÈ `truncate` (`white-space:nowrap;
+                overflow:hidden`) ở ≥900px: tên kế hoạch dài sẽ xuống dòng thay vì cắt bằng dấu ba
+                chấm. Đó là hồi quy desktop. Với variant nghịch, từ 900px KHÔNG có khai báo nào áp
+                thêm ⇒ computed style trùng khít bản `main`. Chọn `not-min-[900px]:` chứ không
+                `max-[899px]:` vì nó là phần bù CHÍNH XÁC, không hở ở bề rộng lẻ (899.5px). */}
+            <span className="text-muted-foreground not-min-[900px]:sr-only truncate text-[13px]">
+              {item.planName}
+            </span>
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2.5">
+        {/* #301 · mockup dòng 1445: `.fs-top__right{justify-content:flex-start}` dưới 560px — khi
+            cụm này đã có hàng riêng thì dồn phải làm nó trôi xa cụm trái, đọc như hai khối rời.
+            `flex-wrap` chỉ sống ĐÚNG trong dải <560px, cùng dải mockup đụng tới: ở 320px cụm này
+            (~298px) cộng padding 40px là tràn, nên phải cho xuống dòng. Từ 560px trả `flex-nowrap`
+            ngay — cho wrap ở dải 560–899px sẽ hạ min-content width của track `auto` trong lưới
+            `1fr auto`, khiến cụm phải tự rơi xuống 2 dòng (header cao thêm ~36px) ở đúng mốc 768px
+            mà AC bắt đo LIVE, trong khi mockup không hề đổi gì cho `.fs-top__right` ở dải đó. */}
+        <div className="flex flex-wrap items-center justify-start gap-2.5 min-[560px]:flex-nowrap min-[560px]:justify-end">
           {/* Chỉ có mặt ở màn ĐANG CHẠY: trong giờ nghỉ / lúc rời tab thì tài liệu đã tự ẩn, để lại
               một segment bấm được nhưng không đổi được gì trên màn hình là nói dối người dùng. Ẩn
               luôn khi panel ghi chú mở — lúc đó tài liệu bị `isStageTakenOver` khoá, segment sẽ bấm
@@ -373,13 +418,53 @@ export function RunningSession({
           <div
             ref={contentRef}
             tabIndex={-1}
-            className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_300px] outline-none"
+            // #301 · mockup `@media (max-width:900px)` dòng 1400: `.split{grid-template-columns:
+            // minmax(0,1fr)}`. Grid này nằm trong `flex-1 min-h-0`; nếu chỉ hạ xuống 1 cột thì hai
+            // hàng đều `auto` và hai con `overflow-y-auto` tranh nhau chiều cao ⇒ bị CẮT CỤT chứ
+            // không cuộn. Vì vậy nhánh hẹp chỉ định `grid-rows` tường minh: hàng `auto` cho cột
+            // phải (cao theo nội dung, luôn hiện đủ), hàng `minmax(0,1fr)` cho cột tài liệu để nó
+            // nhận phần còn lại và tự cuộn. Từ 900px trả về 1 hàng `minmax(0,1fr)` như cũ.
+            //
+            // Sàn `64px` của hàng 2 là phần được ĐO chứ không phải phòng hờ. Track `auto` lấy
+            // growth limit bằng max-content của `<aside>` (~370px ở bề rộng điện thoại: padding 44
+            // + nhãn "Đang học"/tên khái niệm ~60 + đồng hồ ~63 + đoạn giải thích ~115 + nút 36 +
+            // 3×`gap-4`), còn `1fr` CHỈ nhận free space còn lại và tụt được tới 0. Đo Chromium ở
+            // 667×294 (điện thoại xoay ngang, vẫn <900px): `minmax(0,1fr)` cho rows `210px 0px` —
+            // cột tài liệu biến mất hoàn toàn dù người dùng vừa bấm "Trích đoạn"/"Toàn văn", và
+            // tổ tiên `overflow-hidden` nên không cuộn tới được. Sàn 64px ép hàng 2 luôn có mặt:
+            // aside còn 146px (= 294 − thanh trên 84 − sàn 64), hẹp hơn 162px mà aside cần, nên
+            // caption "Còn lại · Pomodoro n/N" bị cắt 16px và phải cuộn — nhưng DÃY SỐ GIỜ vẫn
+            // nguyên vẹn, kết thúc ở 225px trong box aside 84–230 ⇒ ĐỒNG HỒ VẪN TRONG TẦM (nguyên
+            // tắc epic), còn tài liệu tuy chỉ hở một dải nhưng thấy được đường kẻ và biết là cuộn
+            // được. Quyết định đã chốt: hết chỗ thì đồng hồ thắng, tài liệu giữ sàn. Chọn 64 chứ
+            // không phải 120 vì `minmax(120px,1fr)` đo được aside tụt còn 90px — cắt mất 51px của
+            // chính dãy số giờ, vi phạm epic. Ở 500×731 (phone portrait) sàn không kích hoạt: rows
+            // `368px 198px`, trùng khít bản `main`, không một pixel khoảng trắng chết.
+            className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(64px,1fr)] outline-none min-[900px]:grid-cols-[minmax(0,1fr)_300px] min-[900px]:grid-rows-[minmax(0,1fr)]"
           >
-            <div className="border-border flex min-h-0 flex-col overflow-y-auto border-r px-6 py-[22px]">
+            {/* #301 · LỆCH MOCKUP CÓ CHỦ ĐÍCH. Mockup giữ nguyên thứ tự DOM khi collapse (tài liệu
+                trên, cột đồng hồ dưới) — ở 375px người dùng phải cuộn hết tài liệu mới thấy đồng
+                hồ, vi phạm nguyên tắc epic Focus "đồng hồ không bao giờ biến mất". Theo tiền lệ
+                #228 (stage trên, panel phụ dưới), dưới 900px cột `<aside>` lên TRÊN và tài liệu
+                xuống DƯỚI. Đảo bằng `order` chứ không đổi thứ tự DOM: thứ tự đọc của screen reader
+                và thứ tự Tab vẫn là "tài liệu → điều khiển", khớp với luồng ở desktop và tránh
+                việc nút "Mở toàn văn" nhảy lên trước nội dung mà nó điều khiển.
+                Hệ quả: đường kẻ ngăn hai khối phải là `border-t` TRÊN cột tài liệu (nó nằm dưới),
+                không phải `border-bottom` như mockup dòng 1405 vốn giả định tài liệu nằm trên. */}
+            <div className="border-border order-last flex min-h-0 flex-col overflow-y-auto border-t px-6 py-[22px] min-[900px]:order-none min-[900px]:border-r min-[900px]:border-t-0">
               <SessionDocumentPanel planId={documentPlanId} document={sessionDocument} />
             </div>
 
-            <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-[22px]">
+            {/* #301 · KHÔNG kẹp `max-h` ở đây, dù bản nháp từng làm vậy. `<aside>` là grid item,
+                containing block của nó là grid area — mà grid area hàng 1 do CHÍNH track `auto`
+                sinh ra ⇒ mọi percentage chiều dọc là cyclic. Theo CSS Sizing 3 §5.2.1, `max-height`
+                cyclic bị coi như `none` khi tính contribution để size track, nên track vẫn 370px y
+                hệt (đo được); percentage chỉ resolve SAU khi track đã chốt và track không co ngược.
+                Hệ quả đo thật ở 500×731: track giữ 370px nhưng box aside bị kẹp còn 203.5px ⇒ 166px
+                khoảng trắng chết trên `border-t`, và aside phải cuộn trong khi ngay dưới còn chỗ.
+                Sàn 64px trên track hàng 2 (xem ghi chú ở `className` của grid) mới là chỗ sửa đúng:
+                nó tác động vào chính thứ quyết định chiều cao, thay vì kẹp cái box đã bị quyết. */}
+            <aside className="order-first flex min-h-0 flex-col gap-4 overflow-y-auto px-5 py-[22px] min-[900px]:order-none">
               {/* #373 ①: mở tài liệu ra thì tên khái niệm biến mất khỏi màn — người dùng còn lại
                   mỗi một mẩu chữ rời và không có gì nói nó đang minh hoạ cho cái gì.
                   ⚠️ Đặt ở CỘT PHẢI cạnh đồng hồ, KHÔNG phải đầu cột tài liệu: #227 đã cố ý gỡ nó

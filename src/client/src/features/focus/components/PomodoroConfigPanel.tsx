@@ -71,6 +71,17 @@ export function PomodoroConfigPanel({
         // sẵn rồi cho cuộn nội bộ, thay vì để nội dung tràn ra ngoài viewport.
         // L7: `w-80` (320px) đúng bằng viewport 320px + `collisionPadding` 12 nên bị cắt ~2px ở
         // màn hẹp nhất. Kẹp bề rộng theo viewport trừ lề để không tràn.
+        //
+        // #301 · VÌ SAO KHÔNG port `.pop`/`.popstage`/`.popbody` của mockup (dòng 1466/1472/1476),
+        // dù issue nêu đích danh ba rule này. `.pop{position:static;margin:14px 16px 0}` tồn tại vì
+        // mockup neo panel bằng HẰNG SỐ CỨNG `top:54px` (dòng 1258); khi topbar xếp 2 hàng ở màn
+        // hẹp, mốc đó rơi vào giữa hàng thứ hai ⇒ panel đè lên chính nút vừa mở nó, nên mockup phải
+        // gỡ hẳn lối neo. Radix neo theo `PopoverTrigger` THẬT và tự flip/shift khi thiếu chỗ ⇒
+        // nguyên nhân bệnh không tồn tại ở đây, port thuốc là vô nghĩa. Thứ mockup nhắm tới (panel
+        // vừa màn hẹp) đã do đúng ba thuộc tính ngay dưới đây lo: `collisionPadding`, kẹp bề rộng
+        // theo `100vw`, và `max-h` theo chiều cao khả dụng Radix tính. `.popstage`/`.popbody` thì
+        // chỉ là giàn giáo của khối demo tĩnh `.state__demo` (có `overflow:hidden`) trong trang
+        // mockup, không có đối ứng nào trong app.
         className="max-h-(--radix-popover-content-available-height) flex w-[min(20rem,calc(100vw-1.5rem))] flex-col gap-4 overflow-y-auto"
       >
         {open && openedAt !== null && (
