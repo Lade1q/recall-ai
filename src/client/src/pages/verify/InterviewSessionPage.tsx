@@ -874,10 +874,12 @@ function turnWeightLabel(turnIndex: number, maxTurnsPerConcept: number): string 
  * Ngăn xếp lượt của khái niệm đang hỏi (`.rail__turns`). Trạng thái mỗi lượt tra thẳng
  * từ transcript đã tải (`turns`) — không đếm/suy đoán phía client.
  *
- * FIX F: `maxTurnsPerConcept` là trần cứng có thật (C6), nhưng `decideNextStep` có thể
- * dừng khái niệm sớm khi đạt mastery — nên lượt chưa mở KHÔNG chắc sẽ xảy ra. Nhãn "Chưa
- * mở" cũ đọc như một lời hứa "chắc chắn sắp tới"; ở đây đổi chữ + hạ độ đậm để đọc đúng là
- * "có thể, không chắc" thay vì tháo hẳn slot (số trần vẫn là dữ liệu thật, không bịa).
+ * FIX F: `maxTurnsPerConcept` là trần cứng có thật (C6), nhưng `decideNextStep` có thể dừng
+ * khái niệm sớm hơn trần đó — nên lượt chưa mở KHÔNG chắc sẽ xảy ra. (Trước #392: một verdict
+ * `wrong` dừng ngay. Từ #392: `wrong` tốn một lượt gợi ý thay vì dừng ngay, nhưng vẫn dừng khi
+ * hết thang gợi ý hoặc chạm trần — "sớm hơn trần" vẫn đúng, chỉ đổi lý do.) Nhãn "Chưa mở" cũ
+ * đọc như một lời hứa "chắc chắn sắp tới"; ở đây đổi chữ + hạ độ đậm để đọc đúng là "có thể,
+ * không chắc" thay vì tháo hẳn slot (số trần vẫn là dữ liệu thật, không bịa).
  */
 function TurnStackRail({
   progress,

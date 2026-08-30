@@ -1,7 +1,15 @@
 import { getInterview, submitAnswer, submitSelfGrade } from '../services/interview.service';
 import prisma from '../config/prisma';
 import { generateQuestion, gradeAnswer } from '../services/gemini.service';
+import { finalizeConceptResult } from '../services/concept-result.service';
 import { AppError } from '../middleware/errorHandler';
+
+// Only reached by the #392 "wrong on the last available turn" tests below (finishConcept ->
+// finalizeConceptResult), which need the concept to actually close rather than test scheduling
+// math this file has no other mocks for (reviewQueueItem, traceback, the transaction client).
+jest.mock('../services/concept-result.service', () => ({
+  finalizeConceptResult: jest.fn(),
+}));
 
 /**
  * AE-05 (I6.4) — direct unit tests of `interview.service.ts`'s flashcard-fallback branching.
@@ -63,6 +71,7 @@ const mockedPrisma = prisma as unknown as {
 };
 const mockedGenerateQuestion = generateQuestion as jest.Mock;
 const mockedGradeAnswer = gradeAnswer as jest.Mock;
+const mockedFinalizeConceptResult = finalizeConceptResult as jest.Mock;
 
 const USER_ID = 'user-uuid';
 const SESSION_ID = 'session-uuid';
@@ -376,8 +385,8 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     sessionRow.fallbackMode = false;
     seedPendingTurn({ turnIndex: 1 });
 
-    // Turn 1 must not be graded `wrong` — that ends the concept immediately (#115's decision
-    // table) and there would be no turn 2 to grade.
+    // `shallow` here is arbitrary, not a requirement: since #392, `wrong` also leaves a turn 2 to
+    // grade (it asks a hint instead of ending the concept) — see the `wrong` ladder tests below.
     mockedGradeAnswer.mockResolvedValueOnce({
       score: 0.75,
       feedback: 'turn 1 feedback',
@@ -414,6 +423,72 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       answerText: 'câu trả lời lượt 1',
       verdict: 'shallow',
     });
+  });
+
+  /**
+   * #392 review item ②: nothing end-to-end pinned that `decideNextStep`'s `ask_hint` step
+   * actually reaches Gemini as `mode: 'hint'` — a mutant that hard-codes `mode = 'initial'` at
+   * the `askQuestion` call site survived the full suite. `interview-state.test.ts` only proves
+   * the pure function picks the right STEP; this is the one test that proves the step's mode
+   * is the one actually sent.
+   */
+  it('submitAnswer sends mode: "hint" to generateQuestion after a wrong grade with turns left (#392)', async () => {
+    sessionRow.fallbackMode = false;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0.1,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedGenerateQuestion.mockResolvedValueOnce({
+      question_text: 'Turn 2 hint question',
+      question_type: 'recall',
+    });
+
+    const result = await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    expect(mockedGenerateQuestion).toHaveBeenCalledTimes(1);
+    expect(mockedGenerateQuestion.mock.calls[0][0]).toMatchObject({ mode: 'hint' });
+    // The concept stayed open — a hint, not a close.
+    expect(result.nextQuestion).not.toBeNull();
+    expect(result.conceptCompleted).toBeNull();
+  });
+
+  /**
+   * #392 review item ②: `decideNextStep`'s `maxTurns` comes from `session.maxTurnsPerConcept`
+   * at the call site in `advanceToNextQuestion` — nothing pinned that either, and a mutant
+   * hard-coding the call site's `maxTurns` to `3` also survived the full suite (it happened to
+   * agree with the default session config every other test in this file uses). A session
+   * configured BELOW the C6 ceiling is the one input where the hard-coded constant and the real
+   * session value disagree on whether a turn is left, so it is the only case that can catch it.
+   */
+  it("closes the concept on a wrong answer once the SESSION's own turn limit is spent, not a hard-coded 3 (#392)", async () => {
+    sessionRow.fallbackMode = false;
+    sessionRow.maxTurnsPerConcept = 1;
+    seedPendingTurn({ turnIndex: 1 });
+
+    mockedGradeAnswer.mockResolvedValueOnce({
+      score: 0,
+      feedback: 'sai rồi',
+      verdict: 'wrong',
+    });
+    mockedFinalizeConceptResult.mockResolvedValueOnce({
+      conceptId: CONCEPT_ID,
+      masteryScore: 0,
+      reviewInDays: 1,
+      scheduledFor: new Date('2026-01-02T00:00:00.000Z'),
+      prerequisites: [],
+      tracebackSkipReason: null,
+    });
+
+    const result = await submitAnswer(SESSION_ID, USER_ID, 'câu trả lời sai');
+
+    // maxTurnsPerConcept: 1 means turn 1 already used the session's only turn — no hint to spend,
+    // whatever `wrong`'s usual (2 hints) allowance would be under the C6 default.
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+    expect(result.conceptCompleted).not.toBeNull();
+    expect(result.conceptCompleted?.conceptId).toBe(CONCEPT_ID);
   });
 
   /**
