@@ -13,8 +13,19 @@ import { MASTERY_THRESHOLD, MAX_TRACEBACK_DEPTH } from '../services/traceback.se
 
 /**
  * UC-Overview §5.4: `mastery_score(C) = weighted_avg(turn_scores, weights = [0.2, 0.3, 0.5])`.
- * A later turn weighs more because its question digs deeper — getting turn 3 right says more
- * about understanding than getting the opening recall question right.
+ * A later turn weighs more because — before #392 — it could only mean the question dug deeper:
+ * `wrong` ended a concept on the spot, so a turn 2/3 was always `ask_deeper`/`ask_probe`, and
+ * getting turn 3 right said more about understanding than getting the opening recall question
+ * right.
+ *
+ * ⚠️ #392 broke that premise for one path. A `wrong` verdict now spends a `hint` turn instead of
+ * ending the concept — and a hint turn is the SAME question narrowed, not a harder one; it is, if
+ * anything, easier than the turn it followed. A `wrong → hint → hint` run puts its narrowest,
+ * easiest question at turn 3, weighted 0.5 — the heaviest weight, for the least demanding
+ * question in the sequence. Whether/how a hint-answered turn should be scored differently is an
+ * open decision (#392 review, 30/08) that this file does not resolve; whatever is decided there
+ * must keep this comment (and the weights themselves, if that direction is chosen) in sync — a
+ * later turn no longer unconditionally means "dug deeper" now that `hint` exists.
  */
 export const TURN_WEIGHTS = [0.2, 0.3, 0.5] as const;
 
