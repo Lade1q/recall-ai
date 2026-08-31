@@ -247,6 +247,14 @@ describe('MonthGrid — tháng chưa có buổi ôn nào', () => {
     renderGrid({ days: [day('2026-09-02', [item('A')])] });
     expect(screen.getByText('Tháng 8 2026 chưa có buổi ôn nào')).toBeInTheDocument();
   });
+
+  it('steps aside once a day is selected (#482)', () => {
+    // Viền chọn của DayCell là `z-[2]`, cao hơn thẻ này (`z-auto`) — nên khi cả hai cùng hiện,
+    // viền vẽ đè lên thẻ, trông như hai UI chồng nhau. Và `DayPanel` (ScheduleView) lúc đó đã tự
+    // nói "Ngày này trống", nên thẻ giữa lưới lúc này thừa thông tin chứ không chỉ chồng hình.
+    renderGrid({ days: [], selectedDateKey: '2026-08-12' });
+    expect(screen.queryByText(/chưa có buổi ôn nào/)).not.toBeInTheDocument();
+  });
 });
 
 describe('MonthGrid — bề ngang hẹp (<680px)', () => {

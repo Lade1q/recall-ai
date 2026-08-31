@@ -196,7 +196,10 @@ export function MonthGrid({
               onSelectDay={onSelectDay}
             />
           ))}
-          {!hasSessionThisMonth && (
+          {/* Ẩn khi đã chọn ngày (#482): `DayPanel` lúc đó đã tự nói "Ngày này trống", và viền
+              chọn `z-[2]` của DayCell đè lên thẻ này — hai UI chồng nhau, và thẻ lúc đó cũng thừa
+              thông tin. */}
+          {!hasSessionThisMonth && selectedDateKey === null && (
             <EmptyMonthCard
               monthLabel={formatMonthLabel(monthCursor)}
               overdueItemCount={overdueItemCount}
