@@ -30,6 +30,7 @@ import { describe, expect, it } from 'vitest';
 import { existsInProductionText, textContainsClassToken } from './production-text';
 import { extractTestFileCandidates, type Location } from './test-file-candidates';
 import { isValidTailwindUtility } from './validate-candidate';
+import { stripComments } from './strip-comments';
 
 function formatLocations(locations: Location[]): string {
   return locations.map((location) => `${location.file}:${location.line}`).join(', ');
@@ -134,6 +135,31 @@ describe('không có class Tailwind nào chỉ sống trong test (issue #443)', 
     // trong comment nào — nếu chúng biến mất sau khi thêm bước bóc comment, đó là over-strip.
     expect(candidates.has('max-[680px]:min-h-[58px]')).toBe(true);
     expect(candidates.has('max-[680px]:flex')).toBe(true);
+  });
+
+  /**
+   * Vế CHUỖI của `stripComments` — nợ #472 mang vào, không phải lỗi của tác giả:
+   * `strip-comments.ts` không tồn tại trên `main` trước PR đó, nên trước nó không có đường
+   * over-strip nào để mà hở.
+   *
+   * Docstring của chính hàm ấy nêu rủi ro (`'https://...'`), và code có chặn bằng `inString` —
+   * nhưng đo được: bỏ hẳn nhánh vào-chuỗi (`if (ch === '"' || …)` → `if (false)`) vẫn **sống
+   * 524/524**. Hướng hỏng là **XANH OAN**: một URL trong tệp test bị bóc nhầm ⇒ candidate biến
+   * mất ⇒ audit im lặng bỏ qua một class thật. Tệ hơn hẳn cái đỏ oan mà bước bóc đang chữa.
+   *
+   * Ba `it(...)` riêng, cố ý: gộp một khối thì cả ba assertion cùng giết một ca, và "1 failed"
+   * sẽ không nói được dòng nào chịu tải — bài học từ review #472.
+   */
+  it('stripComments giữ nguyên "//" trong chuỗi nháy KÉP', () => {
+    expect(stripComments('const u = "https://x/mt-4";')).toBe('const u = "https://x/mt-4";');
+  });
+
+  it('stripComments giữ nguyên "//" trong chuỗi nháy ĐƠN', () => {
+    expect(stripComments("const u = 'a//b';")).toBe("const u = 'a//b';");
+  });
+
+  it('stripComments giữ nguyên "//" trong template literal', () => {
+    expect(stripComments('const u = `t//x`;')).toBe('const u = `t//x`;');
   });
 
   it('[đối chứng âm] class chỉ có ở production không bị báo, và "ordinal" trong tên it(...) không bị trích ra dù là utility hợp lệ', async () => {
