@@ -33,7 +33,14 @@ export function SessionDocumentSegment({ document }: { document: SessionDocument
       role="group"
       aria-label="Hiển thị tài liệu"
     >
-      <span className="text-muted-foreground self-center pl-3 pr-2.5 text-xs">Tài liệu</span>
+      {/* #301 · mockup `@media (max-width:900px)` dòng 1423: `.seg > span{display:none}`. Nhãn
+          "Tài liệu" chỉ trả lời "Ẩn cái gì?"; dưới 900px nó ăn 30px của thanh trên vốn đã chật,
+          trong khi ba nút Ẩn/Trích đoạn/Toàn văn đã tự nói ra ngữ cảnh. Rule này nằm cùng block
+          `@media` với `.split` nhưng bị sót khỏi checklist issue — port kèm. (Mốc `min-[900px]:`
+          lệch 1px so với `max-width:900px` — xem ghi chú đầy đủ trong `RunningSession.tsx`.) */}
+      <span className="text-muted-foreground hidden self-center pl-3 pr-2.5 text-xs min-[900px]:inline">
+        Tài liệu
+      </span>
       {LEVELS.map((level) => {
         const isLocked = level !== 'hidden' && unavailableReason !== null;
 
