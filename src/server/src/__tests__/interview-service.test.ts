@@ -746,17 +746,6 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
-   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
-   *
-   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
-   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
-   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
-   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
-   *
-   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
-   * chứ không lặng lẽ vá kèm.
-   */
-  /**
    * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
    *
    * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
@@ -791,33 +780,70 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     );
   });
 
-  it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
-    seedPendingTurn({
+  it('🔴 transcript giữ nguyên từng trường của hai lượt đã chấm (#392 (c), #475)', async () => {
+    // `getInterview` chỉ đọc transcript khi phiên đã kết thúc, nên không chạy state machine để
+    // sinh thêm một lượt. Hai giá trị khác nhau ở mỗi cột transcript cũng giết cả mutant hoán
+    // đổi lượt 1 và lượt 2, không chỉ mutant bỏ hẳn trường.
+    sessionRow.status = 'completed';
+    sessionRow.currentConceptIdx = 1;
+
+    const firstTurn = seedPendingTurn({
       turnIndex: 1,
-      answerText: 'trả lời sai',
+      questionText: 'Câu hỏi lượt 1',
+      questionType: 'recall',
+      answerText: 'Câu trả lời lượt 1',
       score: 0.1,
+      feedback: 'Nhận xét lượt 1',
       verdict: 'wrong',
       mode: 'initial',
-      answeredAt: new Date(),
+      askedAt: new Date(2024, 0, 1, 9),
+      answeredAt: new Date(2024, 0, 1, 9, 5),
     });
-    // Lượt 2 để CHƯA trả lời: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi
-    // mới, và ta đang đo transcript chứ không đo đường sinh câu.
-    seedPendingTurn({ turnIndex: 2, mode: 'hint' });
+    const secondTurn = seedPendingTurn({
+      turnIndex: 2,
+      questionText: 'Câu hỏi lượt 2',
+      questionType: 'application',
+      answerText: 'Câu trả lời lượt 2',
+      score: 0.9,
+      feedback: 'Nhận xét lượt 2',
+      verdict: 'deep',
+      mode: 'hint',
+      askedAt: new Date(2024, 0, 1, 10),
+      answeredAt: new Date(2024, 0, 1, 10, 8),
+    });
 
     const result = await getInterview(SESSION_ID, USER_ID);
 
     expect(result.turns).toEqual([
       expect.objectContaining({
-        turnIndex: 1,
+        id: firstTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: firstTurn.turnIndex,
+        questionText: firstTurn.questionText,
+        questionType: firstTurn.questionType,
+        answerText: firstTurn.answerText,
+        score: firstTurn.score,
+        feedback: firstTurn.feedback,
         verdict: 'wrong',
+        askedAt: firstTurn.askedAt,
+        answeredAt: firstTurn.answeredAt,
         mode: 'initial',
         countsTowardMastery: true,
       }),
-      // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
-      // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
       expect.objectContaining({
-        turnIndex: 2,
-        verdict: null,
+        id: secondTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: secondTurn.turnIndex,
+        questionText: secondTurn.questionText,
+        questionType: secondTurn.questionType,
+        answerText: secondTurn.answerText,
+        score: secondTurn.score,
+        feedback: secondTurn.feedback,
+        verdict: 'deep',
+        askedAt: secondTurn.askedAt,
+        answeredAt: secondTurn.answeredAt,
         mode: 'hint',
         countsTowardMastery: false,
       }),
