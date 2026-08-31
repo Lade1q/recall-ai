@@ -196,13 +196,16 @@ export function MonthGrid({
               onSelectDay={onSelectDay}
             />
           ))}
-          {/* Ẩn khi đã chọn ngày (#482): `DayPanel` lúc đó đã tự nói "Ngày này trống", và viền
-              chọn `z-[2]` của DayCell đè lên thẻ này — hai UI chồng nhau, và thẻ lúc đó cũng thừa
-              thông tin. */}
-          {/* Ẩn thẻ khi ngày đang chọn NẰM TRONG tháng đang xem, không phải khi "có ngày nào
-              đó đang được chọn". `shiftMonth` chỉ đổi `monthCursor` và cố ý không đụng
-              `selectedDateKey` (`useScheduleViewState.ts:62`), nên vế cũ `=== null` ẩn thẻ ở
-              MỌI tháng rỗng lật qua sau đó — đo LIVE ở T10: không ô nào `aria-pressed`, không
+          {/* Ẩn thẻ khi ngày đang chọn NẰM TRONG tháng đang xem — không phải khi "có ngày nào
+              đó đang được chọn".
+
+              Lý do ẩn (#482) vẫn nguyên và chỉ đúng cho ngày TRONG tháng đang xem: `DayPanel`
+              lúc đó đã tự nói "Ngày này trống", và viền chọn `z-[2]` của `DayCell` đè lên thẻ —
+              hai UI chồng nhau, thẻ lúc ấy vừa thừa thông tin vừa bị vẽ đè.
+
+              Nhưng `shiftMonth` chỉ đổi `monthCursor` và cố ý không đụng `selectedDateKey`
+              (`useScheduleViewState.ts:62`), nên điều kiện cũ `selectedDateKey === null` ẩn thẻ
+              ở MỌI tháng rỗng lật qua sau đó — đo LIVE ở T10: không ô nào `aria-pressed`, không
               ô nào có viền, mà thẻ vẫn biến mất.
 
               `c.inMonth` là CỐ Ý: ô TRÀN cũng mang viền chọn, nhưng nó luôn ở hàng đầu/hàng
