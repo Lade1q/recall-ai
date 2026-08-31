@@ -784,8 +784,13 @@ describe('interview.service — AE-05 flashcard fallback', () => {
    * #475: `objectContaining` chỉ kiểm tập con. Trước bản này, 10/15 trường của `toTurnResponse`
    * — gồm `answerText`/`score`/`feedback`, thứ chính transcript hiển thị cho người dùng đọc —
    * không có lưới nào: đổi tên, đảo hai trường cho nhau, hay đánh rơi một trường đều đi qua CI
-   * không dấu vết. Ghim tường minh mọi trường, ở HAI lượt mang giá trị khác nhau (không chỉ
-   * "có giá trị / null") để một đột biến đảo trường cũng đỏ, không chỉ đột biến xoá trường.
+   * không dấu vết. Ghim tường minh mọi trường.
+   *
+   * Thứ làm mũi **đảo hai trường** cũng đỏ là **lượt 1**: nó mang giá trị thật ở MỌI cột. Lượt 2
+   * cố ý để CHƯA trả lời, nên `answerText`/`score`/`feedback`/`verdict`/`answeredAt` của nó là
+   * `null` — với riêng những cột ấy lưới đúng là "giá trị / null", và đó là chủ ý chứ không phải
+   * thiếu sót: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi mới, mà ca này đang
+   * đo transcript.
    */
   it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
     // `expect.any(String)`/`expect.any(Date)` only prove the field exists with the right TYPE —
