@@ -99,8 +99,8 @@ describe('getSessionSummary', () => {
       { id: CONCEPT_B, name: 'Recursion', masteryScore: 0.99 },
     ]);
     mockedPrisma.interviewTurn.findMany.mockResolvedValue([
-      { conceptId: CONCEPT_A, turnIndex: 1, score: 0.85, verdict: 'deep' },
-      { conceptId: CONCEPT_B, turnIndex: 1, score: 0.4, verdict: 'wrong' },
+      { conceptId: CONCEPT_A, turnIndex: 1, score: 0.85, verdict: 'deep', mode: null },
+      { conceptId: CONCEPT_B, turnIndex: 1, score: 0.4, verdict: 'wrong', mode: null },
     ]);
     mockedPrisma.reviewQueueItem.findMany.mockResolvedValue([]);
     mockedPrisma.interviewSession.update.mockResolvedValue({});
@@ -197,13 +197,17 @@ describe('getSessionSummary', () => {
         conceptId: CONCEPT_A,
         name: 'Stack',
         masteryScore: 0.85,
-        turns: [{ turnIndex: 1, score: 0.85, verdict: 'deep' }],
+        turns: [
+          { turnIndex: 1, score: 0.85, verdict: 'deep', mode: null, countsTowardMastery: true },
+        ],
       },
       {
         conceptId: CONCEPT_B,
         name: 'Recursion',
         masteryScore: 0.4,
-        turns: [{ turnIndex: 1, score: 0.4, verdict: 'wrong' }],
+        turns: [
+          { turnIndex: 1, score: 0.4, verdict: 'wrong', mode: null, countsTowardMastery: true },
+        ],
       },
     ]);
 
@@ -586,12 +590,43 @@ describe('getSessionSummary', () => {
    * session's own turns. The cases below pin the fix.
    */
   describe("masteryScore is derived from this session's own turns", () => {
+    /**
+     * #392 (c) end-to-end through `/summary`: a hint turn is graded, is still listed, and is
+     * still LEFT OUT of the number. Both halves matter — a fix that hid the turn entirely would
+     * also produce the right score while destroying the thing the screen exists for (showing a
+     * student how their score was reached).
+     *
+     * `countsTowardMastery` ships as its own field rather than being re-derived from `mode` in
+     * the client: two copies of the scoring rule in two languages is exactly the drift #430's
+     * review warned about.
+     */
+    it('🔴 leaves a hint turn out of the score but keeps it in the list, flagged (#392 (c))', async () => {
+      mockedLoadSession.mockResolvedValue(baseSession({ conceptQueue: [CONCEPT_A] }));
+      mockedPrisma.interviewTurn.findMany.mockResolvedValue([
+        { conceptId: CONCEPT_A, turnIndex: 1, score: 0.4, verdict: 'wrong', mode: 'initial' },
+        { conceptId: CONCEPT_A, turnIndex: 2, score: 1.0, verdict: 'deep', mode: 'hint' },
+      ]);
+
+      const result = await getSessionSummary(SESSION_ID, USER_ID);
+
+      // Một lượt được tính ⇒ trọng số chuẩn hoá về [1.0] ⇒ đúng điểm của lượt đó.
+      expect(result.concepts[0]?.masteryScore).toBe(0.4);
+      // Con số của bản KHÔNG lọc, để assertion trên phân biệt được hai bản: 0.4×0.4 + 1.0×0.6.
+      expect(result.concepts[0]?.masteryScore).not.toBe(0.76);
+
+      // Vẫn hiện đủ hai lượt — và nói rõ lượt nào không vào công thức.
+      expect(result.concepts[0]?.turns).toEqual([
+        { turnIndex: 1, score: 0.4, verdict: 'wrong', mode: 'initial', countsTowardMastery: true },
+        { turnIndex: 2, score: 1.0, verdict: 'deep', mode: 'hint', countsTowardMastery: false },
+      ]);
+    });
+
     it("weights this session's 3 graded turns [0.2, 0.3, 0.5]", async () => {
       mockedLoadSession.mockResolvedValue(baseSession({ conceptQueue: [CONCEPT_A] }));
       mockedPrisma.interviewTurn.findMany.mockResolvedValue([
-        { conceptId: CONCEPT_A, turnIndex: 1, score: 1.0, verdict: 'deep' },
-        { conceptId: CONCEPT_A, turnIndex: 2, score: 0.5, verdict: 'shallow' },
-        { conceptId: CONCEPT_A, turnIndex: 3, score: 0.0, verdict: 'wrong' },
+        { conceptId: CONCEPT_A, turnIndex: 1, score: 1.0, verdict: 'deep', mode: null },
+        { conceptId: CONCEPT_A, turnIndex: 2, score: 0.5, verdict: 'shallow', mode: null },
+        { conceptId: CONCEPT_A, turnIndex: 3, score: 0.0, verdict: 'wrong', mode: null },
       ]);
       mockedSummarizeSession.mockResolvedValue({
         summary_text: 'ok',
@@ -609,8 +644,8 @@ describe('getSessionSummary', () => {
     it('renormalises to [0.4, 0.6] for a session with 2 graded turns', async () => {
       mockedLoadSession.mockResolvedValue(baseSession({ conceptQueue: [CONCEPT_A] }));
       mockedPrisma.interviewTurn.findMany.mockResolvedValue([
-        { conceptId: CONCEPT_A, turnIndex: 1, score: 1.0, verdict: 'deep' },
-        { conceptId: CONCEPT_A, turnIndex: 2, score: 0.0, verdict: 'wrong' },
+        { conceptId: CONCEPT_A, turnIndex: 1, score: 1.0, verdict: 'deep', mode: null },
+        { conceptId: CONCEPT_A, turnIndex: 2, score: 0.0, verdict: 'wrong', mode: null },
       ]);
       mockedSummarizeSession.mockResolvedValue({
         summary_text: 'ok',
@@ -628,7 +663,7 @@ describe('getSessionSummary', () => {
     it('returns null, not the live Concept score, when this session graded 0 turns', async () => {
       mockedLoadSession.mockResolvedValue(baseSession({ conceptQueue: [CONCEPT_A] }));
       mockedPrisma.interviewTurn.findMany.mockResolvedValue([
-        { conceptId: CONCEPT_A, turnIndex: 1, score: null, verdict: null },
+        { conceptId: CONCEPT_A, turnIndex: 1, score: null, verdict: null, mode: null },
       ]);
       mockedSummarizeSession.mockResolvedValue({
         summary_text: 'ok',
@@ -651,7 +686,7 @@ describe('getSessionSummary', () => {
       ]);
       // This session's own turn scored much lower.
       mockedPrisma.interviewTurn.findMany.mockResolvedValue([
-        { conceptId: CONCEPT_A, turnIndex: 1, score: 0.3, verdict: 'wrong' },
+        { conceptId: CONCEPT_A, turnIndex: 1, score: 0.3, verdict: 'wrong', mode: null },
       ]);
       mockedSummarizeSession.mockResolvedValue({
         summary_text: 'ok',

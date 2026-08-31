@@ -60,6 +60,7 @@ const SNOOZED: SnoozeResult = {
   planId: 'plan-1',
   status: 'pending',
   scheduledFor: '2026-08-09T17:00:00.000Z',
+  changed: true,
 };
 
 const SKIPPED: UpdateResult = {

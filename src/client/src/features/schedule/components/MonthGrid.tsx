@@ -440,8 +440,8 @@ function EmptyMonthCard({
           {overdueItemCount > 0 ? (
             <>
               Engine chỉ xếp ngày sau mỗi phiên kiểm tra. Bạn còn{' '}
-              <b className="text-foreground font-medium">{overdueItemCount} khái niệm quá hạn</b> —
-              xong chúng thì lịch phía trước sẽ đầy lên.
+              <b className="text-foreground font-medium">{overdueItemCount} khái niệm quá hạn</b> ở
+              thanh phía trên — xong chúng thì lịch phía trước sẽ đầy lên.
             </>
           ) : (
             'Engine chỉ xếp ngày ôn sau mỗi phiên kiểm tra. Làm một phiên để có lịch.'

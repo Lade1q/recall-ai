@@ -1,4 +1,5 @@
 import { sessionMasteryScore } from './mastery';
+import type { QuestionMode } from '../schemas/ai-interview.schema';
 
 /**
  * The learning history of ONE concept, as the DB-06 detail panel lists it (Issue #168):
@@ -18,6 +19,12 @@ export interface InterviewTurnRow {
   askedAt: Date;
   /** `null` when the turn was never answered, or the AI could not grade it. */
   score: number | null;
+  /**
+   * Which rung of the AI ladder asked this turn (#392). Needed because `sessionMasteryScore`
+   * drops `hint` turns; `null` for pre-migration rows and for `cache_fallback` turns, both of
+   * which DO count.
+   */
+  mode: QuestionMode | null;
 }
 
 /** One Pomodoro session that listed the concept in `concept_ids`. */

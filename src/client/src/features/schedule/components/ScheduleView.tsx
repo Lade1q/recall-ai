@@ -121,11 +121,6 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
   const hasActivePlan = plans.some((plan) => plan.status === 'active');
   const debtItems = days.filter((day) => day.isOverdue).flatMap((day) => day.items);
 
-  // `monthCursor.month` là 1–12; `dateKey` đệm 0 nên phải đệm cả ở đây, không thì tháng 1–9 khớp
-  // hụt. (`schedule-date.ts` cố ý không giữ hàm này — nó là code chết ở đó, xem #405.)
-  const monthPrefix = `${state.monthCursor.year}-${String(state.monthCursor.month).padStart(2, '0')}`;
-  const isMonthEmpty = !days.some((day) => day.dateKey.startsWith(monthPrefix));
-
   const panel = resolvePanel(days, state.selectedDateKey, state.debtOpen);
 
   return (
@@ -172,41 +167,15 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
           <div
             className={`grid gap-4 ${panel !== null ? 'min-[1181px]:grid-cols-[minmax(0,1fr)_340px]' : ''}`}
           >
-            {/* Thẻ "tháng này chưa có gì" phủ LÊN lưới (mockup `.emptymonth`), không chen xuống
-                dưới: lưới vẫn phải đọc được như một cái lịch — nếu nó biến mất, người dùng mất
-                luôn ô ngày để bấm và nút lùi tháng để tìm. `min-h` chỉ để thẻ có chỗ đứng khi lưới
-                của #404 chưa render gì; lưới thật cao hơn nhiều nên nó tự vô hiệu. */}
-            <div className={`relative ${isMonthEmpty ? 'min-h-[420px]' : ''}`}>
-              <MonthGrid
-                monthCursor={state.monthCursor}
-                todayDateKey={todayDateKey}
-                selectedDateKey={state.selectedDateKey}
-                deadlines={deadlines}
-                days={days}
-                onSelectDay={state.selectDay}
-                onShiftMonth={state.shiftMonth}
-              />
-              {isMonthEmpty && (
-                <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-                  <div className="border-border bg-card px-5.5 py-4.5 max-w-[46ch] rounded-xl border text-center shadow-sm">
-                    <p className="font-heading mb-1.25 text-[16px] font-semibold">
-                      Tháng {state.monthCursor.month} chưa có buổi ôn nào
-                    </p>
-                    <p className="text-muted-foreground text-[12.5px] leading-[1.55]">
-                      {debtItems.length > 0 ? (
-                        <>
-                          Engine chỉ xếp ngày sau mỗi phiên kiểm tra. Bạn còn{' '}
-                          <b className="font-semibold">{debtItems.length} khái niệm quá hạn</b> ở
-                          thanh phía trên — xong chúng thì lịch phía trước sẽ đầy lên.
-                        </>
-                      ) : (
-                        'Engine chỉ xếp ngày ôn sau mỗi phiên kiểm tra. Làm một phiên để có lịch.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
+            <MonthGrid
+              monthCursor={state.monthCursor}
+              todayDateKey={todayDateKey}
+              selectedDateKey={state.selectedDateKey}
+              deadlines={deadlines}
+              days={days}
+              onSelectDay={state.selectDay}
+              onShiftMonth={state.shiftMonth}
+            />
 
             {panel !== null && (
               <DayPanel

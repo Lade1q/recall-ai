@@ -274,7 +274,7 @@ Dùng tuple `(concept_id, depth)` trong queue. Giới hạn `max_depth = 2`. Ph�
 
 ### 5.4 Weighted Mastery Score Formula
 
-`mastery_score(C) = weighted_avg(turn_scores, weights=[0.2, 0.3, 0.5])` cho N=3 turns - lượt sau quan trọng hơn vì câu hỏi sâu hơn.
+`mastery_score(C) = weighted_avg(turn_scores, weights=[0.2, 0.3, 0.5])` cho N=3 turns - lượt sau quan trọng hơn vì câu hỏi sâu hơn. Lượt gợi ý (`InterviewTurn.mode = hint`) **không** nằm trong `turn_scores`: nó là chính câu hỏi trước được thu hẹp nên dễ hơn lượt nó theo sau, tính vào sẽ đặt câu dễ nhất ở trọng số nặng nhất (#392 hướng (c), chốt 30/08/2026). Bộ trọng số giữ nguyên, chuẩn hoá lại trên các lượt còn lại.
 
 ### 5.5 DB Schema bổ sung (phát hiện qua phân tích UC)
 

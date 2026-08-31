@@ -10,8 +10,8 @@ import { FocusSessionList } from '@/features/history/components/FocusSessionList
 import { NoFocusSessionsYet, NoSessionsYet } from '@/features/history/components/NoSessionsYet';
 import { useFocusSessionList } from '@/features/history/hooks/useFocusSessionList';
 import { useSessionList } from '@/features/history/hooks/useSessionList';
+import { selectInterviewSession } from '@/features/history/utils/select-session';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
-import type { InterviewSessionListItem } from '@/features/history/types/history.types';
 
 /**
  * Trang "Lịch sử & Tiến độ" (DB-03 · #246).
@@ -20,9 +20,13 @@ import type { InterviewSessionListItem } from '@/features/history/types/history.
  * lại. Giá trị của nó là cho sinh viên **kiểm chứng** cách từng điểm được tính ra, cùng tinh
  * thần với ràng buộc C5 ở màn phỏng vấn.
  *
- * Khung hai tab dùng chung với DB-08 (lịch sử phiên Focus). Tab "Phiên học" là issue riêng
- * (#247) nên ở đây chỉ có chỗ giữ chỗ và **không gọi API nào** — `focus.api.ts` hiện chưa có
- * hàm liệt kê, và dựng một nửa tab đó sẽ chồng lên phạm vi của #247.
+ * Khung hai tab dùng chung với DB-08 (lịch sử phiên Focus). Cả hai tab nay đã có nội dung thật:
+ * tab "Phiên học" (#247) gọi `GET /focus-sessions`, và nó gọi **ngay khi mở màn** — không đợi
+ * người dùng bấm sang — vì `forceMount` giữ cả hai panel sống để đổi tab không mất trạng thái
+ * (#450). Đánh đổi đó được ghim bằng test, xem khối comment ở `<TabsContent>` bên dưới.
+ *
+ * Hệ quả của việc tải sớm: một tab CHƯA được mở vẫn có thể hỏng, nên nó không được phép nói ra
+ * bằng toast — xem `active` ở `FocusHistoryTab`.
  */
 export default function HistoryPage() {
   /**
@@ -32,6 +36,13 @@ export default function HistoryPage() {
    * cho cùng một danh sách — và #400 đã ghi thành luật: không nhân đôi metadata kế hoạch.
    */
   const plans = useAsyncResource(() => planApi.listPlans());
+
+  /**
+   * Tab đang mở phải là STATE, không để Radix tự giữ: `FocusHistoryTab` cần biết nó có đang
+   * được nhìn hay không để quyết định có bật toast lỗi hay không (#450). `defaultValue` không
+   * cho ai đọc giá trị đó.
+   */
+  const [tab, setTab] = useState('interview');
 
   return (
     <div className="mx-auto w-full max-w-[1180px]">
@@ -43,25 +54,44 @@ export default function HistoryPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="interview">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList variant="line" className="mb-5">
           <TabsTrigger value="interview">Phiên kiểm tra</TabsTrigger>
           <TabsTrigger value="focus">Phiên học</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="interview">
-          <InterviewHistoryTab plans={plans.data ?? []} />
+        {/* `forceMount` + ẩn bằng CSS thay vì để Radix unmount — cùng khuôn `PlansPage` đã dùng
+            từ #436, và ở đây cần cho CẢ HAI tab chứ không chỉ tab phụ: Radix unmount tab không
+            hoạt động, nên đi từ tab mặc định sang tab kia rồi quay về cũng mất trạng thái.
+
+            Đo LIVE ở review PR #441: tải thêm lên 33 hàng → đổi tab → quay lại → còn 20 hàng
+            cộng một `GET ?offset=0` nữa. Hai hook danh sách không có cache, nên mỗi lần quay lại
+            là một trang đầu mới và người dùng mất đúng chỗ đang đọc. Giữ mount là cách duy nhất
+            để các trang đã tải, phiên đang chọn và bộ lọc phạm vi cùng sống qua lần đổi tab.
+
+            Giá phải trả, ghi thẳng ra: `GET /focus-sessions` bắn ngay khi mở màn kể cả khi người
+            dùng không bấm sang tab Phiên học — MỘT request thay vì N request mỗi lần đổi tab.
+            Cùng đánh đổi PlansPage đã chấp nhận cho `GET /review-queue/schedule`. */}
+        <TabsContent value="interview" forceMount className="data-[state=inactive]:hidden">
+          <InterviewHistoryTab plans={plans.data ?? []} active={tab === 'interview'} />
         </TabsContent>
 
-        <TabsContent value="focus">
-          <FocusHistoryTab plans={plans.data ?? []} />
+        <TabsContent value="focus" forceMount className="data-[state=inactive]:hidden">
+          <FocusHistoryTab plans={plans.data ?? []} active={tab === 'focus'} />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
+function InterviewHistoryTab({
+  plans,
+  active,
+}: {
+  plans: readonly PlanSummary[];
+  /** Xem `active` ở `FocusHistoryTab` — cùng một lý do, cùng một hình dạng. */
+  active: boolean;
+}) {
   const [planId, setPlanId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const list = useSessionList(planId);
@@ -69,22 +99,26 @@ function InterviewHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
   // AC #246: lỗi mạng báo bằng toast kèm đường "Thử lại" (nút nằm trong khối lỗi của danh
   // sách). Chỉ báo một lần cho mỗi lần hỏng — `notified` giữ nguyên qua các lần render lại nên
   // toast không bắn lại mỗi khi đổi phiên đang chọn.
+  //
+  // `active` giống hệt tab kia. Cửa sổ hẹp hơn — tab này là tab mặc định nên thường đang hiện
+  // lúc `/interviews` về — nhưng vẫn tới được: bấm sang tab Phiên học trong lúc request còn bay
+  // rồi nó hỏng. Hẹp không phải lý do để chừa, và một bản vá đối xứng chỉ áp một nửa còn tệ hơn:
+  // hai tab cạnh nhau trong cùng một tệp mang hai luật khác nhau mà không gì nói vì sao.
   const notifiedError = useRef(false);
   useEffect(() => {
-    if (list.error && !notifiedError.current) {
+    if (list.error && active && !notifiedError.current) {
       notifiedError.current = true;
       toast.error('Không tải được danh sách phiên kiểm tra. Kiểm tra kết nối rồi thử lại.');
     }
     if (!list.error) notifiedError.current = false;
-  }, [list.error]);
+  }, [active, list.error]);
 
   /**
    * Phiên đang xem được SUY RA, không đồng bộ bằng effect: phiên đã chọn nếu nó còn trong danh
    * sách, ngược lại là phiên mới nhất. Nhờ vậy đổi bộ lọc kế hoạch tự nhảy sang phiên mới nhất
    * của kế hoạch đó mà không cần một lượt render trung gian nào chọn nhầm phiên của kế hoạch cũ.
    */
-  const selected: InterviewSessionListItem | null =
-    list.sessions.find((session) => session.id === selectedId) ?? list.sessions[0] ?? null;
+  const selected = selectInterviewSession(list.sessions, selectedId);
 
   const isEmpty = !list.loading && !list.error && list.sessions.length === 0;
 
@@ -165,21 +199,48 @@ function NoSelection() {
  * và nó sẽ nhảy mỗi lần bấm "Xem thêm". Tab Phiên kiểm tra cạnh bên cũng đã ship không có số;
  * bật số cho riêng một tab còn tệ hơn là cả hai đều không có. Xem ghi chú trong PR.
  */
-function FocusHistoryTab({ plans }: { plans: readonly PlanSummary[] }) {
+function FocusHistoryTab({
+  plans,
+  active,
+}: {
+  plans: readonly PlanSummary[];
+  /** Tab này có đang được nhìn không. Chỉ quyết định TOAST, không quyết định việc tải. */
+  active: boolean;
+}) {
   const list = useFocusSessionList();
 
   const planNameById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan.name])), [plans]);
 
   // Cùng quy ước với tab Phiên kiểm tra (AC #246): lỗi mạng báo bằng toast, nút "Thử lại" nằm
   // trong khối lỗi của danh sách. Chỉ báo một lần cho mỗi lần hỏng.
+  //
+  // `active` vì `forceMount` làm tab này tải ngay khi mở màn (#450): không có nó thì toast nổ về
+  // một tab người dùng CHƯA bấm vào, và nút "Thử lại" mà nó bảo bấm thì đang nằm trong panel ẩn
+  // — đo LIVE: `rect 0×0`, `checkVisibility()` false, không nhận được focus. Toast sống ≥3s rồi
+  // tự tắt, để lại một lời khuyên không thi hành được.
+  //
+  // 🔴 Gate ĐÚNG nhánh toast, KHÔNG gate cả effect — nhưng lý do KHÔNG phải "cờ bị khoá".
+  // `notifiedError.current = true` nằm TRONG nhánh toast, nên một early-return ở đầu bỏ qua cả
+  // nhánh và cờ không hề được đặt. (Đo được: đột biến early-return sống 500/500; dựng đúng thế
+  // giới mà cơ chế "khoá cờ" mô tả thì mới đỏ — tức cơ chế ấy không xảy ra được.)
+  //
+  // Thứ early-return THẬT SỰ làm mất là dòng reset chạy khi một lần tải **thành công** về lúc
+  // tab đang ẩn. Hôm nay chuỗi phân biệt hai hình dạng không dựng nổi, và nó đóng nhờ một chi
+  // tiết mỏng: `loadMore` cố ý KHÔNG set `error` ở cả hai hook, nên `error` chỉ đổi qua một lần
+  // `reload` — mà `reload` chỉ bấm được từ panel đang hiện. Cho `loadMore` set `error` (một sửa
+  // trông rất vô hại) là chuỗi ấy mở ra ngay. Giữ hình dạng hẹp vì nó không tốn gì, và vì cái
+  // giữ nó đóng nằm ở tệp khác.
+  //
+  // 🔴 `active` PHẢI nằm trong deps. Thiếu nó thì lúc người dùng bấm sang đây, effect không chạy
+  // lại và lỗi có thật không bao giờ được nói ra.
   const notifiedError = useRef(false);
   useEffect(() => {
-    if (list.error && !notifiedError.current) {
+    if (list.error && active && !notifiedError.current) {
       notifiedError.current = true;
       toast.error('Không tải được lịch sử phiên học. Kiểm tra kết nối rồi thử lại.');
     }
     if (!list.error) notifiedError.current = false;
-  }, [list.error]);
+  }, [active, list.error]);
 
   if (!list.loading && !list.error && list.sessions.length === 0) {
     return <NoFocusSessionsYet />;

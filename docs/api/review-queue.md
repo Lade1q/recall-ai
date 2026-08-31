@@ -485,9 +485,13 @@ lịch" và "gỡ khỏi lịch" là hai lệnh mâu thuẫn, chọn đại mộ
   Hàng đã xếp cho một ngày trong tương lai mà bị dời về mai hoá ra là **kéo sớm lên**, ngược nghĩa
   nút bấm; còn hàng đã bị gỡ thì ngày đến hạn của nó là thứ nút "Đưa lại vào lịch" dựa vào.
 
-- **Response thành công (HTTP 200 OK):** cùng shape mục 3a, **thêm `scheduledFor`** — mốc do
-  server chốt, đọc lại từ DB sau khi ghi (gọi API cho một hàng không đến hạn là hợp lệ và sẽ
-  không dời gì cả; response phải nói đúng sự thật đó).
+- **Response thành công (HTTP 200 OK):** cùng shape mục 3a, **thêm `scheduledFor` và `changed`**
+  (#433). `scheduledFor` là mốc của đúng hàng `itemId`, đọc lại từ DB sau khi ghi — **không phải**
+  "sẽ luôn nói đúng cả cụm": gọi API cho một hàng chưa đến hạn là hợp lệ (hoãn một hàng đã ở tương
+  lai hoá ra là kéo sớm lên, ngược nghĩa nút bấm, nên `updateMany` cố ý bỏ qua nó), nhưng nếu một
+  hàng **khác** trong cụm đang đến hạn thì hàng đó vẫn dời — và `scheduledFor` của `itemId` không
+  phản ánh việc đó. `changed` mới là câu trả lời cho "cụm có thật sự đổi gì không": `true` nếu
+  **bất kỳ** hàng nào trong cụm vừa được dời, `false` nếu không hàng nào đến hạn để dời.
 
   ```json
   {
@@ -498,8 +502,26 @@ lịch" và "gỡ khỏi lịch" là hai lệnh mâu thuẫn, chọn đại mộ
         "conceptId": "b2d3e4f5-...-uuid",
         "planId": "c1f8a8b1-...-uuid",
         "status": "pending",
-        "scheduledFor": "2026-08-05T17:00:00.000Z"
+        "scheduledFor": "2026-08-05T17:00:00.000Z",
+        "changed": true
       }
+    }
+  }
+  ```
+
+- **Lỗi `itemId` trỏ vào một hàng đã bị gỡ khỏi lịch (HTTP 409 Conflict, `ITEM_NOT_ON_SCHEDULE`,
+  #433):** `itemId` có `status` là `skipped`/`done`. Body hợp lệ; thứ chặn là trạng thái của hàng
+  — cùng lớp lỗi với `TRACEBACK_REPRESENTATIVE_LOCKED` ở nhánh `{ scheduledFor }` (#426, chưa tài
+  liệu hoá ở file này — xem #432). Ngày đến hạn của một hàng đã gỡ là thứ nút "Đưa lại vào lịch"
+  (#225) dựa vào; hoãn nó tới mai trong khi các hàng anh em vẫn đang đến hạn sẽ để `scheduledFor`
+  đọc lại nói "không đổi" ngay lúc cụm THẬT SỰ đã dời — từ chối sớm thay vì báo sai.
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "ITEM_NOT_ON_SCHEDULE",
+      "message": "Không thể hoãn: mục này đã bị gỡ khỏi lịch, không còn đại diện cho cụm."
     }
   }
   ```

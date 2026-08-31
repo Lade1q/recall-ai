@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 import { render, screen, waitFor } from '@/utils/test-utils';
 import { SessionDetailPanel } from './SessionDetailPanel';
 import { interviewApi } from '@/features/interview/api/interview.api';
@@ -17,6 +18,10 @@ vi.mock('@/features/interview/api/interview.api', () => ({
     abandonInterview: vi.fn(),
   },
   getInterviewErrorMessage: () => 'lỗi',
+}));
+
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn() },
 }));
 
 const mockedApi = vi.mocked(interviewApi);
@@ -77,6 +82,8 @@ function transcript(status: InterviewSessionStatus): GetInterviewResponse {
         askedAt: new Date(2026, 7, 13, 21, 41).toISOString(),
         answeredAt: new Date(2026, 7, 13, 21, 43).toISOString(),
         sourceCitation: null,
+        mode: null,
+        countsTowardMastery: true,
       },
     ],
     fallback: null,
@@ -94,7 +101,9 @@ function abandonedSummary(): SessionSummaryResponse {
         conceptId: 'concept-1',
         name: 'Duyệt đồ thị DFS',
         masteryScore: 0.42,
-        turns: [{ turnIndex: 1, score: 0.42, verdict: 'shallow' }],
+        turns: [
+          { turnIndex: 1, score: 0.42, verdict: 'shallow', mode: null, countsTowardMastery: true },
+        ],
       },
     ],
     summary: {
@@ -156,6 +165,35 @@ describe('SessionDetailPanel — phiên nào thì đọc API nào', () => {
     expect(await screen.findByText(/Phiên này vẫn đang mở/)).toBeInTheDocument();
     expect(mockedApi.getInterview).not.toHaveBeenCalled();
     expect(mockedApi.getSummary).not.toHaveBeenCalled();
+  });
+
+  it('lỗi tải hiện toast và khối Thử lại; retry tải lại cả transcript lẫn summary', async () => {
+    mockedApi.getInterview.mockRejectedValueOnce(new Error('network down'));
+    mockedApi.getSummary.mockRejectedValueOnce(new Error('network down'));
+
+    render(<SessionDetailPanel session={listItem('completed')} onSessionChanged={() => {}} />);
+
+    expect(await screen.findByText('Không tải được chi tiết phiên này.')).toBeInTheDocument();
+    // `waitFor`, không assert thẳng: `findByText` được MutationObserver đánh thức tại COMMIT,
+    // còn `toast.error` nằm trong một `useEffect` nên chỉ chạy ở nhịp passive-effect SAU đó.
+    // Assert đồng bộ ngay sau `findBy*` là đọc trạng thái trước khi effect kịp chạy — thường
+    // thắng, thỉnh thoảng thua, và lúc thua thì trông y như sản phẩm hỏng (#468).
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Không tải được chi tiết phiên. Kiểm tra kết nối rồi thử lại.'
+      )
+    );
+
+    mockedApi.getInterview.mockResolvedValueOnce(transcript('completed'));
+    mockedApi.getSummary.mockResolvedValueOnce({
+      ...abandonedSummary(),
+      status: 'completed',
+    });
+    screen.getByRole('button', { name: 'Thử lại' }).click();
+
+    expect(await screen.findByText('Biến động mastery_score')).toBeInTheDocument();
+    expect(mockedApi.getInterview).toHaveBeenCalledTimes(2);
+    expect(mockedApi.getSummary).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -263,9 +301,15 @@ describe('SessionDetailPanel — "chấm trên N/3 lượt" chỉ đếm lượt
           name: 'Duyệt đồ thị DFS',
           masteryScore: 0.42,
           turns: [
-            { turnIndex: 1, score: 0.42, verdict: 'shallow' },
+            {
+              turnIndex: 1,
+              score: 0.42,
+              verdict: 'shallow',
+              mode: null,
+              countsTowardMastery: true,
+            },
             // Câu đã hỏi, chưa trả lời — server vẫn trả lượt này.
-            { turnIndex: 2, score: null, verdict: null },
+            { turnIndex: 2, score: null, verdict: null, mode: null, countsTowardMastery: true },
           ],
         },
       ],

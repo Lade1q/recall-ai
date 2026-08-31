@@ -1,38 +1,48 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { NotebookText, Timer } from 'lucide-react';
+import { NotebookText, Timer, type LucideIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 
 /**
- * Khung trạng thái rỗng dùng chung cho cả hai tab của màn Lịch sử.
+ * Hai trạng thái rỗng của màn Lịch sử, cả hai dựng trên `EmptyState` dùng chung.
  *
- * Mockup nói thẳng: *"Trạng thái rỗng dùng lại đúng khuôn ở trên, chỉ đổi CTA — nên không vẽ
- * lại lần hai."* Khung nằm ở đây thay vì bị chép sang file thứ hai; hai hàm export bên dưới chỉ
- * khác nhau ở icon, chữ và CTA.
+ * Trước đây tệp này giữ một khung riêng (`EmptyHistoryFrame`) vì `components/ui/empty-state.tsx`
+ * chưa lên `main` lúc #247 làm. Nay nó đã lên (#405/PR #437) và khung riêng kia là **bản chép
+ * thứ ba** của cùng công thức — đúng thứ `EmptyState` ra đời để dọn. Đã đo được ba giá trị trôi
+ * khỏi nhau trước cả khi bản thứ ba nhập kho: tiêu đề `19px`/`20px`, `tracking` `-0.01`/`-0.02`,
+ * thân `leading` `1.65`/`1.7`. Gộp lại là chọn một bộ, và bộ đúng là bộ của `EmptyState`.
  *
- * 📌 Khi `components/ui/empty-state.tsx` của #405 (PR #437) vào `main`, khung này nên gộp vào
- * đó — nó đang là bản dọn dẹp cho chính lớp trùng lặp này. Không dựng bản thứ ba ở đây.
+ * Khung thẻ (`bg-card border rounded-xl`) ở lại **nơi gọi**, không đi vào `EmptyState`: bốn người
+ * dùng cũ của nó (`AllRemovedState`, `EmptyQueueMessage`, `ScheduleView`, `PlansPage`) không có
+ * khung, và nướng khung vào component sẽ ép chúng ghi đè ngay từ ngày đầu — cùng lý do
+ * `className` đã được để lại cho nơi gọi.
+ *
+ * ⚠️ Gộp còn đổi một thứ KHÔNG phải con số: **ràng buộc bề rộng đổi chỗ**. Bản chép cũ đặt
+ * `max-w-[52ch]` trên chính `<p>` thân bài ⇒ chỉ thân bài bị giới hạn, `h3` tự do. `EmptyState`
+ * đặt `max-w-130` trên khối bọc (`empty-state.tsx`) ⇒ `h3` + thân + action **cả khối** bị giới
+ * hạn. Hai tiêu đề hiện tại đều ngắn nên không cắn, nhưng một tiêu đề dài trong tương lai nay sẽ
+ * xuống dòng ở 520px trong khi trước đó không bao giờ xuống. Con số 465→520px chỉ là hệ quả.
+ *
+ * `ch` và `rem` không phân kỳ được ở đây: `EmptyState` nướng cứng `text-[13.5px] leading-[1.7]`
+ * vào `<p>` của nó, còn `className` của nơi gọi đi vào thẻ bọc ngoài — không nơi gọi nào đổi được
+ * cỡ chữ thân bài. Chỉ hại nếu sau này ai mở cỡ chữ ra cho nơi gọi chỉnh.
  */
-function EmptyHistoryFrame({
+function HistoryEmptyCard({
   icon,
-  title,
+  heading,
   body,
-  cta,
+  action,
 }: {
-  icon: ReactNode;
-  title: string;
+  icon: LucideIcon;
+  heading: string;
   body: string;
-  cta: ReactNode;
+  action: ReactNode;
 }) {
   return (
-    <div className="bg-card border-border flex flex-col items-center rounded-xl border px-6 py-14 text-center">
-      {icon}
-      <h3 className="font-heading text-foreground text-[19px] tracking-[-0.01em]">{title}</h3>
-      <p className="text-muted-foreground mt-2.5 max-w-[52ch] text-[13.5px] leading-[1.65]">
-        {body}
-      </p>
-      <div className="mt-6">{cta}</div>
+    <div className="bg-card border-border rounded-xl border px-6 py-14">
+      <EmptyState icon={icon} heading={heading} body={body} action={action} />
     </div>
   );
 }
@@ -46,20 +56,15 @@ function EmptyHistoryFrame({
  */
 export function NoSessionsYet({ filtered }: { filtered: boolean }) {
   return (
-    <EmptyHistoryFrame
-      icon={
-        <NotebookText
-          className="text-muted-foreground mb-4 size-10 stroke-[1.3]"
-          aria-hidden="true"
-        />
-      }
-      title={filtered ? 'Kế hoạch này chưa có phiên kiểm tra nào' : 'Chưa có phiên kiểm tra nào'}
+    <HistoryEmptyCard
+      icon={NotebookText}
+      heading={filtered ? 'Kế hoạch này chưa có phiên kiểm tra nào' : 'Chưa có phiên kiểm tra nào'}
       body={
         filtered
           ? 'Chọn "Tất cả kế hoạch" để xem các phiên thuộc kế hoạch khác, hoặc bắt đầu một phiên cho kế hoạch này.'
           : 'Các khái niệm trong kế hoạch của bạn vẫn đang ở mức chưa đo — đồ thị khái niệm còn xám vì hệ thống chưa biết cái nào vững, cái nào chưa, nên chưa xếp được lịch ôn theo ưu tiên. Một phiên khoảng 15 phút là đủ để đồ thị bắt đầu có màu.'
       }
-      cta={
+      action={
         <Button asChild>
           <Link to="/interview">Bắt đầu phiên kiểm tra đầu tiên</Link>
         </Button>
@@ -76,13 +81,11 @@ export function NoSessionsYet({ filtered }: { filtered: boolean }) {
  */
 export function NoFocusSessionsYet() {
   return (
-    <EmptyHistoryFrame
-      icon={
-        <Timer className="text-muted-foreground mb-4 size-10 stroke-[1.3]" aria-hidden="true" />
-      }
-      title="Chưa có phiên học nào"
+    <HistoryEmptyCard
+      icon={Timer}
+      heading="Chưa có phiên học nào"
       body="Phiên học là lúc bạn ngồi xuống đọc và ôn theo chu kỳ Pomodoro — nó không chấm điểm, nên chỗ này sẽ ghi lại thời gian và những khái niệm bạn đã đụng tới, nhóm theo từng ngày. Một phiên đầu tiên là đủ để trang này bắt đầu có nội dung."
-      cta={
+      action={
         <Button asChild>
           <Link to="/focus">Bắt đầu phiên học đầu tiên</Link>
         </Button>

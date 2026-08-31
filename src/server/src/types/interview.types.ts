@@ -9,6 +9,7 @@ import type {
 } from '@prisma/client';
 import type { TracebackReason } from '../services/traceback.service';
 import type { TracebackSkipReason } from '../services/concept-schedule.service';
+import type { QuestionMode } from '../schemas/ai-interview.schema';
 
 /**
  * Response shapes of the Interview API (I6.3 / #115), consumed by the interview screen (I6.6)
@@ -96,6 +97,21 @@ export interface InterviewTurnResponse {
   verdict: TurnVerdict | null;
   askedAt: Date;
   answeredAt: Date | null;
+  /**
+   * Which rung of the AI question ladder asked this turn (#392), or `null` when it stands on no
+   * rung — every turn written before the column existed, and every `cache_fallback` turn.
+   *
+   * Shipped ALONGSIDE `countsTowardMastery` rather than instead of it. `mode` is for what the
+   * client SAYS ("this was a hint"); the flag is for what the client COMPUTES. Deriving
+   * "counts" from `mode` in the client would be a second definition of the scoring rule living
+   * in a second language, and the two would drift — the server's is the only one.
+   */
+  mode: QuestionMode | null;
+  /**
+   * Does this turn feed the weighted average? Decided once, server-side, by
+   * `countsTowardMastery` — the same predicate the write path and every read path use.
+   */
+  countsTowardMastery: boolean;
   /** Same anchor as on the pending question — the transcript cites answered turns too. */
   sourceCitation: QuestionSourceResponse | null;
 }
@@ -254,6 +270,21 @@ export interface SessionSummaryTurnResponse {
   turnIndex: number;
   score: number | null;
   verdict: TurnVerdict | null;
+  /**
+   * Which rung of the AI question ladder asked this turn (#392), or `null` when it stands on no
+   * rung — every turn written before the column existed, and every `cache_fallback` turn.
+   *
+   * Shipped ALONGSIDE `countsTowardMastery` rather than instead of it. `mode` is for what the
+   * client SAYS ("this was a hint"); the flag is for what the client COMPUTES. Deriving
+   * "counts" from `mode` in the client would be a second definition of the scoring rule living
+   * in a second language, and the two would drift — the server's is the only one.
+   */
+  mode: QuestionMode | null;
+  /**
+   * Does this turn feed the weighted average? Decided once, server-side, by
+   * `countsTowardMastery` — the same predicate the write path and every read path use.
+   */
+  countsTowardMastery: boolean;
 }
 
 /** One concept's full result for the session, oldest turn first. */

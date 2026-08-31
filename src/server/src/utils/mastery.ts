@@ -1,4 +1,5 @@
 import { MASTERY_THRESHOLD, MAX_TRACEBACK_DEPTH } from '../services/traceback.service';
+import type { QuestionMode } from '../schemas/ai-interview.schema';
 
 /**
  * Everything a finished concept's score decides (I7.2 / #123): the score itself, when the
@@ -13,8 +14,22 @@ import { MASTERY_THRESHOLD, MAX_TRACEBACK_DEPTH } from '../services/traceback.se
 
 /**
  * UC-Overview §5.4: `mastery_score(C) = weighted_avg(turn_scores, weights = [0.2, 0.3, 0.5])`.
- * A later turn weighs more because its question digs deeper — getting turn 3 right says more
- * about understanding than getting the opening recall question right.
+ * A later turn weighs more because — before #392 — it could only mean the question dug deeper:
+ * `wrong` ended a concept on the spot, so a turn 2/3 was always `ask_deeper`/`ask_probe`, and
+ * getting turn 3 right said more about understanding than getting the opening recall question
+ * right.
+ *
+ * #392 broke that premise for one path, and the fix is `countsTowardMastery` below rather than
+ * a different set of weights. A `wrong` verdict spends a `hint` turn instead of ending the
+ * concept — and a hint turn is the SAME question narrowed, not a harder one; it is, if anything,
+ * easier than the turn it followed. A `wrong → hint → hint` run would otherwise put its
+ * narrowest, easiest question at turn 3, weighted 0.5.
+ *
+ * Decided (#392 review, 30/08, direction (c)): a hint turn is **graded and shown, but excluded
+ * from the weighted average**. Every turn that reaches these weights is therefore a rung of the
+ * AI ladder again, so "a later turn dug deeper" is true once more for the turns that remain, and
+ * `[0.2, 0.3, 0.5]` stays as it is. Excluding turns only ever *lowers* the count fed to
+ * `calculateMasteryScore`, so the C6 ceiling it guards is never approached from below.
  */
 export const TURN_WEIGHTS = [0.2, 0.3, 0.5] as const;
 
@@ -36,10 +51,14 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Weighted average of the turn scores of one concept, in `[0, 1]` rounded to two decimals.
  *
- * Fewer than three turns is normal — a `wrong` verdict ends the concept early (AE-02), and a
- * concept can be skipped — so the weights are **renormalised** over the turns that happened
- * rather than applied as-is: two turns use `[0.2, 0.3] / 0.5 = [0.4, 0.6]`, one turn uses
- * `[1.0]`. Dividing by the full `1.0` instead would silently punish an early finish.
+ * Fewer than three turns is still possible — a concept can be skipped, or a session can be
+ * configured with a `maxTurnsPerConcept` below the C6 ceiling — so the weights are
+ * **renormalised** over the turns that happened rather than applied as-is: two turns use
+ * `[0.2, 0.3] / 0.5 = [0.4, 0.6]`, one turn uses `[1.0]`. Dividing by the full `1.0` instead
+ * would silently punish an early finish. (#392: a `wrong` verdict on its own no longer ends a
+ * concept early — it spends a hint turn instead, up to the same C6 ceiling — so under the
+ * default 3-turn session every concept now runs the full ladder; renormalisation still matters
+ * for the cases above.)
  *
  * Returns `null` for no turns at all, which is not the same as `0`: `0` means "answered and
  * got it completely wrong", `null` means "never assessed". The caller must not collapse the
@@ -140,9 +159,43 @@ export function coverageMasteryScore(
  * question the student is still looking at, or one the AI could not grade (AE-05). Dropping it
  * is what lets the weights renormalise over the turns that actually happened, which is the whole
  * reason a session ended early (#243) can still be scored honestly.
+ *
+ * Hint turns are filtered out FIRST, before the ungraded ones — same resulting set either way,
+ * but this order says which rule is which: one is "does not belong in the formula" (#392), the
+ * other is "has no number yet".
  */
-export function gradedTurnScores(turns: readonly { score: number | null }[]): number[] {
-  return turns.map((turn) => turn.score).filter((score): score is number => score !== null);
+export function gradedTurnScores(
+  turns: readonly { score: number | null; mode: QuestionMode | null }[]
+): number[] {
+  return turns
+    .filter(countsTowardMastery)
+    .map((turn) => turn.score)
+    .filter((score): score is number => score !== null);
+}
+
+/**
+ * Does this turn feed `mastery_score`? The ONE place that answers it, for the write path and
+ * every read path alike (#392 direction (c)).
+ *
+ * `hint` is the only rung that does not count: it re-asks the same question narrowed down, so it
+ * is easier than the turn it followed, and letting it into the weighted average puts the least
+ * demanding question of a run at the heaviest weight. It is still graded, still stored, and
+ * still shown in the transcript — a student who needed a hint should see how that answer was
+ * judged; it just does not move the number.
+ *
+ * `null` counts. It means "not a rung of the AI ladder": every turn written before this column
+ * existed, and every `cache_fallback` turn (AE-05 self-grading has no ladder — `resolveFallback
+ * Step` deliberately offers no hint step). Reading `null` as "exclude" would silently zero out
+ * flashcard sessions and every pre-migration session.
+ *
+ * ⚠️ `mode` is REQUIRED, not optional, on purpose. A `select` that forgets `mode: true` must be
+ * a compile error at the call site — with an optional field it would sail through as
+ * `undefined`, score by the old rule, and only surface when someone compares two screens. That
+ * is not hypothetical: the read path in `concept-detail.service.ts` was missed by three separate
+ * passes over this change and was caught by the compiler, not by review.
+ */
+export function countsTowardMastery(turn: { mode: QuestionMode | null }): boolean {
+  return turn.mode !== 'hint';
 }
 
 /**
@@ -161,11 +214,12 @@ export function gradedTurnScores(turns: readonly { score: number | null }[]): nu
  * ordering beats a summary that 500s.
  */
 export function sessionMasteryScore(
-  turns: readonly { turnIndex: number; score: number | null }[]
+  turns: readonly { turnIndex: number; score: number | null; mode: QuestionMode | null }[]
 ): number | null {
   const graded = turns
     .slice()
     .sort((a, b) => a.turnIndex - b.turnIndex)
+    .filter(countsTowardMastery)
     .flatMap((turn) => (turn.score === null ? [] : [turn.score]));
 
   if (graded.length === 0) return null;
@@ -196,7 +250,7 @@ export interface ConceptMasteryTimelinePoint {
  * reached", which is not the same claim.
  */
 export function conceptMasteryForSession(
-  targetTurns: readonly { turnIndex: number; score: number | null }[],
+  targetTurns: readonly { turnIndex: number; score: number | null; mode: QuestionMode | null }[],
   targetStartedAt: number,
   priorPoints: readonly ConceptMasteryTimelinePoint[]
 ): { masteryBefore: number | null; masteryAfter: number | null; isFirstAssessment: boolean } {

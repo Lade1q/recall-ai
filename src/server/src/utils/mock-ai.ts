@@ -132,6 +132,7 @@ const MOCK_QUESTION_BY_MODE: Record<QuestionMode, (conceptName: string) => strin
   initial: (c) => `What is ${c}, and what problem does it solve?`,
   deeper: (c) => `Why does ${c} work the way it does? Explain the mechanism behind it.`,
   probe: (c) => `You mentioned ${c} only in passing — can you make that concrete?`,
+  hint: (c) => `Let's narrow that: what is one specific case where ${c} applies?`,
 };
 
 const MOCK_QUESTION_TYPE_BY_MODE: Record<QuestionMode, GenerateQuestionResponse['question_type']> =
@@ -139,6 +140,7 @@ const MOCK_QUESTION_TYPE_BY_MODE: Record<QuestionMode, GenerateQuestionResponse[
     initial: 'recall',
     deeper: 'why',
     probe: 'application',
+    hint: 'recall',
   };
 
 /** Fixed sample question, varied by mode so the three prompt branches stay distinguishable. */

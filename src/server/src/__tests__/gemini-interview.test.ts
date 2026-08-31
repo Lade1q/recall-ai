@@ -164,12 +164,55 @@ describe('AI Examiner Gemini calls', () => {
       expect(mockCreate.mock.calls[0][0].input).toContain('LIFO');
     });
 
+    /**
+     * #392 phương án B: a `wrong` answer with turns left asks a `hint` question — narrower, not a
+     * different question, and never carrying the answer.
+     */
+    it("narrows the same question on 'hint' mode, without revealing the answer (#392)", async () => {
+      mockCreate.mockResolvedValueOnce(reply(okQuestion));
+
+      await generateQuestion({
+        ...QUESTION_PARAMS,
+        turnIndex: 2,
+        mode: 'hint',
+        previousTurns: [
+          { questionText: 'What is a stack?', answerText: 'A queue, FIFO', verdict: 'wrong' },
+        ],
+      });
+
+      const { input } = mockCreate.mock.calls[0][0];
+      expect(input).toContain('The student answered the most recent question incorrectly');
+      expect(input).toContain('Narrow THAT SAME question');
+      expect(input).toContain('Do NOT reveal or imply the answer');
+      // The clause that actually distinguishes `hint` from `probe` (#392 review, item ②): without
+      // it, narrowing a question and asking a follow-up about a *different* aspect of the concept
+      // would both satisfy "Narrow THAT SAME question" loosely read.
+      expect(input).toContain('do NOT ask a new question about a different aspect');
+      expect(input).toContain('FIFO');
+    });
+
     it('short-circuits to the mock without calling Gemini', async () => {
       process.env.USE_MOCK_AI = 'true';
 
       const result = await generateQuestion(QUESTION_PARAMS);
 
       expect(result.question_text).toContain('Stack');
+      expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    /**
+     * #392 review item ②: `mock-ai.ts`'s `hint` branch could silently copy `deeper`'s question
+     * text/type and this suite would stay green, since nothing pinned the two apart. A developer
+     * on `USE_MOCK_AI=true` narrowing a `wrong` answer would then see a "go deeper" question
+     * instead of a narrowed one — the opposite of what #392 promises.
+     */
+    it('mocks a distinct hint question, not a copy of deeper (#392)', async () => {
+      process.env.USE_MOCK_AI = 'true';
+
+      const hint = await generateQuestion({ ...QUESTION_PARAMS, mode: 'hint' });
+      const deeper = await generateQuestion({ ...QUESTION_PARAMS, mode: 'deeper' });
+
+      expect(hint.question_text).not.toBe(deeper.question_text);
       expect(mockCreate).not.toHaveBeenCalled();
     });
   });

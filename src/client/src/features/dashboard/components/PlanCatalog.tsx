@@ -57,8 +57,17 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
  * `null` khi `/review-queue/today` chưa tải xong hoặc lỗi: chỉ ẩn đoạn thân bài, không thay bằng
  * chữ bịa ra. Ca lỗi không vì thế mà câm — `DashboardPage` giữ `BlockError` + "Thử lại" ngay
  * phía trên (`todayFailed`), nên chuyện hỏng đã được nói đúng một lần, ở đúng khối của nó.
+ *
+ * Nhưng "chưa tải xong" và "lỗi" là HAI ca, và chỉ ca sau mới có người nói hộ. `pending` tách
+ * chúng ra: lúc `/review-queue/today` còn bay thì chỗ của câu server là một vạch đang tải, không
+ * phải khoảng trống. Không có vế này thì thẻ trông như đã tải xong nhưng rỗng ruột, đúng bằng
+ * khoảng `/review-queue/today` về sau `/plans` — đo được 79→879ms ở mức trễ 800ms (#445 cơ chế ①).
+ *
+ * Vạch tải KHÔNG phá quy tắc "chỉ A2b được client tự đặt chữ" (mockup `claude-design/
+ * screen-dashboard.html`): nó không phải chữ, và chú thích khối A1 của chính mockup chỉ vẽ ca ĐÃ
+ * CÓ `message` — nó cấm thay câu server bằng câu client, không cấm báo "đang tải".
  */
-function CatalogOnboarding({ message }: { message: string | null }) {
+function CatalogOnboarding({ message, pending }: { message: string | null; pending: boolean }) {
   return (
     <div className="border-border bg-card rounded-xl border px-7 py-10">
       <div className="mx-auto max-w-[460px] text-center">
@@ -86,13 +95,86 @@ function CatalogOnboarding({ message }: { message: string | null }) {
         <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
           Bắt đầu kế hoạch ôn tập đầu tiên
         </h2>
-        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`. Đủ ở bề ngang mà câu server
-            nằm gọn một dòng — đo được 0px giật ở 1440px và 768px. KHÔNG đủ ở 360px: ở đó câu
-            xuống 2 dòng (22,9 → 45,9px) nên CTA vẫn giật 23px khi chữ về (#446). Nâng `min-h`
-            lên hai dòng sẽ chữa chỗ đó nhưng chừa một khoảng trống thừa ở mọi bề ngang khác, nên
-            để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được. */}
-        <p className="text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]">
-          {message}
+        {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`, nên CTA không giật khi câu
+            của server về — chừng nào câu đó còn nằm gọn một dòng.
+
+            ⚠️ Ca `message === null` nay TÁCH ĐÔI (#445): `pending` vẽ vạch tải vào đúng chỗ trống
+            đó, chỉ ca LỖI mới còn là khoảng trắng thật. Chỗ giữ vẫn là một dòng ở cả hai — vạch
+            cao `h-3` < `1.7em` — nên toàn bộ lập luận ngưỡng bên dưới không đổi. Nhưng ai đọc
+            dòng đầu mà tưởng chỉ có một ca thì sẽ đo nhầm: đo ngưỡng phải đo ở ca LỖI.
+
+            ⚠️ Và ĐỪNG bỏ `min-h` vì "vạch đã có chiều cao riêng": vạch là `h-3` (12px) còn chỗ
+            giữ là `1.7em` (22,95px). Bỏ đi là tạo một cú giật **11px** chưa từng tồn tại trước
+            #458, ở đúng ca vốn không giật. `min-h` giữ chỗ cho CẢ HAI ca, không riêng ca trống.
+
+            Ngưỡng là ngưỡng của CỘT CHỮ chứ không phải của viewport: `<p>` rộng ≥ 415px thì câu
+            hiện tại nằm một dòng (22,9px), hẹp hơn thì xuống hai (45,9px) và CTA giật 23px.
+            Quy ra viewport thì cộng phần khung bao quanh — `<main>` `p-4` của `MainLayout` (32px),
+            viền thẻ (2px), `px-7` của thẻ (56px) = 90px — nên `415 + 90 ≈ 505px`. Tức là MỌI bề
+            ngang dưới ~505px đều giật, kể cả 455px, không riêng 360px.
+
+            ⚠️ Hai thứ làm dòng này lỗi thời mà KHÔNG gì đỏ (jsdom không dựng layout):
+            ① đổi `NO_PLAN_MESSAGE` (hiện 64 ký tự) là đổi ngưỡng 415px;
+            ② hạ trần `max-w-[460px]` ngay trên xuống dưới 415px thì câu xuống hai dòng ở MỌI bề
+            ngang — dư địa hiện chỉ 45px. Đo lại thì đo trên app thật: một trang dựng lại thiếu
+            `<main>` `p-4` sẽ cho ngưỡng viewport lệch đúng 32px (#454).
+
+            Nâng `min-h` lên hai dòng chữa được nhưng chừa khoảng trống thừa ở mọi bề ngang khác,
+            nên để nguyên và ghi lại giới hạn thay vì hứa nhiều hơn thứ nó làm được (#446). */}
+        <p
+          className={cn(
+            'text-muted-foreground mb-5 min-h-[1.7em] text-pretty text-[13.5px] leading-[1.7]',
+            pending && 'flex items-center justify-center'
+          )}
+        >
+          {pending ? (
+            <span
+              className="bg-border block h-3 w-[70%] max-w-[290px] animate-pulse rounded"
+              aria-hidden="true"
+            />
+          ) : (
+            message
+          )}
+        </p>
+        {/* Vạch tải ở trên là tín hiệu THỊ GIÁC; trình đọc màn hình không thấy `animate-pulse`.
+
+            Vùng live này gắn **vô điều kiện**, chỉ NỘI DUNG đổi. `{pending && <p role="status">…
+            </p>}` trông tương đương nhưng ngược cơ chế: vùng sinh ra khi đã có sẵn chữ bên trong,
+            còn WAI-ARIA đòi vùng có mặt TRƯỚC khi nội dung của nó đổi.
+
+            ⚠️ Trục chịu lực là *"phần tử có mặt trước khi CHÍNH NỘI DUNG CỦA NÓ đổi"*, KHÔNG phải
+            "tổ tiên luôn mount". `<p>` này nằm trong `CatalogOnboarding`, mà khối đó cũng chỉ
+            mount ở ca A1 — không sao: lúc khối mount thì `<p>` đã ở đó RỖNG, chữ đến sau.
+
+            ⚠️ Và trục đúng KHÔNG phải "vô điều kiện tốt / có điều kiện xấu" — nó là **vùng đó
+            được đọc MẤY LẦN**. `role="status"` báo lặp (đang tải → xong → lỗi) nên phải có mặt
+            trước để lần đổi chữ nào cũng có chỗ nhận; `role="alert"` chỉ đọc MỘT nhát đúng lúc
+            chèn vào, nên mount-có-điều-kiện mới là khuôn ĐÚNG cho nó. Đếm trong `src/client`
+            (bỏ tệp test):
+              · vô điều kiện (4) — khối này · `NotesPanel` · `RunningSession` · `MonthGrid`,
+                tất cả `role="status"` báo lặp
+              · có điều kiện (5) — `FieldError` (`role="alert"`, `if (!content) return null`) ·
+                `ReviewQueueItemRow` (nhánh `variant === 'gone'`) · `InterviewSessionPage` ×3
+                (ba chỉ báo chờ, mỗi cái sinh ra đã kèm sẵn chữ). `FieldError` là thành viên
+                MẠNH nhất của ô này: nó có điều kiện vì nó nên thế, không phải vì ai quên.
+              · dạng thứ ba (1) — `SystemMessage`: phần tử LUÔN mount, chỉ `role` bật/tắt theo
+                `isLive`. Không rơi vào ô nào ở trên.
+              · tắt tiếng cố ý (1) — `PomodoroClockRing` (`aria-live="off"`)
+            `sonner` cũng chèn vùng rỗng trước rồi mới đổ chữ. `FieldRequirement` ngay dưới
+            `FieldError` đã lập luận sẵn đúng trục này: nó luôn hiện nên cố ý KHÔNG dùng
+            `role="alert"`.
+
+            ⚠️ Bảng trên là ĐỌC MÃ, không phải phép đo. Đo LIVE trên bus AT-SPI KHÔNG phân biệt
+            được hai dạng: Chromium chỉ phát `text-changed`, phần quyết định đọc hay không nằm ở
+            trình đọc màn hình. Kèm theo: test `getByRole('status')` chỉ hỏi "có trong DOM không"
+            nên KHÔNG bắt được dạng sai — ca dưới đây vì vậy khoá *nội dung* của vùng ở cả hai
+            trạng thái.
+
+            Chuỗi dùng TÊN ĐANG CÓ của khối ("Gợi ý hôm nay"), không đặt tên mới. Cố ý KHÔNG
+            trùng khít chuỗi `"Đang tải · Gợi ý hôm nay"` của `TodayNudgeSkeleton` — hai khối khác
+            nhau, và trùng chuỗi làm mọi assertion quét-cả-trang không phân biệt được chúng. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {pending ? 'Đang tải gợi ý hôm nay' : ''}
         </p>
         <Button asChild size="lg">
           <Link to="/plan/new">Tạo kế hoạch đầu tiên</Link>
@@ -124,14 +206,20 @@ export function PlanCatalog({
   hasAnyPlan,
   currentPlanId,
   noPlanMessage,
+  noPlanMessagePending,
 }: {
   activePlans: PlanSummary[];
   hasAnyPlan: boolean;
   currentPlanId: string | null;
   noPlanMessage: string | null;
+  noPlanMessagePending: boolean;
 }) {
   if (activePlans.length === 0) {
-    return hasAnyPlan ? <CatalogNoActive /> : <CatalogOnboarding message={noPlanMessage} />;
+    return hasAnyPlan ? (
+      <CatalogNoActive />
+    ) : (
+      <CatalogOnboarding message={noPlanMessage} pending={noPlanMessagePending} />
+    );
   }
 
   return (
