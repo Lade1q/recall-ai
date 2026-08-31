@@ -38,7 +38,10 @@ function formatLocations(locations: Location[]): string {
 describe('không có class Tailwind nào chỉ sống trong test (issue #443)', () => {
   it('mọi candidate class trong file test đều tồn tại trong text production, hoặc không phải utility Tailwind hợp lệ', async () => {
     const candidates = extractTestFileCandidates();
-    expect(candidates.size).toBeGreaterThan(0);
+    // Sàn gần con số thật thay vì `> 0` — góp ý từ review @Lade1q trên PR #472: cổng `> 0` vẫn
+    // xanh nếu bộ trích một ngày nào đó tụt còn 1, không còn nói lên được điều nó định nói. Đo
+    // thật lúc viết dòng này (31/08/2026, 26 tệp *.test.{ts,tsx} dưới src/client/src): 28 candidate.
+    expect(candidates.size).toBeGreaterThan(20);
 
     const offenders: { candidate: string; locations: Location[] }[] = [];
 
@@ -98,10 +101,39 @@ describe('không có class Tailwind nào chỉ sống trong test (issue #443)', 
     // thô, xoá `max-[680px]:flex` khỏi production vẫn bị coi là "còn tồn tại" hễ đâu đó còn
     // `max-[680px]:flex-1` — vì chuỗi ngắn là substring của chuỗi dài, dù đây là hai class Tailwind
     // hoàn toàn khác nhau. Ghim lại bằng chính văn bản gây lỗi thật (`MonthGrid.tsx` có cả hai).
-    const fakeProductionText = 'className="... max-[680px]:flex-1 ..."';
+    // CỐ Ý không viết literal `className="..."` trong chuỗi giả này — `textContainsClassToken` chỉ
+    // so khớp text thô, không quan tâm cú pháp JSX, nhưng viết đúng cú pháp đó sẽ khiến CHÍNH tệp
+    // test này bị `extractTestFileCandidates()` (quét mọi *.test.*) hiểu nhầm là một `className`
+    // JSX thật và tự trích ra candidate — một dạng tự nhiễm khác của đúng loại lỗi #443 mô tả.
+    const fakeProductionText = '... max-[680px]:flex-1 ...';
     expect(textContainsClassToken(fakeProductionText, 'max-[680px]:flex')).toBe(false);
     // Đối chứng ngược: literal trọn vẹn thì vẫn phải khớp bình thường.
     expect(textContainsClassToken(fakeProductionText, 'max-[680px]:flex-1')).toBe(true);
+
+    // Vế đối xứng, phát hiện ở review @Lade1q trên PR #472: guard có HAI vế (`before` và `after`),
+    // ca trên chỉ tập thể dục vế `after` (ký tự ngay sau vị trí khớp). Không có ca nào ép vế
+    // `before` (ký tự ngay TRƯỚC vị trí khớp) chạy thật, nên một đột biến bỏ vế đó sẽ sống sót.
+    // Ghim bằng đúng false-negative mà review chỉ ra: `flex` bị "cứu" bởi `hover:flex` còn sót lại,
+    // dù `flex` (bare) đã bị xoá khỏi production thật và hai candidate này compile ra CSS khác nhau.
+    expect(textContainsClassToken('... hover:flex ...', 'flex')).toBe(false);
+  });
+
+  // ⚠️ Dòng comment NGAY DƯỚI ĐÂY là fixture cố ý cho ca kế tiếp — một className JSX GIẢ chỉ tồn
+  // tại trong văn bản comment này, không phải trong code thật của file: className="max-[377px]:mt-[7px]"
+  it('[đối chứng dương — comment tự nhiễm] literal chỉ nằm trong COMMENT của tệp test không được trích ra như candidate thật', () => {
+    // Phát hiện ở review @Lade1q trên PR #472: trước khi có `stripComments`, một comment chứa
+    // literal trùng cú pháp `className="..."` (như dòng ⚠️ ngay phía trên `it(...)` này) cũng đủ
+    // khiến `extractTestFileCandidates()` hiểu nhầm là một className JSX thật — an toàn (đỏ oan,
+    // không phải xanh oan) nhưng gây nhiễu khó hiểu cho người sau. Đúng loại tự nhiễm mà
+    // `production-text.ts` đã xử ở phía production; áp cùng cái nhìn ấy sang phía test.
+    const candidates = extractTestFileCandidates();
+    expect(candidates.has('max-[377px]:mt-[7px]')).toBe(false);
+
+    // Đối chứng ngược, BẮT BUỘC đi kèm: `stripComments` không được bóc nhầm CODE THẬT. Hai candidate
+    // này đến từ ngữ cảnh 4 (`.className...toContain(...)`) trong `MonthGrid.test.tsx` — không nằm
+    // trong comment nào — nếu chúng biến mất sau khi thêm bước bóc comment, đó là over-strip.
+    expect(candidates.has('max-[680px]:min-h-[58px]')).toBe(true);
+    expect(candidates.has('max-[680px]:flex')).toBe(true);
   });
 
   it('[đối chứng âm] class chỉ có ở production không bị báo, và "ordinal" trong tên it(...) không bị trích ra dù là utility hợp lệ', async () => {

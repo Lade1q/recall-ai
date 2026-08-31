@@ -16,12 +16,18 @@
  * trích ra (đối chứng âm bắt buộc của #443, xem spike ở `validate-candidate.ts`: `ordinal` VẪN là
  * một utility Tailwind hợp lệ, nên chỉ ngữ cảnh cú pháp ở đây mới lọc được nó).
  *
+ * Bóc comment (`stripComments`) TRƯỚC khi áp 4 ngữ cảnh trên — nếu không, một comment chứa literal
+ * trùng cú pháp mang class (vd `// className="max-[377px]:mt-[7px]"`) sẽ tự bị hiểu nhầm là
+ * candidate thật (phát hiện ở review @Lade1q trên PR #472 — cùng loại tự nhiễm mà `production-text.ts`
+ * đã xử ở phía production, áp cùng cái nhìn ấy sang phía test).
+ *
  * Dùng regex thực dụng, không AST — chấp nhận bỏ sót các ca lồng ngữ cảnh phức tạp (biểu thức
  * `className` chứa object literal, spread, v.v.), vì phạm vi #443 chỉ cần bắt đúng các mẫu đang có
  * trong repo, không phải một parser class đầy đủ.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { stripComments } from './strip-comments';
 import { walkSourceFiles } from './walk-source-files';
 
 const SRC_ROOT = path.resolve(import.meta.dirname, '../../');
@@ -186,7 +192,7 @@ export function extractTestFileCandidates(): Map<string, Location[]> {
   );
 
   for (const relativePath of files) {
-    const text = readFileSync(path.join(SRC_ROOT, relativePath), 'utf8');
+    const text = stripComments(readFileSync(path.join(SRC_ROOT, relativePath), 'utf8'));
     const localConsts = collectLocalStringConsts(text);
 
     extractClassNameLiterals(text, relativePath, result);
