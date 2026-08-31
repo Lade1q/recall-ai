@@ -746,17 +746,6 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
-   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
-   *
-   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
-   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
-   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
-   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
-   *
-   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
-   * chứ không lặng lẽ vá kèm.
-   */
-  /**
    * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
    *
    * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
@@ -823,6 +812,81 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       }),
     ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #475: ca active ở trên tiếp tục đi qua `advanceToNextQuestion`; ca riêng này phủ nhánh trả
+   * về sớm của `getInterview` khi phiên đã kết thúc. Hai lượt đã chấm mang giá trị khác nhau ở
+   * mọi cột mà #475 bổ sung lưới, nên nhánh này có lưới riêng mà không thay thế ca active.
+   */
+  it('transcript giữ nguyên từng trường khi phiên ĐÃ KẾT THÚC (nhánh trả về sớm)', async () => {
+    // `getInterview` chỉ đọc transcript khi phiên đã kết thúc, nên không chạy state machine để
+    // sinh thêm một lượt. Đây là chủ ý của ca phủ nhánh trả về sớm; ca active ngay trên vẫn giữ
+    // assertion chứng minh nó không sinh câu hỏi ngoài ý muốn.
+    sessionRow.status = 'completed';
+    sessionRow.currentConceptIdx = 1;
+
+    const firstTurn = seedPendingTurn({
+      turnIndex: 1,
+      questionText: 'Câu hỏi lượt 1',
+      questionType: 'recall',
+      answerText: 'Câu trả lời lượt 1',
+      score: 0.1,
+      feedback: 'Nhận xét lượt 1',
+      verdict: 'wrong',
+      mode: 'initial',
+      askedAt: new Date('2026-01-01T09:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T09:05:00.000Z'),
+    });
+    const secondTurn = seedPendingTurn({
+      turnIndex: 2,
+      questionText: 'Câu hỏi lượt 2',
+      questionType: 'application',
+      answerText: 'Câu trả lời lượt 2',
+      score: 0.9,
+      feedback: 'Nhận xét lượt 2',
+      verdict: 'deep',
+      mode: 'hint',
+      askedAt: new Date('2026-01-01T10:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T10:08:00.000Z'),
+    });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({
+        id: firstTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: firstTurn.turnIndex,
+        questionText: firstTurn.questionText,
+        questionType: firstTurn.questionType,
+        answerText: firstTurn.answerText,
+        score: firstTurn.score,
+        feedback: firstTurn.feedback,
+        verdict: 'wrong',
+        askedAt: firstTurn.askedAt,
+        answeredAt: firstTurn.answeredAt,
+        mode: 'initial',
+        countsTowardMastery: true,
+      }),
+      expect.objectContaining({
+        id: secondTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: secondTurn.turnIndex,
+        questionText: secondTurn.questionText,
+        questionType: secondTurn.questionType,
+        answerText: secondTurn.answerText,
+        score: secondTurn.score,
+        feedback: secondTurn.feedback,
+        verdict: 'deep',
+        askedAt: secondTurn.askedAt,
+        answeredAt: secondTurn.answeredAt,
+        mode: 'hint',
+        countsTowardMastery: false,
+      }),
+    ]);
   });
 
   it('freezes the concept anchor onto the turn when a cached question is asked', async () => {
