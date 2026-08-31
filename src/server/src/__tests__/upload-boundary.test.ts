@@ -2,15 +2,13 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import request from 'supertest';
-import { upload, MAX_FILE_SIZE } from '../middleware/upload.middleware';
+import { upload, MAX_FILE_SIZE, STAGING_DIR } from '../middleware/upload.middleware';
 import { errorHandler } from '../middleware/errorHandler';
 
 // Giới hạn nghiệp vụ là inclusive: file đúng 10MB (MAX_FILE_SIZE bytes) phải được
 // chấp nhận. Suite này bao các mốc boundary quanh giới hạn để chống regression cho
 // bug off-by-one của busboy (#195): busboy bắn `LIMIT_FILE_SIZE` khi
 // `fileSize === fileSizeLimit`, nên middleware đặt limit = MAX_FILE_SIZE + 1.
-const STAGING_DIR = path.resolve(process.cwd(), 'uploads', '.staging');
-
 function buildTestApp() {
   const app = express();
   app.post('/upload', upload.single('file'), (req, res) => {
@@ -25,26 +23,6 @@ function buildTestApp() {
 function listStagingFiles(): string[] {
   if (!fs.existsSync(STAGING_DIR)) return [];
   return fs.readdirSync(STAGING_DIR);
-}
-
-// `.staging` is shared by every jest worker: STAGING_DIR resolves from process.cwd()
-// (upload.middleware.ts:9), and plan.controller.ts:98 stages pasted text under the SAME
-// `${Date.now()}-${random}.txt` shape multer uses. So "no NEW file appeared" also catches
-// another suite's staging file — that, not a multer race, is what makes this flake (#427).
-// multer's unlink always finishes before the response: its callback is what calls done()
-// (measured 0/1560 completions after the response). Longest foreign-file lifetime observed:
-// 323ms across 3 full-suite runs, 0 above 1s. Poll up to 2s (~6x) instead of reading
-// instantly; a real leak still fails fast, and a >2s straggler still fails rather than
-// being waited out forever.
-async function waitForNoNewStagingFiles(before: Set<string>, timeoutMs = 2000): Promise<string[]> {
-  const deadline = Date.now() + timeoutMs;
-  let after: string[];
-  do {
-    after = listStagingFiles().filter((f) => !before.has(f));
-    if (after.length === 0) return after;
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  } while (Date.now() < deadline);
-  return after;
 }
 
 describe('upload boundary — giới hạn 10MB inclusive', () => {
@@ -91,12 +69,12 @@ describe('upload boundary — giới hạn 10MB inclusive', () => {
       .attach('file', buffer, { filename: 'test.txt', contentType: 'text/plain' });
 
     // busboy abort ngay tại mốc limit → MulterError LIMIT_FILE_SIZE, và multer tự xoá file đã
-    // ghi dở XONG rồi mới trả response. File "mới" bắt được ở đây là của suite khác đang dùng
-    // chung `.staging` — chờ nó tự dọn (#427).
+    // ghi dở XONG rồi mới trả response. Mỗi worker có staging dir riêng (#447), nên mọi file mới
+    // ở đây đều thuộc suite hiện tại và có thể kiểm tra ngay, không cần chờ suite khác tự dọn.
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('FILE_TOO_LARGE');
 
-    const after = await waitForNoNewStagingFiles(before);
+    const after = listStagingFiles().filter((f) => !before.has(f));
     expect(after).toEqual([]);
   });
 

@@ -1,10 +1,12 @@
 import fs from 'fs';
+import path from 'path';
 import { Request, Response } from 'express';
 import { createPlanController } from '../controllers/plan.controller';
 import { createPlanInDb } from '../services/plan.service';
 import { triggerAnalysis } from '../services/analysis.service';
 import { createStorageService } from '../services/storage.service';
 import { AppError } from '../middleware/errorHandler';
+import { STAGING_DIR } from '../middleware/upload.middleware';
 
 // Cùng pattern mock với encrypted-pdf-upload.test.ts — không cần DATABASE_URL/GEMINI_API_KEY
 // thật (SDP risk R05).
@@ -82,6 +84,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
     expect(storage.upload).toHaveBeenCalledTimes(1);
     const stagedPath = storage.upload.mock.calls[0]![0] as string;
     stagedPaths.push(stagedPath);
+    expect(path.dirname(stagedPath)).toBe(STAGING_DIR);
     expect(fs.existsSync(stagedPath)).toBe(true);
     expect(fs.readFileSync(stagedPath, 'utf-8')).toBe(
       'Giới hạn là khái niệm nền tảng của giải tích.'
@@ -201,6 +204,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
 
     // storage.upload chạy trước createPlanInDb, nên vẫn thấy path để assert đã bị xoá.
     const stagedPath = storage.upload.mock.calls[0]![0] as string;
+    expect(path.dirname(stagedPath)).toBe(STAGING_DIR);
     expect(fs.existsSync(stagedPath)).toBe(false);
   });
 });
