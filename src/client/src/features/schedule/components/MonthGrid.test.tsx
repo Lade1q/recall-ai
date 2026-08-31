@@ -216,6 +216,19 @@ describe('MonthGrid — tháng chưa có buổi ôn nào', () => {
       days: [day('2026-08-20', [item('A'), item('B')])],
     });
     expect(screen.getByText(/2 khái niệm quá hạn/)).toBeInTheDocument();
+
+    // Và cụm CHỈ ĐƯỜNG, không chỉ con số. `ở thanh phía trên` là chữ mockup
+    // (`claude-design/screen-plan-schedule.html`), và nó từng biến mất một lần khi #476 xoá thẻ
+    // trùng — không ca nào đỏ, vì ca này chỉ hỏi con số. Chữ mockup mất im lặng cũng là sửa chữ.
+    //
+    // Chỉ dẫn này đúng và đã kiểm: `ScheduleDebtBar` render TRƯỚC `MonthGrid` trong cùng nhánh
+    // của `ScheduleView`, và nó chỉ trả `null` khi không còn mục nợ nào — mà thẻ này chỉ hiện
+    // khi `overdueItemCount > 0`, tính trên CÙNG `days` với cùng vị từ `isOverdue`.
+    // `<b>` cắt câu làm đôi, mà matcher mặc định của testing-library chỉ đọc text node TRỰC
+    // TIẾP — nên phải hỏi `textContent` của cả đoạn thì mới thấy hai nửa liền nhau.
+    expect(screen.getByText(/Engine chỉ xếp ngày sau mỗi phiên kiểm tra/)).toHaveTextContent(
+      '2 khái niệm quá hạn ở thanh phía trên'
+    );
   });
 
   it('asks for a first session when there is no backlog either', () => {
