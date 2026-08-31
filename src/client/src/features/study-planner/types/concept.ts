@@ -119,6 +119,13 @@ export interface ConceptSourceExcerpt {
   excerpt: string | null;
 }
 
+/** Latest plan document, available even when a concept has no source anchor (#378). */
+export interface ConceptDocumentSummary {
+  documentId: string;
+  filename: string;
+  kind: 'pdf' | 'image' | 'text';
+}
+
 /** One row of the DB-06 "Lịch sử học tập" list. */
 export interface ConceptHistoryEntry {
   kind: 'interview' | 'focus';
@@ -140,6 +147,7 @@ export interface ConceptDetail {
   lastTestedAt: string | null;
   isRemediating: boolean;
   remediationReason: RemediationReason | null;
+  document: ConceptDocumentSummary | null;
   sources: ConceptSourceExcerpt[];
   history: ConceptHistoryEntry[];
 }

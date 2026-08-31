@@ -36,7 +36,10 @@ const CONCEPT_ID = 'concept-uuid';
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockedPrisma.studyPlan.findUnique.mockResolvedValue({ userId: USER_ID });
+  mockedPrisma.studyPlan.findUnique.mockResolvedValue({
+    userId: USER_ID,
+    documents: [{ id: 'doc-1', filename: 'giao-trinh.pdf', kind: 'pdf' }],
+  });
   mockedPrisma.concept.findFirst.mockResolvedValue({
     id: CONCEPT_ID,
     name: 'Ngăn xếp',
@@ -91,5 +94,40 @@ describe('getConceptDetail — sectionTitle/context passthrough (#296)', () => {
       pageFrom: 41,
       pageTo: 43,
     });
+  });
+});
+
+describe('getConceptDetail — plan document fallback (#378)', () => {
+  it('returns the latest plan document when the concept has no source anchors', async () => {
+    mockedPrisma.conceptSourceRef.findMany.mockResolvedValue([]);
+
+    const detail = await getConceptDetail(PLAN_ID, CONCEPT_ID, USER_ID);
+
+    expect(detail.sources).toEqual([]);
+    expect(detail.document).toEqual({
+      documentId: 'doc-1',
+      filename: 'giao-trinh.pdf',
+      kind: 'pdf',
+    });
+    expect(mockedPrisma.studyPlan.findUnique).toHaveBeenCalledWith({
+      where: { id: PLAN_ID },
+      select: {
+        userId: true,
+        documents: {
+          select: { id: true, filename: true, kind: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+  });
+
+  it('returns null when the plan has no document', async () => {
+    mockedPrisma.studyPlan.findUnique.mockResolvedValue({ userId: USER_ID, documents: [] });
+    mockedPrisma.conceptSourceRef.findMany.mockResolvedValue([]);
+
+    const detail = await getConceptDetail(PLAN_ID, CONCEPT_ID, USER_ID);
+
+    expect(detail.document).toBeNull();
   });
 });

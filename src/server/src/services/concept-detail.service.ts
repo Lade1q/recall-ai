@@ -24,7 +24,14 @@ export async function getConceptDetail(
 ): Promise<ConceptDetailResponse> {
   const plan = await prisma.studyPlan.findUnique({
     where: { id: planId },
-    select: { userId: true },
+    select: {
+      userId: true,
+      documents: {
+        select: { id: true, filename: true, kind: true },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      },
+    },
   });
 
   if (!plan) {
@@ -91,6 +98,13 @@ export async function getConceptDetail(
     lastTestedAt: concept.lastTestedAt,
     isRemediating: remediationItem !== null,
     remediationReason: remediationItem?.reason ?? null,
+    document: plan.documents[0]
+      ? {
+          documentId: plan.documents[0].id,
+          filename: plan.documents[0].filename,
+          kind: plan.documents[0].kind,
+        }
+      : null,
     sources: sourceRefs.map((ref) => ({
       documentId: ref.document.id,
       filename: ref.document.filename,

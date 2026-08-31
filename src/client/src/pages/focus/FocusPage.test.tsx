@@ -454,6 +454,7 @@ describe('FocusPage — two-column document layout (#373)', () => {
       isRemediating: false,
       remediationReason: null,
       history: [],
+      document: { documentId: 'd1', filename: 'ctdl.pdf', kind: 'pdf' },
       sources: [
         {
           documentId: 'd1',
