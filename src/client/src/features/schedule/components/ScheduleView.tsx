@@ -186,26 +186,6 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
                 onSelectDay={state.selectDay}
                 onShiftMonth={state.shiftMonth}
               />
-              {isMonthEmpty && (
-                <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-                  <div className="border-border bg-card px-5.5 py-4.5 max-w-[46ch] rounded-xl border text-center shadow-sm">
-                    <p className="font-heading mb-1.25 text-[16px] font-semibold">
-                      Tháng {state.monthCursor.month} chưa có buổi ôn nào
-                    </p>
-                    <p className="text-muted-foreground text-[12.5px] leading-[1.55]">
-                      {debtItems.length > 0 ? (
-                        <>
-                          Engine chỉ xếp ngày sau mỗi phiên kiểm tra. Bạn còn{' '}
-                          <b className="font-semibold">{debtItems.length} khái niệm quá hạn</b> ở
-                          thanh phía trên — xong chúng thì lịch phía trước sẽ đầy lên.
-                        </>
-                      ) : (
-                        'Engine chỉ xếp ngày ôn sau mỗi phiên kiểm tra. Làm một phiên để có lịch.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
 
             {panel !== null && (
