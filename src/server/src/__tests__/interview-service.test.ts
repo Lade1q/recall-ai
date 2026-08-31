@@ -807,10 +807,20 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     const result = await getInterview(SESSION_ID, USER_ID);
 
     expect(result.turns).toEqual([
-      expect.objectContaining({ turnIndex: 1, mode: 'initial', countsTowardMastery: true }),
+      expect.objectContaining({
+        turnIndex: 1,
+        verdict: 'wrong',
+        mode: 'initial',
+        countsTowardMastery: true,
+      }),
       // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
       // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
-      expect.objectContaining({ turnIndex: 2, mode: 'hint', countsTowardMastery: false }),
+      expect.objectContaining({
+        turnIndex: 2,
+        verdict: null,
+        mode: 'hint',
+        countsTowardMastery: false,
+      }),
     ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
   });
