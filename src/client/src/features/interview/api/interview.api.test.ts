@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getInterviewErrorMessage } from './interview.api';
+import { getInterviewErrorMessage, isAiOrNetworkFailure } from './interview.api';
 
 // axios `isAxiosError` only checks `payload.isAxiosError === true`, so plain
 // objects shaped like an axios error are enough here.
@@ -12,6 +12,12 @@ describe('getInterviewErrorMessage', () => {
   it('maps NO_MATERIAL to its own message', () => {
     expect(getInterviewErrorMessage(axiosErr(409, 'NO_MATERIAL'))).toBe(
       'Kế hoạch này chưa có tài liệu để tạo câu hỏi. Hãy tải tài liệu lên trước khi bắt đầu kiểm tra.'
+    );
+  });
+
+  it('maps DOCUMENT_FILE_MISSING to an actionable document-replacement message', () => {
+    expect(getInterviewErrorMessage(axiosErr(404, 'DOCUMENT_FILE_MISSING'))).toBe(
+      'Tệp tài liệu của kế hoạch không còn khả dụng. Hãy mở kế hoạch, đổi tài liệu khác rồi thử kiểm tra lại.'
     );
   });
 
@@ -81,5 +87,23 @@ describe('getInterviewErrorMessage', () => {
     expect(getInterviewErrorMessage(axiosErr(400, 'SOMETHING_ELSE'))).toBe(
       'Đã xảy ra lỗi, vui lòng thử lại.'
     );
+  });
+});
+
+describe('isAiOrNetworkFailure', () => {
+  it('treats a request without any server response as retryable', () => {
+    expect(isAiOrNetworkFailure({ isAxiosError: true })).toBe(true);
+  });
+
+  it('treats a structured AI error as retryable', () => {
+    expect(isAiOrNetworkFailure(axiosErr(502, 'AI_UPSTREAM_ERROR'))).toBe(true);
+  });
+
+  it('does not label an ordinary HTTP 500 as an AI failure', () => {
+    expect(isAiOrNetworkFailure(axiosErr(500, 'INTERNAL_ERROR'))).toBe(false);
+  });
+
+  it('does not offer an AI retry loop when the document file is missing', () => {
+    expect(isAiOrNetworkFailure(axiosErr(404, 'DOCUMENT_FILE_MISSING'))).toBe(false);
   });
 });

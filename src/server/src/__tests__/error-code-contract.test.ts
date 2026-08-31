@@ -70,15 +70,11 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'session-summary.service.ts — /summary before the session ends. The UI ' +
     'only routes there after completion.',
 
-  // --- Known debt, deliberately not fixed under the pre-freeze scope (2026-08-16). Both give the
-  // user a wrong instruction, but both need an abnormal state to reach, so neither is a one-click
-  // path. Fix these when the freeze lifts; do not delete the entries without fixing them.
+  // --- Known debt, deliberately not fixed under the pre-freeze scope (2026-08-16). Fix these
+  // when their owning surface is addressed; do not delete entries without adding the mapper.
   REANALYZE_NOT_ALLOWED:
     'DEBT: plan.service.ts — three distinct reasons behind one code. Needs a ' +
     'mapper on the plan-detail surface. Requires an already-running analysis to reach.',
-  DOCUMENT_FILE_MISSING:
-    'DEBT: document.service.ts — the file vanished from disk under a plan ' +
-    'that still references it. Abnormal state; no one-click path.',
   STATUS_TRANSITION_NOT_ALLOWED:
     'DEBT: plan.service.ts — archive/unarchive from a status that ' +
     'forbids it. The UI hides the control in exactly those statuses.',
