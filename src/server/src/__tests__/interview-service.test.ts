@@ -780,35 +780,75 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     );
   });
 
+  /**
+   * #475: `objectContaining` chỉ kiểm tập con. Trước bản này, 10/15 trường của `toTurnResponse`
+   * — gồm `answerText`/`score`/`feedback`, thứ chính transcript hiển thị cho người dùng đọc —
+   * không có lưới nào: đổi tên, đảo hai trường cho nhau, hay đánh rơi một trường đều đi qua CI
+   * không dấu vết. Ghim tường minh mọi trường, ở HAI lượt mang giá trị khác nhau (không chỉ
+   * "có giá trị / null") để một đột biến đảo trường cũng đỏ, không chỉ đột biến xoá trường.
+   */
   it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
-    seedPendingTurn({
+    // `expect.any(String)`/`expect.any(Date)` only prove the field exists with the right TYPE —
+    // a mutant that hard-codes a different (but still string/Date) value survives that. Capture
+    // the real seeded `id`/`askedAt` and assert equality against those instead.
+    const turn1 = seedPendingTurn({
       turnIndex: 1,
+      questionText: 'Turn 1 question text',
+      questionType: 'application',
       answerText: 'trả lời sai',
       score: 0.1,
+      feedback: 'turn 1 feedback',
       verdict: 'wrong',
       mode: 'initial',
-      answeredAt: new Date(),
+      askedAt: new Date('2026-01-01T00:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T00:05:00.000Z'),
     });
     // Lượt 2 để CHƯA trả lời: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi
     // mới, và ta đang đo transcript chứ không đo đường sinh câu.
-    seedPendingTurn({ turnIndex: 2, mode: 'hint' });
+    const turn2 = seedPendingTurn({
+      turnIndex: 2,
+      questionText: 'Turn 2 hint question text',
+      questionType: 'why',
+      mode: 'hint',
+      askedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
 
     const result = await getInterview(SESSION_ID, USER_ID);
 
     expect(result.turns).toEqual([
       expect.objectContaining({
+        id: turn1.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
         turnIndex: 1,
+        questionText: 'Turn 1 question text',
+        questionType: 'application',
+        answerText: 'trả lời sai',
+        score: 0.1,
+        feedback: 'turn 1 feedback',
         verdict: 'wrong',
         mode: 'initial',
         countsTowardMastery: true,
+        askedAt: new Date('2026-01-01T00:00:00.000Z'),
+        answeredAt: new Date('2026-01-01T00:05:00.000Z'),
       }),
       // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
       // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
       expect.objectContaining({
+        id: turn2.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
         turnIndex: 2,
+        questionText: 'Turn 2 hint question text',
+        questionType: 'why',
+        answerText: null,
+        score: null,
+        feedback: null,
         verdict: null,
         mode: 'hint',
         countsTowardMastery: false,
+        askedAt: new Date('2026-01-02T00:00:00.000Z'),
+        answeredAt: null,
       }),
     ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
