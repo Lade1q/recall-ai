@@ -746,6 +746,17 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
+   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
+   *
+   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
+   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
+   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
+   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
+   *
+   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
+   * chứ không lặng lẽ vá kèm.
+   */
+  /**
    * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
    *
    * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
@@ -780,6 +791,13 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     );
   });
 
+  /**
+   * #475: `objectContaining` chỉ kiểm tập con. Trước bản này, 10/15 trường của `toTurnResponse`
+   * — gồm `answerText`/`score`/`feedback`, thứ chính transcript hiển thị cho người dùng đọc —
+   * không có lưới nào: đổi tên, đảo hai trường cho nhau, hay đánh rơi một trường đều đi qua CI
+   * không dấu vết. Ghim tường minh mọi trường ở HAI lượt đã chấm, mang giá trị khác nhau, để
+   * một đột biến hoán đổi lượt cũng đỏ chứ không chỉ đột biến xoá trường.
+   */
   it('🔴 transcript giữ nguyên từng trường của hai lượt đã chấm (#392 (c), #475)', async () => {
     // `getInterview` chỉ đọc transcript khi phiên đã kết thúc, nên không chạy state machine để
     // sinh thêm một lượt. Hai giá trị khác nhau ở mỗi cột transcript cũng giết cả mutant hoán
@@ -796,8 +814,8 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       feedback: 'Nhận xét lượt 1',
       verdict: 'wrong',
       mode: 'initial',
-      askedAt: new Date(2024, 0, 1, 9),
-      answeredAt: new Date(2024, 0, 1, 9, 5),
+      askedAt: new Date('2026-01-01T09:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T09:05:00.000Z'),
     });
     const secondTurn = seedPendingTurn({
       turnIndex: 2,
@@ -808,8 +826,8 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       feedback: 'Nhận xét lượt 2',
       verdict: 'deep',
       mode: 'hint',
-      askedAt: new Date(2024, 0, 1, 10),
-      answeredAt: new Date(2024, 0, 1, 10, 8),
+      askedAt: new Date('2026-01-01T10:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T10:08:00.000Z'),
     });
 
     const result = await getInterview(SESSION_ID, USER_ID);
