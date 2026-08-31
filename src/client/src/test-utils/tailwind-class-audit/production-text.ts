@@ -6,11 +6,12 @@
  * dựng bảng utilities thật sự được dùng, nên một class "chỉ sống trong file test" (#443) chính là
  * một class không xuất hiện, dù chỉ substring, ở bất kỳ đâu trong khối text này.
  */
-import { globSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { walkSourceFiles } from './walk-source-files';
 
 const SRC_ROOT = path.resolve(import.meta.dirname, '../../');
-const PRODUCTION_GLOB = '**/*.{ts,tsx,js,jsx,css}';
+const PRODUCTION_EXTENSIONS = /\.(ts|tsx|js|jsx|css)$/;
 // Tự loại chính thư mục audit này: các comment ở `test-file-candidates.ts`/`validate-candidate.ts`
 // trích literal ví dụ (`max-[680px]:min-h-[58px]`, `bg-remediate/16`, `ordinal`...) — nếu không loại,
 // một class BỊ xoá khỏi production thật vẫn "tồn tại trong production text" nhờ chính comment mô tả
@@ -26,11 +27,14 @@ const EXCLUDE_PATTERNS = [
 let cachedText: string | null = null;
 
 function isProductionFile(relativePath: string): boolean {
-  return !EXCLUDE_PATTERNS.some((pattern) => pattern.test(relativePath));
+  return (
+    PRODUCTION_EXTENSIONS.test(relativePath) &&
+    !EXCLUDE_PATTERNS.some((pattern) => pattern.test(relativePath))
+  );
 }
 
 function readProductionText(): string {
-  const files = globSync(PRODUCTION_GLOB, { cwd: SRC_ROOT }).filter(isProductionFile);
+  const files = walkSourceFiles(SRC_ROOT).filter(isProductionFile);
   return files
     .map((relativePath) => readFileSync(path.join(SRC_ROOT, relativePath), 'utf8'))
     .join('\n');

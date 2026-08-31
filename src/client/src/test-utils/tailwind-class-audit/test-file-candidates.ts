@@ -20,11 +20,12 @@
  * `className` chứa object literal, spread, v.v.), vì phạm vi #443 chỉ cần bắt đúng các mẫu đang có
  * trong repo, không phải một parser class đầy đủ.
  */
-import { globSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { walkSourceFiles } from './walk-source-files';
 
 const SRC_ROOT = path.resolve(import.meta.dirname, '../../');
-const TEST_FILE_GLOB = '**/*.{test,spec}.{ts,tsx}';
+const TEST_FILE_PATTERN = /\.(test|spec)\.(ts|tsx)$/;
 
 export interface Location {
   file: string;
@@ -180,7 +181,9 @@ function extractClassNameToContain(
  */
 export function extractTestFileCandidates(): Map<string, Location[]> {
   const result = new Map<string, Location[]>();
-  const files = globSync(TEST_FILE_GLOB, { cwd: SRC_ROOT });
+  const files = walkSourceFiles(SRC_ROOT).filter((relativePath) =>
+    TEST_FILE_PATTERN.test(relativePath)
+  );
 
   for (const relativePath of files) {
     const text = readFileSync(path.join(SRC_ROOT, relativePath), 'utf8');
