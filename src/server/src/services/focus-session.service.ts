@@ -145,7 +145,7 @@ async function reapStaleSessions(userId: string): Promise<void> {
  *
  * - Phiên đang có **khớp đúng** plan + conceptIds vừa gửi (double-click, hai tab cùng một mục)
  *   → trả lại nguyên phiên đó (`created: false`), giống pattern resume của `startInterview`
- *   (`interview.service.ts:881`).
+ *   (nhánh resume `created: false` trong `interview.service.ts`).
  * - Phiên đang có ở **plan/concept khác** → `409 SESSION_ALREADY_RUNNING`, KHÔNG trả phiên đó
  *   về như thể nó là phiên vừa yêu cầu. Review #371: bản đầu trả nguyên phiên cũ trong mọi
  *   trường hợp — client duy nhất (`FocusPage.tsx`) không đọc `created`/so khớp lại, nên hiện

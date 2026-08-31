@@ -32,7 +32,7 @@ vi.mock('@/features/dashboard/api/dashboard.api', () => ({
   dashboardApi: { getStats: vi.fn() },
 }));
 
-/** Nguyên văn `NO_PLAN_MESSAGE` (`scheduling.service.ts:129`) — so chuỗi, không so ý. */
+/** Nguyên văn `NO_PLAN_MESSAGE` (`scheduling.service.ts`) — so chuỗi, không so ý. */
 const NO_PLAN_MESSAGE = 'Bạn chưa có kế hoạch ôn tập nào. Tạo một kế hoạch để bắt đầu ôn.';
 
 function makeTodayResponse(overrides: Partial<ReviewQueueListResponse> = {}) {

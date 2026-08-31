@@ -65,7 +65,7 @@ const MAX_CHIPS = 3;
  * Đuôi HAI chữ số (`+10`) bắt đầu từ **n = 12** mục trong một ngày (đuôi = `n − 2`), và ở 320px nó
  * tràn ~3px ⇒ bị `overflow-hidden` xén. ⚠️ KHÔNG viết "bất khả": fold `(planId, conceptId)` chỉ gộp
  * nhiều hàng của CÙNG một khái niệm, nó không chặn nhiều khái niệm KHÁC NHAU rơi cùng ngày — và
- * `concept-schedule.service.ts:196` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
+ * `concept-schedule.service.ts` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
  * phiên truy ngược 12 tiền đề đặt đúng 12 mục lên ô hôm nay. Phát biểu đúng là **"chưa dựng được
  * từ dữ liệu dev hôm nay (8 mục / 7 ngày)"**. "Bất khả" là loại chữ người sau dựa vào để bỏ qua
  * một ca.

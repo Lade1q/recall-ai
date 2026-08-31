@@ -1,6 +1,6 @@
 /**
  * Trọng số mỗi lượt trong công thức trung bình có trọng số của `mastery_score`
- * (UC-Overview §5.4) — khớp `TURN_WEIGHTS` ở `src/server/src/utils/mastery.ts:19`. Hằng số cố
+ * (UC-Overview §5.4) — khớp `TURN_WEIGHTS` ở `src/server/src/utils/mastery.ts`. Hằng số cố
  * định của cả hệ thống (định nghĩa luôn C6: `MAX_TURNS_PER_CONCEPT = TURN_WEIGHTS.length`),
  * không phải dữ liệu riêng của phiên — nên hiện ra không phải là bịa.
  */
@@ -16,7 +16,7 @@ export const TURN_WEIGHTS = [0.2, 0.3, 0.5] as const;
  * tốn một lượt gợi ý thay vì kết thúc, tới trần C6 mới đóng. Dưới cấu hình mặc định (3 lượt), mọi
  * khái niệm giờ chạy đủ 3 lượt trừ khi bị bỏ qua; hàm chuẩn hoá này vẫn đúng cho hai trường hợp
  * trên, chỉ là "sao dưới 3 lượt là chuyện bình thường" không còn đúng vì lý do cũ nữa — khớp fix
- * cùng tên ở `src/server/src/utils/mastery.ts:39`.
+ * cùng tên trong docblock của `calculateMasteryScore` (`src/server/src/utils/mastery.ts`).
  *
  * Trả về `null` phòng thủ khi số lượt vượt quá mảng trọng số (dữ liệu lượt dị dạng):
  * thà không hiện công thức còn hơn hiện một công thức sai.
