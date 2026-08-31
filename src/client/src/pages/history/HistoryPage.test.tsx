@@ -23,6 +23,28 @@ vi.mock('@/features/study-planner/api/plan.api', () => ({
   planApi: { listPlans: vi.fn() },
 }));
 
+// 🔴 Nguồn thứ TƯ, thiếu cho tới #468: chọn một phiên làm `SessionDetailPanel` gọi
+// `interviewApi` qua `useSessionDetail`. Không mock ⇒ tệp này phát lời gọi MẠNG THẬT tới
+// `VITE_API_BASE_URL` (mặc định `http://localhost:3001`) — 5 lượt mỗi lần chạy, đo được.
+//
+// Hệ quả: kết quả của suite khớp nối với việc **có ai đang nghe cổng đó hay không**, một biến
+// nằm NGOÀI repo. CI (cổng trống ⇒ `ECONNREFUSED` ⇒ nhánh `.catch`) xanh vĩnh viễn; máy dev
+// đang chạy server thì lời gọi thoát ra THÀNH CÔNG, payload lạ vào state, và component ném lúc
+// render (`SessionDetailPanel.tsx:109` đọc `detail.summary.summary.text`). Đo được: dựng một
+// stub trả `200 {"data":{"foo":1}}` ở 3001 ⇒ `2 failed | 10 passed`, `Errors 2`.
+//
+// Đây KHÔNG phải unhandled rejection: `useSessionDetail` có `.catch()`. Nó là Uncaught
+// Exception lúc render. Vá theo lý do sai thì bẫy này mọc lại ở tệp khác.
+vi.mock('@/features/interview/api/interview.api', () => ({
+  interviewApi: {
+    getInterview: vi.fn(),
+    getSummary: vi.fn(),
+    resumeInterview: vi.fn(),
+    abandonInterview: vi.fn(),
+  },
+  getInterviewErrorMessage: () => 'lỗi',
+}));
+
 // Hai hook danh sách gọi `toast.error` trong nhánh `.catch` của `loadMore` (#450) — cùng chỗ ba
 // hook khác trong repo đã đặt toast của chúng. Mock để đọc được CHUỖI, không chỉ "có toast".
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
