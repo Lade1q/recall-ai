@@ -649,10 +649,10 @@ export function RunningSession({
                     <span className="inline-flex items-center gap-1.5">
                       <Kbd>Space</Kbd> tạm dừng
                     </span>
-                    {/* Chỉ mời dùng `D` khi nó THẬT SỰ làm được gì: khái niệm chưa neo vị trí thì phím
-                    này không mở nổi mức nào, quảng cáo nó chỉ tạo một lối tắt bấm vào không phản
-                    hồi — tệ hơn là không nhắc. Lý do khoá đã nằm ở tooltip của segment. */}
-                    {sessionDocument.unavailableReason === null && (
+                    {/* Chỉ mời dùng `D` khi ít nhất một mức tài liệu mở được. Thiếu neo chỉ loại
+                    "Trích đoạn" khỏi vòng xoay; tài liệu gốc vẫn cho `D` mở "Toàn văn" (#378). */}
+                    {(sessionDocument.unavailableReasons.excerpt === null ||
+                      sessionDocument.unavailableReasons.fulltext === null) && (
                       <span className="inline-flex items-center gap-1.5">
                         <Kbd>D</Kbd> tài liệu
                       </span>

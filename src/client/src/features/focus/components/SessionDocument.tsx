@@ -22,8 +22,7 @@ const LEVELS: DocumentLevel[] = ['hidden', 'excerpt', 'fulltext'];
  * và nút bị `disabled` cũng rơi khỏi thứ tự Tab, tức người dùng bàn phím không cách nào biết vì sao.
  */
 export function SessionDocumentSegment({ document }: { document: SessionDocumentState }) {
-  const { selectedLevel, setLevel, unavailableReason } = document;
-  const lockedTooltip = unavailableReason ? UNAVAILABLE_TOOLTIP[unavailableReason] : undefined;
+  const { selectedLevel, setLevel, unavailableReasons } = document;
 
   return (
     // Segmented control liền khối (mockup `.seg`): một viền bao ngoài, `overflow-hidden`, nền muted;
@@ -42,7 +41,8 @@ export function SessionDocumentSegment({ document }: { document: SessionDocument
         Tài liệu
       </span>
       {LEVELS.map((level) => {
-        const isLocked = level !== 'hidden' && unavailableReason !== null;
+        const unavailableReason = level === 'hidden' ? null : unavailableReasons[level];
+        const isLocked = unavailableReason !== null;
 
         return (
           <button
@@ -50,7 +50,7 @@ export function SessionDocumentSegment({ document }: { document: SessionDocument
             type="button"
             aria-pressed={selectedLevel === level}
             aria-disabled={isLocked || undefined}
-            title={isLocked ? lockedTooltip : undefined}
+            title={unavailableReason ? UNAVAILABLE_TOOLTIP[unavailableReason] : undefined}
             onClick={() => setLevel(level)}
             className={`focus-visible:outline-ring px-[13px] py-[7px] text-[13px] font-medium [outline-style:none] focus-visible:outline-2 focus-visible:-outline-offset-2 ${
               selectedLevel === level
@@ -79,20 +79,24 @@ export function SessionDocumentPanel({
   planId: string;
   document: SessionDocumentState;
 }) {
-  const { level, sources, setLevel } = document;
+  const { level, sources, fullTextSource, setLevel } = document;
 
   if (level === 'excerpt') {
     return <DocumentExcerpt sources={sources} />;
   }
 
-  // Toàn văn bám vào nguồn ĐẦU TIÊN sau khi sắp theo trang: đó là chỗ khái niệm xuất hiện sớm nhất
-  // trong tệp, tức trang đáng mở nhất khi người học muốn đọc rộng ra quanh nó.
+  if (fullTextSource === null) return null;
+
+  // Có neo thì mở ở nguồn ĐẦU TIÊN sau khi sắp theo trang; không có neo thì metadata cấp plan mở
+  // nguyên tệp từ đầu. Nếu tải file lỗi, chỉ mời quay lại trích đoạn khi mức đó thực sự dùng được.
+  const hasExcerpt = sources.length > 0;
   return (
     <DocumentFullText
-      key={sources[0].documentId}
+      key={fullTextSource.documentId}
       planId={planId}
-      source={sources[0]}
-      onFallbackToExcerpt={() => setLevel('excerpt')}
+      source={fullTextSource}
+      fallbackLabel={hasExcerpt ? 'Quay lại trích đoạn' : 'Ẩn tài liệu'}
+      onFallback={() => setLevel(hasExcerpt ? 'excerpt' : 'hidden')}
     />
   );
 }

@@ -148,6 +148,13 @@ export interface ConceptSourceItemResponse {
   context: string | null;
 }
 
+/** Latest source document of the plan, even when this concept has no anchored passage (#378). */
+export interface ConceptDocumentItemResponse {
+  documentId: string;
+  filename: string;
+  kind: DocumentKind;
+}
+
 /** One row of the DB-06 "Lịch sử học tập" list — see `utils/concept-history.ts`. */
 export interface ConceptHistoryItemResponse {
   kind: 'interview' | 'focus';
@@ -177,6 +184,8 @@ export interface ConceptDetailResponse {
   isRemediating: boolean;
   /** Why it sits in the review queue — `traceback` is the AE-07 path the panel names. */
   remediationReason: ReviewReason | null;
+  /** Lets focus mode open the original file when `sources` is empty (#378). */
+  document: ConceptDocumentItemResponse | null;
   sources: ConceptSourceItemResponse[];
   history: ConceptHistoryItemResponse[];
 }
