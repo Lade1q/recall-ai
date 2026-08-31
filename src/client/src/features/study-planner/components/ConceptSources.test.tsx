@@ -1,8 +1,36 @@
 import { render, screen } from '@/utils/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { HighlightedExcerpt, ConceptSourceList } from './ConceptSources';
+import { HighlightedExcerpt, ConceptSourceList, ConceptSourcesSection } from './ConceptSources';
+import { ConceptDetailPanel } from './ConceptDetailPanel';
 import { planApi } from '../api/plan.api';
-import type { ConceptSourceExcerpt } from '../types/concept';
+import type { ConceptDetail, ConceptDocumentSummary, ConceptSourceExcerpt } from '../types/concept';
+
+const PLAN_ID = 'plan-uuid';
+
+/** Khái niệm đã lưu DB — `ConceptSourcesSection` bỏ qua id tạm `c_<timestamp>` mà không fetch. */
+const CONCEPT_ID = '11111111-2222-4333-8444-555555555555';
+
+const PLAN_DOCUMENT: ConceptDocumentSummary = {
+  documentId: 'doc-uuid',
+  filename: 'Giải thuật.pdf',
+  kind: 'pdf',
+};
+
+function conceptDetail(over: Partial<ConceptDetail> = {}): ConceptDetail {
+  return {
+    id: CONCEPT_ID,
+    name: 'Ngăn xếp',
+    difficulty: 1,
+    masteryScore: null,
+    lastTestedAt: null,
+    isRemediating: false,
+    remediationReason: null,
+    document: PLAN_DOCUMENT,
+    sources: [],
+    history: [],
+    ...over,
+  };
+}
 
 /**
  * Logic tô sáng trong trích đoạn (Issue #210) là chỗ ràng buộc C5 ("AI không bịa") và đường
@@ -99,8 +127,6 @@ describe('HighlightedExcerpt (Issue #210 — tô sáng nguồn trích)', () => {
  * trích đoạn, khác với #210 chỉ tô sáng bên trong trích đoạn.
  */
 describe('ConceptSourceList — link mở tài liệu (Issue #203)', () => {
-  const PLAN_ID = 'plan-uuid';
-
   function source(overrides: Partial<ConceptSourceExcerpt> = {}): ConceptSourceExcerpt {
     return {
       documentId: 'doc-uuid',
@@ -113,13 +139,17 @@ describe('ConceptSourceList — link mở tài liệu (Issue #203)', () => {
     };
   }
 
-  function renderList(sources: ConceptSourceExcerpt[]) {
+  function renderList(
+    sources: ConceptSourceExcerpt[],
+    document: ConceptDocumentSummary | null = null
+  ) {
     return render(
       <ConceptSourceList
         planId={PLAN_ID}
         sources={sources}
         conceptName="Ngăn xếp"
         prerequisiteNames={[]}
+        document={document}
       />
     );
   }
@@ -159,11 +189,36 @@ describe('ConceptSourceList — link mở tài liệu (Issue #203)', () => {
     expect(screen.getByRole('button', { name: 'Mở tài liệu tại trang 118' })).toBeInTheDocument();
   });
 
-  it('Khái niệm không có nguồn (#172 thêm tay) → không render link nào', () => {
-    renderList([]);
+  /**
+   * ĐỐI CHỨNG ÂM của #493, và là vế dễ quên nhất: nhánh rỗng chỉ được mời mở tài liệu khi kế
+   * hoạch THẬT SỰ có tệp. Thiếu ca này thì bản vá đi quá tay đúng thứ #378 cảnh báo — nó xoá mất
+   * ranh giới giữa "khái niệm không neo được" và "kế hoạch không có tệp nào".
+   */
+  it('Không nguồn VÀ kế hoạch không có tài liệu → không mời mở gì cả', () => {
+    renderList([], null);
 
     expect(screen.queryByRole('button', { name: /Mở tài liệu/ })).toBeNull();
     expect(screen.getByText('Không có trích đoạn gốc.')).toBeInTheDocument();
+  });
+
+  /**
+   * Vế dương (#493). Hai nguyên nhân làm `sources` rỗng — thêm tay (#172) và khái niệm AI chỉ
+   * được nhắc tên (#377) — đều là mệnh đề về NEO của khái niệm, không nói gì về việc kế hoạch có
+   * tệp gốc. Trước bản vá nhánh này return sớm nên không còn đường nào tới tài liệu, dù #490 đã
+   * đưa `document` vào chính response đang cầm trên tay.
+   */
+  it('Không nguồn NHƯNG kế hoạch có tài liệu → vẫn mở được nguyên tệp', () => {
+    renderList([], PLAN_DOCUMENT);
+
+    expect(screen.getByRole('button', { name: 'Mở tài liệu' })).toBeInTheDocument();
+    expect(screen.getByText('Không có trích đoạn gốc.')).toBeInTheDocument();
+  });
+
+  /** Không neo được đoạn nào thì cũng không có trang — nút này không được hứa "tại trang N". */
+  it('Nút của nhánh rỗng không bao giờ kèm số trang', () => {
+    renderList([], PLAN_DOCUMENT);
+
+    expect(screen.queryByRole('button', { name: /tại trang/ })).toBeNull();
   });
 
   describe('mở tab', () => {
@@ -235,5 +290,96 @@ describe('ConceptSourceList — link mở tài liệu (Issue #203)', () => {
       expect(window.location.href).toBe(hrefBefore);
       expect(planApi.getDocumentFile).not.toHaveBeenCalled();
     });
+
+    /**
+     * Vế "⛔ không `#page=N`" của #493, đo ở chỗ nó thật sự tới người dùng: URL cuối cùng nạp vào
+     * tab. Ca phía trên chỉ khoá NHÃN nút — nhãn không hứa trang mà URL vẫn kèm `#page=` thì lời
+     * hứa sai vẫn đi lọt.
+     */
+    it('nhánh rỗng: blob nạp vào tab KHÔNG kèm #page', async () => {
+      vi.spyOn(planApi, 'getDocumentFile').mockResolvedValue(new Blob(['%PDF']));
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: () => 'blob:fake',
+        revokeObjectURL: vi.fn(),
+      });
+      renderList([], PLAN_DOCUMENT);
+
+      screen.getByRole('button', { name: 'Mở tài liệu' }).click();
+      await vi.waitFor(() => expect(openedTab.location.href).toBe('blob:fake'));
+    });
+  });
+});
+
+/**
+ * `ConceptSourceList` xanh mà dây nối vẫn có thể đứt: hai nơi tiêu thụ tự fetch, và trước #493
+ * cả hai đều ném `document` đi — một nơi ngay tại `.then`, một nơi ở chỗ truyền prop. Lưới dừng ở
+ * biên component thì đột biến xoá dây nối SỐNG SÓT, nên hai describe dưới đo ở đúng tầng đó.
+ */
+describe('ConceptSourcesSection — dây nối document từ response (#493)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderSection() {
+    return render(
+      <ConceptSourcesSection
+        planId={PLAN_ID}
+        conceptId={CONCEPT_ID}
+        conceptName="Ngăn xếp"
+        prerequisiteNames={[]}
+      />
+    );
+  }
+
+  it('response có document → nhánh rỗng vẫn mời mở tài liệu', async () => {
+    vi.spyOn(planApi, 'getConceptDetail').mockResolvedValue(conceptDetail());
+    renderSection();
+
+    expect(await screen.findByRole('button', { name: 'Mở tài liệu' })).toBeInTheDocument();
+  });
+
+  it('response không có document → không mời mở gì', async () => {
+    vi.spyOn(planApi, 'getConceptDetail').mockResolvedValue(conceptDetail({ document: null }));
+    renderSection();
+
+    // Chờ khối rỗng hiện ra TRƯỚC rồi mới khẳng định sự vắng mặt: `queryBy` trên một cây chưa
+    // fetch xong luôn trả `null`, tức nó xanh cả khi bản vá hỏng.
+    expect(await screen.findByText('Không có trích đoạn gốc.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mở tài liệu/ })).toBeNull();
+  });
+});
+
+describe('ConceptDetailPanel — dây nối document xuống khối nguồn (#493)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderPanel() {
+    return render(
+      <ConceptDetailPanel
+        planId={PLAN_ID}
+        conceptId={CONCEPT_ID}
+        conceptName="Ngăn xếp"
+        prerequisites={[]}
+        dependents={[]}
+        onClose={() => {}}
+      />
+    );
+  }
+
+  it('detail có document → khối nguồn rỗng vẫn mời mở tài liệu', async () => {
+    vi.spyOn(planApi, 'getConceptDetail').mockResolvedValue(conceptDetail());
+    renderPanel();
+
+    expect(await screen.findByRole('button', { name: 'Mở tài liệu' })).toBeInTheDocument();
+  });
+
+  it('detail không có document → không mời mở gì', async () => {
+    vi.spyOn(planApi, 'getConceptDetail').mockResolvedValue(conceptDetail({ document: null }));
+    renderPanel();
+
+    expect(await screen.findByText('Không có trích đoạn gốc.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Mở tài liệu/ })).toBeNull();
   });
 });

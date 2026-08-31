@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { planApi } from '../api/plan.api';
 import { fetchDocumentObjectUrl } from '../utils/documentFile';
-import { ConceptSourceExcerpt } from '../types/concept';
+import { ConceptDocumentSummary, ConceptSourceExcerpt } from '../types/concept';
 
 // Tên khái niệm là dữ liệu người dùng/AI sinh ra ("Mảng & Con trỏ", "Cây AVL (tự cân bằng)"),
 // không phải hằng số — phải escape trước khi nhét vào RegExp.
@@ -95,13 +95,28 @@ const FAILURE_MESSAGE: Record<OpenFailure, string> = {
  *
  * Số trang chỉ hiện cho PDF. Tài liệu `text`/`image` VẪN có thể mang `pageFrom` trong DB (văn
  * bản dán vào được đánh trang lúc phân tích), nhưng không có trình xem nào nhảy tới trang đó
- * được — hứa "tại trang N" rồi mở ra đầu tệp còn tệ hơn là không hứa.
+ * được — hứa "tại trang N" rồi mở ra đầu tệp còn tệ hơn là không hứa. Phép lọc ấy nằm ở NƠI
+ * GỌI (`ConceptSourceList`), không ở đây: nhánh rỗng không có `kind` nào để hỏi, nên nút chỉ
+ * nhận một `page` đã quyết xong.
  */
-function OpenDocumentButton({ planId, source }: { planId: string; source: ConceptSourceExcerpt }) {
+function OpenDocumentButton({
+  planId,
+  documentId,
+  page,
+}: {
+  planId: string;
+  documentId: string;
+  /**
+   * Trang để nhảy tới, hoặc `null` để mở từ đầu tệp. Nhận từ NƠI GỌI chứ không tự suy ra: nút
+   * này giờ phục vụ cả khối trích đoạn (có neo) lẫn nhánh rỗng (không neo), và ở nhánh rỗng
+   * không tồn tại thứ gì để suy ra một số trang. Truyền vào nên "hứa trang mà không có neo"
+   * là thứ không diễn đạt được, thay vì một điều kiện phải nhớ kiểm.
+   */
+  page: number | null;
+}) {
   const [isOpening, setIsOpening] = useState(false);
   const [failure, setFailure] = useState<OpenFailure | null>(null);
 
-  const page = source.kind === 'pdf' ? source.pageFrom : null;
   const label = page !== null ? `Mở tài liệu tại trang ${page}` : 'Mở tài liệu';
 
   const handleClick = async () => {
@@ -127,7 +142,7 @@ function OpenDocumentButton({ planId, source }: { planId: string; source: Concep
     setIsOpening(true);
 
     try {
-      const { url, revoke } = await fetchDocumentObjectUrl(planId, source.documentId);
+      const { url, revoke } = await fetchDocumentObjectUrl(planId, documentId);
       // `#page=N` là best-effort đúng như ràng buộc #203: trình xem PDF của Chrome/Edge hiểu,
       // trình khác bỏ qua và mở từ đầu tệp.
       tab.location.href = page !== null ? `${url}#page=${page}` : url;
@@ -168,22 +183,42 @@ function OpenDocumentButton({ planId, source }: { planId: string; source: Concep
  * và panel kiểm chứng (edit mode, Issue #202) để hai bên trông như một: cùng khung nguồn
  * `filename` + `tr. X–Y`, cùng cách tô đậm tên khái niệm.
  *
- * Danh sách rỗng KHÔNG phải lỗi: khái niệm thêm tay (source=manual, #172) không có
- * `ConceptSourceRef` nào, và đó là trạng thái hợp lệ.
+ * Danh sách rỗng KHÔNG phải lỗi, và có HAI nguyên nhân chứ không phải một:
+ *  - khái niệm **thêm tay** (`source=manual`, #172) chưa từng có `ConceptSourceRef` nào;
+ *  - khái niệm AI **chỉ được nhắc tên**: #377 cho phép một khái niệm không trích được đoạn nào
+ *    vẫn vào đồ thị, nên nó cũng rơi đúng vào nhánh này.
+ *
+ * Cả hai đều là mệnh đề về NEO của một khái niệm, và **không** nói gì về việc kế hoạch có tệp
+ * gốc hay không — `document` (metadata cấp plan, #490) vẫn mở được nguyên tệp. Đọc nhánh rỗng
+ * thành "kế hoạch không có tài liệu" chính là chỗ bản vá #378 dừng lại ở focus mode và bỏ quên
+ * hai panel này (#493).
  */
 export function ConceptSourceList({
   planId,
   sources,
   conceptName,
   prerequisiteNames,
+  document = null,
 }: {
   planId: string;
   sources: ConceptSourceExcerpt[];
   conceptName: string;
   prerequisiteNames: string[];
+  /** Tệp gốc của kế hoạch, độc lập với việc khái niệm này có neo được đoạn nào không (#493). */
+  document?: ConceptDocumentSummary | null;
 }) {
   if (sources.length === 0) {
-    return <p className="text-muted-foreground text-[13px] italic">Không có trích đoạn gốc.</p>;
+    return (
+      <div>
+        <p className="text-muted-foreground text-[13px] italic">Không có trích đoạn gốc.</p>
+        {/* Không neo được đoạn nào thì vẫn còn nguyên tệp để đối chiếu — và ở panel edit mode
+            đây chính là cổng xác nhận C5, nơi người dùng phải soi tên khái niệm với câu trong
+            tài liệu trước khi bấm xác nhận. `page={null}`: không có neo thì KHÔNG hứa trang. */}
+        {document && (
+          <OpenDocumentButton planId={planId} documentId={document.documentId} page={null} />
+        )}
+      </div>
+    );
   }
 
   return (
@@ -217,7 +252,11 @@ export function ConceptSourceList({
           {/* Mỗi trích đoạn một nút, không phải một nút cho cả khái niệm: một khái niệm có thể
               neo vào nhiều trang khác nhau, "trang 41" phải thuộc về đúng đoạn nằm ở trang 41
               (mockup screen-concept-graph đặt link ngay trong khối nguồn vì lẽ đó). */}
-          <OpenDocumentButton planId={planId} source={source} />
+          <OpenDocumentButton
+            planId={planId}
+            documentId={source.documentId}
+            page={source.kind === 'pdf' ? source.pageFrom : null}
+          />
         </div>
       ))}
     </div>
@@ -253,6 +292,7 @@ export function ConceptSourcesSection({
 }) {
   const isPersisted = isPersistedConceptId(conceptId);
   const [sources, setSources] = useState<ConceptSourceExcerpt[] | null>(null);
+  const [document, setDocument] = useState<ConceptDocumentSummary | null>(null);
   const [isLoading, setIsLoading] = useState(isPersisted);
   const [hasError, setHasError] = useState(false);
 
@@ -263,7 +303,11 @@ export function ConceptSourcesSection({
     planApi
       .getConceptDetail(planId, conceptId)
       .then((data) => {
-        if (isMounted) setSources(data.sources);
+        if (!isMounted) return;
+        setSources(data.sources);
+        // Tệp gốc đi kèm chi tiết khái niệm và KHÔNG phụ thuộc vào việc có neo được đoạn nào —
+        // vứt nó đi ở đây là cách nhánh rỗng mất hết lối vào tài liệu (#493).
+        setDocument(data.document);
       })
       .catch(() => {
         if (isMounted) setHasError(true);
@@ -305,6 +349,7 @@ export function ConceptSourcesSection({
       sources={sources ?? []}
       conceptName={conceptName}
       prerequisiteNames={prerequisiteNames}
+      document={document}
     />
   );
 }
