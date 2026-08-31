@@ -235,6 +235,7 @@ export function ConceptDetailPanel({
               sources={detail?.sources ?? []}
               conceptName={conceptName}
               prerequisiteNames={prerequisites.map((p) => p.name)}
+              document={detail?.document ?? null}
             />
           </div>
 
