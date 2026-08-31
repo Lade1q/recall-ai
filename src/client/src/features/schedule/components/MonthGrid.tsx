@@ -199,12 +199,26 @@ export function MonthGrid({
           {/* Ẩn khi đã chọn ngày (#482): `DayPanel` lúc đó đã tự nói "Ngày này trống", và viền
               chọn `z-[2]` của DayCell đè lên thẻ này — hai UI chồng nhau, và thẻ lúc đó cũng thừa
               thông tin. */}
-          {!hasSessionThisMonth && selectedDateKey === null && (
-            <EmptyMonthCard
-              monthLabel={formatMonthLabel(monthCursor)}
-              overdueItemCount={overdueItemCount}
-            />
-          )}
+          {/* Ẩn thẻ khi ngày đang chọn NẰM TRONG tháng đang xem, không phải khi "có ngày nào
+              đó đang được chọn". `shiftMonth` chỉ đổi `monthCursor` và cố ý không đụng
+              `selectedDateKey` (`useScheduleViewState.ts:62`), nên vế cũ `=== null` ẩn thẻ ở
+              MỌI tháng rỗng lật qua sau đó — đo LIVE ở T10: không ô nào `aria-pressed`, không
+              ô nào có viền, mà thẻ vẫn biến mất.
+
+              `c.inMonth` là CỐ Ý: ô TRÀN cũng mang viền chọn, nhưng nó luôn ở hàng đầu/hàng
+              cuối còn thẻ thì `place-items-center` ⇒ giao 0px² (đo trên 5 cấu hình). Không có
+              va chạm để tránh, nên thẻ vẫn phải hiện.
+
+              Hỏi qua `cells` chứ KHÔNG dựng lại tiền tố `YYYY-MM` — xem ghi chú ở
+              `hasSessionThisMonth`: so bằng chuỗi tháng là lời mời cắt dữ liệu theo tháng, thứ
+              #401 đã gỡ; hỏi `cells` thì không thể lệch khỏi thứ đang hiển thị. */}
+          {!hasSessionThisMonth &&
+            !cells.some((c) => c.inMonth && c.dateKey === selectedDateKey) && (
+              <EmptyMonthCard
+                monthLabel={formatMonthLabel(monthCursor)}
+                overdueItemCount={overdueItemCount}
+              />
+            )}
         </div>
       </div>
     </div>
