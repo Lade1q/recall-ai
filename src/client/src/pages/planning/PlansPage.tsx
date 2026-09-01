@@ -98,7 +98,7 @@ export default function PlansPage() {
     }
   }, []);
 
-  /** Retry của nguồn `/plans` không được tháo màn Lịch đã tải xong hoặc reset state của nó. */
+  /** Theo dõi riêng retry `/plans`; response `[]` hợp lệ vẫn chuyển trang về onboarding. */
   const retryPlans = useCallback(async (): Promise<void> => {
     setIsRetryingPlans(true);
     try {

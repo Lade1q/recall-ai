@@ -106,7 +106,15 @@ export const planApi = {
     const response = await apiClient.get<{ success: boolean; data: { plans: PlanSummary[] } }>(
       ENDPOINTS.PLANS.BASE
     );
-    return response.data.data.plans;
+    const plans = response.data.data.plans;
+
+    // Kiểu generic của Axios không kiểm tra payload lúc chạy. Ném ngay tại biên để mọi consumer
+    // đi vào đường xử lý lỗi của chính nó, thay vì nhận `undefined` rồi vỡ ở `.length`/spread.
+    if (!Array.isArray(plans)) {
+      throw new TypeError('Invalid /plans response: data.plans must be an array');
+    }
+
+    return plans;
   },
 
   createPlan: async (formData: FormData): Promise<CreatePlanResponse> => {

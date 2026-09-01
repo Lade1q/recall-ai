@@ -224,6 +224,23 @@ describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
     expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
   });
 
+  it('retry trả response [] thật thì chuyển về onboarding 0 kế hoạch', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans)
+      .mockRejectedValueOnce(new Error('plans unavailable'))
+      .mockResolvedValueOnce([]);
+
+    render(<PlansPage />);
+
+    const schedulePanel = await screen.findByRole('tabpanel');
+    await user.click(within(schedulePanel).getByRole('button', { name: 'Thử lại' }));
+
+    expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
+    expect(planApi.listPlans).toHaveBeenCalledTimes(2);
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+  });
+
   it('giữ hai lỗi độc lập khi cả /plans và /schedule cùng hỏng', async () => {
     const user = userEvent.setup();
     vi.mocked(planApi.listPlans).mockRejectedValueOnce(new Error('plans unavailable'));
