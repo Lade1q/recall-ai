@@ -60,6 +60,43 @@ async function renderPage() {
   return view;
 }
 
+describe('PlansPage — Heading primitive (#387)', () => {
+  it('uses the page scale for the screen title', async () => {
+    await renderPage();
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Kế hoạch ôn tập' });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[30px]');
+  });
+
+  it('uses the section scale for the empty-state title', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    render(<PlansPage />);
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Chưa có kế hoạch ôn tập nào',
+    });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[21px]');
+  });
+
+  it('uses the section scale for the load-error title', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValue(new Error('network unavailable'));
+    render(<PlansPage />);
+
+    await user.click(await screen.findByRole('tab', { name: 'Kế hoạch' }));
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Không thể tải danh sách kế hoạch',
+    });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[21px]');
+  });
+});
+
 describe('PlansPage — bộ chuyển view', () => {
   it('opens on the calendar — the epic default, unblocked once #405 shipped the draft banner', async () => {
     await renderPage();

@@ -1,8 +1,17 @@
+import { isAxiosError } from 'axios';
+
 import apiClient from '@/lib/apiClient';
 import { ENDPOINTS } from '@/lib/endpoints';
 import type { ApiEnvelope } from '@/types/api.types';
 import type { User } from '@/features/auth/api/auth.api';
 import type { UpdateNameInput, ChangePasswordInput } from '../types/profile.types';
+
+export function getChangePasswordErrorMessage(error: unknown): string {
+  if (isAxiosError(error) && error.response?.data?.error?.code === 'WRONG_PASSWORD') {
+    return 'Mật khẩu hiện tại không đúng. Mật khẩu của bạn chưa bị thay đổi.';
+  }
+  return 'Đã xảy ra lỗi, vui lòng thử lại.';
+}
 
 export const profileApi = {
   updateName: async (input: UpdateNameInput): Promise<User> => {

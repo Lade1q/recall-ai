@@ -4,11 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { PasswordTab } from './PasswordTab';
 import { profileApi } from '../api/profile.api';
 
-vi.mock('../api/profile.api', () => ({
-  profileApi: {
-    changePassword: vi.fn(),
-  },
-}));
+vi.mock('../api/profile.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api/profile.api')>();
+  return {
+    ...actual,
+    profileApi: {
+      ...actual.profileApi,
+      changePassword: vi.fn(),
+    },
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
