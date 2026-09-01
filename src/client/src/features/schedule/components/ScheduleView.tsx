@@ -20,11 +20,14 @@ export interface ScheduleViewProps {
    * lại: #400 cấm nhân đôi metadata kế hoạch vào payload lịch, và gọi `/plans` lần thứ hai trên
    * cùng một trang chính là cùng một lỗi ở dạng khác.
    *
-   * Hai người tiêu thụ đều thuộc #405: bộ lọc "hiện kế hoạch nào trên lịch" (phải liệt kê **cả
-   * kế hoạch 0 mục** — chúng chưa có buổi ôn nào, không phải bị ẩn, nên không suy ra được từ
-   * `items`) và banner đếm kế hoạch `draft`.
+   * `null` = request hỏng/chưa có dữ liệu; `[]` = server xác nhận tài khoản thật sự không có kế
+   * hoạch. Không được đổi `null` thành `[]`: bốn người tiêu thụ (filter, banner draft, trạng thái
+   * không có plan active, dấu deadline) đều sẽ biến "không biết" thành một khẳng định sai.
    */
-  plans: readonly PlanSummary[];
+  plans: readonly PlanSummary[] | null;
+  /** Chỉ tải lại metadata plans; lịch đã tải vẫn đứng nguyên tại chỗ. */
+  isPlansLoading?: boolean;
+  onRetryPlans?: () => void;
   /** #405: banner "N kế hoạch chưa xác nhận đồ thị" → view Kế hoạch + tab Chưa xác nhận. */
   onShowDraftPlans?: () => void;
 }
@@ -45,7 +48,12 @@ export interface ScheduleViewProps {
  * tháng rác và không tự sửa khi dữ liệu về. Vỏ ngoài không mount phần trong cho tới khi
  * `todayDateKey` có thật.
  */
-export function ScheduleView({ plans, onShowDraftPlans }: ScheduleViewProps) {
+export function ScheduleView({
+  plans,
+  isPlansLoading = false,
+  onRetryPlans,
+  onShowDraftPlans,
+}: ScheduleViewProps) {
   const schedule = useSchedule();
 
   if (schedule.isLoading) {
@@ -67,6 +75,8 @@ export function ScheduleView({ plans, onShowDraftPlans }: ScheduleViewProps) {
   return (
     <ScheduleBoard
       plans={plans}
+      isPlansLoading={isPlansLoading}
+      onRetryPlans={onRetryPlans}
       onShowDraftPlans={onShowDraftPlans}
       todayDateKey={schedule.todayDateKey}
       schedule={schedule}
@@ -95,7 +105,14 @@ interface ScheduleBoardProps extends ScheduleViewProps {
 }
 
 /** Chủ sở hữu state — chỉ mount khi đã có `todayDateKey` thật. */
-function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: ScheduleBoardProps) {
+function ScheduleBoard({
+  plans,
+  isPlansLoading = false,
+  onRetryPlans,
+  onShowDraftPlans,
+  todayDateKey,
+  schedule,
+}: ScheduleBoardProps) {
   const state = useScheduleViewState(todayDateKey);
   const { items } = schedule;
 
@@ -113,19 +130,24 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
   // `/schedule`, và `ScheduleView` đã có mảng plans trong tay. Lọc `active` + `hiddenPlanIds` nằm
   // trong `buildDeadlineMarks` để lưới và panel không thể nói hai tập khác nhau.
   const deadlines = useMemo(
-    () => buildDeadlineMarks(plans, state.hiddenPlanIds, todayDateKey),
+    () =>
+      plans === null ? new Map() : buildDeadlineMarks(plans, state.hiddenPlanIds, todayDateKey),
     [plans, state.hiddenPlanIds, todayDateKey]
   );
 
-  const draftCount = plans.filter((plan) => plan.status === 'draft').length;
-  const hasActivePlan = plans.some((plan) => plan.status === 'active');
+  const draftCount = plans?.filter((plan) => plan.status === 'draft').length ?? 0;
+  // Khi metadata hỏng, lịch vẫn là nguồn dữ liệu độc lập và phải được vẽ. Chỉ một mảng plans đã
+  // tải thành công mới có quyền kết luận rằng không có kế hoạch active.
+  const hasActivePlan = plans === null || plans.some((plan) => plan.status === 'active');
   const debtItems = days.filter((day) => day.isOverdue).flatMap((day) => day.items);
 
   const panel = resolvePanel(days, state.selectedDateKey, state.debtOpen);
 
   return (
     <>
-      <ScheduleDraftBanner draftCount={draftCount} onShowDraftPlans={onShowDraftPlans} />
+      {plans !== null && (
+        <ScheduleDraftBanner draftCount={draftCount} onShowDraftPlans={onShowDraftPlans} />
+      )}
 
       {/* Kế hoạch `draft`/`archived` không đóng góp mục nào vào `/schedule` (server lọc
           `plan.status = 'active'`), nên "không có kế hoạch nào đang hoạt động" là một trạng thái
@@ -156,13 +178,23 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
             onOpenDebt={state.openDebt}
           />
 
-          <SchedulePlanFilter
-            plans={plans}
-            items={items}
-            hiddenPlanIds={state.hiddenPlanIds}
-            onTogglePlan={state.togglePlan}
-            onSetHiddenPlans={state.setHiddenPlans}
-          />
+          {plans === null ? (
+            <PlansUnavailableControls isLoading={isPlansLoading} onRetry={onRetryPlans} />
+          ) : (
+            <SchedulePlanFilter
+              plans={plans}
+              items={items}
+              hiddenPlanIds={state.hiddenPlanIds}
+              onTogglePlan={state.togglePlan}
+              onSetHiddenPlans={state.setHiddenPlans}
+            />
+          )}
+
+          {plans === null && (
+            <p className="text-muted-foreground mb-2 text-[12px]" role="status">
+              Chưa tải được thông tin hạn chót của kế hoạch.
+            </p>
+          )}
 
           <div
             className={`grid gap-4 ${panel !== null ? 'min-[1181px]:grid-cols-[minmax(0,1fr)_340px]' : ''}`}
@@ -201,6 +233,32 @@ function ScheduleBoard({ plans, onShowDraftPlans, todayDateKey, schedule }: Sche
         </>
       )}
     </>
+  );
+}
+
+/** Thay đúng vị trí bộ lọc khi metadata plans chưa có; không giả dựng một dropdown 0/0. */
+function PlansUnavailableControls({
+  isLoading,
+  onRetry,
+}: {
+  isLoading: boolean;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-2">
+      <p className="text-muted-foreground min-w-0 flex-1 text-[12px]" role="status">
+        Chưa tải được danh sách kế hoạch.
+      </p>
+      <Button variant="outline" size="sm" disabled>
+        Kế hoạch
+      </Button>
+      {onRetry !== undefined && (
+        <Button variant="ghost" size="sm" disabled={isLoading} onClick={onRetry}>
+          {isLoading && <Loader2 className="animate-spin" />}
+          Thử lại
+        </Button>
+      )}
+    </div>
   );
 }
 

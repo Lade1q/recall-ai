@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@/utils/test-utils';
+import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import PlansPage from './PlansPage';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { scheduleApi } from '@/features/schedule/api/schedule.api';
@@ -36,6 +36,14 @@ function makePlan(overrides: Partial<PlanSummary> = {}): PlanSummary {
 }
 
 const EMPTY_SCHEDULE: ScheduleResponse = { todayDateKey: TODAY, items: [] };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 beforeEach(() => {
   // Đếm số lời gọi là một assertion của bộ test này, nên số đếm phải bắt đầu từ 0 ở MỖI test —
@@ -143,6 +151,106 @@ describe('PlansPage — tab Lịch giữ mount', () => {
   });
 });
 
+describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
+  it('vẫn vẽ lưới, không biến "chưa biết plans" thành trạng thái 0 plan', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValueOnce(new Error('plans unavailable'));
+
+    render(<PlansPage />);
+
+    const schedulePanel = await screen.findByRole('tabpanel');
+    expect(await within(schedulePanel).findByRole('button', { name: 'Tháng sau' })).toBeEnabled();
+    expect(
+      within(schedulePanel).getByText('Chưa tải được danh sách kế hoạch.')
+    ).toBeInTheDocument();
+    expect(within(schedulePanel).getByRole('button', { name: 'Kế hoạch' })).toBeDisabled();
+    expect(
+      within(schedulePanel).getByText('Chưa tải được thông tin hạn chót của kế hoạch.')
+    ).toBeInTheDocument();
+    expect(
+      within(schedulePanel).queryByText('Chưa có kế hoạch nào đang hoạt động')
+    ).not.toBeInTheDocument();
+    // CTA của trạng thái rỗng không được lọt vào lịch; CTA toàn trang trong header vẫn còn.
+    expect(
+      within(schedulePanel).queryByRole('link', { name: 'Tạo kế hoạch mới' })
+    ).not.toBeInTheDocument();
+    expect(within(schedulePanel).queryByText(/kế hoạch chưa xác nhận đồ thị/)).toBeNull();
+
+    const plansTab = screen.getByRole('tab', { name: 'Kế hoạch' });
+    await user.click(plansTab);
+    const plansPanel = document.getElementById(plansTab.getAttribute('aria-controls') ?? '');
+    expect(plansPanel).not.toBeNull();
+    expect(screen.getByText('Không thể tải danh sách kế hoạch')).toBeInTheDocument();
+    expect(
+      within(plansPanel as HTMLElement).getByRole('button', { name: 'Thử lại' })
+    ).toBeEnabled();
+    expect(screen.queryByRole('tab', { name: /Đang hoạt động/ })).not.toBeInTheDocument();
+  });
+
+  it('retry chỉ nạp plans, giữ nguyên lịch rồi phục hồi filter, banner và deadline', async () => {
+    const user = userEvent.setup();
+    const retry = deferred<PlanSummary[]>();
+    vi.mocked(planApi.listPlans)
+      .mockRejectedValueOnce(new Error('plans unavailable'))
+      .mockReturnValueOnce(retry.promise);
+
+    render(<PlansPage />);
+
+    const schedulePanel = await screen.findByRole('tabpanel');
+    const monthNext = await within(schedulePanel).findByRole('button', { name: 'Tháng sau' });
+    await user.click(within(schedulePanel).getByRole('button', { name: 'Thử lại' }));
+
+    await waitFor(() => expect(planApi.listPlans).toHaveBeenCalledTimes(2));
+    expect(monthNext).toBeInTheDocument();
+    expect(within(schedulePanel).getByRole('button', { name: 'Thử lại' })).toBeDisabled();
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      retry.resolve([
+        makePlan({ deadline: '2026-09-02T23:59:59.999Z' }),
+        makePlan({ id: 'plan-draft', name: 'Bản nháp', status: 'draft' }),
+      ]);
+    });
+
+    expect(
+      await within(schedulePanel).findByRole('button', { name: /Kế hoạch 1\/1/ })
+    ).toBeEnabled();
+    expect(within(schedulePanel).getByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
+    expect(
+      within(schedulePanel).queryByText('Chưa tải được thông tin hạn chót của kế hoạch.')
+    ).not.toBeInTheDocument();
+    expect(schedulePanel.querySelector('[data-deadline]')).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('giữ hai lỗi độc lập khi cả /plans và /schedule cùng hỏng', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValueOnce(new Error('plans unavailable'));
+    vi.mocked(scheduleApi.getSchedule).mockRejectedValueOnce(new Error('schedule unavailable'));
+
+    render(<PlansPage />);
+
+    expect(
+      await screen.findByText('Không tải được lịch ôn tập. Kiểm tra kết nối rồi thử lại.')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
+    expect(screen.getByText('Không thể tải danh sách kế hoạch')).toBeInTheDocument();
+  });
+});
+
+describe('PlansPage — danh sách plans đã tải thành công', () => {
+  it('response [] thật vẫn dùng onboarding 0 kế hoạch và không tải lịch', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValueOnce([]);
+
+    render(<PlansPage />);
+
+    expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
+    expect(scheduleApi.getSchedule).not.toHaveBeenCalled();
+  });
+});
+
 /**
  * Ca đã đẻ ra hồi quy PR #409, và là điều kiện DUY NHẤT còn lại chặn `DEFAULT_VIEW = 'schedule'`.
  *
@@ -166,6 +274,7 @@ describe('PlansPage — tài khoản chỉ có kế hoạch draft', () => {
 
     expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
     expect(await screen.findByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
+    expect(screen.getByText('Chưa có kế hoạch nào đang hoạt động')).toBeInTheDocument();
   });
 
   it('banner đưa sang view Kế hoạch VÀ tab Chưa xác nhận, không chỉ một trong hai', async () => {
