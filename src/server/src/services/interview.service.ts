@@ -291,6 +291,15 @@ function noMaterialError(): AppError {
   );
 }
 
+/** The database row still exists, but its backing upload has disappeared from storage. */
+function documentFileMissingError(): AppError {
+  return new AppError('Document file is no longer available', 404, 'DOCUMENT_FILE_MISSING');
+}
+
+function isMissingFileError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
+}
+
 /**
  * Whether a missing document should stop an interview. Mock mode answers "no": `loadMaterial`
  * short-circuits to `MOCK_MATERIAL` before it ever reads `prisma.document`, so a plan with no
@@ -341,12 +350,19 @@ export async function loadMaterial(planId: string): Promise<AiMaterial> {
     const source = resolveMaterialSource(document.fileKey);
     const absolutePath = path.join(UPLOAD_DIR, document.fileKey);
 
-    if (source.kind === 'text') {
-      return { kind: 'text', text: await fs.promises.readFile(absolutePath, 'utf-8') };
-    }
+    try {
+      if (source.kind === 'text') {
+        return { kind: 'text', text: await fs.promises.readFile(absolutePath, 'utf-8') };
+      }
 
-    const uploaded = await uploadFile(absolutePath, source.mimeType);
-    return { kind: source.kind, uri: uploaded.uri, mimeType: uploaded.mimeType };
+      const uploaded = await uploadFile(absolutePath, source.mimeType);
+      return { kind: source.kind, uri: uploaded.uri, mimeType: uploaded.mimeType };
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        throw documentFileMissingError();
+      }
+      throw error;
+    }
   });
 }
 

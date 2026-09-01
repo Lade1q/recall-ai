@@ -1,6 +1,6 @@
 import { startInterview } from '../services/interview.service';
 import prisma from '../config/prisma';
-import { generateQuestion } from '../services/gemini.service';
+import { generateQuestion, getPlanMaterial, uploadFile } from '../services/gemini.service';
 import { getReviewQueueForPlan, PLAN_ARCHIVED_MESSAGE } from '../services/scheduling.service';
 import { AppError } from '../middleware/errorHandler';
 
@@ -59,6 +59,8 @@ const mockedPrisma = prisma as unknown as {
   questionCache: { findMany: jest.Mock };
 };
 const mockedGenerateQuestion = generateQuestion as jest.Mock;
+const mockedGetPlanMaterial = getPlanMaterial as jest.Mock;
+const mockedUploadFile = uploadFile as jest.Mock;
 const mockedGetReviewQueueForPlan = getReviewQueueForPlan as jest.Mock;
 
 const USER_ID = 'user-uuid';
@@ -224,9 +226,52 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     expect(mockedPrisma.interviewSession.create).not.toHaveBeenCalled();
   });
 
+  it('reports a missing text upload with a structured error and rolls the session back', async () => {
+    mockedPrisma.document.findFirst
+      .mockResolvedValueOnce({ id: 'doc-uuid' })
+      .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/missing-document.txt' });
+    mockedGetPlanMaterial.mockImplementationOnce((_planId: string, load: () => Promise<unknown>) =>
+      load()
+    );
+
+    await expect(
+      startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] })
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'DOCUMENT_FILE_MISSING',
+      message: 'Document file is no longer available',
+    });
+
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+    expect(mockedPrisma.interviewSession.delete).toHaveBeenCalledWith({
+      where: { id: SESSION_ID },
+    });
+  });
+
+  it('reports a missing binary upload with the same structured error', async () => {
+    mockedPrisma.document.findFirst
+      .mockResolvedValueOnce({ id: 'doc-uuid' })
+      .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/missing-document.pdf' });
+    mockedGetPlanMaterial.mockImplementationOnce((_planId: string, load: () => Promise<unknown>) =>
+      load()
+    );
+    mockedUploadFile.mockRejectedValueOnce(
+      Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+    );
+
+    await expect(
+      startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] })
+    ).rejects.toMatchObject({ statusCode: 404, code: 'DOCUMENT_FILE_MISSING' });
+
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+    expect(mockedPrisma.interviewSession.delete).toHaveBeenCalledWith({
+      where: { id: SESSION_ID },
+    });
+  });
+
   it('rolls the session back when the first question fails for any other reason', async () => {
     mockedPrisma.document.findFirst.mockResolvedValue({ id: 'doc-uuid' });
-    // e.g. the document row exists but its file is gone from disk.
+    // e.g. an unexpected downstream failure after material loading succeeds.
     mockedGenerateQuestion.mockRejectedValue(new Error('ENOENT: no such file or directory'));
 
     await expect(

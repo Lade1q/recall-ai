@@ -70,6 +70,8 @@ export function getInterviewErrorMessage(error: unknown): string {
       );
     case 'NO_MATERIAL':
       return 'Kế hoạch này chưa có tài liệu để tạo câu hỏi. Hãy tải tài liệu lên trước khi bắt đầu kiểm tra.';
+    case 'DOCUMENT_FILE_MISSING':
+      return 'Tệp tài liệu của kế hoạch không còn khả dụng. Hãy mở kế hoạch, đổi tài liệu khác rồi thử kiểm tra lại.';
     // Ngoại lệ của quy ước "không render thẳng error.message": PLAN_NOT_ACTIVE gộp hai trạng thái
     // (`archived`/`draft`) với hai câu hành động khác nhau — một hằng số phía client không phủ
     // được cả hai, nên dùng nguyên văn câu server đã dựng bằng buildInactivePlanMessage().
@@ -92,16 +94,16 @@ export function getInterviewErrorMessage(error: unknown): string {
  * thì vẫn hỏng)? Phân biệt được thì lối vào deep-link mới mời "Thử lại" đúng lúc thay vì bắt
  * chọn lại kế hoạch — chọn lại không sửa được việc Gemini đang chậm.
  *
- * Tính là lỗi hạ tầng/AI khi: không có response (mất mạng hoặc quá 60s chờ Gemini), server
- * trả mã `AI_*` (mọi lỗi Gemini đều nổi lên dưới dạng này — `isAiFailure` phía server), hoặc
- * HTTP 5xx. Còn lại (4xx: NOT_FOUND, NO_MATERIAL, VALIDATION_ERROR…) là lỗi đầu vào.
+ * Tính là lỗi hạ tầng/AI khi: không có response (mất mạng hoặc quá 60s chờ Gemini), hoặc server
+ * trả mã `AI_*` (mọi lỗi Gemini đều nổi lên dưới dạng này — `isAiFailure` phía server). Mã lỗi
+ * có cấu trúc là nguồn chân lý; một HTTP 5xx chung có thể đến từ dữ liệu hoặc lỗi ứng dụng mà
+ * việc lặp lại chính request đó không thể sửa được.
  */
 export function isAiOrNetworkFailure(error: unknown): boolean {
   if (!isAxiosError(error)) return false;
   if (!error.response) return true;
   const code: string | undefined = error.response.data?.error?.code;
-  if (code?.startsWith('AI_')) return true;
-  return error.response.status >= 500;
+  return code?.startsWith('AI_') ?? false;
 }
 
 export const interviewApi = {
