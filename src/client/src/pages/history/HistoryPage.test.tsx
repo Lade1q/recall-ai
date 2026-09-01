@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import HistoryPage from './HistoryPage';
-import { focusSessionApi, isTerminalFocusSessionError } from '@/features/focus/api/focus.api';
+import { focusSessionApi } from '@/features/focus/api/focus.api';
 import { historyApi } from '@/features/history/api/history.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { toast } from 'sonner';
@@ -18,9 +18,8 @@ vi.mock('@/features/focus/api/focus.api', async (importOriginal) => {
   return {
     ...actual,
     focusSessionApi: { list: vi.fn(), end: vi.fn() },
-    // Phân loại terminal vẫn cần điều khiển theo từng ca. Riêng mapper câu lỗi là hàm thuần nên
-    // dùng bản thật: mock nó từng che mất việc call-site truyền nhầm context `create` cho PATCH.
-    isTerminalFocusSessionError: vi.fn(() => false),
+    // Hai hàm thuần phân loại/mapping lỗi giữ bản thật. Mock từng che việc call-site truyền nhầm
+    // context, và sau đó còn làm fixture 404 terminal giả trang thành lỗi có thể retry.
   };
 });
 vi.mock('@/features/history/api/history.api', () => ({
@@ -59,7 +58,6 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const listFocus = vi.mocked(focusSessionApi.list);
 const endFocus = vi.mocked(focusSessionApi.end);
-const isTerminalEndError = vi.mocked(isTerminalFocusSessionError);
 const listInterviews = vi.mocked(historyApi.listInterviews);
 const listPlans = vi.mocked(planApi.listPlans);
 const toastError = vi.mocked(toast.error);
@@ -134,7 +132,6 @@ beforeEach(() => {
   toastSuccess.mockReset();
   listFocus.mockReset();
   endFocus.mockReset();
-  isTerminalEndError.mockReset().mockReturnValue(false);
   listInterviews.mockReset().mockResolvedValue([]);
   listPlans.mockReset().mockResolvedValue([]);
 });
@@ -236,11 +233,10 @@ describe('HistoryPage — tab Phiên học', () => {
   it('hủy phiên đang chạy hỏng ⇒ giữ nguyên phiên và báo lỗi', async () => {
     const running = focusSession({ status: 'running', endedAt: null });
     listFocus.mockResolvedValue([running]);
-    // Dùng 404 thật của Axios shape để context có ý nghĩa: `end` nói "phiên học", còn nếu
-    // call-site bị đổi nhầm sang `create` sẽ nói "kế hoạch" và test phải đỏ.
+    // Lỗi mạng Axios thật không có response: mapper phải báo mất kết nối và bộ phân loại thật
+    // phải xem đây là lỗi có thể retry, nên dialog/card vẫn ở nguyên và danh sách không reload.
     endFocus.mockRejectedValue({
       isAxiosError: true,
-      response: { status: 404, data: { error: { code: 'NOT_FOUND' } } },
     });
 
     await openFocusTab();
@@ -252,7 +248,9 @@ describe('HistoryPage — tab Phiên học', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không tìm thấy phiên học này.'));
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('Không kết nối được tới máy chủ. Vui lòng thử lại.')
+    );
     // Hỏng thì dialog ở lại để người dùng hiểu thao tác chưa hoàn tất; đóng dialog mới thấy lại
     // card phía sau, và card phải còn nguyên vì danh sách chưa reload.
     await userEvent.click(screen.getByRole('button', { name: 'Giữ phiên' }));
@@ -291,8 +289,12 @@ describe('HistoryPage — tab Phiên học', () => {
   it('phiên đã được nơi khác kết thúc ⇒ tải lại thay vì giữ card running cũ', async () => {
     const running = focusSession({ status: 'running', endedAt: null });
     listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
-    endFocus.mockRejectedValue(new Error('already ended'));
-    isTerminalEndError.mockReturnValueOnce(true);
+    // 404 làm hai việc độc lập: mapper thật phải dùng context `end` để nói "phiên học", và bộ
+    // phân loại thật phải coi 4xx là terminal để reload thay vì giữ card running đã cũ.
+    endFocus.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: { code: 'NOT_FOUND' } } },
+    });
 
     await openFocusTab();
     await userEvent.click(
@@ -303,6 +305,7 @@ describe('HistoryPage — tab Phiên học', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
 
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không tìm thấy phiên học này.'));
     await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
