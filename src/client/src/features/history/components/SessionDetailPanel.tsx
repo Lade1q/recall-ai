@@ -19,10 +19,12 @@ import type { InterviewSessionListItem } from '../types/history.types';
 /**
  * Panel chi tiết (SPEC_DB-03 bước #3–#7). Chọn phiên KHÔNG rời danh sách.
  *
- * Ngoài phạm vi #246 và cố ý không dựng, dù mockup màn chính có vẽ:
- * biểu đồ "Diễn tiến của ba khái niệm này" (bước #8, hoãn tới khi danh sách chạy được) và link
- * "Không đồng ý với điểm này" (AF5/AE-10 — bảng `grading_feedback` chưa tồn tại, nên link đó
- * sẽ là một nút chết).
+ * Ngoài phạm vi #246 và cố ý không dựng, dù mockup màn chính có vẽ: biểu đồ "Diễn tiến của ba
+ * khái niệm này" (bước #8, hoãn tới khi danh sách chạy được).
+ *
+ * Link "Không đồng ý với điểm này" (AF5/AE-10) từng nằm trong danh sách trên vì bảng
+ * `grading_feedback` chưa tồn tại. #248 đã dựng bảng đó (PR #505) và nối lối vào ở
+ * `QaTranscript` → `GradingFeedbackPanel`, nên nó KHÔNG còn là nút chết.
  */
 export function SessionDetailPanel({
   session,

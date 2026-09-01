@@ -68,7 +68,8 @@ describe('slot → nhãn: lượt sau lượt gợi ý phải TỤT slot (#392 (
       countsTowardMastery: counts,
       sourceCitation: null,
       source: 'ai',
-      canAppeal: true,
+      // Lượt gợi ý (`counts === false`) không khiếu nại được — khớp `isTurnAppealable`.
+      canAppeal: counts,
       gradingFeedback: null,
     }) satisfies InterviewTurnResponse;
 

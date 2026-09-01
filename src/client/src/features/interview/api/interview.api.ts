@@ -4,6 +4,7 @@ import { ENDPOINTS } from '@/lib/endpoints';
 import type {
   AbandonInterviewResponse,
   GetInterviewResponse,
+  GradingFeedbackResponse,
   PauseInterviewResponse,
   ResumeInterviewResponse,
   SelfGrade,
@@ -137,6 +138,23 @@ export const interviewApi = {
     const response = await apiClient.get<ApiEnvelope<GetInterviewResponse>>(
       ENDPOINTS.INTERVIEWS.DETAIL(id),
       { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * AE-10 (#248) — gửi phản hồi về điểm một lượt đã chấm. Upsert theo `(turnId, user)`: gửi lại
+   * là SỬA phản hồi cũ, nên `200` chứ không `201` và không có hàng thứ hai nào sinh ra.
+   *
+   * Timeout mặc định, KHÔNG dùng `AI_WAIT_TIMEOUT_MS`: đường này chỉ ghi log, không gọi AI.
+   */
+  submitGradingFeedback: async (
+    turnId: string,
+    payload: { reasons: string[]; note?: string }
+  ): Promise<GradingFeedbackResponse> => {
+    const response = await apiClient.post<ApiEnvelope<GradingFeedbackResponse>>(
+      ENDPOINTS.INTERVIEWS.TURN_FEEDBACK(turnId),
+      payload
     );
     return response.data.data;
   },
