@@ -623,7 +623,9 @@ model GradingFeedback {
   note    String?
 
   createdAt DateTime @default(now()) @map("created_at")
-  /// Endpoint là upsert (gửi lại = sửa phản hồi cũ), nên lần ghi gần nhất phải đọc được.
+  /// Endpoint là upsert (gửi lại = sửa phản hồi cũ). API KHÔNG trả cột này — cả hai `select`
+  /// chỉ lấy `{ reasons, note }`. Nó dành cho NGƯỜI chỉnh rubric đọc thẳng bảng (UC-15): biết
+  /// phản hồi nào vừa được sửa mà không phải suy từ `createdAt`.
   updatedAt DateTime @updatedAt @map("updated_at")
 
   turn InterviewTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)

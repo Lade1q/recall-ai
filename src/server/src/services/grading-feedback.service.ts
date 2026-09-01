@@ -55,7 +55,10 @@ export async function submitGradingFeedback(
     );
   }
 
-  const note = input.note ?? null;
+  // `||`, not `??`: Zod's `.trim()` turns a whitespace-only note into `''`, which is NOT nullish,
+  // so `??` would store an empty string. This table is read by a PERSON tuning the rubric (UC-15)
+  // and `WHERE note IS NOT NULL` must not drag back blank rows — one spelling of "no note".
+  const note = input.note || null;
   const reasons = input.reasons as Prisma.InputJsonValue;
 
   const row = await prisma.gradingFeedback.upsert({

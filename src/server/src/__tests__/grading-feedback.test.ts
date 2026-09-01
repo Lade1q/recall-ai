@@ -185,6 +185,25 @@ describe('AE-10 · submitGradingFeedback', () => {
     expect(rows[0]?.id).toBe('gf-1');
   });
 
+  /**
+   * Runs the real seam rather than either half alone: Zod `.trim()`s a whitespace-only note into
+   * `''`, and `''` is NOT nullish — that exact pair is what made `?? null` store an empty string.
+   * This log is read by a PERSON tuning the rubric (UC-15), so it must have ONE spelling of
+   * "no note"; otherwise `WHERE note IS NOT NULL` drags back blank rows.
+   */
+  it('stores a whitespace-only note as NULL, not an empty string', async () => {
+    turns.set('turn-1', gradedTurn());
+
+    const parsed = gradingFeedbackSchema.parse({ reasons: ['Chấm quá nặng'], note: '   ' });
+    // The hazard itself, asserted so the test fails loudly if Zod ever stops trimming.
+    expect(parsed.note).toBe('');
+
+    const result = await submitGradingFeedback('turn-1', OWNER, parsed);
+
+    expect(rows[0]?.note).toBeNull();
+    expect(result.note).toBeNull();
+  });
+
   it('reports a turn belonging to someone else as 404, not 403', async () => {
     turns.set('turn-1', gradedTurn({ session: { userId: STRANGER } }));
 
