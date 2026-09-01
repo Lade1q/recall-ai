@@ -232,7 +232,9 @@ describe('HistoryPage — tab Phiên học', () => {
 
   it('hủy phiên đang chạy hỏng ⇒ giữ nguyên phiên và báo lỗi', async () => {
     const running = focusSession({ status: 'running', endedAt: null });
-    listFocus.mockResolvedValue([running]);
+    // Lần hai cố ý rỗng: nếu lỗi tạm thời vô tình reload, card sẽ biến mất và assertion bên
+    // dưới phân biệt được hành vi sai thay vì nhận lại cùng fixture `running`.
+    listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
     // Lỗi mạng Axios thật không có response: mapper phải báo mất kết nối và bộ phân loại thật
     // phải xem đây là lỗi có thể retry, nên dialog/card vẫn ở nguyên và danh sách không reload.
     endFocus.mockRejectedValue({
@@ -286,11 +288,11 @@ describe('HistoryPage — tab Phiên học', () => {
     expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
 
-  it('phiên đã được nơi khác kết thúc ⇒ tải lại thay vì giữ card running cũ', async () => {
+  it('kế hoạch bị xoá nên phiên không còn ⇒ tải lại thay vì giữ card running cũ', async () => {
     const running = focusSession({ status: 'running', endedAt: null });
     listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
-    // 404 làm hai việc độc lập: mapper thật phải dùng context `end` để nói "phiên học", và bộ
-    // phân loại thật phải coi 4xx là terminal để reload thay vì giữ card running đã cũ.
+    // Cascade xóa kế hoạch có thể làm PATCH nhận 404. Ca này giữ riêng lưới cho context `end`:
+    // mapper phải nói "phiên học", không được dùng thông báo NOT_FOUND của context `create`.
     endFocus.mockRejectedValue({
       isAxiosError: true,
       response: { status: 404, data: { error: { code: 'NOT_FOUND' } } },
@@ -306,6 +308,32 @@ describe('HistoryPage — tab Phiên học', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
 
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không tìm thấy phiên học này.'));
+    await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
+  });
+
+  it('phiên đã được nơi khác kết thúc ⇒ báo đúng lỗi 409 rồi tải lại card cũ', async () => {
+    const running = focusSession({ status: 'running', endedAt: null });
+    listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
+    endFocus.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'ALREADY_ENDED' } } },
+    });
+
+    await openFocusTab();
+    await userEvent.click(
+      within(await screen.findByRole('region', { name: 'Phiên học đang chạy' })).getByRole(
+        'button',
+        { name: 'Hủy phiên đang chạy' }
+      )
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        'Phiên này đã kết thúc trước đó. Vui lòng tải lại trang.'
+      )
+    );
     await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(2));
     expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
