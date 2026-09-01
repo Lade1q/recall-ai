@@ -50,7 +50,8 @@ function makeTurn(
     countsTowardMastery,
     sourceCitation: null,
     source: 'ai',
-    canAppeal: true,
+    // Lượt gợi ý không khiếu nại được — khớp `isTurnAppealable` phía server.
+    canAppeal: countsTowardMastery,
     gradingFeedback: null,
   };
 }

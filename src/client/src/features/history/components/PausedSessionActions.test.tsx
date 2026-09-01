@@ -78,7 +78,8 @@ function detail(): GetInterviewResponse {
         mode: null,
         countsTowardMastery: true,
         source: 'ai',
-        canAppeal: true,
+        // Chưa chấm (`verdict: null`) ⇒ `isTurnAppealable` trả false phía server.
+        canAppeal: false,
         gradingFeedback: null,
       },
     ],

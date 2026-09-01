@@ -11,6 +11,7 @@ import type {
   InterviewTurnResponse,
   SessionSummaryResponse,
 } from '@/features/interview/types/interview.types';
+import { GradingFeedbackPanel } from './GradingFeedbackPanel';
 
 /**
  * Bước #7 — bản ghi hỏi–đáp và cách tính điểm. Đây là thứ biến "AI cho tôi 0.42" thành một con
@@ -224,6 +225,19 @@ function TurnBlock({
           {turn.feedback !== null && (
             <p className="m-0 text-[13px] leading-[1.6]">{turn.feedback}</p>
           )}
+          {/*
+            AE-10 (#248). Đặt trong nhánh `turn.score !== null` nên `score` chắc chắn có giá trị để
+            nội suy vào câu xác nhận — cùng guard mà `toFixed(2)` ở trên đang đứng.
+            Mockup đặt lối vào ở màn LỊCH SỬ chứ không ở phiên đang chạy (ghi chú thiết kế
+            `screen-history.html:1254-1255`): đọc lại sau vài ngày mới là lúc người ta muốn cãi
+            một điểm số.
+          */}
+          <GradingFeedbackPanel
+            turnId={turn.id}
+            score={turn.score}
+            canAppeal={turn.canAppeal}
+            gradingFeedback={turn.gradingFeedback}
+          />
         </div>
       )}
     </div>
@@ -272,7 +286,10 @@ function MasteryCalculation({
   const isNormalized = scored.length < TURN_WEIGHTS.length;
 
   return (
-    <div className="bg-muted border-border overflow-x-auto whitespace-nowrap rounded-md border px-3 py-2.5 font-mono text-[12px] tabular-nums">
+    <div
+      data-slot="mastery-formula"
+      className="bg-muted border-border overflow-x-auto whitespace-nowrap rounded-md border px-3 py-2.5 font-mono text-[12px] tabular-nums"
+    >
       {scored.map((turn, index) => (
         <span key={turn.id}>
           {index > 0 && <>&nbsp;+&nbsp;</>}

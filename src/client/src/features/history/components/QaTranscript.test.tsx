@@ -31,7 +31,10 @@ function turn(
     mode: null,
     countsTowardMastery: true,
     source: 'ai',
-    canAppeal: true,
+    // KHÔNG phải bản sao của `isTurnAppealable` — chỉ là giá trị mà server SẼ trả cho đúng
+    // fixture này: `source: 'ai'` và `mode: null` đã ghim cứng hai vế kia, nên chỉ còn vế
+    // "đã chấm" thay đổi. Đặt cứng `true` là chế ra trạng thái server không bao giờ sinh ra.
+    canAppeal: score !== null,
     gradingFeedback: null,
   };
 }
@@ -48,6 +51,8 @@ function hintTurn(
     ...turn(id, conceptId, conceptName, turnIndex, score),
     mode: 'hint',
     countsTowardMastery: false,
+    // `isTurnAppealable` loại lượt gợi ý: điểm của nó không vào trung bình có trọng số.
+    canAppeal: false,
   };
 }
 
@@ -197,7 +202,9 @@ describe('QaTranscript — lượt gợi ý (#392)', () => {
     // (3) Và khối CÔNG THỨC chỉ có số hạng của lượt được tính. Không có vế này thì việc lọc ở
     // `MasteryCalculation` không bị gì giữ: công thức sẽ in `0.40 × 0.4 + 0.90 × 0.6 = 0.40`,
     // tức một phép tính không ra chính con số nó vừa viết bên phải dấu bằng.
-    const formula = container.querySelector('.whitespace-nowrap');
+    // Neo theo DANH TÍNH, không theo class tiện ích: `whitespace-nowrap` là class nền của
+    // `Button`, nên từ #248 nó khớp cả nút "Không đồng ý với điểm này" đứng trước công thức.
+    const formula = container.querySelector('[data-slot="mastery-formula"]');
     expect(formula?.textContent).toContain('0.40 × 1.0');
     expect(formula?.textContent).not.toContain('0.90');
   });
@@ -246,5 +253,50 @@ describe('QaTranscript — lượt gợi ý (#392)', () => {
     expect(screen.getByText('· trọng số gốc 0.3')).toBeInTheDocument();
     // 0.5 là trọng số của lượt thứ BA trong công thức — ở đây công thức chỉ có hai lượt.
     expect(screen.queryByText('· trọng số gốc 0.5')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Lưới test của `GradingFeedbackPanel` dừng ở biên module: nó chứng minh panel tự xử đúng khi
+ * ĐƯỢC render, không chứng minh transcript có render nó hay không, và render cho lượt NÀO. Đúng
+ * một assert dưới đây giữ đầu kia của giao kèo — bỏ `<GradingFeedbackPanel/>` khỏi `QaTranscript`
+ * mà không có nó thì toàn bộ suite vẫn xanh.
+ */
+describe('QaTranscript — nối lối vào khiếu nại (#248)', () => {
+  const concept = { conceptId: 'c1', name: 'Ngăn xếp', masteryScore: 0.4, turns: [] };
+
+  it('🔴 chỉ lượt server cho `canAppeal` mới có lối vào, mỗi lượt đúng MỘT', () => {
+    render(
+      <QaTranscript
+        turns={[
+          turn('t1', 'c1', 'Ngăn xếp', 1, 0.4), // đã chấm  → canAppeal true
+          hintTurn('t2', 'c1', 'Ngăn xếp', 2, 0.9), // gợi ý → canAppeal false
+          turn('t3', 'c1', 'Ngăn xếp', 3, null), // chưa chấm → canAppeal false
+        ]}
+        summary={summary([concept])}
+      />
+    );
+
+    expect(screen.getAllByRole('button', { name: 'Không đồng ý với điểm này' })).toHaveLength(1);
+  });
+
+  it('🔴 lượt đã gửi phản hồi hiện xác nhận — `gradingFeedback` đi tới được panel', () => {
+    render(
+      <QaTranscript
+        turns={[
+          {
+            ...turn('t1', 'c1', 'Ngăn xếp', 1, 0.4),
+            gradingFeedback: { reasons: ['Chấm quá nặng'], note: null },
+          },
+        ]}
+        summary={summary([concept])}
+      />
+    );
+
+    // 0.40 là điểm của CHÍNH lượt này, không phải hằng số nào khác — nội suy sai chỗ sẽ lộ ra.
+    expect(screen.getByText(/Đã ghi nhận phản hồi\. Điểm 0\.40 giữ nguyên/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Không đồng ý với điểm này' })
+    ).not.toBeInTheDocument();
   });
 });
