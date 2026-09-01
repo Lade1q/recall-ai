@@ -8,6 +8,20 @@ const axiosErr = (status: number, code?: string, message?: string) => ({
   response: { status, data: code ? { error: { code, message } } : undefined },
 });
 
+/**
+ * Một 5xx KHÔNG theo hợp đồng JSON của API: trang lỗi HTML do nginx sinh, quan sát được ở lane
+ * LIVE. `axiosErr` chỉ dựng được `data: undefined`, nên hình dạng này phải viết riêng — và điểm
+ * mấu chốt là `data` ở đây là một CHUỖI, nên nó ĐI QUA được mắt `data?.` rồi mới dừng ở `error?.`.
+ * Cả hai hàm dưới đây đọc cùng một biểu thức nên cùng cần fixture này.
+ */
+const nginxBadGateway = () => ({
+  isAxiosError: true,
+  response: {
+    status: 502,
+    data: '<html><head><title>502 Bad Gateway</title></head><body></body></html>',
+  },
+});
+
 describe('getInterviewErrorMessage', () => {
   it('maps NO_MATERIAL to its own message', () => {
     expect(getInterviewErrorMessage(axiosErr(409, 'NO_MATERIAL'))).toBe(
@@ -88,6 +102,25 @@ describe('getInterviewErrorMessage', () => {
       'Đã xảy ra lỗi, vui lòng thử lại.'
     );
   });
+
+  /**
+   * Hàm này đọc **cùng biểu thức** `data?.error?.code` với `isAiOrNetworkFailure`, và tới được
+   * bằng **cùng một phản hồi**: `toast.error(getInterviewErrorMessage(error))` chạy ở mọi nhánh
+   * hỏng, và lane LIVE đã thấy nó ra câu chung với một `502` thân HTML. Trước hai ca dưới đây,
+   * MỌI ca của hàm này đều truyền một mã — nên nhánh `code === undefined` chưa từng được đi qua,
+   * và cả hai đột biến `data?.error?.code` → `data?.error.code` / `data.error?.code` đều sống
+   * qua 546/546 ở 6b1ab2e.
+   *
+   * HAI ca vì chúng canh hai mắt xích khác nhau: thân rỗng dừng ngay ở `data?.`, thân HTML đi qua
+   * mắt đó rồi mới dừng ở `error?.`. Đối xứng với cặp ca của `isAiOrNetworkFailure` (#498).
+   */
+  it('falls back to the generic message for a 5xx with no body', () => {
+    expect(getInterviewErrorMessage(axiosErr(502))).toBe('Đã xảy ra lỗi, vui lòng thử lại.');
+  });
+
+  it('falls back to the generic message for a 5xx with a non-JSON body', () => {
+    expect(getInterviewErrorMessage(nginxBadGateway())).toBe('Đã xảy ra lỗi, vui lòng thử lại.');
+  });
 });
 
 describe('isAiOrNetworkFailure', () => {
@@ -125,18 +158,9 @@ describe('isAiOrNetworkFailure', () => {
     expect(isAiOrNetworkFailure(axiosErr(502))).toBe(false);
   });
 
-  // Ca này đã quan sát được ở lane LIVE: một `502` do nginx sinh ra, thân là trang HTML chứ không
-  // phải JSON theo hợp đồng của API. `data` khi ấy là một CHUỖI, nên `data?.error` mới là mắt
-  // xích giữ cho biểu thức không ném — `axiosErr` không dựng được hình dạng này nên viết thẳng.
+  // Ca đã quan sát được ở lane LIVE. `data` là một CHUỖI, nên `data?.error` mới là mắt xích giữ
+  // cho biểu thức không ném — xem docblock của `nginxBadGateway` ở đầu tệp.
   it('does not treat a 5xx with a non-JSON body as an AI failure', () => {
-    const nginxBadGateway = {
-      isAxiosError: true,
-      response: {
-        status: 502,
-        data: '<html><head><title>502 Bad Gateway</title></head><body></body></html>',
-      },
-    };
-
-    expect(isAiOrNetworkFailure(nginxBadGateway)).toBe(false);
+    expect(isAiOrNetworkFailure(nginxBadGateway())).toBe(false);
   });
 });
