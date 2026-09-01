@@ -103,7 +103,40 @@ describe('isAiOrNetworkFailure', () => {
     expect(isAiOrNetworkFailure(axiosErr(500, 'INTERNAL_ERROR'))).toBe(false);
   });
 
+  // Giữ ca này, nhưng đừng đọc nó thành lưới của #492: một 404 trả `false` ở CẢ hai bản — bản
+  // trước (`code?.startsWith('AI_')` rồi `status >= 500`) lẫn bản sau (`?? false`) — nên nó không
+  // phân biệt được thay đổi mang tên nó. Ca thật sự gánh lưới ấy là `ordinary HTTP 500` ở ngay
+  // trên, chỗ kết quả lật từ `true` sang `false`. Hợp đồng ca này ghim vẫn đúng và vẫn đáng giữ.
   it('does not offer an AI retry loop when the document file is missing', () => {
     expect(isAiOrNetworkFailure(axiosErr(404, 'DOCUMENT_FILE_MISSING'))).toBe(false);
+  });
+
+  /**
+   * `?? false` mang trọn quyết định "5xx KHÔNG kèm mã lỗi thì không tính là lỗi AI", và trước hai
+   * ca dưới đây không assertion nào phân biệt được nó: đột biến `?? false` → `?? true` sống qua
+   * cả 544/544 ở 241cb6f. Ca `HTTP 500` phía trên không cứu được, vì nó không bao giờ chạm tới
+   * `??` — `'INTERNAL_ERROR'.startsWith('AI_')` trả `false`, không phải `undefined`.
+   *
+   * HAI ca chứ không một, vì chúng canh hai mắt xích KHÁC NHAU của `data?.error?.code`: thân rỗng
+   * dừng ngay ở `data?.`, còn thân HTML đi qua được mắt đó rồi mới dừng ở `error?.`. Bỏ ca nào
+   * cũng thả một đột biến về (số đo trong PR).
+   */
+  it('does not treat a 5xx with no body as an AI failure', () => {
+    expect(isAiOrNetworkFailure(axiosErr(502))).toBe(false);
+  });
+
+  // Ca này đã quan sát được ở lane LIVE: một `502` do nginx sinh ra, thân là trang HTML chứ không
+  // phải JSON theo hợp đồng của API. `data` khi ấy là một CHUỖI, nên `data?.error` mới là mắt
+  // xích giữ cho biểu thức không ném — `axiosErr` không dựng được hình dạng này nên viết thẳng.
+  it('does not treat a 5xx with a non-JSON body as an AI failure', () => {
+    const nginxBadGateway = {
+      isAxiosError: true,
+      response: {
+        status: 502,
+        data: '<html><head><title>502 Bad Gateway</title></head><body></body></html>',
+      },
+    };
+
+    expect(isAiOrNetworkFailure(nginxBadGateway)).toBe(false);
   });
 });
