@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import HistoryPage from './HistoryPage';
-import { focusSessionApi } from '@/features/focus/api/focus.api';
+import { focusSessionApi, isTerminalFocusSessionError } from '@/features/focus/api/focus.api';
 import { historyApi } from '@/features/history/api/history.api';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { toast } from 'sonner';
@@ -13,7 +13,9 @@ import type { InterviewSessionListItem } from '@/features/history/types/history.
 // Cả ba nguồn của màn đều mock: `/interviews` (tab kia), `/plans` (tên kế hoạch + bộ lọc), và
 // `/focus-sessions` (tab này). Không có backend trong jsdom.
 vi.mock('@/features/focus/api/focus.api', () => ({
-  focusSessionApi: { list: vi.fn() },
+  focusSessionApi: { list: vi.fn(), end: vi.fn() },
+  getFocusSessionErrorMessage: () => 'Không thể hủy phiên học.',
+  isTerminalFocusSessionError: vi.fn(() => false),
 }));
 vi.mock('@/features/history/api/history.api', () => ({
   historyApi: { listInterviews: vi.fn() },
@@ -50,9 +52,12 @@ vi.mock('@/features/interview/api/interview.api', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const listFocus = vi.mocked(focusSessionApi.list);
+const endFocus = vi.mocked(focusSessionApi.end);
+const isTerminalEndError = vi.mocked(isTerminalFocusSessionError);
 const listInterviews = vi.mocked(historyApi.listInterviews);
 const listPlans = vi.mocked(planApi.listPlans);
 const toastError = vi.mocked(toast.error);
+const toastSuccess = vi.mocked(toast.success);
 
 function focusSession(over: Partial<FocusSessionListItem> = {}): FocusSessionListItem {
   return {
@@ -102,7 +107,10 @@ const focusRows = () =>
 
 beforeEach(() => {
   toastError.mockReset();
+  toastSuccess.mockReset();
   listFocus.mockReset();
+  endFocus.mockReset();
+  isTerminalEndError.mockReset().mockReturnValue(false);
   listInterviews.mockReset().mockResolvedValue([]);
   listPlans.mockReset().mockResolvedValue([]);
 });
@@ -129,6 +137,81 @@ describe('HistoryPage — tab Phiên học', () => {
 
     expect(await screen.findByRole('region', { name: 'Danh sách phiên học' })).toBeInTheDocument();
     expect(screen.queryByText('Chưa có phiên học nào')).not.toBeInTheDocument();
+  });
+
+  it('phiên đang chạy ⇒ hiện lối hủy riêng và tải lại danh sách sau khi hủy', async () => {
+    const running = focusSession({
+      status: 'running',
+      durationMinutes: 0,
+      focusedSeconds: 0,
+      endedAt: null,
+    });
+    listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
+    endFocus.mockResolvedValue({} as never);
+
+    await openFocusTab();
+
+    const current = await screen.findByRole('region', { name: 'Phiên học đang chạy' });
+    expect(within(current).getByText(/Ngăn xếp/)).toBeInTheDocument();
+    // Phiên running là trạng thái hiện tại, không được lẫn vào danh sách lịch sử phía dưới.
+    expect(screen.queryByRole('region', { name: 'Danh sách phiên học' })).not.toBeInTheDocument();
+
+    await userEvent.click(within(current).getByRole('button', { name: 'Hủy phiên đang chạy' }));
+    expect(screen.getByText(/Thời gian của phiên này sẽ không được ghi nhận/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
+
+    await waitFor(() =>
+      expect(endFocus).toHaveBeenCalledWith(running.id, {
+        status: 'cancelled',
+        focusedSeconds: 0,
+      })
+    );
+    expect(toastSuccess).toHaveBeenCalledWith(
+      'Đã hủy phiên đang chạy. Bạn có thể bắt đầu phiên học mới.'
+    );
+    await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
+  });
+
+  it('hủy phiên đang chạy hỏng ⇒ giữ nguyên phiên và báo lỗi', async () => {
+    const running = focusSession({ status: 'running', endedAt: null });
+    listFocus.mockResolvedValue([running]);
+    endFocus.mockRejectedValue(new Error('mạng hỏng'));
+
+    await openFocusTab();
+    await userEvent.click(
+      within(await screen.findByRole('region', { name: 'Phiên học đang chạy' })).getByRole(
+        'button',
+        { name: 'Hủy phiên đang chạy' }
+      )
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không thể hủy phiên học.'));
+    // Hỏng thì dialog ở lại để người dùng hiểu thao tác chưa hoàn tất; đóng dialog mới thấy lại
+    // card phía sau, và card phải còn nguyên vì danh sách chưa reload.
+    await userEvent.click(screen.getByRole('button', { name: 'Giữ phiên' }));
+    expect(screen.getByRole('region', { name: 'Phiên học đang chạy' })).toBeInTheDocument();
+    expect(listFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it('phiên đã được nơi khác kết thúc ⇒ tải lại thay vì giữ card running cũ', async () => {
+    const running = focusSession({ status: 'running', endedAt: null });
+    listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
+    endFocus.mockRejectedValue(new Error('already ended'));
+    isTerminalEndError.mockReturnValueOnce(true);
+
+    await openFocusTab();
+    await userEvent.click(
+      within(await screen.findByRole('region', { name: 'Phiên học đang chạy' })).getByRole(
+        'button',
+        { name: 'Hủy phiên đang chạy' }
+      )
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
+
+    await waitFor(() => expect(listFocus).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
 
   it('đang tải ⇒ skeleton, KHÔNG loé khung rỗng', async () => {

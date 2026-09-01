@@ -7,18 +7,24 @@ import { planApi } from '@/features/study-planner/api/plan.api';
 import { SessionList } from '@/features/history/components/SessionList';
 import { SessionDetailPanel } from '@/features/history/components/SessionDetailPanel';
 import { FocusSessionList } from '@/features/history/components/FocusSessionList';
+import { CurrentFocusSession } from '@/features/history/components/CurrentFocusSession';
 import { NoFocusSessionsYet, NoSessionsYet } from '@/features/history/components/NoSessionsYet';
 import { useFocusSessionList } from '@/features/history/hooks/useFocusSessionList';
 import { useSessionList } from '@/features/history/hooks/useSessionList';
 import { selectInterviewSession } from '@/features/history/utils/select-session';
+import {
+  focusSessionApi,
+  getFocusSessionErrorMessage,
+  isTerminalFocusSessionError,
+} from '@/features/focus/api/focus.api';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
 
 /**
  * Trang "Lịch sử & Tiến độ" (DB-03 · #246).
  *
- * Nơi kiểm lại điểm số SAU khi phiên đã kết thúc — read-only, không sinh điểm, chỉ trình bày
- * lại. Giá trị của nó là cho sinh viên **kiểm chứng** cách từng điểm được tính ra, cùng tinh
- * thần với ràng buộc C5 ở màn phỏng vấn.
+ * Nơi kiểm lại điểm số SAU khi phiên đã kết thúc — phần lịch sử không sinh điểm, chỉ trình bày
+ * lại. Ngoại lệ duy nhất có mutation là khối phiên Focus đang chạy (#374): người dùng có thể hủy
+ * một orphan không còn snapshot để thoát chốt `SESSION_ALREADY_RUNNING`.
  *
  * Khung hai tab dùng chung với DB-08 (lịch sử phiên Focus). Cả hai tab nay đã có nội dung thật:
  * tab "Phiên học" (#247) gọi `GET /focus-sessions`, và nó gọi **ngay khi mở màn** — không đợi
@@ -208,8 +214,33 @@ function FocusHistoryTab({
   active: boolean;
 }) {
   const list = useFocusSessionList();
+  const [cancellingSessionId, setCancellingSessionId] = useState<string | null>(null);
 
   const planNameById = useMemo(() => new Map(plans.map((plan) => [plan.id, plan.name])), [plans]);
+  const currentSession = list.sessions.find((session) => session.status === 'running') ?? null;
+  const historySessions = list.sessions.filter((session) => session.status !== 'running');
+
+  const cancelCurrentSession = async () => {
+    if (!currentSession || cancellingSessionId) return;
+    setCancellingSessionId(currentSession.id);
+    try {
+      // Không có snapshot/timer của thiết bị đã tạo phiên, nên không được suy diễn thời gian tập
+      // trung từ wall-clock. `cancelled` + 0 giải phóng chốt mà không ghi nhận thời gian ảo.
+      await focusSessionApi.end(currentSession.id, {
+        status: 'cancelled',
+        focusedSeconds: 0,
+      });
+      toast.success('Đã hủy phiên đang chạy. Bạn có thể bắt đầu phiên học mới.');
+      list.reload();
+    } catch (error) {
+      toast.error(getFocusSessionErrorMessage(error));
+      // 4xx nghĩa là trạng thái server đã đổi hoặc request không thể retry nguyên trạng (thường
+      // là phiên đã được thiết bị khác kết thúc). Nạp lại để không giữ một card `running` cũ.
+      if (isTerminalFocusSessionError(error)) list.reload();
+    } finally {
+      setCancellingSessionId(null);
+    }
+  };
 
   // Cùng quy ước với tab Phiên kiểm tra (AC #246): lỗi mạng báo bằng toast, nút "Thử lại" nằm
   // trong khối lỗi của danh sách. Chỉ báo một lần cho mỗi lần hỏng.
@@ -247,15 +278,32 @@ function FocusHistoryTab({
   }
 
   return (
-    <FocusSessionList
-      sessions={list.sessions}
-      planNameById={planNameById}
-      loading={list.loading}
-      loadingMore={list.loadingMore}
-      error={list.error}
-      hasMore={list.hasMore}
-      onLoadMore={list.loadMore}
-      onRetry={list.reload}
-    />
+    <div className="space-y-4">
+      {currentSession && (
+        <CurrentFocusSession
+          session={currentSession}
+          planLabel={
+            currentSession.planId === null
+              ? 'Phiên tự do'
+              : (planNameById.get(currentSession.planId) ?? null)
+          }
+          isCancelling={cancellingSessionId === currentSession.id}
+          onCancel={() => void cancelCurrentSession()}
+        />
+      )}
+
+      {(historySessions.length > 0 || list.loading || list.error) && (
+        <FocusSessionList
+          sessions={historySessions}
+          planNameById={planNameById}
+          loading={list.loading}
+          loadingMore={list.loadingMore}
+          error={list.error}
+          hasMore={list.hasMore}
+          onLoadMore={list.loadMore}
+          onRetry={list.reload}
+        />
+      )}
+    </div>
   );
 }
