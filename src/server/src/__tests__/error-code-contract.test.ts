@@ -41,6 +41,8 @@ const CLIENT_SRC = join(__dirname, '../../../client/src');
  */
 const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
   // --- Bugs or plumbing: a specific sentence would tell the user something they cannot act on.
+  APP_ERROR:
+    'errorHandler.ts fallback for an AppError without a code. Generic is the only contract.',
   BAD_REQUEST: 'errorHandler.ts, malformed JSON body — a client bug, not a user action.',
   INTERNAL_ERROR: 'errorHandler.ts catch-all for unexpected throws. Generic is the honest answer.',
   SERVER_ERROR: 'auth.middleware.ts, missing JWT secret — misconfiguration, not user-facing.',
@@ -70,16 +72,6 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'session-summary.service.ts — /summary before the session ends. The UI ' +
     'only routes there after completion.',
 
-  // --- Known debt, deliberately not fixed under the pre-freeze scope (2026-08-16). Fix these
-  // when their owning surface is addressed; do not delete entries without adding the mapper.
-  REANALYZE_NOT_ALLOWED:
-    'DEBT: plan.service.ts — three distinct reasons behind one code. Needs a ' +
-    'mapper on the plan-detail surface. Requires an already-running analysis to reach.',
-  STATUS_TRANSITION_NOT_ALLOWED:
-    'DEBT: plan.service.ts — archive/unarchive from a status that ' +
-    'forbids it. The UI hides the control in exactly those statuses.',
-  WRONG_PASSWORD: 'DEBT: user.service.ts — the change-password form has no mapper yet.',
-
   // --- Calendar screen (#400) HAS shipped. TRACEBACK_REPRESENTATIVE_LOCKED left this list in
   // #437, which added the review-queue mapper and a case for it. This one stays, for a reason
   // that is about reachability rather than about the mapper not existing yet.
@@ -94,12 +86,41 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
     'here; give it a case the day a surface can actually hit it.',
 };
 
+/**
+ * Known missing mappings are data of their own, not strings hidden behind a `DEBT:` prefix in
+ * the intentional allowlist. This object is the complete list a debt sweep must read.
+ */
+const ERROR_CODE_DEBT: Readonly<Record<string, string>> = {
+  REANALYZE_NOT_ALLOWED:
+    'plan.service.ts — three distinct reasons behind one code. Needs a ' +
+    'mapper on the plan-detail surface. Requires an already-running analysis to reach.',
+  STATUS_TRANSITION_NOT_ALLOWED:
+    'plan.service.ts — archive/unarchive from a status that ' +
+    'forbids it. The UI hides the control in exactly those statuses.',
+};
+
+const DOCUMENTED_UNMAPPED_CODES: Readonly<Record<string, string>> = {
+  ...INTENTIONALLY_GENERIC,
+  ...ERROR_CODE_DEBT,
+};
+
 /** `getInterviewErrorMessage` handles every Gemini failure by prefix, not case-by-case. */
 const HANDLED_PREFIXES = ['AI_'];
 
 function walk(dir: string, accept: (path: string) => boolean): string[] {
   const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch (error) {
+    const sourceTreeError: Error & { cause?: unknown } = new Error(
+      `Cannot read source tree at ${dir}`
+    );
+    sourceTreeError.cause = error;
+    throw sourceTreeError;
+  }
+
+  for (const entry of entries) {
     if (entry === 'node_modules' || entry === 'dist') continue;
     const path = join(dir, entry);
     if (statSync(path).isDirectory()) {
@@ -116,10 +137,11 @@ const isSource = (path: string) =>
   /\.tsx?$/.test(path) && !path.endsWith('.d.ts') && !/\.test\.tsx?$/.test(path);
 
 /**
- * Every code the server can put on the wire, mapped to the files that emit it. Two mechanisms,
- * because the server has two: `new AppError(msg, status, 'CODE')` at the call sites, and bare
+ * Every code the server can put on the wire, mapped to the files that emit it. Three forms:
+ * `new AppError(msg, status, 'CODE')` at the call sites, bare
  * `code: 'CODE'` literals inside `errorHandler.ts`'s own responses (multer, malformed JSON, the
- * catch-all). Reading only the first would miss five codes that reach the client just as surely.
+ * catch-all), plus `code: err.code || 'APP_ERROR'`. Reading only the first would miss codes that
+ * reach the client just as surely.
  */
 function collectServerCodes(): Map<string, Set<string>> {
   const codes = new Map<string, Set<string>>();
@@ -134,6 +156,8 @@ function collectServerCodes(): Map<string, Set<string>> {
     for (const m of source.matchAll(/new AppError\([\s\S]*?,\s*\d{3},\s*'([A-Z][A-Z0-9_]*)'\s*\)/g))
       record(m[1], file);
     for (const m of source.matchAll(/\bcode:\s*'([A-Z][A-Z0-9_]*)'/g)) record(m[1], file);
+    for (const m of source.matchAll(/\bcode:\s*[\w$.]+\s*\|\|\s*'([A-Z][A-Z0-9_]*)'/g))
+      record(m[1], file);
   }
   return codes;
 }
@@ -177,7 +201,7 @@ describe('client↔server error-code contract', () => {
     const unhandled = [...serverCodes]
       .filter(([code]) => !clientCodes.has(code))
       .filter(([code]) => !HANDLED_PREFIXES.some((prefix) => code.startsWith(prefix)))
-      .filter(([code]) => !(code in INTENTIONALLY_GENERIC))
+      .filter(([code]) => !(code in DOCUMENTED_UNMAPPED_CODES))
       .map(([code, files]) => `${code} (thrown in ${[...files].join(', ')})`);
 
     expect(unhandled).toEqual([]);
@@ -196,23 +220,35 @@ describe('client↔server error-code contract', () => {
     expect(ghosts).toEqual([]);
   });
 
-  /** An allowlist nobody prunes stops being a decision and becomes sediment. */
-  it('keeps no stale entries in the generic allowlist', () => {
-    const stale = Object.keys(INTENTIONALLY_GENERIC)
+  /** A documented exception list nobody prunes stops being a decision and becomes sediment. */
+  it('keeps no stale documented exceptions or debt entries', () => {
+    const stale = Object.keys(DOCUMENTED_UNMAPPED_CODES)
       .filter((code) => !serverCodes.has(code))
       .map((code) => `${code} (no longer emitted by the server — drop the entry)`);
-    const superseded = Object.keys(INTENTIONALLY_GENERIC)
+    const superseded = Object.keys(DOCUMENTED_UNMAPPED_CODES)
       .filter((code) => clientCodes.has(code))
       .map((code) => `${code} (now mapped on the client — drop the entry)`);
 
     expect([...stale, ...superseded]).toEqual([]);
   });
 
-  it('gives every allowlist entry a reason', () => {
-    const unexplained = Object.entries(INTENTIONALLY_GENERIC)
+  it('gives every intentional exception and debt entry a reason', () => {
+    const unexplained = Object.entries(DOCUMENTED_UNMAPPED_CODES)
       .filter(([, reason]) => reason.trim().length < 20)
       .map(([code]) => code);
 
     expect(unexplained).toEqual([]);
+  });
+
+  it('keeps debt structural instead of hiding it behind a reason prefix', () => {
+    const textualDebt = Object.entries(INTENTIONALLY_GENERIC)
+      .filter(([, reason]) => reason.trimStart().startsWith('DEBT:'))
+      .map(([code]) => code);
+
+    expect(textualDebt).toEqual([]);
+    expect(Object.keys(ERROR_CODE_DEBT).sort()).toEqual([
+      'REANALYZE_NOT_ALLOWED',
+      'STATUS_TRANSITION_NOT_ALLOWED',
+    ]);
   });
 });
