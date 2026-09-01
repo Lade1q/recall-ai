@@ -30,6 +30,9 @@ function turn(
     sourceCitation: null,
     mode: null,
     countsTowardMastery: true,
+    source: 'ai',
+    canAppeal: true,
+    gradingFeedback: null,
   };
 }
 

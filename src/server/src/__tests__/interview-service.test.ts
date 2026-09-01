@@ -124,6 +124,8 @@ interface FakeTurn {
   sourcePageTo: number | null;
   askedAt: Date;
   answeredAt: Date | null;
+  /** #248 — hàng `grading_feedback` mà `turnSelect` kéo theo. Mặc định rỗng = chưa khiếu nại. */
+  gradingFeedbacks?: { reasons: unknown; note: string | null }[];
 }
 
 let sessionRow: {
@@ -143,7 +145,10 @@ let turns: FakeTurn[];
 let turnIdSeq: number;
 
 function toTurnRow(t: FakeTurn) {
-  return { ...t, concept: { name: CONCEPT_NAME } };
+  // `gradingFeedbacks` is part of `turnSelect` (#248), so a row this fake hands back must carry
+  // it — an empty list is "no appeal filed". Defaulting it inside `toTurnResponse` instead would
+  // let a real query that forgot the relation return `null` silently.
+  return { ...t, concept: { name: CONCEPT_NAME }, gradingFeedbacks: t.gradingFeedbacks ?? [] };
 }
 
 function seedPendingTurn(overrides: Partial<FakeTurn> = {}): FakeTurn {
@@ -857,6 +862,68 @@ describe('interview.service — AE-05 flashcard fallback', () => {
       }),
     ]);
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #248 F2 — `source` and `gradingFeedback` on each turn. Both were measured as SURVIVING
+   * mutants before this test existed: `toTurnResponse` could hard-code `source: 'ai'` or return
+   * `gradingFeedback: null` unconditionally and every other suite stayed green, because no turn
+   * fixture ever carried a non-`ai` source or an appeal row.
+   *
+   * The values are chosen so a hard-coded mutant cannot match them: the source is the NON-default
+   * `cache_fallback`, and the appeal carries content rather than being merely non-null.
+   */
+  it('🔴 transcript mang source và gradingFeedback cho từng lượt (#248)', async () => {
+    const appealed = seedPendingTurn({
+      turnIndex: 1,
+      answerText: 'trả lời',
+      score: 0.33,
+      verdict: 'shallow',
+      mode: 'initial',
+      answeredAt: new Date('2026-01-01T00:05:00.000Z'),
+      gradingFeedbacks: [{ reasons: ['Chấm quá nặng'], note: 'thiếu ngữ cảnh' }],
+    });
+    const selfGraded = seedPendingTurn({
+      turnIndex: 2,
+      source: 'cache_fallback',
+      answerText: 'tự chấm',
+      score: 1,
+      verdict: 'deep',
+      answeredAt: new Date('2026-01-02T00:05:00.000Z'),
+    });
+    // Same trap the transcript test above documents: with every turn answered, `getInterview`
+    // walks on to generate a new question and the fake has none. One pending turn stops it.
+    const pending = seedPendingTurn({ turnIndex: 3 });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({
+        id: appealed.id,
+        source: 'ai',
+        // Three turns, three different `canAppeal` answers — a mutant that hard-codes either
+        // boolean fails on at least one of them.
+        canAppeal: true,
+        gradingFeedback: { reasons: ['Chấm quá nặng'], note: 'thiếu ngữ cảnh' },
+      }),
+      expect.objectContaining({
+        id: selfGraded.id,
+        // The whole point of F2: a self-graded turn carries a real `verdict`, so only `source`
+        // separates it — and the client cannot hide the appeal button without this field.
+        verdict: 'deep',
+        source: 'cache_fallback',
+        canAppeal: false,
+        gradingFeedback: null,
+      }),
+      // Chưa chấm ⇒ không có điểm để phản đối, dù nó là lượt AI bình thường.
+      expect.objectContaining({
+        id: pending.id,
+        source: 'ai',
+        verdict: null,
+        canAppeal: false,
+        gradingFeedback: null,
+      }),
+    ]);
   });
 
   /**

@@ -9,6 +9,7 @@ import {
   submitSelfGrade,
 } from '../services/interview.service';
 import { getSessionSummary } from '../services/session-summary.service';
+import { submitGradingFeedback } from '../services/grading-feedback.service';
 import { listInterviews } from '../services/interview-history.service';
 import {
   createInterviewSchema,
@@ -16,6 +17,8 @@ import {
   listInterviewsQuerySchema,
   submitAnswerSchema,
   submitSelfGradeSchema,
+  turnIdParamSchema,
+  gradingFeedbackSchema,
 } from '../schemas/interview.schema';
 import { AppError } from '../middleware/errorHandler';
 
@@ -178,6 +181,29 @@ export async function abandonInterviewController(req: Request, res: Response): P
   const { id } = interviewIdParamSchema.parse(req.params);
 
   const result = await abandonInterview(id, req.userId);
+
+  res.status(200).json({
+    success: true,
+    data: result,
+  });
+}
+
+/**
+ * POST /api/v1/interviews/turns/:turnId/feedback — AE-10 (#248). Logs the student's
+ * disagreement with one turn's score.
+ *
+ * `200` rather than `201`: the endpoint is an upsert keyed on `(turnId, userId)`, so a second
+ * submit edits the same row and there is no new resource to report.
+ */
+export async function submitGradingFeedbackController(req: Request, res: Response): Promise<void> {
+  if (!req.userId) {
+    throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+
+  const { turnId } = turnIdParamSchema.parse(req.params);
+  const body = gradingFeedbackSchema.parse(req.body);
+
+  const result = await submitGradingFeedback(turnId, req.userId, body);
 
   res.status(200).json({
     success: true,

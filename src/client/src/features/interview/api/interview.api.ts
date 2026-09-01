@@ -77,6 +77,12 @@ export function getInterviewErrorMessage(error: unknown): string {
     // được cả hai, nên dùng nguyên văn câu server đã dựng bằng buildInactivePlanMessage().
     case 'PLAN_NOT_ACTIVE':
       return error.response.data?.error?.message ?? 'Đã xảy ra lỗi, vui lòng thử lại.';
+    // AE-10 (#248). Cổng 409 của server cho lượt chưa chấm / tự chấm flashcard / lượt gợi ý.
+    // Người dùng thường KHÔNG thấy câu này: form chỉ hiện trên lượt khiếu nại được, nên nó tới
+    // được đúng khi client và server lệch nhau (tab mở lâu, sửa tay). Câu chữ vì thế nói về
+    // trạng thái của lượt, không hứa một thao tác sửa nào — mockup không phủ ca này.
+    case 'TURN_NOT_APPEALABLE':
+      return 'Lượt này không gửi phản hồi điểm được: nó chưa được AI chấm, do bạn tự chấm, hoặc là lượt gợi ý.';
     case 'VALIDATION_ERROR':
       return 'Thông tin gửi lên chưa hợp lệ.';
     default:
