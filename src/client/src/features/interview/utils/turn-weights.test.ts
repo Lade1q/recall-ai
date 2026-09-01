@@ -67,6 +67,9 @@ describe('slot → nhãn: lượt sau lượt gợi ý phải TỤT slot (#392 (
       mode: counts ? 'initial' : 'hint',
       countsTowardMastery: counts,
       sourceCitation: null,
+      source: 'ai',
+      canAppeal: true,
+      gradingFeedback: null,
     }) satisfies InterviewTurnResponse;
 
   const labelOf = (turns: InterviewTurnResponse[], id: string) =>

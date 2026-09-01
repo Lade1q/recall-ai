@@ -49,6 +49,9 @@ function makeTurn(
     mode: countsTowardMastery ? 'initial' : 'hint',
     countsTowardMastery,
     sourceCitation: null,
+    source: 'ai',
+    canAppeal: true,
+    gradingFeedback: null,
   };
 }
 

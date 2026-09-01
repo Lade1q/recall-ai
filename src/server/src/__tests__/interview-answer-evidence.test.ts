@@ -120,7 +120,10 @@ let sessionRow: {
 };
 
 function toTurnRow(t: FakeTurn) {
-  return { ...t, concept: { name: 'Variable' } };
+  // `gradingFeedbacks` is part of `turnSelect` (#248), so a row this fake hands back must carry
+  // it — an empty list is "no appeal filed". Defaulting it inside `toTurnResponse` instead would
+  // let a real query that forgot the relation return `null` silently.
+  return { ...t, concept: { name: 'Variable' }, gradingFeedbacks: [] };
 }
 
 function seedPendingTurn(): FakeTurn {

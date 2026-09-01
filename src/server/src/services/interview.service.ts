@@ -16,6 +16,7 @@ import { buildInactivePlanMessage, getReviewQueueForPlan } from './scheduling.se
 import { listConceptCheckpoints } from './checkpoint.service';
 import { recordTurnEvidence } from './interview-evidence.service';
 import type { QuestionMode, QuestionType } from '../schemas/ai-interview.schema';
+import { isTurnAppealable, toGradingFeedbackResponse } from '../utils/grading-feedback';
 import type { CreateInterviewInput } from '../schemas/interview.schema';
 import {
   DEFAULT_CONCEPTS_PER_SESSION,
@@ -129,6 +130,26 @@ const turnSelect = {
 type TurnRow = Prisma.InterviewTurnGetPayload<{ select: typeof turnSelect }>;
 
 /**
+ * The transcript read, and ONLY it, also pulls the student's appeal (AE-10, #248).
+ *
+ * Kept separate from `turnSelect` on purpose: that constant is used at seven call sites, six of
+ * which (`askQuestion`, `askCachedQuestion`, and `replayAnswer`'s poll loop) feed
+ * `toQuestionResponse`, which never reads the relation. Putting it on the shared select would
+ * add a second SQL round trip per read for a to-many that is structurally empty on a row that
+ * was just created — and `replayAnswer` does up to eleven of those per double-submit.
+ *
+ * A list because `@@unique([turnId, userId])` allows one row per user; the ownership chain
+ * `turn -> session -> user` plus the 404-not-403 rule means element 0 is the reader's or there
+ * is none. Filtering by `userId` here is not possible: this is module-level.
+ */
+const transcriptTurnSelect = {
+  ...turnSelect,
+  gradingFeedbacks: { select: { reasons: true, note: true } },
+} satisfies Prisma.InterviewTurnSelect;
+
+type TranscriptTurnRow = Prisma.InterviewTurnGetPayload<{ select: typeof transcriptTurnSelect }>;
+
+/**
  * Everything one request needs about a session, read in three queries. Snapshot only — any
  * function that writes reloads it rather than patching this object, so no caller can read a
  * value that the database has since moved past.
@@ -140,7 +161,7 @@ interface SessionView {
   /** `null` once the queue is exhausted — the session has nothing left to ask. */
   concept: { id: string; name: string } | null;
   /** Every turn of the session, oldest first — the transcript. */
-  turns: TurnRow[];
+  turns: TranscriptTurnRow[];
   /** Turns of the current concept, by `turnIndex`. */
   conceptTurns: TurnRow[];
   /** The turn still waiting for a verdict, if any. */
@@ -227,7 +248,7 @@ async function buildView(session: SessionRow): Promise<SessionView> {
   const turns = await prisma.interviewTurn.findMany({
     where: { sessionId: session.id },
     orderBy: [{ askedAt: 'asc' }, { turnIndex: 'asc' }],
-    select: turnSelect,
+    select: transcriptTurnSelect,
   });
 
   // The turns already carry their own anchors (#240), so the read path only has to name the
@@ -390,9 +411,10 @@ function toQuestionResponse(
 }
 
 function toTurnResponse(
-  turn: TurnRow,
+  turn: TranscriptTurnRow,
   documents: Map<string, CitedDocumentRow>
 ): InterviewTurnResponse {
+  const [appeal] = turn.gradingFeedbacks;
   return {
     id: turn.id,
     conceptId: turn.conceptId,
@@ -411,6 +433,14 @@ function toTurnResponse(
     // read path (#392 (c)).
     countsTowardMastery: countsTowardMastery(turn),
     sourceCitation: buildTurnCitation(turn, documents),
+    // #248 F2: the appeal gate needs this, and `verdict` cannot stand in for it — a flashcard
+    // turn carries a real verdict. `turnSelect` already selected it; it was only never mapped.
+    source: turn.source,
+    // Computed server-side and shipped, not left for the client to re-derive from
+    // `verdict`/`source`/`mode` — the same rule `countsTowardMastery` follows, and for the same
+    // reason: a second copy of the gate in a second language would drift from this one.
+    canAppeal: isTurnAppealable(turn),
+    gradingFeedback: appeal ? toGradingFeedbackResponse(appeal) : null,
   };
 }
 

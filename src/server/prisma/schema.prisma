@@ -181,6 +181,7 @@ model User {
   studyPlans        StudyPlan[]
   interviewSessions InterviewSession[]
   focusSessions     FocusSession[]
+  gradingFeedbacks  GradingFeedback[]
 
   @@map("users")
 }
@@ -384,8 +385,11 @@ model InterviewTurn {
   askedAt          DateTime      @default(now()) @map("asked_at")
   answeredAt       DateTime?     @map("answered_at")
 
-  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  concept Concept          @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  session          InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  concept          Concept           @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  /// Danh sách vì `@@unique([turnId, userId])` cho phép nhiều user về mặt kiểu — nhưng chuỗi
+  /// sở hữu `turn → session → user` cộng ownership 404 khiến MỘT lượt tối đa MỘT hàng thật.
+  gradingFeedbacks GradingFeedback[]
 
   // audit A2: idempotency cho POST /answers (I6.3) — double-submit không tạo 2 turn
   @@unique([sessionId, conceptId, turnIndex])
@@ -603,7 +607,33 @@ model SessionNote {
   @@map("session_notes")
 }
 
-// ============================================
-// Deferred Models (sẽ implement ở Sprint 5)
-// ============================================
-// - GradingFeedback: AE-10 phản hồi điểm (Sprint 5)
+/// Phản hồi của sinh viên khi không đồng ý với điểm một lượt chấm (AE-10 · UC-15).
+/// CHỈ ghi log: KHÔNG có đường nào từ bảng này về `interview_turns.score` hay
+/// `concepts.mastery_score`. Người chỉnh rubric chấm, không phải hệ thống (ngoài phạm vi MVP).
+model GradingFeedback {
+  id     String @id @default(uuid()) @db.Uuid
+  turnId String @map("turn_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  /// Các chip đã chọn. `Json` chứ KHÔNG `String[]`: schema này chưa có scalar list nào
+  /// (mọi mảng khác — `conceptQueue`, `concept_ids` — đều là `Json`), và fake-Prisma trong
+  /// test chưa từng xử lý mảng Postgres.
+  reasons Json
+  /// Lý do tự do — tùy chọn (UC-15). Rỗng CẢ `reasons` lẫn `note` bị chặn ở tầng 400.
+  note    String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  /// Endpoint là upsert (gửi lại = sửa phản hồi cũ), nên lần ghi gần nhất phải đọc được.
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  turn InterviewTurn @relation(fields: [turnId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// "Một lượt một phản hồi" — gửi lại cập nhật hàng cũ, không đẻ hàng thứ hai.
+  ///
+  /// Không khai `@@index([turnId])`: unique 2 cột ở trên đã là B-tree dẫn đầu bằng `turn_id`
+  /// nên mọi truy vấn lọc theo lượt dùng luôn được nó — thêm index riêng chỉ là ghi thêm mà
+  /// không đổi lại lợi ích đọc nào. Cùng lý lẽ đã ghi ở `InterviewEvidence`.
+  @@unique([turnId, userId])
+  @@map("grading_feedback")
+}

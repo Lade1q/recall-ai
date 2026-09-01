@@ -114,6 +114,45 @@ export interface InterviewTurnResponse {
   countsTowardMastery: boolean;
   /** Same anchor as on the pending question — the transcript cites answered turns too. */
   sourceCitation: QuestionSourceResponse | null;
+  /**
+   * Which path produced this turn. `cache_fallback` means the student self-graded it (AE-05),
+   * so the score is their own — shipped for #248, where a self-graded turn must not offer an
+   * appeal. `verdict` cannot stand in for this: a flashcard turn carries a real `score` and
+   * `verdict` (`SELF_GRADE_SCORE` / `SELF_GRADE_VERDICT`), so `verdict !== null` does not
+   * separate the two.
+   */
+  source: TurnSource;
+  /**
+   * May the student file an appeal against this turn's score (AE-10)?
+   *
+   * Shipped for the same reason as `countsTowardMastery`: `verdict`, `source` and `mode` are all
+   * on the wire and jointly sufficient to re-derive this, but re-deriving it in the client is a
+   * second definition of the gate in a second language, and the two drift. `isTurnAppealable`
+   * in `utils/grading-feedback.ts` is the only definition; this field is its answer.
+   */
+  canAppeal: boolean;
+  /**
+   * The student's appeal against this turn's score (AE-10), or `null` when none was filed.
+   *
+   * Carries the CONTENT, not a boolean flag: reopening the panel must re-render the form with
+   * what was submitted so it can be edited (last AC of #248), and a flag would cost a second
+   * round-trip to do it.
+   */
+  gradingFeedback: GradingFeedbackResponse | null;
+}
+
+/**
+ * One row of `grading_feedback` as the client sees it (AE-10 · UC-15).
+ *
+ * Deliberately omits `id`, `createdAt` and `updatedAt`: the client re-renders the form from
+ * this and never addresses the row directly — the endpoint keys on `(turnId, userId)`, not on
+ * a feedback id.
+ */
+export interface GradingFeedbackResponse {
+  /** The chips the student picked; empty when they only wrote free text. */
+  reasons: string[];
+  /** Free-form reason, optional per UC-15. */
+  note: string | null;
 }
 
 /** A weak prerequisite the traceback queued ahead of the concept just finished (AE-07). */

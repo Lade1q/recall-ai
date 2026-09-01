@@ -102,6 +102,34 @@ export interface InterviewTurnResponse {
    */
   countsTowardMastery: boolean;
   sourceCitation: QuestionSourceResponse | null;
+  /**
+   * Đường đã sinh ra lượt này. `cache_fallback` = sinh viên tự chấm (AE-05) nên điểm là của
+   * chính họ. KHÔNG suy được từ `verdict`: lượt flashcard vẫn mang `verdict` thật.
+   */
+  source: TurnSource;
+  /**
+   * Lượt này có gửi phản hồi điểm được không (AE-10)?
+   *
+   * ⛔ Client KHÔNG tự suy từ `verdict`/`source`/`mode` — cùng luật với `countsTowardMastery`:
+   * suy lại ở đây là dựng bản thứ hai của cổng bằng một ngôn ngữ khác, và hai bản sẽ trôi khỏi
+   * nhau. Server quyết bằng `isTurnAppealable`, client chỉ đọc cờ này.
+   */
+  canAppeal: boolean;
+  /**
+   * Phản hồi của sinh viên về điểm lượt này (AE-10), `null` khi chưa gửi.
+   *
+   * Mang NỘI DUNG chứ không phải cờ boolean: mở lại panel phải dựng lại form với đúng thứ đã
+   * gửi để sửa được, và một cờ sẽ tốn thêm một vòng gọi để làm việc đó.
+   */
+  gradingFeedback: GradingFeedbackResponse | null;
+}
+
+/** Một hàng `grading_feedback` như client thấy (AE-10 · UC-15). */
+export interface GradingFeedbackResponse {
+  /** Các chip đã chọn; rỗng khi sinh viên chỉ viết lý do tự do. */
+  reasons: string[];
+  /** Lý do tự do, tùy chọn theo UC-15. */
+  note: string | null;
 }
 
 export interface InterviewFallbackResponse {
