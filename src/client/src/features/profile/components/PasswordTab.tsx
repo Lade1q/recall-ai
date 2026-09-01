@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
-import { isAxiosError } from 'axios';
 import { AlertCircle, Check } from 'lucide-react';
-import { profileApi } from '../api/profile.api';
+import { getChangePasswordErrorMessage, profileApi } from '../api/profile.api';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -48,12 +47,8 @@ export function PasswordTab() {
       setNewPassword('');
       setConfirmPassword('');
       setSuccess(true);
-    } catch (err) {
-      if (isAxiosError(err) && err.response?.data?.error?.code === 'WRONG_PASSWORD') {
-        setServerError('Mật khẩu hiện tại không đúng. Mật khẩu của bạn chưa bị thay đổi.');
-      } else {
-        setServerError('Đã xảy ra lỗi, vui lòng thử lại.');
-      }
+    } catch (error) {
+      setServerError(getChangePasswordErrorMessage(error));
     } finally {
       setSaving(false);
     }
