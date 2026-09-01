@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
 import {
   Dialog,
   DialogClose,
@@ -231,9 +232,9 @@ export default function PlansPage() {
           exists separately from the dashboard, which is not something a student needs told.
           The title and the three tabs already say what the page holds. */}
       <header className="mb-6.5 flex flex-wrap items-center justify-between gap-6">
-        <h1 className="font-heading text-[30px] leading-[1.15] tracking-[-0.02em]">
+        <Heading as="h1" size="page">
           Kế hoạch ôn tập
-        </h1>
+        </Heading>
         <Button asChild>
           <Link to="/plan/new">
             <Plus />
@@ -376,9 +377,9 @@ function LoadErrorNotice({ onRetry, isLoading }: { onRetry: () => void; isLoadin
   return (
     <div className="border-border bg-background rounded-xl border px-7 py-6">
       <div className="max-w-140 mx-auto my-6 text-center">
-        <h2 className="font-heading mb-2 text-[21px] tracking-[-0.02em]">
+        <Heading as="h2" size="section" className="mb-2">
           Không thể tải danh sách kế hoạch
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
           Đã xảy ra lỗi khi tải danh sách. Bạn vẫn có thể tạo kế hoạch mới ở trên, hoặc thử tải lại.
         </p>
@@ -418,9 +419,9 @@ function EmptyState() {
             <path d="M7.6 10.6l2.4-2.6M7.6 13.4l2.4 2.6M14.2 7.6l2.5 2.6M14.2 16.4l2.5-2.6" />
           </svg>
         </div>
-        <h2 className="font-heading mb-2 text-[21px] tracking-[-0.02em]">
+        <Heading as="h2" size="section" className="mb-2">
           Chưa có kế hoạch ôn tập nào
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
           Tải lên một chương bài giảng, hệ thống sẽ tách nó thành các khái niệm, tìm khái niệm nào
           là nền của khái niệm nào, rồi xếp lịch ôn theo đúng thứ tự đó.
