@@ -9,14 +9,20 @@ import { planApi } from '@/features/study-planner/api/plan.api';
 import { toast } from 'sonner';
 import type { FocusSessionListItem } from '@/features/focus/types/focus.types';
 import type { InterviewSessionListItem } from '@/features/history/types/history.types';
+import type { PlanSummary } from '@/features/study-planner/types/concept';
 
 // Cả ba nguồn của màn đều mock: `/interviews` (tab kia), `/plans` (tên kế hoạch + bộ lọc), và
 // `/focus-sessions` (tab này). Không có backend trong jsdom.
-vi.mock('@/features/focus/api/focus.api', () => ({
-  focusSessionApi: { list: vi.fn(), end: vi.fn() },
-  getFocusSessionErrorMessage: () => 'Không thể hủy phiên học.',
-  isTerminalFocusSessionError: vi.fn(() => false),
-}));
+vi.mock('@/features/focus/api/focus.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/focus/api/focus.api')>();
+  return {
+    ...actual,
+    focusSessionApi: { list: vi.fn(), end: vi.fn() },
+    // Phân loại terminal vẫn cần điều khiển theo từng ca. Riêng mapper câu lỗi là hàm thuần nên
+    // dùng bản thật: mock nó từng che mất việc call-site truyền nhầm context `create` cho PATCH.
+    isTerminalFocusSessionError: vi.fn(() => false),
+  };
+});
 vi.mock('@/features/history/api/history.api', () => ({
   historyApi: { listInterviews: vi.fn() },
   PAGE_SIZE: 20,
@@ -72,6 +78,24 @@ function focusSession(over: Partial<FocusSessionListItem> = {}): FocusSessionLis
     strictMode: false,
     startedAt: new Date().toISOString(),
     endedAt: new Date().toISOString(),
+    ...over,
+  };
+}
+
+function planSummary(over: Partial<PlanSummary> = {}): PlanSummary {
+  return {
+    id: 'plan-1',
+    name: 'Kế hoạch A',
+    deadline: null,
+    status: 'active',
+    conceptCount: 1,
+    masteryDistribution: { strong: 0, learning: 0, weak: 0, untested: 1 },
+    analysisStatus: 'done',
+    analysisStartedAt: null,
+    analysisErrorMessage: null,
+    document: null,
+    createdAt: new Date(2026, 7, 1).toISOString(),
+    reviewQueueConceptCount: 1,
     ...over,
   };
 }
@@ -146,6 +170,7 @@ describe('HistoryPage — tab Phiên học', () => {
       focusedSeconds: 0,
       endedAt: null,
     });
+    listPlans.mockResolvedValue([planSummary()]);
     listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
     endFocus.mockResolvedValue({} as never);
 
@@ -153,6 +178,7 @@ describe('HistoryPage — tab Phiên học', () => {
 
     const current = await screen.findByRole('region', { name: 'Phiên học đang chạy' });
     expect(within(current).getByText(/Ngăn xếp/)).toBeInTheDocument();
+    expect(within(current).getByText(/Bắt đầu lúc .* · Kế hoạch A/)).toBeInTheDocument();
     // Phiên running là trạng thái hiện tại, không được lẫn vào danh sách lịch sử phía dưới.
     expect(screen.queryByRole('region', { name: 'Danh sách phiên học' })).not.toBeInTheDocument();
 
@@ -173,10 +199,49 @@ describe('HistoryPage — tab Phiên học', () => {
     expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
 
+  it('phiên tự do không có concept ⇒ giữ nhãn phạm vi và tên fallback', async () => {
+    listFocus.mockResolvedValue([
+      focusSession({
+        planId: null,
+        concepts: [],
+        status: 'running',
+        endedAt: null,
+      }),
+    ]);
+
+    await openFocusTab();
+
+    const current = await screen.findByRole('region', { name: 'Phiên học đang chạy' });
+    expect(
+      within(current).getByRole('heading', { name: 'Phiên học tập trung' })
+    ).toBeInTheDocument();
+    expect(within(current).getByText(/Bắt đầu lúc .* · Phiên tự do/)).toBeInTheDocument();
+  });
+
+  it('kế hoạch chưa tra được tên ⇒ không bịa nhãn kế hoạch hoặc gọi là phiên tự do', async () => {
+    listFocus.mockResolvedValue([
+      focusSession({
+        status: 'running',
+        endedAt: null,
+      }),
+    ]);
+
+    await openFocusTab();
+
+    const current = await screen.findByRole('region', { name: 'Phiên học đang chạy' });
+    expect(within(current).getByText(/^Bắt đầu lúc \d{2}:\d{2}$/)).toBeInTheDocument();
+    expect(within(current).queryByText(/Phiên tự do/)).not.toBeInTheDocument();
+  });
+
   it('hủy phiên đang chạy hỏng ⇒ giữ nguyên phiên và báo lỗi', async () => {
     const running = focusSession({ status: 'running', endedAt: null });
     listFocus.mockResolvedValue([running]);
-    endFocus.mockRejectedValue(new Error('mạng hỏng'));
+    // Dùng 404 thật của Axios shape để context có ý nghĩa: `end` nói "phiên học", còn nếu
+    // call-site bị đổi nhầm sang `create` sẽ nói "kế hoạch" và test phải đỏ.
+    endFocus.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 404, data: { error: { code: 'NOT_FOUND' } } },
+    });
 
     await openFocusTab();
     await userEvent.click(
@@ -187,12 +252,40 @@ describe('HistoryPage — tab Phiên học', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không thể hủy phiên học.'));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith('Không tìm thấy phiên học này.'));
     // Hỏng thì dialog ở lại để người dùng hiểu thao tác chưa hoàn tất; đóng dialog mới thấy lại
     // card phía sau, và card phải còn nguyên vì danh sách chưa reload.
     await userEvent.click(screen.getByRole('button', { name: 'Giữ phiên' }));
     expect(screen.getByRole('region', { name: 'Phiên học đang chạy' })).toBeInTheDocument();
     expect(listFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it('đang gửi PATCH ⇒ Escape không đóng hộp xác nhận', async () => {
+    const running = focusSession({ status: 'running', endedAt: null });
+    listFocus.mockResolvedValueOnce([running]).mockResolvedValueOnce([]);
+    let resolveEnd!: (value: unknown) => void;
+    endFocus.mockReturnValue(
+      new Promise((resolve) => {
+        resolveEnd = resolve;
+      }) as never
+    );
+
+    await openFocusTab();
+    await userEvent.click(
+      within(await screen.findByRole('region', { name: 'Phiên học đang chạy' })).getByRole(
+        'button',
+        { name: 'Hủy phiên đang chạy' }
+      )
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Hủy phiên' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Hủy phiên' })).toBeDisabled());
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('dialog', { name: 'Hủy phiên đang chạy?' })).toBeInTheDocument();
+
+    // Khép promise để test không để lại một update bất đồng bộ treo qua ca kế tiếp.
+    await act(async () => resolveEnd({}));
+    expect(await screen.findByText('Chưa có phiên học nào')).toBeInTheDocument();
   });
 
   it('phiên đã được nơi khác kết thúc ⇒ tải lại thay vì giữ card running cũ', async () => {
