@@ -82,6 +82,7 @@ export default function PlansPage() {
   const [hasError, setHasError] = useState(false);
   const [activeTab, setActiveTab] = useState<PlanStatus>('active');
   const [view, setView] = useState<ViewValue>(DEFAULT_VIEW);
+  const [isRetryingPlans, setIsRetryingPlans] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
   const [planPendingDelete, setPlanPendingDelete] = useState<PlanSummary | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -96,6 +97,16 @@ export default function PlansPage() {
       setHasError(true);
     }
   }, []);
+
+  /** Theo dõi riêng retry `/plans`; response `[]` hợp lệ vẫn chuyển trang về onboarding. */
+  const retryPlans = useCallback(async (): Promise<void> => {
+    setIsRetryingPlans(true);
+    try {
+      await loadPlans();
+    } finally {
+      setIsRetryingPlans(false);
+    }
+  }, [loadPlans]);
 
   /**
    * Điểm vào của #405: banner trên lịch đưa người dùng sang đúng chỗ xác nhận đồ thị. Đổi HAI
@@ -207,10 +218,12 @@ export default function PlansPage() {
   }
 
   // A poll that fails after plans are already on screen keeps the stale-but-useful list
-  // (loadPlans never nulls `plans`), so the full-width error is reserved for the case where
-  // the initial load left us with nothing to show.
+  // (`loadPlans` never nulls `plans`). Chỉ initial load hỏng mới đưa view Kế hoạch vào error;
+  // view Lịch vẫn render vì nguồn `/schedule` độc lập.
   const showLoadError = hasError && plans === null;
-  const hasNoPlansAtAll = (plans ?? []).length === 0;
+  // `null` là "không biết" chứ không phải danh sách rỗng. Chỉ response `[]` thật mới được đưa
+  // người dùng vào onboarding 0 kế hoạch; lỗi `/plans` vẫn phải để màn Lịch độc lập sống.
+  const hasNoPlansAtAll = plans !== null && plans.length === 0;
 
   return (
     <div>
@@ -229,9 +242,7 @@ export default function PlansPage() {
         </Button>
       </header>
 
-      {showLoadError ? (
-        <LoadErrorNotice onRetry={() => void loadPlans()} />
-      ) : hasNoPlansAtAll ? (
+      {hasNoPlansAtAll ? (
         <EmptyState />
       ) : (
         /* Bộ chuyển view — CỐ Ý nhìn khác dải tab trạng thái ngay bên dưới (pill trên nền
@@ -262,57 +273,68 @@ export default function PlansPage() {
               reset. Giữ mount là cách duy nhất để hai thứ đó cùng sống. Giá phải trả: lịch tải
               ngay khi mở `/plans`, kể cả khi người dùng không bấm sang — một request thay vì N. */}
           <TabsContent value="schedule" forceMount className="data-[state=inactive]:hidden">
-            <ScheduleView plans={plans ?? []} onShowDraftPlans={showDraftPlans} />
+            <ScheduleView
+              plans={plans}
+              isPlansLoading={isRetryingPlans}
+              onRetryPlans={() => void retryPlans()}
+              onShowDraftPlans={showDraftPlans}
+            />
           </TabsContent>
 
           <TabsContent value="plans">
-            <div
-              role="tablist"
-              aria-label="Lọc theo trạng thái"
-              className="border-border mb-5.5 flex items-center gap-1.5 border-b"
-            >
-              {TABS.map(({ status, label }) => (
-                <button
-                  key={status}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === status}
-                  onClick={() => setActiveTab(status)}
-                  className={`-mb-px cursor-pointer border-b-2 px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
-                    activeTab === status
-                      ? 'border-foreground text-foreground'
-                      : 'text-muted-foreground hover:text-foreground border-transparent'
-                  }`}
-                >
-                  {label}
-                  <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">
-                    {counts[status]}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            {visiblePlans.length === 0 ? (
-              <p className="text-muted-foreground py-10 text-center text-sm">
-                {activeTab === 'active' && 'Chưa có kế hoạch nào đang hoạt động.'}
-                {activeTab === 'draft' && 'Không có kế hoạch nào đang chờ xác nhận.'}
-                {activeTab === 'archived' && 'Chưa lưu trữ kế hoạch nào.'}
-              </p>
+            {showLoadError ? (
+              <LoadErrorNotice isLoading={isRetryingPlans} onRetry={() => void retryPlans()} />
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-4">
-                {visiblePlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    now={now}
-                    isBusy={busyPlanId === plan.id}
-                    onArchive={handleArchive}
-                    onRestore={handleRestore}
-                    onReanalyze={handleReanalyze}
-                    onDelete={setPlanPendingDelete}
-                  />
-                ))}
-              </div>
+              <>
+                <div
+                  role="tablist"
+                  aria-label="Lọc theo trạng thái"
+                  className="border-border mb-5.5 flex items-center gap-1.5 border-b"
+                >
+                  {TABS.map(({ status, label }) => (
+                    <button
+                      key={status}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === status}
+                      onClick={() => setActiveTab(status)}
+                      className={`-mb-px cursor-pointer border-b-2 px-3 py-2.5 text-[13.5px] font-medium transition-colors ${
+                        activeTab === status
+                          ? 'border-foreground text-foreground'
+                          : 'text-muted-foreground hover:text-foreground border-transparent'
+                      }`}
+                    >
+                      {label}
+                      <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">
+                        {counts[status]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                {visiblePlans.length === 0 ? (
+                  <p className="text-muted-foreground py-10 text-center text-sm">
+                    {activeTab === 'active' && 'Chưa có kế hoạch nào đang hoạt động.'}
+                    {activeTab === 'draft' && 'Không có kế hoạch nào đang chờ xác nhận.'}
+                    {activeTab === 'archived' && 'Chưa lưu trữ kế hoạch nào.'}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(310px,1fr))] gap-4">
+                    {visiblePlans.map((plan) => (
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        now={now}
+                        isBusy={busyPlanId === plan.id}
+                        onArchive={handleArchive}
+                        onRestore={handleRestore}
+                        onReanalyze={handleReanalyze}
+                        onDelete={setPlanPendingDelete}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
@@ -347,11 +369,10 @@ export default function PlansPage() {
 }
 
 /**
- * Shown when the initial list fetch fails. It shares EmptyState's card so the two occupy the
- * same slot identically; the header above still offers "Tạo kế hoạch mới", so this only needs
- * to explain the failure and offer a retry — not stand in for the whole screen.
+ * Hiện riêng trong view Kế hoạch khi initial list fetch hỏng. Header vẫn có "Tạo kế hoạch mới",
+ * nên khối này chỉ giải thích lỗi và cho retry — không thay mặt cả trang hoặc màn Lịch.
  */
-function LoadErrorNotice({ onRetry }: { onRetry: () => void }) {
+function LoadErrorNotice({ onRetry, isLoading }: { onRetry: () => void; isLoading: boolean }) {
   return (
     <div className="border-border bg-background rounded-xl border px-7 py-6">
       <div className="max-w-140 mx-auto my-6 text-center">
@@ -361,7 +382,8 @@ function LoadErrorNotice({ onRetry }: { onRetry: () => void }) {
         <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
           Đã xảy ra lỗi khi tải danh sách. Bạn vẫn có thể tạo kế hoạch mới ở trên, hoặc thử tải lại.
         </p>
-        <Button variant="outline" onClick={onRetry}>
+        <Button variant="outline" disabled={isLoading} onClick={onRetry}>
+          {isLoading && <Loader2 className="animate-spin" />}
           Thử lại
         </Button>
       </div>

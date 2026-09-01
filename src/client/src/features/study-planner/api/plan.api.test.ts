@@ -9,6 +9,27 @@ vi.mock('@/lib/apiClient', () => ({
 
 const mockedGet = apiClient.get as unknown as ReturnType<typeof vi.fn>;
 
+describe('planApi.listPlans — kiểm tra payload tại biên', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('trả danh sách plans hợp lệ', async () => {
+    const plans = [{ id: 'plan-1' }];
+    mockedGet.mockResolvedValue({ data: { success: true, data: { plans } } });
+
+    await expect(planApi.listPlans()).resolves.toBe(plans);
+  });
+
+  it('ném khi server trả data.plans không phải mảng', async () => {
+    mockedGet.mockResolvedValue({ data: { success: true, data: { plans: undefined } } });
+
+    await expect(planApi.listPlans()).rejects.toThrow(
+      'Invalid /plans response: data.plans must be an array'
+    );
+  });
+});
+
 /**
  * Issue #203. XHR builds the response Blob from only the *essence* of Content-Type, so
  * `text/plain; charset=utf-8` arrives as `text/plain`. Nothing in the app notices until the
