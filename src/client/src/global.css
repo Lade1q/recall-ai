@@ -438,8 +438,13 @@
      ⚠️ `letter-spacing: -0.02em` is inherited from the serif era and has
      NOT been re-decided for a monospace face. JetBrains Mono and Geist
      Mono (`--font-mono`) both advance at exactly 0.600em, so they share
-     one column grid — and this line is the only thing breaking it.
-     Quân's call; the drift numbers are in the PR body.
+     one column grid, and tracking is what takes headings off it.
+
+     This line is NOT the only offender, though — measured, three values
+     reach `.font-heading` elements: -0.02em here, `tracking-tight`
+     (-0.025em) at 7 call sites, and -0.015em on the `card` variant in
+     heading.tsx. Re-deciding tracking means deciding all three, not
+     just this one. Quân's call; drift numbers are in the PR body.
 
      ⚠️ `font-family` below is SHADOWED: `@theme inline` makes Tailwind
      emit its own `.font-heading` utility with the family inlined, and
