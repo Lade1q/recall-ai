@@ -54,7 +54,7 @@ function SessionTally({
         </span>
       </span>
       {strictMode && (
-        <span className="text-focus-session flex items-center gap-1.5 px-0 min-[560px]:px-2.5">
+        <span className="text-focus-session-text flex items-center gap-1.5 px-0 min-[560px]:px-2.5">
           <ShieldCheck className="size-3.5 shrink-0" />
           Nghiêm ngặt đang bật
         </span>
@@ -629,7 +629,7 @@ export function RunningSession({
                   >
                     <Button
                       type="button"
-                      className="bg-focus-session/12 border-focus-session/45 text-focus-session hover:bg-focus-session/20 border font-semibold"
+                      className="bg-focus-session/12 border-focus-session/45 text-focus-session-text hover:bg-focus-session/20 border font-semibold"
                       onClick={() =>
                         timer.runState === 'running' ? timer.pause() : timer.resume()
                       }

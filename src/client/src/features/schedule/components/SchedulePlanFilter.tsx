@@ -76,12 +76,12 @@ export function SchedulePlanFilter({
       <DropdownMenu>
         <DropdownMenuTrigger
           className={`hover:bg-muted py-1.75 ml-auto inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border px-3 text-[12.5px] ${
-            isFiltering ? 'border-primary text-primary' : 'border-border text-foreground'
+            isFiltering ? 'border-primary text-primary-text' : 'border-border text-foreground'
           }`}
         >
           Kế hoạch
           <span
-            className={`font-mono text-[11.5px] tabular-nums ${isFiltering ? 'text-primary' : 'text-muted-foreground'}`}
+            className={`font-mono text-[11.5px] tabular-nums ${isFiltering ? 'text-primary-text' : 'text-muted-foreground'}`}
           >
             {visibleCount}/{activePlans.length}
           </span>
@@ -90,11 +90,11 @@ export function SchedulePlanFilter({
 
         <DropdownMenuContent className="flex max-h-[min(360px,60vh)] w-72 flex-col p-0">
           <div className="border-border/55 flex flex-none items-center justify-between gap-2 border-b px-3.5 py-2">
-            <span className="text-muted-foreground text-[10.5px] font-semibold uppercase tracking-[0.06em]">
+            <span className="text-muted-foreground text-[11px] font-semibold uppercase tracking-[0.06em]">
               Hiện trên lịch
             </span>
             <DropdownMenuItem
-              className="text-primary px-1 py-0.5 text-[11.5px]"
+              className="text-primary-text px-1 py-0.5 text-[11.5px]"
               onSelect={(event) => {
                 event.preventDefault();
                 onSetHiddenPlans(isFiltering ? [] : activePlans.map((plan) => plan.id));

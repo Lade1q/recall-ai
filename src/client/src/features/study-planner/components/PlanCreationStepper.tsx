@@ -21,7 +21,7 @@ export function PlanCreationStepper({ step, analysisStatus = 'idle' }: PlanCreat
             'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border',
             step === 1
               ? 'bg-primary text-primary-foreground border-primary font-mono text-[11px]'
-              : 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-primary/40 bg-primary/10 text-primary-text'
           )}
         >
           {step === 1 ? (
@@ -57,7 +57,7 @@ export function PlanCreationStepper({ step, analysisStatus = 'idle' }: PlanCreat
               ? 'border-border font-mono text-[11px]'
               : analysisStatus === 'failed'
                 ? 'border-destructive/40 bg-destructive/10 text-destructive'
-                : 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-primary/40 bg-primary/10 text-primary-text'
           )}
         >
           {step === 1 || analysisStatus === 'idle' ? (

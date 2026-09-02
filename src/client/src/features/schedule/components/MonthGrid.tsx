@@ -186,7 +186,7 @@ export function MonthGrid({
           {WEEKDAY_HEADS.map((head) => (
             <div
               key={head}
-              className="border-border text-muted-foreground border-r px-2.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] last:border-r-0 max-[680px]:px-1 max-[680px]:py-1.5 max-[680px]:text-[9.5px]"
+              className="border-border text-muted-foreground border-r px-2.5 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] last:border-r-0 max-[680px]:px-1 max-[680px]:py-1.5"
             >
               {head}
             </div>
@@ -304,7 +304,7 @@ const DayCell = memo(function DayCell({
         </span>
         {day !== undefined && (
           <span
-            className="text-muted-foreground font-mono text-[10px] max-[680px]:hidden"
+            className="text-muted-foreground font-mono text-[11px] max-[680px]:hidden"
             // Số phút chỉ đáng tin ở mức "ngày này nặng hơn ngày kia" (`estimatedMinutes` đổi theo
             // phiên nguồn) — nên nó là một con số, không phải thanh mật độ hay phần trăm.
           >
@@ -327,7 +327,7 @@ const DayCell = memo(function DayCell({
       ))}
 
       {hiddenChipCount > 0 && (
-        <span className="text-muted-foreground pl-[5px] text-[10px] max-[680px]:hidden">
+        <span className="text-muted-foreground pl-[5px] text-[11px] max-[680px]:hidden">
           +{hiddenChipCount} mục nữa
         </span>
       )}
@@ -346,7 +346,7 @@ const DayCell = memo(function DayCell({
             />
           ))}
           {items.length > dotCount && (
-            <b className="text-muted-foreground ml-px font-mono text-[10px] font-semibold">
+            <b className="text-muted-foreground ml-px font-mono text-[11px] font-semibold">
               +{items.length - dotCount}
             </b>
           )}

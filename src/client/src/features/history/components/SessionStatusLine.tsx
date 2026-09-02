@@ -21,7 +21,7 @@ const STATUS_STYLE: Record<
   paused: {
     icon: Pause,
     label: 'Đang tạm dừng — tiếp tục được',
-    className: 'text-focus-session',
+    className: 'text-focus-session-text',
   },
   abandoned: {
     icon: TriangleAlert,
@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<
   active: {
     icon: Radio,
     label: 'Đang diễn ra',
-    className: 'text-primary',
+    className: 'text-primary-text',
   },
 };
 

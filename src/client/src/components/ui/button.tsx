@@ -33,7 +33,7 @@ const buttonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground aria-expanded:bg-accent',
         destructive:
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:outline-destructive',
-        link: 'text-primary underline-offset-4 hover:underline active:scale-100',
+        link: 'text-primary-text underline-offset-4 hover:underline active:scale-100',
       },
       size: {
         // Padding 10px/18px của `.btn` — cao 40px khi render.

@@ -30,14 +30,14 @@ export default function ProfilePage() {
         <TabsList variant="line" className="border-border mb-7 w-full gap-0 border-b">
           <TabsTrigger
             value="info"
-            className="gap-1.75 text-muted-foreground after:bg-primary hover:text-foreground data-active:font-semibold data-active:text-primary px-5 py-2.5 text-[14px]"
+            className="gap-1.75 text-muted-foreground after:bg-primary hover:text-foreground data-active:font-semibold data-active:text-primary-text px-5 py-2.5 text-[14px]"
           >
             <User size={16} />
             Thông tin cá nhân
           </TabsTrigger>
           <TabsTrigger
             value="password"
-            className="gap-1.75 text-muted-foreground after:bg-primary hover:text-foreground data-active:font-semibold data-active:text-primary px-5 py-2.5 text-[14px]"
+            className="gap-1.75 text-muted-foreground after:bg-primary hover:text-foreground data-active:font-semibold data-active:text-primary-text px-5 py-2.5 text-[14px]"
           >
             <Lock size={16} />
             Đổi mật khẩu

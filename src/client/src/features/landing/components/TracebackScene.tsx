@@ -320,7 +320,7 @@ export function TracebackScene() {
           </div>
 
           <aside className="border-border bg-card flex flex-col gap-4 rounded-xl border p-6">
-            <div className="text-muted-foreground flex items-center justify-between font-mono text-[10.5px] uppercase tracking-[0.11em]">
+            <div className="text-muted-foreground flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.11em]">
               <span>Kết quả truy ngược</span>
               <span>
                 {result.depth === null ? 'không có nền yếu' : `dừng ở tầng ${result.depth}/2`}
@@ -373,7 +373,7 @@ export function TracebackScene() {
             </p>
 
             <div className="border-border text-muted-foreground mt-auto border-t pt-3.5">
-              <div className="font-mono text-[10.5px]">
+              <div className="font-mono text-[11px]">
                 BFS · max_depth 2 · ngưỡng {MASTERY_THRESHOLD.toFixed(2)} · tất định
               </div>
               <p className="mt-1.5 text-[12.5px] leading-[1.55]">
