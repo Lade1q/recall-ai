@@ -440,11 +440,21 @@
      Mono (`--font-mono`) both advance at exactly 0.600em, so they share
      one column grid, and tracking is what takes headings off it.
 
-     This line is NOT the only offender, though — measured, three values
-     reach `.font-heading` elements: -0.02em here, `tracking-tight`
-     (-0.025em) at 7 call sites, and -0.015em on the `card` variant in
-     heading.tsx. Re-deciding tracking means deciding all three, not
-     just this one. Quân's call; drift numbers are in the PR body.
+     This line is NOT the only offender, though — three values reach
+     heading elements: -0.02em here, `tracking-tight` (-0.025em) at 12
+     call sites, and -0.015em on the `card` variant in heading.tsx.
+     Re-deciding tracking means deciding all three, not just this one.
+
+     Count it the same way or you will get a different number: for each
+     `tracking-tight`, take the enclosing OPEN TAG (back to the nearest
+     `<`, forward to the first `>` at brace depth 0, so a multi-line
+     `{cn(...)}` is not cut short) and keep it if that tag matches
+     `font-heading|headingVariants|<Heading\b`. 15 occurrences in
+     product code, 12 on headings, 3 in MainLayout that are not.
+     Grepping only for the class string misses 5 — those pass the font
+     through the `<Heading>` component and never spell it out.
+
+     Quân's call; drift numbers are in the PR body.
 
      ⚠️ `font-family` below is SHADOWED: `@theme inline` makes Tailwind
      emit its own `.font-heading` utility with the family inlined, and

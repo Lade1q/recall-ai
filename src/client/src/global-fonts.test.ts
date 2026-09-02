@@ -20,7 +20,20 @@ import { describe, expect, it } from 'vitest';
  */
 
 const CLIENT_ROOT = join(__dirname, '..');
-const css = readFileSync(join(__dirname, 'global.css'), 'utf-8');
+const cssRaw = readFileSync(join(__dirname, 'global.css'), 'utf-8');
+
+/**
+ * `global.css` với mọi comment đã gỡ — đúng phần trình duyệt thật sự đọc.
+ *
+ * Không phải chi tiết vặt: tệp này có ~50 dòng comment ngay trên khối
+ * `.font-heading`, và một dấu ĐÓNG-COMMENT lạc vào giữa sẽ đóng nó sớm, biến
+ * phần còn lại thành khai báo rác và **nuốt luôn cả quy tắc phía dưới**. Đo
+ * được: `vite build` vẫn rc=0, `eslint` vẫn xanh, bundle **mất hẳn**
+ * `.font-heading{font-weight:700;…}` — và mọi assert đọc văn bản THÔ vẫn xanh,
+ * vì chuỗi `font-weight: 700;` còn nguyên trong tệp, chỉ là nằm trong comment.
+ * Phân tích sau khi gỡ comment là thứ phân biệt hai ca đó.
+ */
+const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '');
 const pkgJson = JSON.parse(readFileSync(join(CLIENT_ROOT, 'package.json'), 'utf-8'));
 
 /** Số gói fontsource mà `global.css` đang import. Đối chứng dương dùng số CHÍNH XÁC. */
@@ -84,7 +97,10 @@ function packageCss(entry: string): string {
 }
 
 describe('global.css — giao kèo token font ↔ gói được import', () => {
-  it('đối chứng dương: đọc được đúng 3 gói, 3 token, và mọi tệp CSS của gói đều tồn tại', () => {
+  it('đối chứng dương: comment cân bằng, đọc được đúng 3 gói, 3 token, mọi tệp CSS của gói tồn tại', () => {
+    // Comment lệch cặp -> phần dưới bị nuốt. Hỏi trên văn bản THÔ, vì sau khi
+    // gỡ comment thì bằng chứng đã mất.
+    expect((cssRaw.match(/\/\*/g) ?? []).length).toBe((cssRaw.match(/\*\//g) ?? []).length);
     const imports = fontImports();
     expect(imports.map((i) => i.pkg)).toHaveLength(EXPECTED_FONT_PACKAGES);
     expect(fontDeclarationLines()).toHaveLength(EXPECTED_FONT_PACKAGES * 2);
