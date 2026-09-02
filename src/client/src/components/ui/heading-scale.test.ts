@@ -16,16 +16,25 @@ import { describe, expect, it } from 'vitest';
  * ## Ranh giới của cổng — KHAI ra, không vá
  *
  * Cổng có ranh giới được khai thì dùng được; ranh giới ẨN thì nguy hơn không có cổng.
- * Mỗi dạng dưới đây đã kiểm bằng cách dựng thật hai lần (có probe / không probe) rồi
- * so CSS phát ra, kèm đối chứng âm `font-size:999px` = 0 ở cả hai bản.
+ * Mỗi dạng dưới đây đã kiểm bằng cách dựng thật hai lần (có probe / không probe) rồi so
+ * CSS phát ra — grep theo KHAI BÁO `font-size:`, không theo tên selector (Tailwind escape
+ * dấu chấm, `.text-\[1\.3rem\]`, nên grep tên là trượt) — kèm đối chứng âm và một đối
+ * chứng dương vi sai để chắc cả dây sửa→quét→dựng→grep có bắn.
+ *
+ * ⚠️ Số trong các ví dụ dưới đây cố ý viết `…`. Tailwind quét **text thô, KHÔNG bóc
+ * comment**, nên một ví dụ viết đủ số sẽ thành rule CSS **thật** trong bản dựng sản phẩm
+ * mà không thẻ nào dùng. Đo được: viết đủ số ⇒ **+432 byte / 10 rule** CSS chết. Bộ audit của
+ * #472 KHÔNG bắt được, vì nó bóc comment trước khi trích candidate — hai bộ gác trong
+ * cùng repo bất đối xứng ở đúng điểm này. Cách viết đủ nằm ở PR mở cổng này.
  *
  * **Thoát PHÂN LOẠI nhưng KHÔNG thoát kiểm kê thẻ** — `KNOWN` đứng yên, nhưng cột token
  * của `HEADING_CENSUS` lệch ⇒ `toEqual` đỏ ⇒ vẫn buộc người sửa phải nhìn:
  *
- *   text-[1.3rem] · text-[2em]        regex phân loại ép đuôi `px`
- *   text-2xl/8 · text-[32px]/[1.2]    modifier line-height phá neo `$`
- *   !text-[33px] · text-[34px]!       `important` hai đầu phá neo `^` và `$`
- *   text-[calc(1rem+8px)]             `[0-9.]+` không nuốt `calc(...)` (cả hai dạng dấu cách)
+ *   giá trị tuỳ ý đuôi rem, đuôi em     regex phân loại ép đuôi px
+ *   cỡ đặt tên hoặc tuỳ ý, kèm          modifier line-height sau dấu gạch chéo phá neo `$`
+ *     modifier line-height có ngoặc
+ *   important ở đầu HOẶC cuối token     phá neo `^` và `$`
+ *   giá trị tuỳ ý dạng calc(...)        `[0-9.]+` không nuốt calc (cả hai dạng dấu cách)
  *
  * **Mù hoàn toàn** — cả `KNOWN` lẫn kiểm kê đều đứng yên, đã đo:
  *
@@ -33,9 +42,9 @@ import { describe, expect, it } from 'vitest';
  *   chuỗi class trong tệp `.ts`       `walk()` chỉ nhặt `.tsx`
  *   bù trừ trong CÙNG một tệp         xoá 1 thẻ 1-token, thêm 1 thẻ 1-token có bẫy
  *
- * **Đã LOẠI, không phải lỗ:** `text-[32px]/1.2` (modifier không ngoặc) — dựng thật không
- * sinh selector nào. Nó vẫn làm kiểm kê đỏ vì là một token `text-` mới; đó là báo động về
- * một class CHẾT, không phải báo động sai về cỡ chữ.
+ * **Đã LOẠI, không phải lỗ:** modifier line-height KHÔNG có ngoặc (dạng `/1.2` trần) —
+ * dựng thật không sinh selector nào. Nó vẫn làm kiểm kê đỏ vì là một token `text-`
+ * mới; đó là báo động về một class CHẾT, không phải báo động sai về cỡ chữ.
  */
 
 const SRC = join(__dirname, '..', '..');
@@ -72,7 +81,7 @@ const IS_HEADING = /font-heading|headingVariants|<Heading\b/;
  * Cả hai vế đều là lỗ ĐÃ ĐO trên chính cổng này, không phải giả thuyết — mỗi ca đều
  * qua `tsc` sạch, tức viết được trong mã thật:
  * - `// cỡ này > 40` trong thẻ mở: `>` đóng cửa sổ SỚM, `className` rơi ra ngoài, một
- *   khai `text-[23px]` biến mất khỏi kiểm kê mà cổng vẫn xanh. (Nhánh `block` đã bịt
+ *   một khai cỡ tuỳ ý biến mất khỏi kiểm kê mà cổng vẫn xanh. (Nhánh `block` đã bịt
  *   từ trước; nhánh `//` thì chưa.)
  * - `title="a > b"` đặt TRƯỚC `className` ⇒ xanh (lỗ); đặt SAU ⇒ đỏ. Thứ tự thuộc
  *   tính quyết định — đó là đối chứng cho thấy cơ chế đúng là cửa sổ, không phải gì khác.
@@ -132,7 +141,7 @@ function enclosingTag(
 
 /**
  * Một token class → tầng + px. Tách theo dấu `:` **cuối cùng**: `\b` sau `:` vẫn
- * khớp, nên regex kiểu `\btext-\[` sẽ nuốt cả `sm:text-[32px]` và báo nhầm là
+ * khớp, nên regex neo `\btext-` rồi đọc thẳng sẽ nuốt cả token có tiền tố `sm:` và báo nhầm là
  * khai ở tầng nền — đúng lỗi đã xảy ra một lần.
  */
 function classify(token: string): { tier: string; px: number; notation: string } | null {
@@ -144,7 +153,7 @@ function classify(token: string): { tier: string; px: number; notation: string }
   const arbitrary = /^text-\[([0-9.]+)px\]$/.exec(base);
   if (arbitrary) {
     px = Number(arbitrary[1]);
-    notation = 'text-[Npx]';
+    notation = 'ngoặc vuông';
   } else {
     const named = /^text-([a-z0-9]+)$/.exec(base);
     if (named && named[1] in NAMED) {
@@ -196,7 +205,7 @@ function scan(): { findings: Finding[]; filesScanned: number; census: Census } {
       for (const lit of enc.tag.matchAll(/["'`]([^"'`]*)["'`]/g)) {
         for (const token of lit[1].split(/\s+/)) {
           // Cùng regex lái vòng ngoài, nên tự nhất quán: `^text-` sẽ TRƯỢT
-          // `sm:text-[33px]` và `!text-[33px]` — đúng hai dạng hay dùng nhất.
+          // token có tiền tố `sm:` và token mở đầu bằng important — hai dạng hay dùng nhất.
           if (/\btext-/.test(token)) cell[1]++;
           const c = classify(token);
           if (c && !scale.has(c.px)) findings.push({ ...c, where: rel, token });
@@ -300,7 +309,7 @@ const KNOWN = [
  *
  * ⛔ Và neo là `/\btext-/`, KHÔNG phải `^text-`: `classify()` cắt tiền tố bằng
  * `lastIndexOf(':')` rồi mới neo trên phần base, nên token trong `className` vẫn mang
- * nguyên tiền tố. `^text-` sẽ trượt `sm:text-[33px]` và `!text-[33px]` — đúng hai dạng
+ * nguyên tiền tố. `^text-` sẽ trượt token có tiền tố `sm:` và token mở đầu bằng important — hai dạng
  * hay dùng nhất. Dùng chính regex lái vòng ngoài thì không phải nghĩ về tiền tố nào cả.
  *
  * "Thẻ bộ quét CHẠM tới" ≠ "mọi thẻ tiêu đề": vòng quét chạy theo các lần xuất hiện của
@@ -309,6 +318,16 @@ const KNOWN = [
  * nhận ra đều bắt đầu bằng `text-` — nhưng đừng đọc con số này thành "tổng số tiêu đề".
  *
  * Sinh ra từ chính `scan()` rồi đọc lại bằng mắt, không chép tay.
+ *
+ * 🔴 **Kiểm kê đỏ ở một tệp bạn KHÔNG cố ý đổi ⇒ ĐỪNG cập nhật bảng này.** Trước hết đi
+ * tìm một dấu nháy ĐƠN nằm trong một thuộc tính nháy KÉP của thẻ tiêu đề, kiểu
+ * `title="don't"`. Regex ghép literal ở `scan()` bắt cặp nháy tham lam, nên một nháy đơn
+ * lẻ làm MỌI cặp nháy phía sau lệch một nhịp: vùng trong/ngoài nháy hoán đổi, và toàn bộ
+ * token của thẻ đó biến mất. Đo được: cùng thẻ, `KNOWN` IM RE, chỉ cột token tụt `1 → 0`.
+ * Chỉnh bảng cho khớp ⇒ xanh vĩnh viễn với một cỡ ngoài thang nằm im bên trong.
+ *
+ * Độ lớn hôm nay: **0** thuộc tính nháy kép chứa nháy đơn trong `.tsx` (đối chứng dương:
+ * 2 394 thuộc tính nháy kép nói chung, nên phép đếm có bắn). Nhưng vật liệu thì sẵn.
  */
 const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/auth/components/LoginForm.tsx': [1, 1],
@@ -333,10 +352,12 @@ const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
   it('đối chứng dương: thang đọc được từ heading.tsx, và bộ quét CHẠM tới mã thật', () => {
     expect([...scaleFromHeadingTsx()].sort((a, b) => a - b)).toEqual([18, 21, 30, 40]);
-    const { filesScanned, census } = scan();
     // Sàn, không phải mốc cố định: số tệp `.tsx` chỉ tăng theo thời gian.
-    expect(filesScanned).toBeGreaterThanOrEqual(117);
-    expect(census).toEqual(HEADING_CENSUS);
+    expect(scan().filesScanned).toBeGreaterThanOrEqual(117);
+  });
+
+  it('🔴 kiểm kê thẻ tiêu đề từng tệp KHÔNG được xê dịch', () => {
+    expect(scan().census).toEqual(HEADING_CENSUS);
   });
 
   it('🔴 danh sách khai cỡ ngoài thang KHÔNG được dài thêm', () => {
@@ -369,7 +390,7 @@ describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đ
 
   it('🔴 cả hai cách viết class đều được bộ quét nhận ra', () => {
     const notations = new Set(scan().findings.map((f) => f.notation));
-    expect(notations.has('text-[Npx]')).toBe(true);
+    expect(notations.has('ngoặc vuông')).toBe(true);
     expect(notations.has('tên')).toBe(true); // `text-base` — cách viết từng bị sót
   });
 });
