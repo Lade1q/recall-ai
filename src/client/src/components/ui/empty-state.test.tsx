@@ -37,8 +37,13 @@ describe('EmptyState — bậc chữ của tiêu đề (#387)', () => {
     const { container } = render(<EmptyState heading="Chưa có gì ở đây" />);
     const heading = container.querySelector('[data-slot="heading"]')!;
 
-    // Bắt cả hai cách viết cỡ trong Tailwind — `text-[Npx]` và cỡ đặt tên. Đếm một cách rồi
-    // kết luận "đúng một cỡ" là phép đếm phủ một ô mà phát biểu như đã phủ hết (#380/#387).
+    // Bắt cả hai cách viết cỡ trong Tailwind — giá trị tuỳ ý trong ngoặc vuông, và cỡ đặt
+    // tên. Đếm một cách rồi kết luận "đúng một cỡ" là phép đếm phủ một ô mà phát biểu như
+    // đã phủ hết (#380/#387).
+    //
+    // Ví dụ trong comment KHÔNG được viết đủ dạng class: Tailwind quét text thô, không bóc
+    // comment, nên một ví dụ viết đủ sẽ thành rule CSS thật trong bản dựng sản phẩm. Chuỗi
+    // ở dòng assert bên dưới thì viết đủ được — nó khớp một class có thật.
     const sizes = [...heading.classList].filter(
       (c) => /^text-\[[\d.]+px\]$/.test(c) || /^text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)$/.test(c)
     );
