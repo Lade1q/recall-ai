@@ -80,16 +80,15 @@ beforeEach(() => {
 /**
  * Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner.
  *
- * `waitOptions` bỏ trống thì hành vi KHÔNG đổi, nên tám lời gọi hiện có vẫn thất bại nhanh;
- * chỗ nào biết mình đang chờ đúng chặng `/plans` chậm thì truyền `LOADED_ASYNC_WAIT`.
- *
- * Có dấu vết lỗi giòn bắn ngay TRONG helper này, không phải ở assertion sau nó: log thô của
- * #518, ca `[CHẬM 1014ms]`, báo `Unable to find role="tab" and name "Lịch"` — đúng định dạng
- * lỗi của `findByRole`, và đây là chỗ duy nhất gọi nó cho tab 'Lịch' trong tệp này.
+ * ⛔ Đừng thêm tham số trần chờ vào đây "để sẵn". Đã thử và đã gỡ: cả 4/4 ca chậm của #518
+ * đều đã có chỗ vá riêng — ca `[CHẬM 1014ms]` được vá bằng cách INLINE ra khỏi helper này,
+ * đúng vì helper không nhận được trần. Tám lời gọi còn lại chưa từng được quan sát thấy
+ * giòn. Một núm không ai vặn TRÔNG GIỐNG một bản vá, và lần review sau sẽ có người đọc nó
+ * thành "chỗ này xử lý rồi". Cần thì thêm lại là một dòng.
  */
-async function renderPage(waitOptions?: { timeout?: number }) {
+async function renderPage() {
   const view = render(<PlansPage />);
-  await screen.findByRole('tab', { name: 'Lịch' }, waitOptions);
+  await screen.findByRole('tab', { name: 'Lịch' });
   return view;
 }
 
