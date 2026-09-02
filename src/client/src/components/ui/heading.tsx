@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
  *
  * Chỉ `card` chỉnh lại tracking: -0.02em ở cỡ 18px thì các chữ dính vào nhau.
  */
-const headingVariants = cva('font-heading text-balance', {
+const headingVariants = cva('font-heading', {
   variants: {
     size: {
       /** Hero — một cái mỗi màn, hoặc không có. */
@@ -30,15 +30,25 @@ const headingVariants = cva('font-heading text-balance', {
       /** Tên một thẻ trong danh sách. */
       card: 'text-[18px] tracking-[-0.015em]',
     },
+    /**
+     * `text-balance` và `truncate` cùng điều khiển cách xuống dòng. Giữ chúng trong một
+     * variant loại trừ nhau để CSS của `text-balance` không vô hiệu hoá dấu ba chấm.
+     */
+    wrap: {
+      balance: 'text-balance',
+      truncate: 'truncate',
+    },
   },
   defaultVariants: {
     size: 'page',
+    wrap: 'balance',
   },
 });
 
 function Heading({
   className,
   size,
+  wrap,
   as: Comp = 'h2',
   ...props
 }: React.ComponentProps<'h2'> &
@@ -47,7 +57,11 @@ function Heading({
     as?: 'h1' | 'h2' | 'h3' | 'h4' | 'div';
   }) {
   return (
-    <Comp data-slot="heading" className={cn(headingVariants({ size }), className)} {...props} />
+    <Comp
+      data-slot="heading"
+      className={cn(headingVariants({ size, wrap }), className)}
+      {...props}
+    />
   );
 }
 

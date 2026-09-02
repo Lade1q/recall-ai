@@ -423,10 +423,8 @@ export default function InterviewSessionPage() {
               Trước đó đây là `h1`. Tiêu đề thật của màn là KHÁI NIỆM đang kiểm, nằm ở
               `<Heading as="h1">` phía dưới. Snap 16 → 21 không cứu được gì: khi đó `h1`
               chỉ BẰNG `h2` ngay dưới, thứ bậc vẫn phẳng.
-              ⛔ Đừng bọc `<Heading>` vào đây. `headingVariants` có `text-balance`; đo trong
-              Chrome 151 thì `text-wrap:balance` (rule đứng sau, cùng `@layer utilities`) đè
-              `white-space:nowrap` của `truncate` — chữ xuống dòng thay vì có ba chấm. Thẻ
-              thô nên `truncate` còn chạy. */}
+              ⛔ Đừng bọc `<Heading>` vào đây: đây vẫn là nhãn chrome, không phải heading,
+              và dùng primitive ấy sẽ kéo mặt chữ/cỡ chữ của tiêu đề nội dung vào nhãn. */}
           <span className="truncate text-sm font-semibold">Kiểm tra vấn đáp</span>
         </div>
 
@@ -480,12 +478,9 @@ export default function InterviewSessionPage() {
           <div className="border-border gap-x-4.5 flex flex-none flex-wrap items-center gap-y-2 border-b px-5 py-3.5 lg:px-8">
             <div className="flex min-w-0 items-baseline gap-3">
               {/* `h1` của trạng thái đang-kiểm — quyết định ghi ở ghi chú của `<span>`
-                  "Kiểm tra vấn đáp" phía trên.
-                  🔴 Cùng bẫy `text-balance` ↔ `truncate` mô tả ở đó, nhưng ở ĐÂY nó đang
-                  hỏng thật: tên khái niệm dài xuống dòng chứ không cắt. Ngoài phạm vi thay
-                  đổi này; cùng chỗ hỏng ở `CurrentFocusSession.tsx`; sửa phải sửa ở
-                  `heading.tsx`. */}
-              <Heading as="h1" size="section" className="truncate leading-[1.15]">
+                  "Kiểm tra vấn đáp" phía trên. `wrap="truncate"` chọn một chế độ loại trừ
+                  `text-balance`, nên tên dài giữ đúng một dòng và hiện dấu ba chấm. */}
+              <Heading as="h1" size="section" wrap="truncate" className="leading-[1.15]">
                 {currentConcept?.name ?? 'Đang tải…'}
               </Heading>
               <MetaMono className="text-muted-foreground whitespace-nowrap text-xs">

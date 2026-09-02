@@ -49,7 +49,7 @@ export function CurrentFocusSession({
               <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
               Phiên đang chạy
             </div>
-            <Heading as="h3" size="card" className="mt-1 truncate tracking-[-0.015em]">
+            <Heading as="h3" size="card" wrap="truncate" className="mt-1 tracking-[-0.015em]">
               {conceptNames || 'Phiên học tập trung'}
             </Heading>
             <p className="text-muted-foreground mt-1 text-[12.5px]">
