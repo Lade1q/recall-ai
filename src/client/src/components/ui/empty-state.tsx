@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { Heading } from '@/components/ui/heading';
 
 interface EmptyStateProps {
   /** Bỏ trống khi khối đã nằm trong một thẻ có khung riêng — icon lúc đó chỉ là trang trí thừa. */
@@ -32,7 +33,9 @@ export function EmptyState({ icon: Icon, heading, body, action, className }: Emp
           <Icon aria-hidden="true" className="size-10" strokeWidth={1.3} />
         </div>
       )}
-      <h3 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">{heading}</h3>
+      <Heading as="h3" size="section" className="mb-2">
+        {heading}
+      </Heading>
       {body && (
         <p
           className={cn(
