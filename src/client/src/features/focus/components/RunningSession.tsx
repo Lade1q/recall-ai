@@ -476,9 +476,13 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <h1 className="font-heading mt-1 text-balance text-[17px] leading-[1.25] tracking-[-0.02em]">
+                <Heading
+                  as="h1"
+                  size="section"
+                  /* TODO(#387): giu nguyen 17px cho Quan quyet; snap se la 21px (section) */ className="mt-1 text-balance text-[17px] leading-[1.25]"
+                >
                   {item.name}
-                </h1>
+                </Heading>
               </div>
 
               <div className="text-center">
@@ -600,9 +604,13 @@ export function RunningSession({
                 <>
                   <section className="flex flex-col items-center gap-2.5 text-center">
                     {chip && <Badge tone="remediate">{chip}</Badge>}
-                    <h1 className="font-heading text-balance text-[34px] leading-[1.15] tracking-[-0.025em]">
+                    <Heading
+                      as="h1"
+                      size="page"
+                      /* TODO(#387): giu nguyen 34px cho Quan quyet; snap se la 30px (page) */ className="text-balance text-[34px] leading-[1.15] tracking-[-0.025em]"
+                    >
                       {item.name}
-                    </h1>
+                    </Heading>
                     <p className="text-muted-foreground max-w-[46ch] text-[13px] leading-[1.65]">
                       {item.reasonText}
                     </p>
