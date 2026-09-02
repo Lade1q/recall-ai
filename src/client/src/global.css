@@ -225,10 +225,12 @@
   --focus-session: var(--primary);
   --focus-session-foreground: var(--primary-foreground);
   /* Vì `--focus-session` LÀ `--primary`, nó thừa hưởng nguyên vẹn bài toán hai-vai ở dark.
-     Đợt vá 02/09 suýt bỏ sót họ alias này: nợ được đếm theo TÊN CLASS ("15 chỗ `text-primary`")
-     nên 5 chỗ `text-focus-session` — cùng giá trị phân giải, cùng lỗi — rơi ra ngoài phép đếm.
-     Đếm theo giá trị thì con số thật là 22. Vai CHỮ đi theo `--primary-text` để hai họ không
-     lệch nhau: `SessionDetailPanel` render `paused` và `active` cạnh nhau trong CÙNG một map. */
+     Đợt vá 02/09 suýt bỏ sót họ alias này vì nợ được đếm theo TÊN CLASS. Đếm lại theo GIÁ TRỊ
+     phân giải, trên `ede1dc1`: 13 chỗ `text-primary` + 7 chỗ `text-focus-session` + 2 chỗ
+     `text-sidebar-primary` = 22 chỗ cùng một màu, cùng một lỗi. Trong đó 4 chỗ đặt class thẳng
+     lên `<svg>` nên ở lại `--primary` (xem ranh giới icon bên dưới) ⇒ 18 chỗ đổi sang vai CHỮ.
+     Vai CHỮ đi theo `--primary-text` để hai họ không lệch nhau: `SessionDetailPanel` render
+     `paused` và `active` cạnh nhau trong CÙNG một map. */
   --focus-session-text: var(--primary-text);
 
   /* MASTERY: muted green — Khái niệm đã vững (mastery_score ≥ 0.8) */
@@ -332,10 +334,13 @@
   ✅ ĐÃ TRẢ (Quân chốt 02/09/2026, lối "tách token riêng cho vai CHỮ").
   Nợ cũ: `--primary` ở dark KHÔNG đạt 4.5:1 khi dùng làm CHỮ trên mọi mặt
   phẳng (--background 3.99 · --card 3.70 · --muted 3.33 · --secondary/
-  --accent 3.13 · --sidebar 3.84), trong khi repo có 15 chỗ `text-primary`
-  (nhãn "Đang diễn ra", chữ hiệu "Recall AI", tab đang chọn…). Nâng L để
-  cứu chữ thì hỏng nút: L 0.64 cho chữ 5.16 ✓ nhưng `--primary-foreground`
-  trên `--primary` tụt còn 3.25 ✗ (hiện 4.55) — một token không phục vụ
+  --accent 3.13 · --sidebar 3.84), trong khi repo có 13 chỗ `text-primary`
+  (nhãn "Đang diễn ra", tab đang chọn…) cộng 2 chỗ `text-sidebar-primary`
+  (chữ hiệu "Recall AI" — họ alias khác, xem phép đếm ở `--focus-session`).
+  Nâng L để cứu chữ thì hỏng CẢ HAI vai: ở L 0.64 chữ mới đạt 5.16 trên
+  --card nhưng VẪN hụt trên --secondary (4.39 ✗) — con số 5.16 là mặt phẳng
+  DỄ nhất, không phải ca xấu nhất — mà `--primary-foreground` trên
+  `--primary` thì đã tụt còn 3.25 ✗ (hiện 4.55). Một token không phục vụ
   được cả hai vai.
 
   Lối đã chọn: thêm `--primary-text`, dùng ở những chỗ màu làm CHỮ.
@@ -409,7 +414,8 @@
      Ở hue 262, `oklch(0.76 0.17 262)` có kênh lam = 1.2782 trong sRGB tuyến tính ⇒ trình
      duyệt kẹp im lặng và giá trị khai ra KHÔNG phải giá trị render — đúng lớp lỗi mà chú
      thích `--primary-foreground` ở trên đã ghi. Chroma tối đa còn trong gamut ở L 0.76 là
-     0.122; lấy 0.12 cho có biên. L 0.66 tình cờ là mốc cuối cùng còn giữ được C 0.17.
+     0.122; lấy 0.12 cho có biên. C 0.17 còn sống tới L 0.67 (maxC 0.1745); L 0.68 là bước
+     đầu tiên nó không còn trong gamut. Biên liên tục nằm ở L 0.6776.
 
      Mốc XUẤT PHÁT của nhánh (trước khi tách token, vai CHỮ dùng thẳng `--primary`
      0.56/0.17): --background 3.99 · --card 3.70 · --muted 3.33 · --secondary 3.13 ·

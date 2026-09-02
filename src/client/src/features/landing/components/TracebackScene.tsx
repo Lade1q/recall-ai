@@ -296,12 +296,17 @@ export function TracebackScene() {
                     >
                       {c.label}
                     </text>
+                    {/* 10.5 -> 11 (02/09): sàn cỡ chữ của #386. Chỗ này thoát đợt quét vì nó
+                        là prop `fontSize` của `<text>` SVG chứ không phải chuỗi class — bộ
+                        quét class không đọc tới, nên `grep text-[10px]` báo sạch trong khi
+                        đây vẫn là chữ nhỏ nhất trong client. Và nó là chữ THẬT: điểm thành
+                        thạo của node, hoặc "chưa kiểm", trong một nhóm `role="button"`. */}
                     <text
                       x={c.x}
                       y={c.y + (isProbed ? 33 : 29)}
                       textAnchor="middle"
                       fill={mauChu}
-                      fontSize={10.5}
+                      fontSize={11}
                       fontFamily="var(--font-mono)"
                     >
                       {c.score === null ? 'chưa kiểm' : c.score.toFixed(2)}

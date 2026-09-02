@@ -57,8 +57,9 @@ function TabsList({
  * và 4.30 trên `--background` (trang Lịch sử) — cả hai DƯỚI 4.5, mà chữ 12.5px/14px
  * không đủ lớn để xin ngưỡng 3:1. `/70` đưa ca xấu nhất lên 5.70.
  *
- * Vẫn giữ được phân cấp: tab ĐANG chọn là `--foreground` đặc (~13:1), nên khoảng
- * cách 5.70 <-> 13 vẫn đọc ra "cái này chìm, cái kia nổi".
+ * Vẫn giữ được phân cấp: tab ĐANG chọn là `--foreground` đặc trên `--background`,
+ * tức 15.8:1 ở light (dark là 12.8:1 vì nền tab active ở đó có alpha), nên khoảng
+ * cách 5.70 <-> 15.8 vẫn đọc ra "cái này chìm, cái kia nổi".
  *
  * Nhánh DARK không đụng tới: nó đi `--muted-foreground` chứ không đi alpha, và đã
  * ở 5.55 (trên `--muted`) đến 6.64 (trên `--background`).

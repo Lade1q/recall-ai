@@ -49,8 +49,10 @@ export function MasteryBar({
           // a warning that is not there. It used to recede by fading the whole `span`, which
           // dragged the label down with it: measured 1.88:1 in light, 2.26:1 in dark.
           //
-          // Fading the label less is not on the table. `--muted-foreground` on `--card` only
-          // starts at 5.20:1 in light, so ANY opacity below 1 lands under 4.5 (0.85 -> 3.81).
+          // Fading the label less is not on the table, but not because no alpha passes --
+          // measured, the break-even is alpha 0.93 in light (`--muted-foreground` on `--card`
+          // starts at 5.20:1) and 0.82 in dark (starts at 6.16:1). The point is that every
+          // alpha strong enough to READ as "empty" is below those: 0.85 gives 3.81 in light.
           // So the dimming moves onto the dot alone, and the "this band is empty" cue moves
           // onto the count, which drops from `--foreground` to `--muted-foreground`: still
           // 5.20:1 light / 6.16:1 dark, quieter than a band that actually has concepts in it.

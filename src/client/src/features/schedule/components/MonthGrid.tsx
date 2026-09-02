@@ -60,11 +60,15 @@ const MAX_CHIPS = 3;
  * ⛔ Bản vá KHÔNG phải là `shrink-0` một mình: đo được, `shrink-0` giữ chấm 5px nhưng làm hàng
  * **tràn 4–20px** — tức nó chỉ dời chỗ hỏng ra ngoài ô. Phải đi kèm cắt bớt số chấm.
  *
- * Ngân sách ở 320px (lòng ô 30px): 4 chấm 5px + 3 khe 3px = 29px vừa khít khi KHÔNG có đuôi;
- * 2 chấm + 2 khe + đuôi một chữ số ≈ 28px khi CÓ đuôi.
+ * Ngân sách ở 320px (lòng ô 30px) — ĐO LẠI 02/09 sau khi đuôi `+N` lên `text-[11px]` theo sàn
+ * #386. Geist Mono tiến 0.600em, nên mỗi glyph đuôi thành 6.6px thay vì 6.0px:
+ *   KHÔNG đuôi: 4 chấm 5px + 3 khe 3px = 29px — không đổi, đuôi không tham gia phép tính này.
+ *   đuôi một chữ số (`+3` = 2 glyph): 2 chấm + 2 khe + 13.2px = 29.2px (trước 28.0px) — vẫn lọt.
  *
- * Đuôi HAI chữ số (`+10`) bắt đầu từ **n = 12** mục trong một ngày (đuôi = `n − 2`), và ở 320px nó
- * tràn ~3px ⇒ bị `overflow-hidden` xén. ⚠️ KHÔNG viết "bất khả": fold `(planId, conceptId)` chỉ gộp
+ * Đuôi HAI chữ số (`+10` = 3 glyph) bắt đầu từ **n = 12** mục trong một ngày (đuôi = `n − 2`):
+ * 10 + 6 + 19.8 = 35.8px ⇒ ở 320px tràn ~5.8px (trước ~4px) và bị `overflow-hidden` xén sâu hơn.
+ * Bước 10px→11px làm ca này XẤU ĐI chứ không tạo ra nó. Giữ 11px vì sàn cỡ chữ là quyết định đã
+ * chốt, còn chỗ tràn chỉ xuất hiện ở 320px — không phải bề rộng của buổi demo. ⚠️ KHÔNG viết "bất khả": fold `(planId, conceptId)` chỉ gộp
  * nhiều hàng của CÙNG một khái niệm, nó không chặn nhiều khái niệm KHÁC NHAU rơi cùng ngày — và
  * `concept-schedule.service.ts` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
  * phiên truy ngược 12 tiền đề đặt đúng 12 mục lên ô hôm nay. Phát biểu đúng là **"chưa dựng được
