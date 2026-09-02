@@ -19,8 +19,10 @@ import { Heading, headingVariants } from '@/components/ui/heading';
  * engine chứ không phải hình minh hoạ trang trí.
  *
  * Gấu Trúc là linh vật, vẽ pixel art trên lưới 16×16 (`features/landing/data`).
- * Đây là phần tử pixel DUY NHẤT của trang — chữ vẫn Noto Serif, đường vẫn
- * mảnh, khoảng trắng vẫn rộng. Tương phản đó là chủ đích.
+ * Đây là phần tử pixel DUY NHẤT của trang — đường vẫn mảnh, khoảng trắng vẫn
+ * rộng. ⚠️ Từ 02/09 tiêu đề là JetBrains Mono, nằm gần trục "kỹ thuật" — cùng
+ * trục với lưới pixel. Tương phản pixel-art ↔ chữ vì thế YẾU đi so với thời
+ * Noto Serif, và mức yếu tới đâu thì phải nhìn mắt thường, chưa ai đo.
  */
 export default function LandingPage() {
   return (
