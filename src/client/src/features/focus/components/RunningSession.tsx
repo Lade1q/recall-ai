@@ -17,6 +17,7 @@ import { NotesPanel } from './NotesPanel';
 import { PomodoroClockRing } from './PomodoroClockRing';
 import { PomodoroConfigPanel } from './PomodoroConfigPanel';
 import { SessionDocumentPanel, SessionDocumentSegment } from './SessionDocument';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Dòng tổng kết trong phiên (`.tally` của mockup) — chỉ dùng ở màn KHÔNG mở tài liệu (nằm ngang dưới
@@ -475,9 +476,13 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <h1 className="font-heading mt-1 text-balance text-[17px] leading-[1.25] tracking-[-0.02em]">
+                <Heading
+                  as="h1"
+                  size="section"
+                  /* TODO(#387): giu nguyen 17px cho Quan quyet; snap se la 21px (section) */ className="mt-1 text-balance text-[17px] leading-[1.25]"
+                >
                   {item.name}
-                </h1>
+                </Heading>
               </div>
 
               <div className="text-center">
@@ -529,9 +534,9 @@ export function RunningSession({
                   <div className="text-muted-foreground font-mono text-[44px] font-semibold tabular-nums tracking-[-0.03em]">
                     {formatClock(Math.max(0, timer.phaseTargetMs - timer.phaseElapsedMs))}
                   </div>
-                  <h1 className="font-heading text-[19px] tracking-[-0.02em]">
+                  <Heading as="h1" size="section">
                     Đồng hồ tập trung đã dừng
-                  </h1>
+                  </Heading>
                   <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
                     Bạn rời tab lúc {formatClockTime(new Date(awayInfo.leftAt))} và quay lại sau{' '}
                     <strong className="text-foreground">
@@ -563,7 +568,9 @@ export function RunningSession({
                   <div className="text-muted-foreground font-mono text-[44px] font-semibold tabular-nums tracking-[-0.03em]">
                     {formatClock(Math.max(0, timer.phaseTargetMs - timer.phaseElapsedMs))}
                   </div>
-                  <h1 className="font-heading text-[19px] tracking-[-0.02em]">{breakLabel}</h1>
+                  <Heading as="h1" size="section">
+                    {breakLabel}
+                  </Heading>
                   <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
                     Hết giờ nghỉ, Pomodoro {(timer.pomodorosCompleted % timer.config.cycles) + 1}/
                     {timer.config.cycles} tự bắt đầu với cùng khái niệm{' '}
@@ -597,9 +604,13 @@ export function RunningSession({
                 <>
                   <section className="flex flex-col items-center gap-2.5 text-center">
                     {chip && <Badge tone="remediate">{chip}</Badge>}
-                    <h1 className="font-heading text-balance text-[34px] leading-[1.15] tracking-[-0.025em]">
+                    <Heading
+                      as="h1"
+                      size="page"
+                      /* TODO(#387): giu nguyen 34px cho Quan quyet; snap se la 30px (page) */ className="text-balance text-[34px] leading-[1.15] tracking-[-0.025em]"
+                    >
                       {item.name}
-                    </h1>
+                    </Heading>
                     <p className="text-muted-foreground max-w-[46ch] text-[13px] leading-[1.65]">
                       {item.reasonText}
                     </p>

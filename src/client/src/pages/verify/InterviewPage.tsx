@@ -22,6 +22,7 @@ import {
   isAiOrNetworkFailure,
 } from '@/features/interview/api/interview.api';
 import type { StartInterviewResponse } from '@/features/interview/types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * AE-01 — màn cấu hình phiên phỏng vấn AI Examiner.
@@ -419,9 +420,9 @@ export default function InterviewPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-6.5">
-        <h1 className="font-heading text-[30px] leading-[1.15] tracking-[-0.02em]">
+        <Heading as="h1" size="page" className="leading-[1.15]">
           Kiểm tra vấn đáp
-        </h1>
+        </Heading>
         <p className="text-muted-foreground mt-1.5 text-sm">
           Chọn kế hoạch và các khái niệm bạn muốn AI Examiner kiểm tra, hoặc để hệ thống gợi ý những
           khái niệm cần ôn hôm nay.

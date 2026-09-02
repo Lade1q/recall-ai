@@ -18,6 +18,7 @@ import {
   isTerminalFocusSessionError,
 } from '@/features/focus/api/focus.api';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Trang "Lịch sử & Tiến độ" (DB-03 · #246).
@@ -53,7 +54,9 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto w-full max-w-[1180px]">
       <header className="mb-[18px]">
-        <h1 className="font-heading m-0 text-[28px] tracking-[-0.02em]">Lịch sử &amp; Tiến độ</h1>
+        <Heading as="h1" size="page" className="m-0">
+          Lịch sử &amp; Tiến độ
+        </Heading>
         <p className="text-muted-foreground mt-[7px] max-w-[62ch] text-[13.5px] leading-[1.6]">
           Nơi kiểm lại điểm số sau khi phiên đã kết thúc: điểm nào tính ra sao, khái niệm nào nhích
           lên, và hệ thống đã chèn gì vào lịch vì kết quả đó.

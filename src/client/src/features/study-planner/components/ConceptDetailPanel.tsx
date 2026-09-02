@@ -8,6 +8,7 @@ import { ConceptDetail } from '../types/concept';
 import { masteryBand, masteryLabel, type MasteryBand } from '@/components/ui/concept-node';
 import { formatAbsoluteDate, formatRelativeDays, formatDayTime } from '../utils/planDates';
 import { ConceptSourceList } from './ConceptSources';
+import { Heading } from '@/components/ui/heading';
 
 /** One row of the "Tiên quyết" / "Phụ thuộc" lists — resolved from the graph the client
  *  already holds (see `ConceptDetailResponse`'s doc comment for why the server doesn't
@@ -153,9 +154,9 @@ export function ConceptDetailPanel({
       <div>
         <div className="mb-1.5 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-heading text-[18px] leading-tight tracking-[-0.01em]">
+            <Heading as="h2" size="card" className="leading-tight">
               {conceptName}
-            </h2>
+            </Heading>
             <Badge tone={BAND_BADGE_TONE[band]} className="mt-1.5">
               {masteryLabel(band)}
             </Badge>

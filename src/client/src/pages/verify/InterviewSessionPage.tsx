@@ -29,6 +29,7 @@ import type {
   SelfGrade,
   SessionSummaryResponse,
 } from '@/features/interview/types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * AE-02 — màn phỏng vấn nhiều lượt do state machine tất định điều phối.
@@ -466,9 +467,9 @@ export default function InterviewSessionPage() {
         <div className="flex min-h-0 flex-col">
           <div className="border-border gap-x-4.5 flex flex-none flex-wrap items-center gap-y-2 border-b px-5 py-3.5 lg:px-8">
             <div className="flex min-w-0 items-baseline gap-3">
-              <h2 className="font-heading truncate text-[22px] leading-[1.15] tracking-[-0.02em]">
+              <Heading as="h2" size="section" className="truncate leading-[1.15]">
                 {currentConcept?.name ?? 'Đang tải…'}
-              </h2>
+              </Heading>
               <MetaMono className="text-muted-foreground whitespace-nowrap text-xs">
                 khái niệm {conceptPosition}/{progress.conceptTotal}
               </MetaMono>

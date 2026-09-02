@@ -10,6 +10,8 @@ import {
   tracebackVerdict,
   type MasteryBand,
 } from '../data/concept-graph';
+import { cn } from '@/lib/utils';
+import { Heading, headingVariants } from '@/components/ui/heading';
 
 /** Mỗi chặng của đường truy ngược. Khớp với `.lp-walker` trong global.css. */
 const STEP_MS = 560;
@@ -114,9 +116,9 @@ export function TracebackScene() {
       <div className="mx-auto max-w-[1160px]">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-remediate font-mono text-[11px] tracking-[0.1em]">CẢNH 2</span>
-          <h2 className="font-heading text-[22px] sm:text-[27px]">
+          <Heading as="h2" size="section" className="sm:text-[27px]">
             Chọn một khái niệm, tìm xem mình đang vướng ở đâu.
-          </h2>
+          </Heading>
         </div>
         <p className="text-muted-foreground mt-3 max-w-[64ch] text-[14px] leading-[1.7]">
           Với bất kỳ khái niệm nào, Recall AI đều lần ngược qua từng mối liên hệ để tìm ra kiến thức
@@ -326,7 +328,9 @@ export function TracebackScene() {
             </div>
             <div>
               <div className="text-muted-foreground font-mono text-[11px]">BẠN SAI Ở</div>
-              <div className="font-heading mt-1 text-[22px]">{DEMO_GRAPH[probed].label}</div>
+              <div className={cn(headingVariants({ size: 'section' }), 'mt-1')}>
+                {DEMO_GRAPH[probed].label}
+              </div>
             </div>
 
             <div className="bg-border h-px" />

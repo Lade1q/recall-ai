@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { formatClock } from '../utils/format';
+import { Heading } from '@/components/ui/heading';
 
 interface SessionSummaryProps {
   focusedSeconds: number;
@@ -28,7 +29,9 @@ export function SessionSummary({
 }: SessionSummaryProps) {
   return (
     <div className="flex flex-col items-center gap-[18px] px-8 py-[30px] text-center">
-      <h1 className="font-heading text-[19px] tracking-[-0.02em]">Xong phiên học</h1>
+      <Heading as="h1" size="section">
+        Xong phiên học
+      </Heading>
 
       {/* `.summary` — 3 ô, vạch ngăn 1px bằng gap + nền border, ô căn TRÁI, nhãn IN HOA. */}
       <div className="bg-border border-border grid w-full max-w-[470px] grid-cols-3 gap-px overflow-hidden rounded-[calc(var(--radius)*0.9)] border">

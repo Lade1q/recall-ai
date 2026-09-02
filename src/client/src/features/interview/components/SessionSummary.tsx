@@ -14,6 +14,8 @@ import type {
   SessionSummaryConceptResponse,
 } from '../types/interview.types';
 import { TRACEBACK_THRESHOLD, BAND_COLOR_VAR } from '../utils/summary-display';
+import { cn } from '@/lib/utils';
+import { Heading, headingVariants } from '@/components/ui/heading';
 
 type Band = ReturnType<typeof masteryBand>;
 
@@ -211,12 +213,9 @@ function SummaryHero({
       <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
         Kiểm tra vấn đáp · {formatSessionWindow(startedAt, endedAt)}
       </p>
-      <h1
-        className="text-foreground font-heading mb-3 text-3xl tracking-[-0.02em]"
-        id="tt-tong-quan"
-      >
+      <Heading as="h1" size="page" className="text-foreground mb-3" id="tt-tong-quan">
         Kết quả phiên kiểm tra
-      </h1>
+      </Heading>
 
       <p className="text-muted-foreground text-[14.5px] leading-[1.6]">
         {gradedConcepts.length} khái niệm đã chấm trong {durationMinutes} phút.{' '}
@@ -278,7 +277,11 @@ function SummaryStat({ label, value, note }: { label: string; value: string; not
   return (
     <div>
       <dt className="text-muted-foreground text-[12px] uppercase tracking-wider">{label}</dt>
-      <dd className="text-foreground font-heading mt-1 text-[22px] leading-tight">{value}</dd>
+      <dd
+        className={cn(headingVariants({ size: 'section' }), 'text-foreground mt-1 leading-tight')}
+      >
+        {value}
+      </dd>
       <dd className="text-muted-foreground mt-0.5 text-[11.5px] leading-normal">{note}</dd>
     </div>
   );

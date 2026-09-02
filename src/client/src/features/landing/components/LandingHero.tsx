@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PandaSprite } from './PandaSprite';
 import { usePrefersReducedMotion, useSceneTicker } from '../hooks/useSceneTicker';
+import { Heading } from '@/components/ui/heading';
 
 /** Nhịp bước: đổi khung chân. Cũng là nhịp để chớp mắt thưa hơn. */
 const STEP_MS = 400;
@@ -49,9 +50,13 @@ export function LandingHero() {
         Cụm cuối tô màu đúng chỗ PNG nhấn, nhưng bằng token `--remediate` của
         hệ thống chứ không lấy màu của PNG: nhấn cùng CHỖ, không cùng MÀU.
       */}
-      <h1 className="font-heading max-w-[20ch] text-balance text-[34px] sm:text-[44px] lg:text-[54px]">
+      <Heading
+        as="h1"
+        size="page"
+        /* TODO(#387): giu nguyen 34px cho Quan quyet; snap se la 30px (page) */ className="max-w-[20ch] text-balance text-[34px] sm:text-[44px] lg:text-[54px]"
+      >
         Ôn tập thông minh, truy ngược tận gốc <span className="text-remediate">kiến thức yếu</span>
-      </h1>
+      </Heading>
       <p className="text-muted-foreground max-w-[56ch] text-pretty text-[15px] leading-[1.7] sm:text-[17px]">
         Giải pháp AI toàn diện giúp sinh viên Việt Nam tối ưu hóa lộ trình học tập và lấp đầy lỗ
         hổng kiến thức.

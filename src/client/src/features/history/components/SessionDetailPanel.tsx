@@ -15,6 +15,7 @@ import { PausedSessionActions } from './PausedSessionActions';
 import { useSessionDetail, readPlanFor } from '../hooks/useSessionDetail';
 import { formatFullDate, formatSessionMeta } from '../utils/format';
 import type { InterviewSessionListItem } from '../types/history.types';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Panel chi tiết (SPEC_DB-03 bước #3–#7). Chọn phiên KHÔNG rời danh sách.
@@ -56,9 +57,9 @@ export function SessionDetailPanel({
     >
       <header className="border-border mb-5 flex items-start justify-between gap-4 border-b pb-4">
         <div>
-          <h2 className="font-heading m-0 text-[21px] tracking-[-0.02em]">
+          <Heading as="h2" size="section" className="m-0">
             Phiên kiểm tra · {formatFullDate(session.startedAt)}
-          </h2>
+          </Heading>
           <div className="text-muted-foreground mt-[5px] font-mono text-[12px]">
             {formatSessionMeta({
               startedAt: session.startedAt,

@@ -18,6 +18,7 @@ import {
   ConceptEdge,
 } from '@/features/study-planner/types/concept';
 import { formatDeadlineFull } from '@/features/study-planner/utils/planDates';
+import { Heading } from '@/components/ui/heading';
 
 /** Dấu ">" ngăn cách các mốc breadcrumb — tách ra để không lặp 4 lần cùng một khối svg. */
 function BreadcrumbSep() {
@@ -351,9 +352,9 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
           )}
         </nav>
 
-        <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
+        <Heading as="h1" size="page" className="mb-2 leading-tight tracking-tight">
           {isVerify ? 'Kiểm chứng đồ thị khái niệm' : 'Chỉnh sửa đồ thị khái niệm'}
-        </h1>
+        </Heading>
         <p className="text-muted-foreground max-w-160 mb-7 text-pretty text-[14px] leading-[1.7]">
           {isReanalyzeVerify
             ? 'AI đã phân tích lại tài liệu và hợp nhất kết quả với đồ thị cũ — khái niệm đã kiểm tra vẫn giữ nguyên điểm. Đối chiếu rồi xác nhận để lịch ôn hoạt động trở lại.'
@@ -525,9 +526,9 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
           <div>
             {/* Tiêu đề là "Đồ thị khái niệm" (khớp mockup) — tên kế hoạch đã nằm ở breadcrumb
                 và ở bộ chọn bên phải, không cần lặp làm h1. */}
-            <h1 className="font-heading text-[28px] leading-tight tracking-tight">
+            <Heading as="h1" size="page" className="leading-tight tracking-tight">
               Đồ thị khái niệm
-            </h1>
+            </Heading>
             {plan?.deadline && (
               <p className="text-muted-foreground mt-1 text-[13px]">
                 Deadline: {formatDeadlineFull(plan.deadline)}
