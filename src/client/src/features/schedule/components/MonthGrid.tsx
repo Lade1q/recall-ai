@@ -159,6 +159,11 @@ export function MonthGrid({
             nguyên nhãn sau khi bấm, nên không có gì khác báo rằng có chuyện gì vừa xảy ra. */}
         <span
           aria-live="polite"
+          /* #387: KHÔNG snap — 15px dưới 680px là NHƯỢNG BỘ responsive đã chốt (Quân
+             02/09), không phải trôi thang: nền đã đúng bậc `card` (18px), chỉ tầng
+             `max-width` hạ xuống vì dưới ngưỡng đó thẻ mất `min-w-[130px]` và phải co
+             giữa hai nút ‹ ›. Hồ sơ ở `RESPONSIVE_CONCESSION` trong
+             `heading-scale.test.ts`. */
           className={cn(
             headingVariants({ size: 'card' }),
             'min-w-[130px] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]'

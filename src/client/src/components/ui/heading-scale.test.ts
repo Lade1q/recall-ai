@@ -10,9 +10,8 @@ import { describe, expect, it } from 'vitest';
  * phủ ba cách viết × ba tầng, và là một danh sách CỐ ĐỊNH: thêm bất kỳ khai cỡ
  * nào ngoài thang, ở bất kỳ cách viết hay tầng nào, đều làm nó đỏ.
  *
- * ⛔ Nó KHÔNG phán chỗ nào đúng chỗ nào sai. 24 mục dưới đây đang chờ Quân quyết
- * (bucket B + tầng breakpoint của #387). Việc của test là: không cho danh sách
- * dài thêm trong lúc chờ, và bắt phải sửa danh sách khi có chỗ được snap.
+ * ⛔ Nó KHÔNG phán chỗ nào đúng chỗ nào sai. Việc của test là: không cho danh sách
+ * dài thêm, và bắt phải sửa danh sách khi có chỗ được snap.
  */
 
 const SRC = join(__dirname, '..', '..');
@@ -167,9 +166,9 @@ function scan(): { findings: Finding[]; filesScanned: number; headingTags: numbe
 /**
  * Allowlist ĐÍCH DANH những chỗ được phép nằm ngoài thang, chia theo lý do.
  *
- * ⛔ Cố ý KHÔNG viết dưới dạng luật rộng (kiểu "bỏ qua mọi cỡ > 40"): luật rộng
- * sẽ tha luôn mọi hồi quy tương lai ở cùng vùng. Mỗi mục ở đây phải có một quyết
- * định đứng sau nó.
+ * ⛔ Cố ý KHÔNG viết dưới dạng luật rộng (kiểu "bỏ qua mọi cỡ > 40" hay "bỏ qua
+ * mọi `max-[…]:`"): luật rộng sẽ tha luôn mọi hồi quy tương lai ở cùng vùng. Mỗi
+ * mục ở đây phải có một quyết định đứng sau nó, ghi ngay trên nhóm chứa nó.
  *
  * Không có số dòng: dòng trôi mỗi lần sửa chỗ khác, mà danh sách này chỉ nói
  * *cái gì* còn ngoài thang, không nói nó nằm ở dòng nào.
@@ -188,6 +187,9 @@ const OUT_OF_SCOPE_LABELS = [
   'nền|15|features/schedule/components/ScheduleDebtBar.tsx|text-[15px]',
   'nền|15|features/schedule/components/ScheduleDebtBar.tsx|text-[15px]',
   'nền|15|pages/landing/LandingPage.tsx|text-[15px]',
+  // Nhãn thanh trên của phiên vấn đáp (Quân chốt 02/09). Từng là `h1`; đã đổi thành
+  // `<span>` vì tiêu đề thật của màn là tên khái niệm — xem ghi chú tại chỗ.
+  'nền|16|pages/verify/InterviewSessionPage.tsx|text-base',
 ];
 
 /** Wordmark "Recall AI" — phụ lục D1 của #387 đã loại khỏi phạm vi. */
@@ -198,25 +200,20 @@ const OUT_OF_SCOPE_WORDMARKS = [
 ];
 
 /**
- * Chưa có quyết định — đã báo, đang chờ chốt. Nằm trong allowlist để cổng không
- * đỏ oan, nhưng tách nhóm riêng để không ai đọc nhầm thành "đã duyệt".
- *
- * - `MonthGrid`: `<span aria-live="polite">` giữa hai nút ‹ ›, đọc nhãn tháng.
- *   Là vùng thông báo trạng thái, không phải tiêu đề mục; màn Lịch đã có tiêu đề
- *   riêng ở `DayPanel`. ⇒ đề nghị xếp nhóm NHÃN.
- * - `InterviewSessionPage`: `<h1>` mang tên màn, và là `<h1>` DUY NHẤT của màn —
- *   trong khi `<h2>` ngay dưới nó đang 21px. ⇒ đề nghị xếp nhóm TIÊU ĐỀ (phải snap).
+ * Nhượng bộ responsive (Quân chốt 02/09) — KHÔNG phải trôi thang: nền của nó đã
+ * đúng bậc `card` (18px) qua `headingVariants({ size: 'card' })`. Dưới 680px thẻ
+ * mất `min-w-[130px]` và phải co giữa hai nút ‹ ›, nên hạ 18 → 15 ở riêng tầng đó.
+ * Đây là mục `max-width` DUY NHẤT, nên test "cả ba tầng đều có mặt" tựa vào nó.
  */
-const PENDING_DECISION = [
+const RESPONSIVE_CONCESSION = [
   'max-width|15|features/schedule/components/MonthGrid.tsx|max-[680px]:text-[15px]',
-  'nền|16|pages/verify/InterviewSessionPage.tsx|text-base',
 ];
 
 const KNOWN = [
   ...HERO_EXCEPTION,
   ...OUT_OF_SCOPE_LABELS,
   ...OUT_OF_SCOPE_WORDMARKS,
-  ...PENDING_DECISION,
+  ...RESPONSIVE_CONCESSION,
 ].sort((a, b) => a.localeCompare(b));
 
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
