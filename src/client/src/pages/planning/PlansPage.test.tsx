@@ -77,10 +77,19 @@ beforeEach(() => {
   vi.mocked(scheduleApi.getSchedule).mockResolvedValue(EMPTY_SCHEDULE);
 });
 
-/** Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner. */
-async function renderPage() {
+/**
+ * Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner.
+ *
+ * `waitOptions` bỏ trống thì hành vi KHÔNG đổi, nên tám lời gọi hiện có vẫn thất bại nhanh;
+ * chỗ nào biết mình đang chờ đúng chặng `/plans` chậm thì truyền `LOADED_ASYNC_WAIT`.
+ *
+ * Có dấu vết lỗi giòn bắn ngay TRONG helper này, không phải ở assertion sau nó: log thô của
+ * #518, ca `[CHẬM 1014ms]`, báo `Unable to find role="tab" and name "Lịch"` — đúng định dạng
+ * lỗi của `findByRole`, và đây là chỗ duy nhất gọi nó cho tab 'Lịch' trong tệp này.
+ */
+async function renderPage(waitOptions?: { timeout?: number }) {
   const view = render(<PlansPage />);
-  await screen.findByRole('tab', { name: 'Lịch' });
+  await screen.findByRole('tab', { name: 'Lịch' }, waitOptions);
   return view;
 }
 
@@ -293,7 +302,10 @@ describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
 
     render(<PlansPage />);
 
-    const schedulePanel = await screen.findByRole('tabpanel');
+    // Hai cổng NỐI TIẾP, nên tổng dung sai không bị chặn ở 1000 ms — nhưng riêng chặng chờ
+    // `/plans` trả về thì chỉ có trần mặc định, mà `/plans` chậm chính là điều kiện gốc của
+    // #518. Nới cả rào chắn đầu, không chỉ rào sau.
+    const schedulePanel = await screen.findByRole('tabpanel', {}, LOADED_ASYNC_WAIT);
     const retryButton = await within(schedulePanel).findByRole(
       'button',
       { name: 'Thử lại' },
