@@ -1,6 +1,7 @@
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionSummaryReport } from '../types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 interface AiSummaryCardProps {
   summary: SessionSummaryReport;
@@ -13,9 +14,9 @@ export function AiSummaryCard({ summary }: AiSummaryCardProps) {
         <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
           Diễn giải
         </p>
-        <h2 className="text-foreground font-heading text-xl tracking-[-0.01em]" id="tt-nhan-xet">
+        <Heading as="h2" size="section" className="text-foreground" id="tt-nhan-xet">
           Nhận xét cuối phiên
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2 text-[14.5px] leading-[1.6]">
           Phần duy nhất trên trang do AI viết. Đọc lại toàn bộ phiên để chỉ ra điểm nghẽn và gợi ý
           cách khắc phục.

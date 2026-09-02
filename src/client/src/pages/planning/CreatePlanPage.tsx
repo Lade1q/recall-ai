@@ -19,6 +19,7 @@ import { AnalysisProgressPanel } from '@/features/study-planner/components/Analy
 import { planApi, getCreatePlanErrorMessage } from '@/features/study-planner/api/plan.api';
 import { PlanDetails } from '@/features/study-planner/types/concept';
 import { PlanCreationStepper } from '@/features/study-planner/components/PlanCreationStepper';
+import { Heading } from '@/components/ui/heading';
 
 const formSchema = z.object({
   planName: z.string().min(1, 'Vui lòng nhập tên kế hoạch').max(100, 'Tên kế hoạch quá dài'),
@@ -160,9 +161,9 @@ export default function CreatePlanPage() {
           <span>Tạo mới</span>
         </div>
 
-        <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
+        <Heading as="h1" size="page" className="mb-2 leading-tight tracking-tight">
           Tạo kế hoạch mới
-        </h1>
+        </Heading>
         <p className="text-muted-foreground mb-7 text-pretty text-[14px]">
           Tải lên tài liệu học tập của bạn, AI sẽ tự động phân tích và trích xuất các khái niệm cốt
           lõi cùng quan hệ tiên quyết giữa chúng.
@@ -239,9 +240,9 @@ export default function CreatePlanPage() {
         <span>Tạo mới</span>
       </div>
 
-      <h1 className="font-heading mb-2 text-[30px] leading-tight tracking-tight">
+      <Heading as="h1" size="page" className="mb-2 leading-tight tracking-tight">
         Tạo kế hoạch ôn tập
-      </h1>
+      </Heading>
       <p className="text-muted-foreground max-w-160 mb-7 text-sm leading-relaxed">
         Nhập tên, chọn hạn hoàn thành và tải lên tài liệu. Hệ thống sẽ phân tích nội dung để trích
         xuất các khái niệm cốt lõi cùng quan hệ tiên quyết.

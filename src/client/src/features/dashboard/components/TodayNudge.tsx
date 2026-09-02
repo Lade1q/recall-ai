@@ -10,6 +10,8 @@ import type {
   ReviewQueueListResponse,
   ReviewReason,
 } from '@/features/review-queue/types/review-queue.types';
+import { cn } from '@/lib/utils';
+import { Heading, headingVariants } from '@/components/ui/heading';
 
 const CARD_CLASS = 'border-border bg-card overflow-hidden rounded-xl border';
 
@@ -131,9 +133,9 @@ function ActiveNudge({
     <section className={`${CARD_CLASS} grid grid-cols-1 md:grid-cols-[1fr_320px]`}>
       <div className="p-6 sm:p-7">
         <Badge tone={REASON_TONE[top.reason]}>Gợi ý hôm nay</Badge>
-        <h2 className="font-heading mt-3.5 text-[22px] leading-[1.15] sm:text-[24px]">
+        <Heading as="h2" size="section" className="mt-3.5 leading-[1.15] sm:text-[24px]">
           {top.name}
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2.5 max-w-[52ch] text-sm leading-[1.7]">
           {top.reasonText}
         </p>
@@ -193,15 +195,19 @@ function EmptyNudge({
         ) : null}
         {heading ? (
           <>
-            <h2 className="font-heading mt-3.5 text-[20px] leading-[1.2] sm:text-[22px]">
+            <Heading as="h2" size="section" className="mt-3.5 leading-[1.2] sm:text-[22px]">
               {heading}
-            </h2>
+            </Heading>
             <p className="text-muted-foreground mx-auto mt-2.5 max-w-[46ch] text-sm leading-[1.7]">
               {body}
             </p>
           </>
         ) : (
-          <p className="font-heading mx-auto max-w-[40ch] text-[19px] leading-[1.35]">{body}</p>
+          <p
+            className={cn(headingVariants({ size: 'card' }), 'mx-auto max-w-[40ch] leading-[1.35]')}
+          >
+            {body}
+          </p>
         )}
         <div className="mt-5 flex justify-center">
           <Button asChild variant={cta.primary ? 'default' : 'secondary'}>

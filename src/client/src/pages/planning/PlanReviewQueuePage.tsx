@@ -10,6 +10,7 @@ import { EmptyQueueMessage } from '@/features/review-queue/components/EmptyQueue
 import { RemovedGroup } from '@/features/review-queue/components/RemovedGroup';
 import { ReviewQueueItemRow } from '@/features/review-queue/components/ReviewQueueItemRow';
 import { useReviewQueue } from '@/features/review-queue/hooks/useReviewQueue';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * SP-07/SP-08 — Hàng đợi ôn của một kế hoạch (Issue #225).
@@ -99,9 +100,9 @@ export default function PlanReviewQueuePage() {
     return (
       <div className="border-border bg-background rounded-xl border px-7 py-6">
         <div className="max-w-140 mx-auto my-6 text-center">
-          <h2 className="font-heading mb-2 text-[21px] tracking-[-0.02em]">
+          <Heading as="h2" size="section" className="mb-2">
             Không thể tải hàng đợi ôn
-          </h2>
+          </Heading>
           <p className="text-muted-foreground mb-5 text-pretty text-[13.5px] leading-[1.7]">
             Đã xảy ra lỗi khi tải danh sách. Vui lòng thử lại.
           </p>
@@ -160,9 +161,9 @@ export default function PlanReviewQueuePage() {
         <b className="text-foreground font-medium">{planName}</b>
       </nav>
 
-      <h1 className="font-heading mb-2 text-[30px] leading-[1.15] tracking-[-0.02em]">
+      <Heading as="h1" size="page" className="mb-2 leading-[1.15]">
         Hàng đợi ôn
-      </h1>
+      </Heading>
       <p className="text-muted-foreground max-w-155 text-pretty text-sm">
         Toàn bộ khái niệm đang chờ ôn của kế hoạch này — không chỉ phần đến hạn hôm nay. Thứ tự do
         hệ thống xếp; bạn bỏ bớt hoặc đưa lại bất cứ lúc nào.

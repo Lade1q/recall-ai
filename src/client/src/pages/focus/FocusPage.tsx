@@ -30,6 +30,7 @@ import { cyclesToWords, formatClock, formatMinutesPhrase } from '@/features/focu
 import { sessionLockName } from '@/features/focus/utils/sessionLock';
 import { reviewQueueApi } from '@/features/review-queue/api/review-queue.api';
 import type { ReviewQueueItem } from '@/features/review-queue/types/review-queue.types';
+import { Heading } from '@/components/ui/heading';
 
 // Phải khớp NGUYÊN VĂN các hằng số ở `scheduling.service.ts` (server) — Definition of Done của
 // #127 yêu cầu so đúng chuỗi này, và đây là cách DUY NHẤT để phân biệt các nhánh rỗng khi
@@ -643,7 +644,9 @@ interface MessagePanelProps {
 function MessagePanel({ heading, body, primary, secondary }: MessagePanelProps) {
   return (
     <div className="focus-page max-w-130 mx-auto flex w-full flex-col items-center gap-[18px] text-center">
-      <h1 className="font-heading text-balance text-[19px] tracking-[-0.02em]">{heading}</h1>
+      <Heading as="h1" size="section" className="text-balance">
+        {heading}
+      </Heading>
       {body && (
         <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
           {body}

@@ -20,6 +20,7 @@ import {
 import { MasteryDistribution, PlanSummary } from '../types/concept';
 import { formatDeadlineShort, formatElapsed, formatTimeLeft } from '../utils/planDates';
 import { MasteryBar } from './MasteryBar';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * One plan on the SP-03 list.
@@ -214,9 +215,9 @@ export function PlanCard({
           {actions}
         </div>
 
-        <h2 className="font-heading mb-0.75 mt-2.5 text-[18px] leading-tight tracking-[-0.015em]">
+        <Heading as="h2" size="card" className="mb-0.75 mt-2.5 leading-tight tracking-[-0.015em]">
           {plan.name}
-        </h2>
+        </Heading>
 
         {meta.length > 0 && (
           <div className="text-muted-foreground font-mono text-[11.5px]">{meta.join(' · ')}</div>
@@ -278,7 +279,9 @@ export function PlanCard({
       />
 
       <div className="mb-0.75 flex items-start justify-between gap-2.5">
-        <h2 className="font-heading text-[18px] leading-tight tracking-[-0.015em]">{plan.name}</h2>
+        <Heading as="h2" size="card" className="leading-tight tracking-[-0.015em]">
+          {plan.name}
+        </Heading>
         {actions}
       </div>
 

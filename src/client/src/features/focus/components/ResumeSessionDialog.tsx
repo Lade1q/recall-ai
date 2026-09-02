@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import type { FocusSessionSnapshot } from '../types/focus.types';
 import { formatMinutesPhrase, formatRelativeDayTime } from '../utils/format';
+import { headingVariants } from '@/components/ui/heading';
 
 interface ResumeSessionDialogProps {
   snapshot: FocusSessionSnapshot;
@@ -33,7 +34,7 @@ export function ResumeSessionDialog({
     <Dialog open onOpenChange={() => {}}>
       <DialogContent showCloseButton={false} className="rounded-[calc(var(--radius)*1.1)]">
         <DialogHeader>
-          <DialogTitle className="font-heading text-[17px] tracking-[-0.02em]">
+          <DialogTitle className={headingVariants({ size: 'card' })}>
             Phiên học chưa được ghi nhận
           </DialogTitle>
           <DialogDescription>

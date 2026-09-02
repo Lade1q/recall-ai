@@ -13,6 +13,7 @@ import { TRACEBACK_THRESHOLD, masteryColor } from '../utils/summary-display';
 import { normalizedTurnWeights, TURN_WEIGHTS } from '../utils/turn-weights';
 import { countingTurns, excludedTurnsNote } from '../utils/turn-mode';
 import { QUESTION_TYPE_LABEL } from '../utils/question-type';
+import { Heading } from '@/components/ui/heading';
 
 interface ScoreBreakdownProps {
   concepts: SessionSummaryConceptResponse[];
@@ -81,9 +82,9 @@ export function ScoreBreakdown({ concepts, turns, reviewSchedule }: ScoreBreakdo
         <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
           Bằng chứng
         </p>
-        <h2 className="text-foreground font-heading text-xl tracking-[-0.01em]" id="tt-ket-qua">
+        <Heading as="h2" size="section" className="text-foreground" id="tt-ket-qua">
           Kết quả từng khái niệm
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2 text-[14.5px] leading-[1.6]">
           Giữ nguyên thứ tự hàng đợi bạn vừa làm. Chiều dài thanh là điểm sau phiên, vạch cắt ngang
           là ngưỡng {TRACEBACK_THRESHOLD.toFixed(2)}. Mở một khái niệm để đọc lại các lượt hỏi–đáp

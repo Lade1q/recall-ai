@@ -51,6 +51,7 @@ import {
 import { formatRelativeDays } from '../utils/planDates';
 import { ConceptDetailPanel, type RelatedConcept } from './ConceptDetailPanel';
 import { ConceptSourcesSection } from './ConceptSources';
+import { Heading } from '@/components/ui/heading';
 
 /** Trên 50 node, UC-17 [E1] yêu cầu mặc định chỉ vẽ vùng quanh node chưa vững. */
 const LARGE_GRAPH_THRESHOLD = 50;
@@ -1121,9 +1122,9 @@ export function ConceptGraph({
                   ×
                 </button>
               </div>
-              <h2 className="font-heading mb-2 text-[19px] leading-tight tracking-[-0.015em]">
+              <Heading as="h2" size="card" className="mb-2 leading-tight tracking-[-0.015em]">
                 {selectedNode.data.label as string}
-              </h2>
+              </Heading>
               {(() => {
                 // Khái niệm tự thêm: `difficulty` là mặc định của server (1), không ai ước
                 // lượng nó — vẽ thang 5 vạch kèm chữ "AI ước lượng" ở đây là gán cho AI một

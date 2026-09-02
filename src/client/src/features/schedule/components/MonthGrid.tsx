@@ -13,6 +13,7 @@ import {
   type MonthCell,
   type MonthCursor,
 } from '../utils/schedule-date';
+import { headingVariants } from '@/components/ui/heading';
 
 export interface MonthGridProps {
   monthCursor: MonthCursor;
@@ -158,7 +159,10 @@ export function MonthGrid({
             nguyên nhãn sau khi bấm, nên không có gì khác báo rằng có chuyện gì vừa xảy ra. */}
         <span
           aria-live="polite"
-          className="font-heading min-w-[130px] text-[17px] tracking-[-0.02em] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]"
+          className={cn(
+            headingVariants({ size: 'card' }),
+            'min-w-[130px] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]'
+          )}
         >
           {formatMonthLabel(monthCursor)}
         </span>
@@ -453,7 +457,7 @@ function EmptyMonthCard({
   return (
     <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
       <div className="border-border bg-card px-5.5 py-4.5 shadow-(--shadow-soft) max-w-[46ch] rounded-xl border text-center">
-        <p className="font-heading mb-1.5 text-[16px] tracking-[-0.02em]">
+        <p className={cn(headingVariants({ size: 'card' }), 'mb-1.5')}>
           {monthLabel} chưa có buổi ôn nào
         </p>
         <p className="text-muted-foreground text-[12.5px] leading-[1.5]">

@@ -1,5 +1,6 @@
 import { PandaSprite } from './PandaSprite';
 import { useSceneTicker } from '../hooks/useSceneTicker';
+import { Heading } from '@/components/ui/heading';
 
 /** Bốn nhịp: chấm · chấm · khựng lại · nhún vai. */
 const TICK_MS = 1700;
@@ -22,9 +23,9 @@ export function VerdictScene() {
       <div className="mx-auto max-w-[1160px]">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-remediate font-mono text-[11px] tracking-[0.1em]">CẢNH 3</span>
-          <h2 className="font-heading text-[22px] sm:text-[27px]">
+          <Heading as="h2" size="section" className="sm:text-[27px]">
             Trả lời dở dang không đồng nghĩa bạn sai.
-          </h2>
+          </Heading>
         </div>
 
         <div className="mt-8 grid items-center gap-8 lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-10">
