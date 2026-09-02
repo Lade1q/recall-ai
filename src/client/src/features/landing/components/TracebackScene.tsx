@@ -298,9 +298,14 @@ export function TracebackScene() {
                     </text>
                     {/* 10.5 -> 11 (02/09): sàn cỡ chữ của #386. Chỗ này thoát đợt quét vì nó
                         là prop `fontSize` của `<text>` SVG chứ không phải chuỗi class — bộ
-                        quét class không đọc tới, nên `grep text-[10px]` báo sạch trong khi
+                        quét class không đọc tới, nên quét theo chuỗi class báo sạch trong khi
                         đây vẫn là chữ nhỏ nhất trong client. Và nó là chữ THẬT: điểm thành
-                        thạo của node, hoặc "chưa kiểm", trong một nhóm `role="button"`. */}
+                        thạo của node, hoặc "chưa kiểm", trong một nhóm `role="button"`.
+
+                        ⚠️ Đừng viết cỡ chữ cũ ra dưới dạng chuỗi class trong chú thích này:
+                        Tailwind quét raw text, không phân biệt code với comment, nên chỉ
+                        nhắc tên class thôi là đã sinh ra rule thật trong bundle — đo được,
+                        một dòng như vậy đẻ ra `font-size:10px` chết trong CSS đã build. */}
                     <text
                       x={c.x}
                       y={c.y + (isProbed ? 33 : 29)}
