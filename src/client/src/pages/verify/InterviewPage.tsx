@@ -17,10 +17,11 @@ import { cn } from '@/lib/utils';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import type { Concept, PlanSummary } from '@/features/study-planner/types/concept';
 import {
+  classifyInterviewStartFailure,
   getInterviewErrorMessage,
   interviewApi,
-  isAiOrNetworkFailure,
 } from '@/features/interview/api/interview.api';
+import type { InterviewStartFailure } from '@/features/interview/api/interview.api';
 import type { StartInterviewResponse } from '@/features/interview/types/interview.types';
 import { Heading } from '@/components/ui/heading';
 
@@ -43,14 +44,14 @@ import { Heading } from '@/components/ui/heading';
 const MAX_TURNS_PER_CONCEPT = 3;
 
 /**
- * Kết quả một lần gọi `startInterview`. Hai nhánh lỗi phải tách nhau vì lối ra khác hẳn:
- * `ai-unavailable` thì chọn lại kế hoạch cũng vô ích (chỉ có thể thử lại), còn `rejected`
- * (planId sai, kế hoạch chưa có tài liệu, …) thì thử lại y hệt cũng vô ích.
+ * Kết quả một lần gọi `startInterview`. Ba nhánh lỗi phải tách nhau vì lối ra khác hẳn:
+ * `ai-unavailable` và `system-error` giữ nguyên lựa chọn để thử lại, còn `rejected` (planId sai,
+ * kế hoạch chưa có tài liệu, …) thì thử lại y hệt cũng vô ích và cần bộ chọn thủ công.
  *
  * `busy` là "chưa gọi gì cả" (đang có lệnh chạy dở, hoặc chưa chọn kế hoạch) — KHÔNG phải
  * server từ chối, nên người gọi bỏ qua thay vì hiện băng lỗi đổ tại lựa chọn của người dùng.
  */
-type StartOutcome = 'started' | 'ai-unavailable' | 'rejected' | 'busy';
+type StartOutcome = 'started' | InterviewStartFailure | 'busy';
 
 /**
  * Vì sao lối vào deep-link không tự mở được phiên — quyết định băng thông báo nào hiện ra.
@@ -58,7 +59,7 @@ type StartOutcome = 'started' | 'ai-unavailable' | 'rejected' | 'busy';
  * luôn (xem `onOpenChange` của dialog AE-03), không rớt xuống bộ chọn thủ công — URL deep-link
  * là bước chuyển, không phải điểm đến.
  */
-type AutoStartFailure = 'ai-unavailable' | 'rejected';
+type AutoStartFailure = InterviewStartFailure;
 
 export default function InterviewPage() {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export default function InterviewPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isEnding, setIsEnding] = useState(false);
   // Autostart deep-link không thành → thoát khỏi màn loading. Lỗi dữ liệu thì rơi về bộ chọn
-  // thủ công, còn AI/mạng hỏng thì chỉ mời thử lại chính liên kết đó.
+  // thủ công; AI/mạng hoặc hệ thống hỏng thì giữ lựa chọn và thử lại chính liên kết đó.
   const [autoStartFailure, setAutoStartFailure] = useState<AutoStartFailure | null>(null);
   const autoStartTriggeredRef = useRef(false);
   // Phiên đang dở server trả về khi created === false — chờ người dùng xác nhận (AE-03).
@@ -158,8 +159,8 @@ export default function InterviewPage() {
 
   /**
    * Gọi startInterview; nếu có phiên dở thì mở hộp thoại, ngược lại vào thẳng phiên.
-   * Nhánh lỗi phân loại theo `isAiOrNetworkFailure` để lối vào deep-link biết nên mời thử
-   * lại hay trả về bộ chọn thủ công.
+   * Nhánh lỗi phân loại theo nguyên nhân để lối vào deep-link biết nên mời thử lại, báo lỗi hệ
+   * thống mà vẫn giữ lựa chọn, hay trả về bộ chọn thủ công khi dữ liệu đầu vào bị từ chối.
    */
   const startSession = async (
     conceptIds?: string[],
@@ -186,7 +187,7 @@ export default function InterviewPage() {
       return 'started';
     } catch (error) {
       toast.error(getInterviewErrorMessage(error));
-      return isAiOrNetworkFailure(error) ? 'ai-unavailable' : 'rejected';
+      return classifyInterviewStartFailure(error);
     } finally {
       setIsStarting(false);
     }
@@ -194,8 +195,8 @@ export default function InterviewPage() {
 
   /**
    * Lối vào deep-link (DB-06 / Dashboard): mở thẳng phiên đúng như liên kết yêu cầu.
-   * Dùng lại được cho nút "Thử lại" — khi AI/mạng hỏng thì đúng liên kết đó vẫn là thứ
-   * người dùng muốn chạy, giữ nguyên planId + conceptIds thay vì bắt chọn lại.
+   * Dùng lại được cho nút "Thử lại" — khi AI/mạng/hệ thống hỏng thì đúng liên kết đó vẫn là
+   * thứ người dùng muốn chạy, giữ nguyên planId + conceptIds thay vì bắt chọn lại.
    */
   const startFromDeepLink = async (): Promise<void> => {
     const conceptIds = deepLinkConceptId
@@ -360,6 +361,21 @@ export default function InterviewPage() {
     </Dialog>
   );
 
+  const retryableAutoStartFailure =
+    autoStartFailure === 'ai-unavailable'
+      ? {
+          tone: 'border-mastery-learning/34 bg-mastery-learning/9',
+          message:
+            'Dịch vụ AI tạm thời không phản hồi nên chưa mở được phiên kiểm tra từ liên kết vừa rồi. Kế hoạch và khái niệm bạn chọn vẫn đúng — hãy thử lại sau giây lát.',
+        }
+      : autoStartFailure === 'system-error'
+        ? {
+            tone: 'border-destructive/35 bg-destructive/5',
+            message:
+              'Hệ thống đang gặp sự cố nên chưa mở được phiên kiểm tra từ liên kết vừa rồi. Kế hoạch và khái niệm bạn chọn vẫn được giữ nguyên — hãy thử lại sau giây lát.',
+          }
+        : null;
+
   // ---------- Lối vào deep-link đang tự khởi động phiên: không hiện bộ chọn ----------
   if (deepLinkPlanId && autoStartFailure === null && pending === null) {
     return (
@@ -380,19 +396,20 @@ export default function InterviewPage() {
     return <div className="min-h-[50vh]">{pendingDialog}</div>;
   }
 
-  // ---------- Deep-link gặp lỗi AI/mạng: chỉ hiện băng "Thử lại", không hiện picker ----------
-  // Trước đây nhánh này cũng rớt xuống màn picker đầy đủ làm nền cho băng lỗi — cùng lỗi vừa
-  // sửa ở hai nhánh trên. "Thử lại" tự mở lại ĐÚNG liên kết cũ (planId + conceptIds không đổi)
-  // nên bộ chọn thủ công không giúp được gì thêm ở đây; khác với `rejected` (dữ liệu sai) —
-  // chỗ đó bộ chọn thủ công là lối thoát thật sự, nên vẫn giữ nguyên full picker.
-  if (deepLinkPlanId && autoStartFailure === 'ai-unavailable') {
+  // ---------- Deep-link gặp lỗi có thể retry: chỉ hiện băng, không hiện picker ----------
+  // AI/mạng và lỗi hệ thống dùng chung hành vi giữ request; chỉ khác câu chữ và màu. Một 5xx
+  // không thuộc AI không nói gì về planId/conceptIds, nên rơi xuống `rejected` sẽ xoá lựa chọn
+  // đúng rồi vẫn gửi lại vào cùng hệ thống đang lỗi.
+  if (deepLinkPlanId && retryableAutoStartFailure) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="border-mastery-learning/34 bg-mastery-learning/9 text-foreground max-w-md rounded-md border px-4 py-3.5 text-[13px] leading-[1.6]">
-          <p>
-            Dịch vụ AI tạm thời không phản hồi nên chưa mở được phiên kiểm tra từ liên kết vừa rồi.
-            Kế hoạch và khái niệm bạn chọn vẫn đúng — hãy thử lại sau giây lát.
-          </p>
+        <div
+          className={cn(
+            'text-foreground max-w-md rounded-md border px-4 py-3.5 text-[13px] leading-[1.6]',
+            retryableAutoStartFailure.tone
+          )}
+        >
+          <p>{retryableAutoStartFailure.message}</p>
           <Button
             variant="outline"
             size="sm"
@@ -427,9 +444,9 @@ export default function InterviewPage() {
           Chọn kế hoạch và các khái niệm bạn muốn AI Examiner kiểm tra, hoặc để hệ thống gợi ý những
           khái niệm cần ôn hôm nay.
         </p>
-        {/* `ai-unavailable` có màn riêng ở nhánh return phía trên (không hiện picker này) —
-            chỉ còn `rejected` (dữ liệu sai: planId không tồn tại, kế hoạch chưa có tài liệu…)
-            thật sự cần bộ chọn thủ công làm lối thoát, nên banner đó ở ngay đây. */}
+        {/* `ai-unavailable` và `system-error` có màn riêng ở các nhánh return phía trên (không
+            hiện picker này) — chỉ còn `rejected` (dữ liệu sai: planId không tồn tại, kế hoạch
+            chưa có tài liệu…) thật sự cần bộ chọn thủ công làm lối thoát, nên banner ở đây. */}
         {autoStartFailure === 'rejected' && (
           <p className="border-border bg-muted text-muted-foreground mt-3 rounded-md border px-3.5 py-2.5 text-[13px] leading-[1.6]">
             Không thể tự mở phiên kiểm tra từ liên kết vừa rồi. Hãy chọn lại kế hoạch và khái niệm

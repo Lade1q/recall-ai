@@ -113,6 +113,21 @@ export function isAiOrNetworkFailure(error: unknown): boolean {
   return code?.startsWith('AI_') ?? false;
 }
 
+export type InterviewStartFailure = 'ai-unavailable' | 'system-error' | 'rejected';
+
+/**
+ * Phân loại lối thoát của deep-link khi không mở được phiên. `isAiOrNetworkFailure` phải chạy
+ * trước để một lỗi AI 5xx vẫn ở nhánh AI; mọi 5xx còn lại là lỗi hệ thống, không được quy cho
+ * dữ liệu đầu vào và không được xoá lựa chọn đúng của người dùng.
+ */
+export function classifyInterviewStartFailure(error: unknown): InterviewStartFailure {
+  if (isAiOrNetworkFailure(error)) return 'ai-unavailable';
+  if (isAxiosError(error) && error.response && error.response.status >= 500) {
+    return 'system-error';
+  }
+  return 'rejected';
+}
+
 export const interviewApi = {
   /** AE-01 — bắt đầu phiên. Bỏ `conceptIds` để server tự chọn hàng đợi ôn hôm nay. */
   startInterview: async (payload: {

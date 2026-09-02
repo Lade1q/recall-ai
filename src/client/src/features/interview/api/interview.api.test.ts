@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getInterviewErrorMessage, isAiOrNetworkFailure } from './interview.api';
+import {
+  classifyInterviewStartFailure,
+  getInterviewErrorMessage,
+  isAiOrNetworkFailure,
+} from './interview.api';
 
 // axios `isAxiosError` only checks `payload.isAxiosError === true`, so plain
 // objects shaped like an axios error are enough here.
@@ -162,5 +166,29 @@ describe('isAiOrNetworkFailure', () => {
   // cho biểu thức không ném — xem docblock của `nginxBadGateway` ở đầu tệp.
   it('does not treat a 5xx with a non-JSON body as an AI failure', () => {
     expect(isAiOrNetworkFailure(nginxBadGateway())).toBe(false);
+  });
+});
+
+describe('classifyInterviewStartFailure', () => {
+  it('keeps a request without a server response on the AI/network retry path', () => {
+    expect(classifyInterviewStartFailure({ isAxiosError: true })).toBe('ai-unavailable');
+  });
+
+  it('keeps a structured AI 5xx on the AI retry path', () => {
+    expect(classifyInterviewStartFailure(axiosErr(502, 'AI_UPSTREAM_ERROR'))).toBe(
+      'ai-unavailable'
+    );
+  });
+
+  it('classifies an unexpected structured 5xx as a system error', () => {
+    expect(classifyInterviewStartFailure(axiosErr(500, 'INTERNAL_ERROR'))).toBe('system-error');
+  });
+
+  it('classifies a proxy 5xx without an API code as a system error', () => {
+    expect(classifyInterviewStartFailure(nginxBadGateway())).toBe('system-error');
+  });
+
+  it('keeps an input rejection on the manual-selection path', () => {
+    expect(classifyInterviewStartFailure(axiosErr(409, 'NO_MATERIAL'))).toBe('rejected');
   });
 });
