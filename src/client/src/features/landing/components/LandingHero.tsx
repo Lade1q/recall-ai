@@ -53,7 +53,12 @@ export function LandingHero() {
       <Heading
         as="h1"
         size="page"
-        /* TODO(#387): giu nguyen 34px cho Quan quyet; snap se la 30px (page) */ className="max-w-[20ch] text-balance text-[34px] sm:text-[44px] lg:text-[54px]"
+        /* #387: NGOẠI LỆ ĐƯỢC DUYỆT (Quân chốt 02/09) — hero giữ nguyên nhịp
+           34 → 44 → 54. Đỉnh thang là 40px, nhỏ hơn 54, nên ép về `display`
+           làm hero trên laptop NHỎ ĐI 26% và mất hẳn nhịp phóng. Đây là ngoại
+           lệ DUY NHẤT của thang; nó được kê đích danh trong `heading-scale.test.ts`,
+           không phải được tha bằng một luật rộng kiểu "bỏ qua mọi cỡ > 40". */
+        className="max-w-[20ch] text-balance text-[34px] sm:text-[44px] lg:text-[54px]"
       >
         Ôn tập thông minh, truy ngược tận gốc <span className="text-remediate">kiến thức yếu</span>
       </Heading>

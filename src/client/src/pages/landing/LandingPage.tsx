@@ -30,6 +30,8 @@ export default function LandingPage() {
       <header className="border-border mx-auto flex w-full max-w-[1280px] items-center justify-between border-b px-5 py-4 sm:px-8 lg:px-14">
         <div className="flex items-center gap-2.5">
           <PandaSprite pose="idle" size={26} />
+          {/* #387: KHÔNG snap — wordmark, không phải tiêu đề. Phụ lục D1 đã loại khỏi phạm
+              vi thang; hồ sơ ở `OUT_OF_SCOPE_WORDMARKS` trong `heading-scale.test.ts`. */}
           <span className="font-heading text-base tracking-tight">Recall AI</span>
         </div>
         <div className="flex items-center gap-3 sm:gap-5">
@@ -70,7 +72,7 @@ export default function LandingPage() {
             <Heading
               as="h2"
               size="section"
-              /* TODO(#387): giu nguyen 24px cho Quan quyet; snap se la 21px (section) */ className="mx-auto max-w-[26ch] text-balance text-[24px] sm:text-[27px]"
+              className="mx-auto max-w-[26ch] text-balance sm:text-[30px]"
             >
               Không chỉ hỏi bạn, Recall AI biết bạn đã hiểu đến đâu.
             </Heading>
@@ -84,11 +86,7 @@ export default function LandingPage() {
 
         <section className="flex flex-col items-center gap-5 px-5 pb-20 pt-10 text-center sm:px-8">
           <PandaSprite pose="cheer" size={128} shadow />
-          <Heading
-            as="h2"
-            size="page"
-            /* TODO(#387): giu nguyen 26px cho Quan quyet; snap se la 30px (page) */ className="max-w-[22ch] text-balance text-[26px] sm:text-[32px]"
-          >
+          <Heading as="h2" size="page" className="max-w-[22ch] text-balance">
             Tải lên tài liệu, nhận lộ trình học của riêng bạn.
           </Heading>
           <Button asChild size="lg">
@@ -101,7 +99,9 @@ export default function LandingPage() {
         <div className="flex items-center gap-2.5">
           <PandaSprite pose="idle" size={22} />
           <span
-            /* TODO(#387): giu nguyen 15px cho Quan quyet; snap se la 18px (card) */ className={cn(
+            /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
               headingVariants({ size: 'card' }),
               'text-[15px] tracking-tight'
             )}

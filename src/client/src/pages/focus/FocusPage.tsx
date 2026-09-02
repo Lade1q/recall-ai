@@ -575,11 +575,7 @@ function NotStartedPanel({
   return (
     <div className="focus-page max-w-130 mx-auto flex w-full flex-col items-center gap-[18px] text-center">
       {chip && <Badge tone="remediate">{chip}</Badge>}
-      <Heading
-        as="h1"
-        size="page"
-        /* TODO(#387): giu nguyen 26px cho Quan quyet; snap se la 30px (page) */ className="text-balance text-[26px] leading-[1.15]"
-      >
+      <Heading as="h1" size="page" className="text-balance leading-[1.15]">
         {item.name}
       </Heading>
       <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">

@@ -195,3 +195,34 @@ describe('InterviewSessionPage — header trọng số (#392 (c))', () => {
     expect(headerText()).not.toContain('0.5');
   });
 });
+
+describe('InterviewSessionPage — vai tiêu đề của trạng thái đang kiểm (#387)', () => {
+  /**
+   * Quyết định 02/09: tiêu đề thật của màn là KHÁI NIỆM đang kiểm, không phải tên màn
+   * trên thanh trên. Trước đó `h1` nằm ở nhãn thanh trên (16px) trong khi `h2` ngay dưới
+   * là 21px — thứ bậc chạy ngược.
+   *
+   * Test này ghim VAI (thẻ nào mang `h1`), KHÔNG ghim cỡ: cỡ do `heading-scale.test.ts`
+   * canh. Đừng đọc nó thành "đã kiểm h1 là phần tử chữ lớn nhất trang".
+   *
+   * Ghim CHỮ trong thẻ chứ không ghim số lượng: đếm suông vẫn xanh nếu ai đó đổi nhầm
+   * sang thẻ khác mà tổng vẫn còn đúng một `h1`.
+   */
+  it('🔴 đúng MỘT h1, và nó mang tên khái niệm', () => {
+    mountWith([makeTurn('t1', 1, true)], 1);
+
+    const h1s = screen.getAllByRole('heading', { level: 1 });
+    expect(h1s.map((el) => el.textContent)).toEqual([CONCEPT.name]);
+  });
+
+  /**
+   * Vắng mặt phải hỏi riêng: nhãn thanh trên vẫn PHẢI hiện ra (không phải bị xoá), chỉ
+   * thôi không còn là heading. Hai vế này sai theo hai hướng khác nhau nên tách hai assert.
+   */
+  it('🔴 nhãn thanh trên còn hiện, nhưng KHÔNG còn là heading', () => {
+    mountWith([makeTurn('t1', 1, true)], 1);
+
+    expect(screen.getByText('Kiểm tra vấn đáp')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Kiểm tra vấn đáp' })).toBeNull();
+  });
+});

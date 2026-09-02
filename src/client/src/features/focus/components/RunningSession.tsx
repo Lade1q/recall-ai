@@ -476,11 +476,7 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <Heading
-                  as="h1"
-                  size="section"
-                  /* TODO(#387): giu nguyen 17px cho Quan quyet; snap se la 21px (section) */ className="mt-1 text-balance text-[17px] leading-[1.25]"
-                >
+                <Heading as="h1" size="section" className="mt-1 text-balance leading-[1.25]">
                   {item.name}
                 </Heading>
               </div>
@@ -607,7 +603,7 @@ export function RunningSession({
                     <Heading
                       as="h1"
                       size="page"
-                      /* TODO(#387): giu nguyen 34px cho Quan quyet; snap se la 30px (page) */ className="text-balance text-[34px] leading-[1.15] tracking-[-0.025em]"
+                      className="text-balance leading-[1.15] tracking-[-0.025em]"
                     >
                       {item.name}
                     </Heading>
