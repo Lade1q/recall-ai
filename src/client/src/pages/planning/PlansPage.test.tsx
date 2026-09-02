@@ -51,6 +51,14 @@ function makePlan(overrides: Partial<PlanSummary> = {}): PlanSummary {
 
 const EMPTY_SCHEDULE: ScheduleResponse = { todayDateKey: TODAY, items: [] };
 
+/**
+ * Ba ca dưới đây đã chạm trần chờ mặc định khi cả suite chịu tải; ca `forceMount` còn lại thiếu
+ * một rào chắn phụ thuộc dữ liệu. Giữ ngưỡng nới rộng cục bộ cho cả bốn: các test khác vẫn thất
+ * bại nhanh, còn những assertion này có đủ khoảng đệm trên mốc 1.035s đã đo mà không biến một
+ * lỗi treo thành lượt chờ dài của toàn bộ suite.
+ */
+const LOADED_ASYNC_WAIT = { timeout: 3_000 };
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {
@@ -69,7 +77,15 @@ beforeEach(() => {
   vi.mocked(scheduleApi.getSchedule).mockResolvedValue(EMPTY_SCHEDULE);
 });
 
-/** Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner. */
+/**
+ * Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner.
+ *
+ * ⛔ Đừng thêm tham số trần chờ vào đây "để sẵn". Đã thử và đã gỡ: cả 4/4 ca chậm của #518
+ * đều đã có chỗ vá riêng — ca `[CHẬM 1014ms]` được vá bằng cách INLINE ra khỏi helper này,
+ * đúng vì helper không nhận được trần. Tám lời gọi còn lại chưa từng được quan sát thấy
+ * giòn. Một núm không ai vặn TRÔNG GIỐNG một bản vá, và lần review sau sẽ có người đọc nó
+ * thành "chỗ này xử lý rồi". Cần thì thêm lại là một dòng.
+ */
 async function renderPage() {
   const view = render(<PlansPage />);
   await screen.findByRole('tab', { name: 'Lịch' });
@@ -285,8 +301,16 @@ describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
 
     render(<PlansPage />);
 
-    const schedulePanel = await screen.findByRole('tabpanel');
-    await user.click(within(schedulePanel).getByRole('button', { name: 'Thử lại' }));
+    // Hai cổng NỐI TIẾP, nên tổng dung sai không bị chặn ở 1000 ms — nhưng riêng chặng chờ
+    // `/plans` trả về thì chỉ có trần mặc định, mà `/plans` chậm chính là điều kiện gốc của
+    // #518. Nới cả rào chắn đầu, không chỉ rào sau.
+    const schedulePanel = await screen.findByRole('tabpanel', {}, LOADED_ASYNC_WAIT);
+    const retryButton = await within(schedulePanel).findByRole(
+      'button',
+      { name: 'Thử lại' },
+      LOADED_ASYNC_WAIT
+    );
+    await user.click(retryButton);
 
     expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
@@ -302,7 +326,11 @@ describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
     render(<PlansPage />);
 
     expect(
-      await screen.findByText('Không tải được lịch ôn tập. Kiểm tra kết nối rồi thử lại.')
+      await screen.findByText(
+        'Không tải được lịch ôn tập. Kiểm tra kết nối rồi thử lại.',
+        {},
+        LOADED_ASYNC_WAIT
+      )
     ).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
     expect(screen.getByText('Không thể tải danh sách kế hoạch')).toBeInTheDocument();
@@ -315,7 +343,9 @@ describe('PlansPage — danh sách plans đã tải thành công', () => {
 
     render(<PlansPage />);
 
-    expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Chưa có kế hoạch ôn tập nào', {}, LOADED_ASYNC_WAIT)
+    ).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
     expect(scheduleApi.getSchedule).not.toHaveBeenCalled();
   });
@@ -379,9 +409,12 @@ describe('PlansPage — tài khoản chỉ có kế hoạch draft', () => {
   });
 
   it('mở vào Lịch rỗng nhưng vẫn nói ra là có kế hoạch chưa xác nhận', async () => {
-    await renderPage();
+    render(<PlansPage />);
 
-    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: 'Lịch' }, LOADED_ASYNC_WAIT)).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     expect(await screen.findByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
     expect(screen.getByText('Chưa có kế hoạch nào đang hoạt động')).toBeInTheDocument();
   });
