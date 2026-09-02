@@ -359,9 +359,28 @@ const EYEBROWS_APPROVED = [
  * ⚠️ Ngoại lệ này ghim **BA trục**, không riêng cỡ — đọc "ngoại lệ cỡ" là đọc hẹp hơn sự
  * thật, và bản đầu của docstring này đã đọc hẹp như thế. Bọc `<Heading>` kéo theo hai thứ
  * nữa mà không ai kê số: `card` có `tracking-[-0.015em]`, và `.font-heading` (`@layer
- * base`) có `line-height:1.25`. Đo trên bản dựng thật: leading 20,8px → 16,25px (**−22%**,
- * mất 4,55px mỗi dòng), tracking 0 → −0,195px. Nên override là `text-[13px]` +
- * `leading-[1.6]` (13 × 1.6 = đúng 20,8px) + `tracking-normal` (`--tracking-normal: 0em`).
+ * base`) có `line-height:1.25`. Đo trên bản dựng thật: leading 18,5714px → 16,25px
+ * (**−12,5%**, mất 2,32px mỗi dòng), tracking 0 → −0,195px.
+ *
+ * ⚠️ 18,5714px KHÔNG phải 1,6 của `body`. Tổ tiên gần hơn là `TabsContent` mang `text-sm`,
+ * mà `--text-sm--line-height` là `calc(1.25 / .875)` — KHÔNG đơn vị nên thừa kế theo TỈ LỆ:
+ * 13 × 1,42857. Bản đầu của docstring này suy thẳng từ `body` mà không kiểm có gì chen
+ * giữa, ra 20,8px và phóng đại mức hụt **1,96×**; bản vá theo số ấy còn NÂNG cỡ dòng +12%,
+ * tức đổi diện mạo ngược với ý định. Override đúng là `leading-[inherit]`: nó phát biểu
+ * đúng ý định — *đừng để `.font-heading` đặt line-height, cứ thừa kế như trước* — cộng
+ * `text-[13px]` và `tracking-normal` (`--tracking-normal: 0em`).
+ *
+ * ⚠️ ĐỪNG thay bằng một `leading` arbitrary trỏ vào biến `--text-sm--line-height`, dù
+ * dạng ấy tự khai nguồn tốt hơn.
+ * Hai lý do, cả hai đo được:
+ *
+ *   gõ SAI tên biến vẫn ra ĐÚNG số   `var()` không giải được là *invalid at computed-value
+ *                                    time*; `line-height` thừa kế nên rơi về `inherit`, tức
+ *                                    18,5714px — cổng không thể bác. Dạng `inherit` gõ sai
+ *                                    thì hỏng lúc parse, tụt 16,25px, KÊU TO.
+ *   ghim vào token của người khác     nếu tổ tiên đổi `text-sm` → `text-base`, bản `var`
+ *                                    kẹt ở 1,4286 trong khi chữ quanh nó nhảy 1,5 — đúng
+ *                                    loại lệch #387 đang dọn. `inherit` thì đi theo.
  *
  * ⛔ Trục **mặt chữ** thì KHÔNG ghim được: `.font-heading` đổi sans → mono, và gỡ nó đi
  * thì không còn là `<Heading>` nữa. Đổi có chủ ý, Quân chấp nhận sau khi xem số.
