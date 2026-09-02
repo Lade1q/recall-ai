@@ -600,11 +600,7 @@ export function RunningSession({
                 <>
                   <section className="flex flex-col items-center gap-2.5 text-center">
                     {chip && <Badge tone="remediate">{chip}</Badge>}
-                    <Heading
-                      as="h1"
-                      size="page"
-                      className="leading-[1.15] tracking-[-0.025em]"
-                    >
+                    <Heading as="h1" size="page" className="leading-[1.15] tracking-[-0.025em]">
                       {item.name}
                     </Heading>
                     <p className="text-muted-foreground max-w-[46ch] text-[13px] leading-[1.65]">

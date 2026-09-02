@@ -69,11 +69,7 @@ export default function LandingPage() {
         */}
         <section className="px-5 py-16 sm:px-8 lg:px-14 lg:py-20">
           <div className="border-border bg-card mx-auto max-w-[1160px] rounded-xl border p-8 text-center lg:p-12">
-            <Heading
-              as="h2"
-              size="section"
-              className="mx-auto max-w-[26ch] sm:text-[30px]"
-            >
+            <Heading as="h2" size="section" className="mx-auto max-w-[26ch] sm:text-[30px]">
               Không chỉ hỏi bạn, Recall AI biết bạn đã hiểu đến đâu.
             </Heading>
             <p className="text-muted-foreground mx-auto mt-4 max-w-[68ch] text-pretty text-[14px] leading-[1.8]">
