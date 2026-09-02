@@ -575,7 +575,7 @@ function NotStartedPanel({
   return (
     <div className="focus-page max-w-130 mx-auto flex w-full flex-col items-center gap-[18px] text-center">
       {chip && <Badge tone="remediate">{chip}</Badge>}
-      <Heading as="h1" size="page" className="text-balance leading-[1.15]">
+      <Heading as="h1" size="page" className="leading-[1.15]">
         {item.name}
       </Heading>
       <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
@@ -644,7 +644,7 @@ interface MessagePanelProps {
 function MessagePanel({ heading, body, primary, secondary }: MessagePanelProps) {
   return (
     <div className="focus-page max-w-130 mx-auto flex w-full flex-col items-center gap-[18px] text-center">
-      <Heading as="h1" size="section" className="text-balance">
+      <Heading as="h1" size="section">
         {heading}
       </Heading>
       {body && (

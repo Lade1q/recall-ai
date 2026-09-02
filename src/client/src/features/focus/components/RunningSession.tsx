@@ -476,7 +476,7 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <Heading as="h1" size="section" className="mt-1 text-balance leading-[1.25]">
+                <Heading as="h1" size="section" className="mt-1 leading-[1.25]">
                   {item.name}
                 </Heading>
               </div>
@@ -600,11 +600,7 @@ export function RunningSession({
                 <>
                   <section className="flex flex-col items-center gap-2.5 text-center">
                     {chip && <Badge tone="remediate">{chip}</Badge>}
-                    <Heading
-                      as="h1"
-                      size="page"
-                      className="text-balance leading-[1.15] tracking-[-0.025em]"
-                    >
+                    <Heading as="h1" size="page" className="leading-[1.15] tracking-[-0.025em]">
                       {item.name}
                     </Heading>
                     <p className="text-muted-foreground max-w-[46ch] text-[13px] leading-[1.65]">

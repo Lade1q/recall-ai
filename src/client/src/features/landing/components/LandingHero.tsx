@@ -58,7 +58,7 @@ export function LandingHero() {
            làm hero trên laptop NHỎ ĐI 26% và mất hẳn nhịp phóng. Đây là ngoại
            lệ DUY NHẤT của thang; nó được kê đích danh trong `heading-scale.test.ts`,
            không phải được tha bằng một luật rộng kiểu "bỏ qua mọi cỡ > 40". */
-        className="max-w-[20ch] text-balance text-[34px] sm:text-[44px] lg:text-[54px]"
+        className="max-w-[20ch] text-[34px] sm:text-[44px] lg:text-[54px]"
       >
         Ôn tập thông minh, truy ngược tận gốc <span className="text-remediate">kiến thức yếu</span>
       </Heading>

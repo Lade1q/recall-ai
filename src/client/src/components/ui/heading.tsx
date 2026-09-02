@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
  *
  * Chỉ `card` chỉnh lại tracking: -0.02em ở cỡ 18px thì các chữ dính vào nhau.
  */
-const headingVariants = cva('font-heading text-balance', {
+const headingVariants = cva('font-heading', {
   variants: {
     size: {
       /** Hero — một cái mỗi màn, hoặc không có. */
@@ -30,15 +30,33 @@ const headingVariants = cva('font-heading text-balance', {
       /** Tên một thẻ trong danh sách. */
       card: 'text-[18px] tracking-[-0.015em]',
     },
+    /**
+     * `text-balance` và `truncate` cùng điều khiển cách xuống dòng. Giữ chúng trong một
+     * variant loại trừ nhau để CSS của `text-balance` không vô hiệu hoá dấu ba chấm.
+     *
+     * Vì sao phải là variant chứ không phải "viết đúng thứ tự class": đo trong Chrome 151,
+     * `text-wrap:balance` và `white-space:nowrap` nằm **cùng `@layer utilities`**, cùng độ
+     * đặc hiệu, nên chỉ thứ tự **trong tệp CSS** phân thắng bại — và luật balance được phát
+     * ra SAU. Thứ tự chữ trong `className` không đổi được điều đó. `tailwind-merge` cũng
+     * không cứu: nó gộp `text-balance` với `text-pretty` (cùng nhóm) nhưng **giữ cả hai**
+     * khi gặp `truncate` cạnh `text-balance` — đo được, xem #514. Loại trừ nhau ngay tại
+     * nguồn là chỗ DUY NHẤT chặn được.
+     */
+    wrap: {
+      balance: 'text-balance',
+      truncate: 'truncate',
+    },
   },
   defaultVariants: {
     size: 'page',
+    wrap: 'balance',
   },
 });
 
 function Heading({
   className,
   size,
+  wrap,
   as: Comp = 'h2',
   ...props
 }: React.ComponentProps<'h2'> &
@@ -47,7 +65,11 @@ function Heading({
     as?: 'h1' | 'h2' | 'h3' | 'h4' | 'div';
   }) {
   return (
-    <Comp data-slot="heading" className={cn(headingVariants({ size }), className)} {...props} />
+    <Comp
+      data-slot="heading"
+      className={cn(headingVariants({ size, wrap }), className)}
+      {...props}
+    />
   );
 }
 
