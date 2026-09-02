@@ -5,8 +5,11 @@ import { cn } from '@/lib/utils';
 
 /**
  * Tiêu đề kiểu ấn phẩm — mục "Editorial heading" trong components.html:
- * Noto Serif, tracking -0.02em, "chỉ dùng cho tiêu đề lớn — không dùng cho
- * label UI".
+ * "chỉ dùng cho tiêu đề lớn — không dùng cho label UI".
+ *
+ * Component này KHÔNG nói mặt chữ là gì. Mặt chữ / weight / tracking nằm ở
+ * `.font-heading` trong `global.css`; chép lại vào đây nghĩa là lần đổi font
+ * sau phải sửa cả hai chỗ, và một trong hai sẽ trôi.
  *
  * Thang bốn bậc thay cho việc mỗi màn hình tự chọn một cỡ chữ: trước đó repo
  * có 30 / 24 / 23 / 21 / 19 / 18px rải rác, tất cả đều là `font-heading` viết

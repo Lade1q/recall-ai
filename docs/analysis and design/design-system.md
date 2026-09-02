@@ -44,26 +44,33 @@ Ba họ font, phân vai rõ ràng — không dùng chung một font cho mọi th
 | Vai trò                                                               | Font           | Khi nào dùng                                                                                     |
 | --------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ |
 | **UI / Body** (`font-sans`)                                           | Geist Variable | Toàn bộ UI: nav, button, form, bảng, card body                                                   |
-| **Editorial heading** (`font-heading`, class `.font-heading`)         | Noto Serif     | Tiêu đề lớn: Dashboard title, kết quả cuối phiên, landing hero — **không** dùng cho label UI nhỏ |
+| **Editorial heading** (`font-heading`, class `.font-heading`)         | JetBrains Mono | Tiêu đề lớn: Dashboard title, kết quả cuối phiên, landing hero — **không** dùng cho label UI nhỏ |
 | **Metadata / số liệu** (`font-mono`, class `.meta-mono` hoặc `<kbd>`) | Geist Mono     | Đồng hồ Pomodoro, `mastery_score`, phím tắt                                                      |
 
-> **Vì sao Noto Serif chứ không phải Newsreader/Playfair** (gợi ý mặc định của protocol
-> minimalist): Noto Serif có sẵn subset `vietnamese` (U+1EA0–1EF9, đủ dấu tiếng Việt) trong từng
-> file weight của `@fontsource/noto-serif` — ưu tiên đúng nội dung tiếng Việt của app hơn là bám
-> chính xác gợi ý font của skill.
+> **Vì sao JetBrains Mono** (Quân chốt 02/09, thay Noto Serif): tiêu đề rời khỏi trục serif
+> editorial sang trục mono — cùng họ hình với `font-mono` đã dùng cho số liệu, nên màn hình chỉ
+> còn hai trục chữ thay vì ba.
+>
+> **Ràng buộc không đổi qua mọi lần đổi font tiêu đề: phải có subset `vietnamese`.** Đây là lý do
+> Newsreader/Playfair (gợi ý mặc định của protocol minimalist) bị loại từ đầu. Đã đo lại trên
+> `@fontsource-variable/jetbrains-mono@5.3.0`: có `jetbrains-mono-vietnamese-wght-normal`, dải
+> `U+1EA0-1EF9`, và `U+20AB` (₫) nằm ở subset khác trong cùng gói. Font tiêu đề nào không đạt
+> điều này thì không xét, bất kể trông thế nào.
+>
+> Dùng bản **variable** (một file cho cả dải weight), không dùng file weight tĩnh.
 
 **Text color:** không bao giờ dùng đen/trắng tuyệt đối — `--foreground`/`--background` luôn có
 chút warm chroma (hue ~75-80, xem §3.1). `line-height: 1.6` cho body.
 
-| Role                   | Class Tailwind                    | Font       | Size                   |
-| ---------------------- | --------------------------------- | ---------- | ---------------------- |
-| Landing/Dashboard hero | `font-heading text-4xl font-bold` | Noto Serif | 36px, tracking -0.02em |
-| Page title             | `text-2xl font-bold`              | Geist Sans | 24px                   |
-| Section heading        | `text-xl font-semibold`           | Geist Sans | 20px                   |
-| Card title             | `text-lg font-medium`             | Geist Sans | 18px                   |
-| Body / Chat            | `text-base`                       | Geist Sans | 16px                   |
-| Metadata / timer       | `.meta-mono text-sm`              | Geist Mono | 14px                   |
-| Node label (graph)     | `text-xs`                         | Geist Sans | 12px                   |
+| Role                   | Class Tailwind          | Font           | Size                   |
+| ---------------------- | ----------------------- | -------------- | ---------------------- |
+| Landing/Dashboard hero | `font-heading text-4xl` | JetBrains Mono | 36px, tracking -0.02em |
+| Page title             | `text-2xl font-bold`    | Geist Sans     | 24px                   |
+| Section heading        | `text-xl font-semibold` | Geist Sans     | 20px                   |
+| Card title             | `text-lg font-medium`   | Geist Sans     | 18px                   |
+| Body / Chat            | `text-base`             | Geist Sans     | 16px                   |
+| Metadata / timer       | `.meta-mono text-sm`    | Geist Mono     | 14px                   |
+| Node label (graph)     | `text-xs`               | Geist Sans     | 12px                   |
 
 ---
 
@@ -257,6 +264,6 @@ soát hơn màu bão hòa cao).
 - **Color space:** oklch — không dùng HSL/hex trực tiếp trong token.
 - **Dark mode:** class `.dark` trên `<html>` — dark-first orientation (xem §0).
 - **Font packages mới cần cài** (đã cài trong session redesign này):
-  `@fontsource-variable/geist-mono`, `@fontsource/noto-serif`.
+  `@fontsource-variable/geist-mono`, `@fontsource-variable/jetbrains-mono`.
 - **Custom Tailwind utilities** đăng ký trong `@theme inline`: `bg-mastery-strong`,
   `text-ai-accent`, `border-remediate`, v.v.
