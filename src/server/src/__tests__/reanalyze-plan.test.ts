@@ -79,7 +79,12 @@ describe('reanalyzePlan', () => {
     });
 
     const error = await reanalyzePlan(PLAN_ID, OWNER_ID).catch((e) => e);
-    expect(error).toMatchObject({ statusCode: 409, code: 'REANALYZE_NOT_ALLOWED' });
+    expect(error).toMatchObject({
+      statusCode: 409,
+      code: 'REANALYZE_NOT_ALLOWED',
+      message:
+        'Chỉ có thể phân tích lại kế hoạch đang hoạt động. Hãy tải lại danh sách để xem trạng thái mới nhất.',
+    });
     expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
   });
 
@@ -91,7 +96,12 @@ describe('reanalyzePlan', () => {
     });
 
     const error = await reanalyzePlan(PLAN_ID, OWNER_ID).catch((e) => e);
-    expect(error).toMatchObject({ statusCode: 409, code: 'REANALYZE_NOT_ALLOWED' });
+    expect(error).toMatchObject({
+      statusCode: 409,
+      code: 'REANALYZE_NOT_ALLOWED',
+      message:
+        'Chỉ có thể phân tích lại kế hoạch đang hoạt động. Hãy tải lại danh sách để xem trạng thái mới nhất.',
+    });
     expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
   });
 
@@ -106,7 +116,11 @@ describe('reanalyzePlan', () => {
       });
 
       const error = await reanalyzePlan(PLAN_ID, OWNER_ID).catch((e) => e);
-      expect(error).toMatchObject({ statusCode: 409, code: 'REANALYZE_NOT_ALLOWED' });
+      expect(error).toMatchObject({
+        statusCode: 409,
+        code: 'REANALYZE_NOT_ALLOWED',
+        message: 'Kế hoạch này đang được phân tích. Hãy chờ quá trình hiện tại hoàn tất.',
+      });
       expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
       expect(mockedPrisma.analysisJob.update).not.toHaveBeenCalled();
     }
@@ -153,7 +167,11 @@ describe('reanalyzePlan', () => {
     (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue(null);
 
     const error = await reanalyzePlan(PLAN_ID, OWNER_ID).catch((e) => e);
-    expect(error).toMatchObject({ statusCode: 409, code: 'REANALYZE_NOT_ALLOWED' });
+    expect(error).toMatchObject({
+      statusCode: 409,
+      code: 'REANALYZE_NOT_ALLOWED',
+      message: 'Kế hoạch này không còn tài liệu nguồn để phân tích lại. Hãy liên hệ hỗ trợ.',
+    });
     expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
     expect(mockedPrisma.questionCache.deleteMany).not.toHaveBeenCalled();
   });

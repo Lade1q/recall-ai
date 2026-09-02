@@ -8,6 +8,11 @@ interface AiSummaryCardProps {
 }
 
 export function AiSummaryCard({ summary }: AiSummaryCardProps) {
+  // Phiên bỏ dở không gọi summarize_session có chủ đích: `message: null` phân biệt nó với
+  // UC-14 E1, nơi AI thật sự hỏng và server trả câu giải thích. Không dựng cảnh báo giả cho
+  // một bước chưa từng được chạy.
+  if (!summary.generatedByAi && summary.message === null) return null;
+
   return (
     <section className="flex flex-col gap-4" aria-labelledby="tt-nhan-xet">
       <div>
@@ -32,9 +37,7 @@ export function AiSummaryCard({ summary }: AiSummaryCardProps) {
         {!summary.generatedByAi ? (
           <div className="flex items-center gap-3">
             <AlertCircle className="text-muted-foreground h-5 w-5 shrink-0" />
-            <p className="text-muted-foreground text-[14.5px]">
-              {summary.message || 'Không thể tổng hợp nhận xét lúc này.'}
-            </p>
+            <p className="text-muted-foreground text-[14.5px]">{summary.message}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5">

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import PlansPage from './PlansPage';
 import { planApi } from '@/features/study-planner/api/plan.api';
@@ -8,12 +9,25 @@ import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleResponse } from '@/features/schedule/types/schedule.types';
 
 vi.mock('@/features/study-planner/api/plan.api', () => ({
-  planApi: { listPlans: vi.fn() },
+  getPlanActionErrorMessage: vi.fn((error: unknown) => {
+    const code = (error as { response?: { data?: { error?: { code?: string } } } }).response?.data
+      ?.error?.code;
+    return code === 'REANALYZE_NOT_ALLOWED'
+      ? 'Thông báo phân tích lại đã được dịch.'
+      : 'Thông báo đổi trạng thái đã được dịch.';
+  }),
+  planApi: {
+    listPlans: vi.fn(),
+    reanalyzePlan: vi.fn(),
+    setPlanStatus: vi.fn(),
+  },
 }));
 
 vi.mock('@/features/schedule/api/schedule.api', () => ({
   scheduleApi: { getSchedule: vi.fn() },
 }));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const TODAY = '2026-08-29';
 
@@ -50,6 +64,8 @@ beforeEach(() => {
   // repo không bật `clearMocks` trong vite config, và cộng dồn ở đây đọc y hệt một lần refetch thừa.
   vi.clearAllMocks();
   vi.mocked(planApi.listPlans).mockResolvedValue([makePlan()]);
+  vi.mocked(planApi.reanalyzePlan).mockResolvedValue();
+  vi.mocked(planApi.setPlanStatus).mockResolvedValue();
   vi.mocked(scheduleApi.getSchedule).mockResolvedValue(EMPTY_SCHEDULE);
 });
 
@@ -302,6 +318,45 @@ describe('PlansPage — danh sách plans đã tải thành công', () => {
     expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
     expect(scheduleApi.getSchedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlansPage — lỗi thao tác kế hoạch (#370)', () => {
+  const actionError = (code: string) => ({
+    isAxiosError: true,
+    response: { status: 409, data: { error: { code } } },
+  });
+
+  async function openPlanActions(user: ReturnType<typeof userEvent.setup>) {
+    await renderPage();
+    await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
+    await user.click(screen.getByRole('button', { name: 'Tuỳ chọn cho Kiến trúc phần mềm' }));
+  }
+
+  it('shows the mapped re-analysis guidance instead of the shared reload sentence', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.reanalyzePlan).mockRejectedValueOnce(actionError('REANALYZE_NOT_ALLOWED'));
+    await openPlanActions(user);
+
+    await user.click(screen.getByRole('menuitem', { name: 'Phân tích lại tài liệu' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Thông báo phân tích lại đã được dịch.')
+    );
+  });
+
+  it('shows the mapped status-transition guidance for archive races', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.setPlanStatus).mockRejectedValueOnce(
+      actionError('STATUS_TRANSITION_NOT_ALLOWED')
+    );
+    await openPlanActions(user);
+
+    await user.click(screen.getByRole('menuitem', { name: 'Lưu trữ kế hoạch' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Thông báo đổi trạng thái đã được dịch.')
+    );
   });
 });
 

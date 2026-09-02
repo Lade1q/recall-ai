@@ -90,14 +90,7 @@ const INTENTIONALLY_GENERIC: Readonly<Record<string, string>> = {
  * Known missing mappings are data of their own, not strings hidden behind a `DEBT:` prefix in
  * the intentional allowlist. This object is the complete list a debt sweep must read.
  */
-const ERROR_CODE_DEBT: Readonly<Record<string, string>> = {
-  REANALYZE_NOT_ALLOWED:
-    'plan.service.ts — three distinct reasons behind one code. Needs a ' +
-    'mapper on the plan-detail surface. Requires an already-running analysis to reach.',
-  STATUS_TRANSITION_NOT_ALLOWED:
-    'plan.service.ts — archive/unarchive from a status that ' +
-    'forbids it. The UI hides the control in exactly those statuses.',
-};
+const ERROR_CODE_DEBT: Readonly<Record<string, string>> = {};
 
 const DOCUMENTED_UNMAPPED_CODES: Readonly<Record<string, string>> = {
   ...INTENTIONALLY_GENERIC,
@@ -246,9 +239,6 @@ describe('client↔server error-code contract', () => {
       .map(([code]) => code);
 
     expect(textualDebt).toEqual([]);
-    expect(Object.keys(ERROR_CODE_DEBT).sort()).toEqual([
-      'REANALYZE_NOT_ALLOWED',
-      'STATUS_TRANSITION_NOT_ALLOWED',
-    ]);
+    expect(Object.keys(ERROR_CODE_DEBT)).toEqual([]);
   });
 });
