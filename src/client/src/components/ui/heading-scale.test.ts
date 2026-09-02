@@ -54,7 +54,25 @@ import { describe, expect, it } from 'vitest';
  *
  *   style={{ fontSize: 32 }}          inline style đè mọi class; cổng không quét prop `style`
  *   chuỗi class trong tệp `.ts`       `walk()` chỉ nhặt `.tsx`
+ *   chuỗi class trong tệp `.test.`    `walk()` loại hẳn — xem ngay dưới
  *   bù trừ trong CÙNG một tệp         xoá 1 thẻ 1-token, thêm 1 thẻ 1-token có bẫy
+ *
+ * **Ranh giới `.test.` — hai vế, thiếu vế nào cũng đọc sai.**
+ *
+ * *Vế 1 (đây là lỗ thật):* **bộ quét Tailwind ĐỌC tệp `.test.`, cổng này thì KHÔNG.** Nên
+ * một cỡ tiêu đề ngoài thang có thể đi vào CSS sản phẩm qua một tệp test mà kiểm kê ở đây
+ * không hề thấy. Độ lớn hôm nay là **0** — đo chứ không suy: gỡ bộ lọc ra rồi chạy lại
+ * `scan()` thì số tệp quét 117 → **148** (đối chứng dương: thước thật sự chạm tới chúng),
+ * còn kiểm kê **24/39** và `KNOWN` **25** đứng yên từng con số. Nhưng bề mặt vừa SỐNG:
+ * #510 và #512 mỗi PR thêm một tệp test mới.
+ *
+ * *Vế 2 (vì sao vẫn giữ bộ lọc):* loại tệp test là **đúng chủ đích** — cổng này canh
+ * **tiêu đề sản phẩm**, còn "class chỉ sống trong test" là việc của bộ audit #472. Quét cả
+ * tệp test sẽ phình kiểm kê vì một lý do khác hẳn mục đích cổng. ⛔ Đừng gỡ bộ lọc.
+ *
+ * ⚠️ Chỗ hai bộ gác **không khớp mép**: #472 bóc comment TRƯỚC khi trích candidate, còn
+ * Tailwind GIỮ comment. Một class nằm trong **comment của một tệp test** vì thế lọt qua
+ * **cả hai** — đúng cái khe đã đốt 432 byte ở trên.
  *
  * **Đã LOẠI, không phải lỗ:** modifier line-height KHÔNG có ngoặc (dạng `/1.2` trần) —
  * dựng thật không sinh selector nào. Nó vẫn làm kiểm kê đỏ vì là một token `text-`
