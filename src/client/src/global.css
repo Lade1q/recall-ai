@@ -57,6 +57,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-text: var(--primary-text);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -95,6 +96,7 @@
   --color-remediate-foreground: var(--remediate-foreground);
   --color-focus-session: var(--focus-session);
   --color-focus-session-foreground: var(--focus-session-foreground);
+  --color-focus-session-text: var(--focus-session-text);
 }
 
 /*
@@ -113,6 +115,31 @@
   --popover: oklch(0.995 0.002 262);
   --popover-foreground: oklch(0.24 0.008 262);
   --primary: oklch(0.5 0.16 262);
+  /* Vai CHỮ của màu primary — tách khỏi `--primary` (vai NỀN NÚT). Xem chú thích dài ở
+     đầu khối `.dark`: một token không phục vụ được cả hai vai.
+
+     L 0.5 -> 0.42 (Quân chốt 02/09/2026, cùng lý do với `.dark`: chữ phải đọc được
+     qua máy chiếu, nơi tương phản bị ép lại). Ở LIGHT hướng đẩy là ĐI SÂU, ngược với
+     `.dark`, nên KHÔNG chạm trần gamut: chroma giữ nguyên 0.16 và màu ra đúng như
+     khai — khác `.dark`, nơi chroma phải tụt 0.17 -> 0.12.
+
+     Đo trên trình duyệt (canvas raster hoá màu ra byte sRGB, không qua số học của
+     người viết), L 0.5 -> 0.42, mọi mặt phẳng token này rơi xuống:
+       --background 5.89 -> 8.35 · --card 6.07 -> 8.60 · --muted 5.40 -> 7.65
+       --secondary  5.34 -> 7.57 (thấp nhất) · --sidebar 5.65 -> 8.00
+       bg-primary/10 trên --card 5.25 -> 7.44
+       bg-focus-session/12 trên --background 4.96 -> 7.04 (hover /20: 4.38 -> 6.21)
+
+     Ô `hover /20` là chỗ light KHÔNG chỉ mờ mà TRƯỢT AA thật: 4.38 < 4.5. Nền
+     hover đậm hơn nền tĩnh, nên ca yếu nhất lại là ca người dùng đang trỏ vào.
+
+     Thấp nhất 7.57 — soi sang `.dark` (6.96) thì light còn dư hơn.
+
+     Đánh đổi y như `.dark`: đi sâu thì gần mực thân bài hơn. Tương phản với
+     `--foreground` tụt 2.68 -> 1.89 (`.dark` là 2.58 -> 1.76). Vẫn tách được vì
+     chroma còn nguyên 0.16 — mắt đọc ra SẮC xanh chứ không chỉ đọc ra độ đậm.
+     `--primary` (vai NỀN NÚT) KHÔNG đổi: chữ trắng trên nút vẫn đúng ngưỡng cũ. */
+  --primary-text: oklch(0.42 0.16 262);
   /* Chroma 0.012 -> 0.006: at L 0.985 the blue channel reached 1.0140 in
      linear sRGB, so this value was clamped and never rendered as declared.
      Lightness untouched, so contrast is unchanged. */
@@ -197,6 +224,14 @@
      mọi thay đổi primary sau này. (Trước đây là amber ấm hue 85 — token cố ý của mockup v3.) */
   --focus-session: var(--primary);
   --focus-session-foreground: var(--primary-foreground);
+  /* Vì `--focus-session` LÀ `--primary`, nó thừa hưởng nguyên vẹn bài toán hai-vai ở dark.
+     Đợt vá 02/09 suýt bỏ sót họ alias này vì nợ được đếm theo TÊN CLASS. Đếm lại theo GIÁ TRỊ
+     phân giải, trên `ede1dc1`: 13 chỗ `text-primary` + 7 chỗ `text-focus-session` + 2 chỗ
+     `text-sidebar-primary` = 22 chỗ cùng một màu, cùng một lỗi. Trong đó 4 chỗ đặt class thẳng
+     lên `<svg>` nên ở lại `--primary` (xem ranh giới icon bên dưới) ⇒ 18 chỗ đổi sang vai CHỮ.
+     Vai CHỮ đi theo `--primary-text` để hai họ không lệch nhau: `SessionDetailPanel` render
+     `paused` và `active` cạnh nhau trong CÙNG một map. */
+  --focus-session-text: var(--primary-text);
 
   /* MASTERY: muted green — Khái niệm đã vững (mastery_score ≥ 0.8) */
   --mastery-strong: oklch(0.5 0.08 155);
@@ -209,6 +244,31 @@
   /* MASTERY: muted red — Yếu/Sai (mastery_score < 0.6) */
   --mastery-weak: oklch(0.5 0.15 25);
   --mastery-weak-fg: oklch(0.99 0.002 262);
+
+  /* Vai: CHỮ nằm trên tint dẫn xuất từ CHÍNH NÓ. Đặt tên theo vai chứ không theo người dùng
+     ("node") vì hình dạng này không riêng của đồ thị.
+
+     Bài toán: khi chữ và nền cùng sinh từ một token (nền = tint 10%), tương phản bị kẹp và
+     không cứu được bằng cách làm token sáng lên — nền sáng theo. Biến này dịch RIÊNG lightness
+     của CHỮ; nền vẫn dẫn xuất từ token GỐC nên sắc độ band không đổi một chút nào.
+
+     Đo trên canvas thật của đồ thị (`--muted`), cả bốn consumer, trước → sau:
+
+                     light                 dark
+       strong     4.44 → 4.84          5.65 → 6.99
+       learning   4.64 → 5.06          5.96 → 7.35
+       weak       4.90 → 5.34          4.53 → 5.66      ← band sát ngưỡng nhất ở dark
+       remediate  4.78 → 5.20          5.29 → 6.57
+
+     Light chỉ cần −0.02 (chữ đậm hơn trên nền sáng); dark cần +0.06 vì band "yếu" (L 0.68)
+     là chỗ hẹp nhất — chính nó quyết định bước dịch, ba band kia đi theo.
+
+     ⚠️ RANH GIỚI: biến này chỉ với tới CSS, KHÔNG với tới Tailwind (không có alias `@theme`).
+     `badge.tsx` và variant `destructive` của `button.tsx` mang đúng hình dạng này
+     (`bg-mastery-strong/14 text-mastery-strong`) nhưng CỐ Ý giữ giá trị chưa dịch: đưa chúng
+     vào phải khai thêm 8 token `-text` và đo lại 8 hợp thành mới. Đó là việc riêng, không phải
+     phần bỏ sót của đợt này. */
+  --on-tint-text-l-shift: -0.02;
 
   /* MASTERY: warm gray — Chưa kiểm tra (untested) */
   --mastery-untested: oklch(0.75 0.008 262);
@@ -245,6 +305,16 @@
        badge 5.02 · --accent/--secondary 5.48 · --muted 5.54 · --card 6.22
      Dark mode không đổi: --remediate ở đó là 0.72 0.13 55, đã đồng bộ với anh em
      và đo được 5.55 trên badge. */
+  /* ⚠️ NGOÀI GAMUT như đang khai, có từ TRƯỚC đợt 02/09 — ghi lại vì file này đã có
+     tiền lệ ghi loại lỗi đó ở `--primary-foreground`. Ở hue 55, chroma tối đa còn
+     trong sRGB tại L 0.50 nhỏ hơn 0.14, nên trình duyệt kẹp và vẽ ra `#9d4700`
+     thay vì giá trị khai (dE 0.0142 trong OKLab, JND ≈ 0.01).
+
+     `.concept-node--remediating` dịch màu chữ xuống L 0.48 qua `--on-tint-text-l-shift`,
+     làm chỗ kẹp sâu thêm: dE 0.0186, vẽ ra `#964100`. Phần đợt 02/09 thêm vào là
+     **0.0044 — chưa tới nửa JND** — và tương phản trên nền `/14` của chính nó vẫn 5.47,
+     nên không vá gấp. Muốn vá đúng thì hạ chroma của token xuống ≤ 0.118, KHÔNG phải
+     đặc cách một token trong công thức dịch dùng chung. */
   --remediate: oklch(0.5 0.14 55);
   --remediate-foreground: oklch(0.99 0.002 262);
 
@@ -271,16 +341,51 @@
   với chữ gần trắng, không phải off-white với chữ than. Ai đọc chú thích
   cũ rồi "khôi phục" cho khớp sẽ lật ngược mọi nút primary của app.
 
-  ⚠️ CÒN NỢ, chưa sửa ở đây vì không sửa được bằng một con số:
-  `--primary` ở dark KHÔNG đạt 4.5:1 khi dùng làm CHỮ trên mọi mặt phẳng
-  (--background 3.99 · --card 3.70 · --muted 3.33 · --secondary/--accent
-  3.13 · --sidebar 3.84), trong khi repo có 15 chỗ dùng `text-primary`
-  (nhãn "Đang diễn ra", tab đang chọn, số bước trên `bg-primary/10`…).
-  Nâng L để cứu chữ thì hỏng nút: đo được L 0.64 cho chữ 5.16 ✓ nhưng
-  `--primary-foreground` trên `--primary` tụt còn 3.25 ✗ (hiện 4.55).
-  Một token không phục vụ được cả hai vai. Hai lối, đều cần người quyết:
-  tách token riêng cho vai CHỮ, hoặc đảo `--primary-foreground` ở dark
-  sang mực tối rồi nâng `--primary`. Đừng tự chọn khi vá lặt vặt.
+  ✅ ĐÃ TRẢ (Quân chốt 02/09/2026, lối "tách token riêng cho vai CHỮ").
+  Nợ cũ: `--primary` ở dark KHÔNG đạt 4.5:1 khi dùng làm CHỮ trên mọi mặt
+  phẳng (--background 3.99 · --card 3.70 · --muted 3.33 · --secondary/
+  --accent 3.13 · --sidebar 3.84), trong khi repo có 13 chỗ `text-primary`
+  (nhãn "Đang diễn ra", tab đang chọn…) cộng 2 chỗ `text-sidebar-primary`
+  (chữ hiệu "Recall AI" — họ alias khác, xem phép đếm ở `--focus-session`).
+  Nâng L để cứu chữ thì hỏng CẢ HAI vai: ở L 0.64 chữ mới đạt 5.16 trên
+  --card nhưng VẪN hụt trên --secondary (4.39 ✗) — con số 5.16 là mặt phẳng
+  DỄ nhất, không phải ca xấu nhất — mà `--primary-foreground` trên
+  `--primary` thì đã tụt còn 3.25 ✗ (hiện 4.55). Một token không phục vụ
+  được cả hai vai.
+
+  Lối đã chọn: thêm `--primary-text`, dùng ở những chỗ màu làm CHỮ.
+  `--primary` GIỮ NGUYÊN 0.56 nên mọi nút primary không đổi một pixel.
+  Lối kia (đảo `--primary-foreground` sang mực tối rồi nâng `--primary`)
+  đã bị loại vì nó đổi diện mạo mọi nút primary của app.
+
+  Giá trị dùng thật là **L 0.76 / C 0.12**, KHÔNG phải bước nhỏ nhất qua
+  ngưỡng — xem chú thích tại chỗ khai `--primary-text` trong `.dark` để
+  biết lý do (máy chiếu) và ràng buộc gamut ép chroma xuống. Mốc "bước
+  nhỏ nhất vượt ngưỡng" chỉ để tham chiếu: L 0.64 hụt (--secondary 4.39),
+  L 0.66 vừa đủ (worst 4.75). Hue 262 giữ nguyên ở mọi phương án.
+
+  ⚠️ Ranh giới icon — phát biểu theo CHỖ ĐẶT CLASS, không theo "là icon
+  hay không", vì cách nói sau không mô tả đúng mã: `--primary-text` vẫn
+  tô đồ hoạ ở 3 chỗ (`SessionStatusLine`, và 2 nhánh của
+  `PlanCreationStepper` mà ở trạng thái xong chỉ chứa mỗi `<svg>`), do
+  icon thừa kế `currentColor` từ container chữ. Luật khớp cả 6 chỗ là:
+
+    class đặt THẲNG lên phần tử đồ hoạ  ⇒ giữ `--primary`/`--focus-session`
+    class đặt lên container CHỮ          ⇒ theo chữ, icon bên trong đi cùng
+
+  Bốn chỗ giữ token cũ đều là màu đặt thẳng lên `<svg>`: Loader2
+  (`CreatePlanPage`), UploadCloud (`FileDropzone`), ShieldCheck
+  (`PomodoroConfigPanel`, `FocusPage`). Đồ hoạ chỉ cần 3:1 (WCAG 1.4.11)
+  và L 0.56 đạt 3.13 ở chỗ tệ nhất, nên đừng "đồng bộ" chúng sang
+  `--primary-text`: làm thế là đổi nét vẽ để lấy một ngưỡng vốn đã qua.
+
+  ⚠️ RANH GIỚI của mệnh đề "một token không phục vụ được cả hai vai" —
+  nó KHÔNG phổ quát, chỉ đúng với `--primary`. Các accent anh em
+  (`--mastery-*`, `--ai-accent`, `--remediate`) ghép `-fg` là mực TỐI
+  (`oklch(0.17 …)`) với token dark ở L 0.68–0.75: làm token sáng lên thì
+  CẢ HAI vai cùng tốt lên, nên một token là đủ. `--primary` là accent duy
+  nhất ghép `--primary-foreground` gần TRẮNG — đó mới là thứ kéo hai vai
+  ngược chiều nhau. Đừng đẻ `--mastery-strong-text` cho "đối xứng".
 */
 .dark {
   --background: oklch(0.17 0.006 262);
@@ -308,6 +413,35 @@
      unaffected; this only makes the declaration honest. */
   --primary: oklch(0.56 0.17 262);
   --primary-foreground: oklch(0.98 0.006 262);
+  /* Vai CHỮ, tách khỏi vai nền-nút ở trên.
+
+     Đây KHÔNG theo quy ước "bước nhỏ nhất vượt ngưỡng" như các token khác trong file, và
+     đó là cố ý: mục tiêu ở đây không phải qua AA mà là **đọc được trên máy chiếu** trong
+     buổi chấm (Quân chốt 02/09/2026, sau khi xem bản L 0.66 và thấy quá kín đáo). Bước nhỏ
+     nhất qua AA là L 0.66 (worst 4.75); giá trị dùng thật đẩy hẳn lên 0.76 (worst 6.97).
+
+     ⚠️ CHROMA PHẢI TỤT 0.17 → 0.12, không phải lựa chọn thẩm mỹ mà là RÀNG BUỘC GAMUT.
+     Ở hue 262, `oklch(0.76 0.17 262)` có kênh lam = 1.2782 trong sRGB tuyến tính ⇒ trình
+     duyệt kẹp im lặng và giá trị khai ra KHÔNG phải giá trị render — đúng lớp lỗi mà chú
+     thích `--primary-foreground` ở trên đã ghi. Chroma tối đa còn trong gamut ở L 0.76 là
+     0.122; lấy 0.12 cho có biên. C 0.17 còn sống tới L 0.67 (maxC 0.1745); L 0.68 là bước
+     đầu tiên nó không còn trong gamut. Biên liên tục nằm ở L 0.6776.
+
+     Mốc XUẤT PHÁT của nhánh (trước khi tách token, vai CHỮ dùng thẳng `--primary`
+     0.56/0.17): --background 3.99 · --card 3.70 · --muted 3.33 · --secondary 3.13 ·
+     --sidebar 3.84 — tức vai CHỮ khi đó TRƯỢT AA trên mọi mặt phẳng, không riêng gì mờ.
+
+     Đo lại toàn bộ mặt phẳng nó rơi xuống, 0.66/0.17 → 0.76/0.12:
+       --background 6.03 → 8.85 · --card 5.59 → 8.20 · --muted 5.05 → 7.40
+       --secondary  4.75 → 6.97 · --sidebar 5.83 → 8.55
+       bg-primary/10 trên --card 5.09 → 7.47
+       bg-focus-session/12 trên --background 5.45 → 7.99 (hover /20: 4.98 → 7.31)
+
+     ⚠️ Đánh đổi đã biết: màu nhạt đi và xích lại gần `--foreground` — tương phản giữa hai
+     màu tụt 2.58 → 1.76. Chữ hiệu vì thế đọc bớt "xanh thương hiệu", nghiêng sang "chữ
+     sáng". Chấp nhận để đổi lấy độ đọc từ xa; nếu sau demo muốn lấy lại nét thương hiệu
+     thì quay về 0.66/0.17 là đủ AA. */
+  --primary-text: oklch(0.76 0.12 262);
   --secondary: oklch(0.27 0.008 262);
   --secondary-foreground: oklch(0.93 0.005 262);
   --muted: oklch(0.25 0.008 262);
@@ -352,6 +486,7 @@
   /* Dark: vẫn theo primary của dark scope (xem chú thích ở :root). */
   --focus-session: var(--primary);
   --focus-session-foreground: var(--primary-foreground);
+  --focus-session-text: var(--primary-text);
 
   --mastery-strong: oklch(0.72 0.1 155);
   --mastery-strong-fg: oklch(0.17 0.006 262);
@@ -361,6 +496,10 @@
 
   --mastery-weak: oklch(0.68 0.16 25);
   --mastery-weak-fg: oklch(0.17 0.006 262);
+
+  /* Xem bảng đo đầy đủ ở :root. Dark cần bước lớn hơn light vì band "yếu" (L 0.68) là chỗ
+     hẹp nhất: +0.06 đưa nhãn từ 4.53 lên 5.66 trên canvas --muted. */
+  --on-tint-text-l-shift: 0.06;
 
   --mastery-untested: oklch(0.4 0.01 262);
   --mastery-untested-fg: oklch(0.68 0.012 262);
@@ -546,21 +685,21 @@
 .concept-node--strong {
   background: oklch(from var(--mastery-strong) l c h / 0.1);
   border-color: oklch(from var(--mastery-strong) l c h / 0.4);
-  color: var(--mastery-strong);
+  color: oklch(from var(--mastery-strong) calc(l + var(--on-tint-text-l-shift)) c h);
 }
 
 /* Learning: 0.6 ≤ score < 0.8 */
 .concept-node--learning {
   background: oklch(from var(--mastery-learning) l c h / 0.1);
   border-color: oklch(from var(--mastery-learning) l c h / 0.4);
-  color: var(--mastery-learning);
+  color: oklch(from var(--mastery-learning) calc(l + var(--on-tint-text-l-shift)) c h);
 }
 
 /* Weak: score < 0.6 */
 .concept-node--weak {
   background: oklch(from var(--mastery-weak) l c h / 0.1);
   border-color: oklch(from var(--mastery-weak) l c h / 0.4);
-  color: var(--mastery-weak);
+  color: oklch(from var(--mastery-weak) calc(l + var(--on-tint-text-l-shift)) c h);
 }
 
 /* Untested: chưa qua interview */
@@ -579,7 +718,7 @@
 .concept-node--remediating {
   background: oklch(from var(--remediate) l c h / 0.1);
   border-color: var(--remediate);
-  color: var(--remediate);
+  color: oklch(from var(--remediate) calc(l + var(--on-tint-text-l-shift)) c h);
   animation: pulse-remediate 2s var(--ease-standard) infinite;
 }
 
@@ -926,7 +1065,13 @@ kbd,
   font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.7;
+  /* `opacity: 0.7` ĐÃ GỠ. Nó là thứ duy nhất trong node vi phạm AA một cách rõ rệt, và
+     nó vô hình với phép đo qua `getComputedStyle().color` — thuộc tính `color` KHÔNG
+     mang opacity, nên bản audit đầu ghi 4.48:1 trong khi giá trị render thật là
+     2.95:1 (dark) / 2.66:1 (light) ở cỡ 11px. Đo lại bằng cách hợp thành alpha trong
+     không gian gamma sRGB, đúng cách trình duyệt vẽ.
+     Không thay bằng opacity nhẹ hơn: 0.85 vẫn chỉ ~4.1:1. Phân cấp giữa tên khái niệm
+     và điểm số đã do font mono + cỡ nhỏ hơn đảm nhiệm, không cần mờ thêm. */
 }
 
 .concept-node.is-selected {

@@ -8,3 +8,4 @@ out/
 src/client/package-lock*.json
 src/server/package-lock.json
 src/server/prisma/migrations/
+.impeccable/

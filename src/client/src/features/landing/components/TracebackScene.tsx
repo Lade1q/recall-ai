@@ -296,12 +296,22 @@ export function TracebackScene() {
                     >
                       {c.label}
                     </text>
+                    {/* 10.5 -> 11 (02/09): sàn cỡ chữ của #386. Chỗ này thoát đợt quét vì nó
+                        là prop `fontSize` của `<text>` SVG chứ không phải chuỗi class — bộ
+                        quét class không đọc tới, nên quét theo chuỗi class báo sạch trong khi
+                        đây vẫn là chữ nhỏ nhất trong client. Và nó là chữ THẬT: điểm thành
+                        thạo của node, hoặc "chưa kiểm", trong một nhóm `role="button"`.
+
+                        ⚠️ Đừng viết cỡ chữ cũ ra dưới dạng chuỗi class trong chú thích này:
+                        Tailwind quét raw text, không phân biệt code với comment, nên chỉ
+                        nhắc tên class thôi là đã sinh ra rule thật trong bundle — đo được,
+                        một dòng như vậy đẻ ra `font-size:10px` chết trong CSS đã build. */}
                     <text
                       x={c.x}
                       y={c.y + (isProbed ? 33 : 29)}
                       textAnchor="middle"
                       fill={mauChu}
-                      fontSize={10.5}
+                      fontSize={11}
                       fontFamily="var(--font-mono)"
                     >
                       {c.score === null ? 'chưa kiểm' : c.score.toFixed(2)}
@@ -320,7 +330,7 @@ export function TracebackScene() {
           </div>
 
           <aside className="border-border bg-card flex flex-col gap-4 rounded-xl border p-6">
-            <div className="text-muted-foreground flex items-center justify-between font-mono text-[10.5px] uppercase tracking-[0.11em]">
+            <div className="text-muted-foreground flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.11em]">
               <span>Kết quả truy ngược</span>
               <span>
                 {result.depth === null ? 'không có nền yếu' : `dừng ở tầng ${result.depth}/2`}
@@ -373,7 +383,7 @@ export function TracebackScene() {
             </p>
 
             <div className="border-border text-muted-foreground mt-auto border-t pt-3.5">
-              <div className="font-mono text-[10.5px]">
+              <div className="font-mono text-[11px]">
                 BFS · max_depth 2 · ngưỡng {MASTERY_THRESHOLD.toFixed(2)} · tất định
               </div>
               <p className="mt-1.5 text-[12.5px] leading-[1.55]">

@@ -93,7 +93,7 @@ export function ExtractScene() {
 
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_460px] lg:items-start lg:gap-14">
           <article className="border-border bg-card rounded-xl border p-6">
-            <span className="text-muted-foreground font-mono text-[10.5px] tracking-[0.08em]">
+            <span className="text-muted-foreground font-mono text-[11px] tracking-[0.08em]">
               CHƯƠNG 4.PDF · TRANG 12
             </span>
             <p className="mt-3 text-[13.5px] leading-[2]">

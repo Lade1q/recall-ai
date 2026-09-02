@@ -111,7 +111,7 @@ export function MainLayout() {
         >
           {/* Logo */}
           <div className="border-sidebar-border flex h-16 items-center border-b px-6">
-            <span className="text-sidebar-primary text-lg font-bold tracking-tight">Recall AI</span>
+            <span className="text-primary-text text-lg font-bold tracking-tight">Recall AI</span>
           </div>
 
           {/* Nav items */}
@@ -150,7 +150,7 @@ export function MainLayout() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="border-sidebar-border flex h-16 items-center justify-between border-b px-6">
-                <span className="text-sidebar-primary text-lg font-bold tracking-tight">
+                <span className="text-primary-text text-lg font-bold tracking-tight">
                   Recall AI
                 </span>
                 <Button

@@ -45,7 +45,7 @@ export function CurrentFocusSession({
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-focus-session flex items-center gap-1.5 text-[12px] font-semibold">
+            <div className="text-focus-session-text flex items-center gap-1.5 text-[12px] font-semibold">
               <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
               Phiên đang chạy
             </div>

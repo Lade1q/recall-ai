@@ -43,22 +43,37 @@ export function MasteryBar({
       </div>
 
       <div className="text-muted-foreground grid grid-cols-2 gap-x-3.5 gap-y-1.5 text-xs">
-        {MASTERY_BANDS.map(({ key, label, color }) => (
-          <span
-            key={key}
-            // A zero keeps its slot so the four bands sit in the same place on every card,
-            // but dimmed: a red dot next to "0 yếu" reads as a warning that is not there.
-            className={`inline-flex min-w-0 items-center gap-1.5 ${
-              distribution[key] === 0 ? 'opacity-45' : ''
-            }`}
-          >
-            <i className="rounded-xs block size-2 flex-none" style={{ background: color }} />
-            <b className="text-foreground font-mono font-semibold tabular-nums">
-              {distribution[key]}
-            </b>
-            {label}
-          </span>
-        ))}
+        {MASTERY_BANDS.map(({ key, label, color }) => {
+          // A zero keeps its slot so the four bands sit in the same place on every card.
+          // The thing that has to recede is the DOT — a red square next to "0 yếu" reads as
+          // a warning that is not there. It used to recede by fading the whole `span`, which
+          // dragged the label down with it: measured 1.88:1 in light, 2.26:1 in dark.
+          //
+          // Fading the label less is not on the table, but not because no alpha passes --
+          // measured, the break-even is alpha 0.93 in light (`--muted-foreground` on `--card`
+          // starts at 5.20:1) and 0.82 in dark (starts at 6.16:1). The point is that every
+          // alpha strong enough to READ as "empty" is below those: 0.85 gives 3.81 in light.
+          // So the dimming moves onto the dot alone, and the "this band is empty" cue moves
+          // onto the count, which drops from `--foreground` to `--muted-foreground`: still
+          // 5.20:1 light / 6.16:1 dark, quieter than a band that actually has concepts in it.
+          const empty = distribution[key] === 0;
+          return (
+            <span key={key} className="inline-flex min-w-0 items-center gap-1.5">
+              <i
+                className={`rounded-xs block size-2 flex-none ${empty ? 'opacity-45' : ''}`}
+                style={{ background: color }}
+              />
+              <b
+                className={`font-mono font-semibold tabular-nums ${
+                  empty ? 'text-muted-foreground' : 'text-foreground'
+                }`}
+              >
+                {distribution[key]}
+              </b>
+              {label}
+            </span>
+          );
+        })}
       </div>
     </>
   );

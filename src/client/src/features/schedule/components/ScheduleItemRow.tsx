@@ -131,7 +131,7 @@ export function ScheduleItemRow({
         <span className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px]">
           <MasteryCell score={item.masteryScore} />
           <span aria-hidden="true">·</span>
-          <span className="text-[10.5px] font-semibold uppercase tracking-[0.04em]">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.04em]">
             {item.planName}
           </span>
           <span aria-hidden="true">·</span>

@@ -197,9 +197,9 @@ function Block({
 
 const STATUS_BADGE: Record<InterviewSessionStatus, { label: string; className: string }> = {
   completed: { label: 'Đã hoàn thành', className: 'text-muted-foreground' },
-  paused: { label: 'Tạm dừng', className: 'text-focus-session' },
+  paused: { label: 'Tạm dừng', className: 'text-focus-session-text' },
   abandoned: { label: 'Bỏ dở', className: 'text-mastery-weak' },
-  active: { label: 'Đang diễn ra', className: 'text-primary' },
+  active: { label: 'Đang diễn ra', className: 'text-primary-text' },
 };
 
 function StatusBadge({ status }: { status: InterviewSessionStatus }) {
