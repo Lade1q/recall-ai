@@ -858,6 +858,10 @@ function ConceptQueueRail({
 
   return (
     <section>
+      {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+          heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+          cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+          Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
       <h2 className="text-muted-foreground mb-2.5 text-[11px] font-semibold uppercase tracking-[0.07em]">
         Hàng đợi khái niệm
       </h2>

@@ -31,7 +31,9 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
         isCurrent && 'border-foreground'
       )}
     >
-      <h3 className="text-[15px] font-semibold leading-snug">{plan.name}</h3>
+      <Heading as="h3" size="card" className="font-semibold leading-snug">
+        {plan.name}
+      </Heading>
       <div className="text-muted-foreground mt-0.5 font-mono text-[11.5px]">{meta}</div>
       <div className="mt-4">
         <MasteryBar distribution={plan.masteryDistribution} total={plan.conceptCount} />
@@ -227,7 +229,9 @@ export function PlanCatalog({
     <section>
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
-          <h2 className="text-[17px] font-semibold">Kế hoạch ôn tập</h2>
+          <Heading as="h2" size="card" className="font-semibold">
+            Kế hoạch ôn tập
+          </Heading>
           <p className="text-muted-foreground mt-1 text-[13px] leading-relaxed">
             {activePlans.length} kế hoạch đang hoạt động —{' '}
             <Link

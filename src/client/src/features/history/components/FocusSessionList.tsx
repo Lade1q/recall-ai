@@ -61,6 +61,10 @@ export function FocusSessionList({
           {/* Bỏ HẲN tổng khi nó mới là tổng một phần, thay vì in kèm dấu hiệu: `0 phút` ở nhóm
               cuối đọc thành "hôm ấy bạn không học gì" — một câu SAI, tệ hơn hẳn việc chưa nói
               gì. Bấm "Xem thêm" là ngày đó đóng lại và tổng hiện ra. */}
+          {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+              heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+              cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+              Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
           <h3 className="text-muted-foreground px-[18px] pb-1.5 pt-3 text-[11px] uppercase tracking-[0.06em]">
             {group.label}
             {!group.totalIsPartial && ` — ${formatDuration(group.totalMinutes)}`}

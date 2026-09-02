@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Heading } from '@/components/ui/heading';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ConceptGraph } from '@/features/study-planner/components/ConceptGraph';
@@ -90,7 +91,9 @@ export function MiniConceptGraph({
     <section className="border-border bg-card sm:px-6.5 rounded-xl border p-6 sm:py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[16px] font-semibold">Đồ thị khái niệm</h2>
+          <Heading as="h2" size="card" className="font-semibold">
+            Đồ thị khái niệm
+          </Heading>
           <p className="text-muted-foreground mt-1 text-[13px]">
             Vùng quanh điểm yếu hiện tại, tô màu theo mastery_score
           </p>

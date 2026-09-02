@@ -13,6 +13,27 @@ import { describe, expect, it } from 'vitest';
  * ⛔ Nó KHÔNG phán chỗ nào đúng chỗ nào sai. Việc của test là: không cho danh sách
  * dài thêm, và bắt phải sửa danh sách khi có chỗ được snap.
  *
+ * ## Vì sao `IS_HEADING` phải có `<h[1-6]`
+ *
+ * Bản đầu chỉ khớp `font-heading|headingVariants|<Heading`. Một thẻ THÔ — `<h2>` mang
+ * `font-semibold` cùng một cỡ 16px viết bằng cú pháp ngoặc vuông — không khớp cái nào ⇒
+ * cổng mù hẳn.
+ *
+ * ⚠️ Ví dụ ấy trước đây viết ĐỦ token, và token ấy tự sinh ra `font-size:16px` trong CSS
+ * xuất xưởng: **30 byte**. Trớ trêu đúng chỗ — #519 snap `DeadlinePanel` và
+ * `MiniConceptGraph` từ 16px lên bậc `card`, tức gỡ hết cỡ ấy khỏi mã sản phẩm, nên câu
+ * GIẢI THÍCH việc gỡ là thứ duy nhất còn giữ nó sống. Lần thứ hai trong cùng PR: xem ghi
+ * chú 432 byte ở mục ranh giới bên dưới.
+ * Nguy hơn: phạm vi của #387 được dựng bằng cách **liệt kê chỗ có chữ `font-heading`**,
+ * nên thứ không viết chữ ấy vô hình với chính phép liệt kê đã sinh ra phạm vi.
+ *
+ * Đo được khi thêm `<h[1-6]\b` (chưa sửa mã nào): cổng chạm **17 tệp / 24 thẻ → 28 tệp /
+ * 44 thẻ**, kiểm kê ngoài thang **10 → 30 mục**. Hai con số cùng tăng mới phân biệt được
+ * "bắt thêm" với "bắt nhầm"; một con số đi một mình thì không.
+ *
+ * ⚠️ Con số 20 thẻ thô ấy lớn hơn con số 12 mà `git grep -E "<h[123][ >]"` đưa ra — grep
+ * hụt `h4`-`h6` và hụt thẻ viết xuống dòng. Đừng lấy grep làm phạm vi; lấy cổng.
+ *
  * ## Ranh giới của cổng — KHAI ra, không vá
  *
  * Cổng có ranh giới được khai thì dùng được; ranh giới ẨN thì nguy hơn không có cổng.
@@ -40,7 +61,25 @@ import { describe, expect, it } from 'vitest';
  *
  *   style={{ fontSize: 32 }}          inline style đè mọi class; cổng không quét prop `style`
  *   chuỗi class trong tệp `.ts`       `walk()` chỉ nhặt `.tsx`
+ *   chuỗi class trong tệp `.test.`    `walk()` loại hẳn — xem ngay dưới
  *   bù trừ trong CÙNG một tệp         xoá 1 thẻ 1-token, thêm 1 thẻ 1-token có bẫy
+ *
+ * **Ranh giới `.test.` — hai vế, thiếu vế nào cũng đọc sai.**
+ *
+ * *Vế 1 (đây là lỗ thật):* **bộ quét Tailwind ĐỌC tệp `.test.`, cổng này thì KHÔNG.** Nên
+ * một cỡ tiêu đề ngoài thang có thể đi vào CSS sản phẩm qua một tệp test mà kiểm kê ở đây
+ * không hề thấy. Độ lớn hôm nay là **0** — đo chứ không suy: gỡ bộ lọc ra rồi chạy lại
+ * `scan()` thì số tệp quét 117 → **148** (đối chứng dương: thước thật sự chạm tới chúng),
+ * còn kiểm kê **24/39** và `KNOWN` **25** đứng yên từng con số. Nhưng bề mặt vừa SỐNG:
+ * #510 và #512 mỗi PR thêm một tệp test mới.
+ *
+ * *Vế 2 (vì sao vẫn giữ bộ lọc):* loại tệp test là **đúng chủ đích** — cổng này canh
+ * **tiêu đề sản phẩm**, còn "class chỉ sống trong test" là việc của bộ audit #472. Quét cả
+ * tệp test sẽ phình kiểm kê vì một lý do khác hẳn mục đích cổng. ⛔ Đừng gỡ bộ lọc.
+ *
+ * ⚠️ Chỗ hai bộ gác **không khớp mép**: #472 bóc comment TRƯỚC khi trích candidate, còn
+ * Tailwind GIỮ comment. Một class nằm trong **comment của một tệp test** vì thế lọt qua
+ * **cả hai** — đúng cái khe đã đốt 432 byte ở trên.
  *
  * **Đã LOẠI, không phải lỗ:** modifier line-height KHÔNG có ngoặc (dạng `/1.2` trần) —
  * dựng thật không sinh selector nào. Nó vẫn làm kiểm kê đỏ vì là một token `text-`
@@ -73,7 +112,7 @@ const NAMED: Record<string, number> = {
   '9xl': 128,
 };
 
-const IS_HEADING = /font-heading|headingVariants|<Heading\b/;
+const IS_HEADING = /font-heading|headingVariants|<Heading\b|<h[1-6]\b/;
 
 /**
  * Một lượt duy nhất: gỡ comment, và đánh dấu vị trí nào nằm TRONG chuỗi.
@@ -285,11 +324,76 @@ const RESPONSIVE_CONCESSION = [
   'max-width|15|features/schedule/components/MonthGrid.tsx|max-[680px]:text-[15px]',
 ];
 
+/**
+ * Eyebrow: nhãn mục viết HOA, cỡ nhỏ, giãn chữ — mặc thẻ heading để có landmark ngữ
+ * nghĩa cho trình đọc màn hình, KHÔNG phải để làm tiêu đề. Cùng lý do đã duyệt cho
+ * `ScheduleDebtBar`. Giữ nguyên ⇒ 0 thay đổi thị giác. Quân chốt 02/09.
+ *
+ * Cả 14 chỗ một nhóm, một lý do. Quyết định ban đầu chỉ kê SÁU — tám chỗ còn lại vắng vì
+ * phạm vi dựng bằng `git grep -E "<h[123][ >]"`, hụt `h4`. Cùng hình dạng đo được
+ * (`uppercase` + `tracking-*` + cỡ ≤13px) thì cùng quyết định; giữ hai nhóm chỉ vì phép
+ * liệt kê đầu tiên thiếu là lưu một phân biệt không có nội dung.
+ */
+const EYEBROWS_APPROVED = [
+  'nền|11|features/history/components/AiNote.tsx|text-[11px]',
+  'nền|11|features/history/components/FocusSessionList.tsx|text-[11px]',
+  'nền|11|features/history/components/SessionList.tsx|text-[11px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewSessionPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewSessionPage.tsx|text-[11px]',
+];
+
+/**
+ * Ngoại lệ đã quyết (Quân chốt 02/09): đã bọc `<Heading>` để vào thang về mặt cấu trúc,
+ * nhưng GIỮ diện mạo cũ bằng override. Bậc `card`(18) lệch 5px = **+38%**, và bán kính là
+ * mọi tiêu đề mục trong panel chi tiết phiên — quá lớn để đổi lấy sự đồng đều.
+ *
+ * ⚠️ Ngoại lệ này ghim **BA trục**, không riêng cỡ — đọc "ngoại lệ cỡ" là đọc hẹp hơn sự
+ * thật, và bản đầu của docstring này đã đọc hẹp như thế. Bọc `<Heading>` kéo theo hai thứ
+ * nữa mà không ai kê số: `card` có `tracking-[-0.015em]`, và `.font-heading` (`@layer
+ * base`) có `line-height:1.25`. Đo trên bản dựng thật: leading 18,5714px → 16,25px
+ * (**−12,5%**, mất 2,32px mỗi dòng), tracking 0 → −0,195px.
+ *
+ * ⚠️ 18,5714px KHÔNG phải 1,6 của `body`. Tổ tiên gần hơn là `TabsContent` mang `text-sm`,
+ * mà `--text-sm--line-height` là `calc(1.25 / .875)` — KHÔNG đơn vị nên thừa kế theo TỈ LỆ:
+ * 13 × 1,42857. Bản đầu của docstring này suy thẳng từ `body` mà không kiểm có gì chen
+ * giữa, ra 20,8px và phóng đại mức hụt **1,96×**; bản vá theo số ấy còn NÂNG cỡ dòng +12%,
+ * tức đổi diện mạo ngược với ý định. Override đúng là `leading-[inherit]`: nó phát biểu
+ * đúng ý định — *đừng để `.font-heading` đặt line-height, cứ thừa kế như trước* — cộng
+ * `text-[13px]` và `tracking-normal` (`--tracking-normal: 0em`).
+ *
+ * ⚠️ ĐỪNG thay bằng một `leading` arbitrary trỏ vào biến `--text-sm--line-height`, dù
+ * dạng ấy tự khai nguồn tốt hơn.
+ * Hai lý do, cả hai đo được:
+ *
+ *   gõ SAI tên biến vẫn ra ĐÚNG số   `var()` không giải được là *invalid at computed-value
+ *                                    time*; `line-height` thừa kế nên rơi về `inherit`, tức
+ *                                    18,5714px — cổng không thể bác. Dạng `inherit` gõ sai
+ *                                    thì hỏng lúc parse, tụt 16,25px, KÊU TO.
+ *   ghim vào token của người khác     nếu tổ tiên đổi `text-sm` → `text-base`, bản `var`
+ *                                    kẹt ở 1,4286 trong khi chữ quanh nó nhảy 1,5 — đúng
+ *                                    loại lệch #387 đang dọn. `inherit` thì đi theo.
+ *
+ * ⛔ Trục **mặt chữ** thì KHÔNG ghim được: `.font-heading` đổi sans → mono, và gỡ nó đi
+ * thì không còn là `<Heading>` nữa. Đổi có chủ ý, Quân chấp nhận sau khi xem số.
+ */
+const SIZE_EXCEPTION = ['nền|13|features/history/components/SessionDetailPanel.tsx|text-[13px]'];
+
 const KNOWN = [
   ...HERO_EXCEPTION,
   ...OUT_OF_SCOPE_LABELS,
   ...OUT_OF_SCOPE_WORDMARKS,
   ...RESPONSIVE_CONCESSION,
+  ...EYEBROWS_APPROVED,
+  ...SIZE_EXCEPTION,
 ].sort((a, b) => a.localeCompare(b));
 
 /**
@@ -317,6 +421,20 @@ const KNOWN = [
  * nào) KHÔNG có mặt ở đây. Không mất gì cho việc phát hiện — mọi cách viết mà `classify`
  * nhận ra đều bắt đầu bằng `text-` — nhưng đừng đọc con số này thành "tổng số tiêu đề".
  *
+ * ⛔ **Cổng chứng nhận KHÔNG CÒN CỠ NGOÀI THANG. Nó KHÔNG chứng nhận mỗi tiêu đề chọn
+ * ĐÚNG BẬC.** Lớp mù là **mọi lần đổi `size=`**, không riêng những thẻ đã rơi khỏi kiểm kê.
+ * Hai đường vào lớp ấy:
+ *
+ *   thẻ bọc KHÔNG có token `text-`  → vắng mặt hẳn (vòng quét chạy theo `text-`)
+ *   thẻ bọc CÓ token `text-`        → có mặt, nhưng override nuốt cỡ; đổi `card` → `page`
+ *                                     chỉ làm `tracking-[-0.015em]` của bậc biến mất, mà
+ *                                     cổng không nhìn `tracking`. Kiểm kê đứng yên.
+ *
+ * `SessionDetailPanel` là ca thứ hai — nó **vẫn nằm trong** kiểm kê mà vẫn đổi bậc được
+ * mà không ai đỏ. Đây là giới hạn CẤU TRÚC, không phải lỗ hổng cục bộ; lưới đúng cho việc
+ * ấy là kiểm tương thích thẻ↔bậc (`h1` không được `card`, `h3` không được `display`), chưa
+ * dựng — và nó phải quét **thuộc tính `size`**, không nối dài được vòng quét `text-` này.
+ *
  * Sinh ra từ chính `scan()` rồi đọc lại bằng mắt, không chép tay.
  *
  * 🔴 **Kiểm kê đỏ ở một tệp bạn KHÔNG cố ý đổi ⇒ ĐỪNG cập nhật bảng này.** Trước hết đi
@@ -333,7 +451,11 @@ const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/auth/components/LoginForm.tsx': [1, 1],
   'features/auth/components/SignupForm.tsx': [1, 1],
   'features/focus/components/RunningSession.tsx': [2, 2],
-  'features/interview/components/AiSummaryCard.tsx': [1, 1],
+  'features/history/components/AiNote.tsx': [1, 1],
+  'features/history/components/FocusSessionList.tsx': [1, 2],
+  'features/history/components/SessionDetailPanel.tsx': [1, 1],
+  'features/history/components/SessionList.tsx': [1, 2],
+  'features/interview/components/AiSummaryCard.tsx': [4, 7],
   'features/interview/components/NextSessionPanel.tsx': [1, 1],
   'features/interview/components/ScoreBreakdown.tsx': [1, 1],
   'features/interview/components/SessionSummary.tsx': [2, 2],
@@ -345,8 +467,11 @@ const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/landing/components/VerdictScene.tsx': [1, 1],
   'features/schedule/components/MonthGrid.tsx': [1, 1],
   'features/schedule/components/ScheduleDebtBar.tsx': [2, 2],
+  'features/study-planner/components/ConceptDetailPanel.tsx': [4, 8],
   'pages/focus/FocusPage.tsx': [2, 2],
   'pages/landing/LandingPage.tsx': [4, 5],
+  'pages/verify/InterviewPage.tsx': [2, 4],
+  'pages/verify/InterviewSessionPage.tsx': [2, 4],
 };
 
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
@@ -380,9 +505,9 @@ describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đ
    */
   it('🔴 mọi tệp trong allowlist đều mang marker `#387:` tại chỗ khai', () => {
     const files = [...new Set(KNOWN.map((k) => k.split('|')[2]))].sort();
-    // Đối chứng dương: khoá tách được và không rỗng. 6 chứ không phải 7 — LandingPage.tsx
-    // giữ HAI mục (một nhãn, một wordmark) nhưng chỉ là MỘT tệp.
-    expect(files).toHaveLength(6);
+    // Đối chứng dương: khoá tách được và không rỗng. Số TỆP nhỏ hơn số mục vì nhiều
+    // tệp giữ nhiều mục (LandingPage: một nhãn + một wordmark; ConceptDetailPanel: 4 eyebrow).
+    expect(files).toHaveLength(14);
 
     const thieu = files.filter((f) => !readFileSync(join(SRC, f), 'utf-8').includes('#387:'));
     expect(thieu).toEqual([]);
