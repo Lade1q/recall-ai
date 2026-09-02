@@ -191,4 +191,8 @@ describe('classifyInterviewStartFailure', () => {
   it('keeps an input rejection on the manual-selection path', () => {
     expect(classifyInterviewStartFailure(axiosErr(409, 'NO_MATERIAL'))).toBe('rejected');
   });
+
+  it('keeps a non-Axios failure on the manual-selection path', () => {
+    expect(classifyInterviewStartFailure(new TypeError('Malformed response'))).toBe('rejected');
+  });
 });

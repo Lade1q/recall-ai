@@ -103,8 +103,8 @@ export function getInterviewErrorMessage(error: unknown): string {
  *
  * Tính là lỗi hạ tầng/AI khi: không có response (mất mạng hoặc quá 60s chờ Gemini), hoặc server
  * trả mã `AI_*` (mọi lỗi Gemini đều nổi lên dưới dạng này — `isAiFailure` phía server). Mã lỗi
- * có cấu trúc là nguồn chân lý; một HTTP 5xx chung có thể đến từ dữ liệu hoặc lỗi ứng dụng mà
- * việc lặp lại chính request đó không thể sửa được.
+ * có cấu trúc là nguồn chân lý. Hàm này chỉ nhận diện lỗi AI/mạng; lỗi HTTP 5xx không mang mã
+ * `AI_*` được `classifyInterviewStartFailure` xếp vào nhánh lỗi hệ thống riêng.
  */
 export function isAiOrNetworkFailure(error: unknown): boolean {
   if (!isAxiosError(error)) return false;
