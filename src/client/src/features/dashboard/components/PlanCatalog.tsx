@@ -31,7 +31,14 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
         isCurrent && 'border-foreground'
       )}
     >
-      <h3 className="text-[15px] font-semibold leading-snug">{plan.name}</h3>
+      {/* #387: TODO — bọc `<Heading>` để vào thang, nhưng GIỮ cỡ cũ bằng override — lệch
+          3px so bậc `card`(18), vượt ngưỡng snap tự động ≤2px nên phải chờ quyết.
+          ⚠️ Việc bọc này KHÔNG trung tính về thị giác: `headingVariants` kéo theo
+          `.font-heading`, tức mặt chữ đổi sans → JetBrains Mono. `font-semibold` giữ
+          nguyên nên weight vẫn 600 (utility thắng `@layer base`). Đo trong PR. */}
+      <Heading as="h3" size="card" className="text-[15px] font-semibold leading-snug">
+        {plan.name}
+      </Heading>
       <div className="text-muted-foreground mt-0.5 font-mono text-[11.5px]">{meta}</div>
       <div className="mt-4">
         <MasteryBar distribution={plan.masteryDistribution} total={plan.conceptCount} />
@@ -227,7 +234,9 @@ export function PlanCatalog({
     <section>
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
-          <h2 className="text-[17px] font-semibold">Kế hoạch ôn tập</h2>
+          <Heading as="h2" size="card" className="font-semibold">
+            Kế hoạch ôn tập
+          </Heading>
           <p className="text-muted-foreground mt-1 text-[13px] leading-relaxed">
             {activePlans.length} kế hoạch đang hoạt động —{' '}
             <Link

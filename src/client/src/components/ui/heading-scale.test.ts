@@ -13,6 +13,20 @@ import { describe, expect, it } from 'vitest';
  * ⛔ Nó KHÔNG phán chỗ nào đúng chỗ nào sai. Việc của test là: không cho danh sách
  * dài thêm, và bắt phải sửa danh sách khi có chỗ được snap.
  *
+ * ## Vì sao `IS_HEADING` phải có `<h[1-6]`
+ *
+ * Bản đầu chỉ khớp `font-heading|headingVariants|<Heading`. Một thẻ THÔ kiểu
+ * `<h2 className="text-[16px] font-semibold">` không khớp cái nào ⇒ cổng mù hẳn.
+ * Nguy hơn: phạm vi của #387 được dựng bằng cách **liệt kê chỗ có chữ `font-heading`**,
+ * nên thứ không viết chữ ấy vô hình với chính phép liệt kê đã sinh ra phạm vi.
+ *
+ * Đo được khi thêm `<h[1-6]\b` (chưa sửa mã nào): cổng chạm **17 tệp / 24 thẻ → 28 tệp /
+ * 44 thẻ**, kiểm kê ngoài thang **10 → 30 mục**. Hai con số cùng tăng mới phân biệt được
+ * "bắt thêm" với "bắt nhầm"; một con số đi một mình thì không.
+ *
+ * ⚠️ Con số 20 thẻ thô ấy lớn hơn con số 12 mà `git grep -E "<h[123][ >]"` đưa ra — grep
+ * hụt `h4`-`h6` và hụt thẻ viết xuống dòng. Đừng lấy grep làm phạm vi; lấy cổng.
+ *
  * ## Ranh giới của cổng — KHAI ra, không vá
  *
  * Cổng có ranh giới được khai thì dùng được; ranh giới ẨN thì nguy hơn không có cổng.
@@ -73,7 +87,7 @@ const NAMED: Record<string, number> = {
   '9xl': 128,
 };
 
-const IS_HEADING = /font-heading|headingVariants|<Heading\b/;
+const IS_HEADING = /font-heading|headingVariants|<Heading\b|<h[1-6]\b/;
 
 /**
  * Một lượt duy nhất: gỡ comment, và đánh dấu vị trí nào nằm TRONG chuỗi.
@@ -285,11 +299,57 @@ const RESPONSIVE_CONCESSION = [
   'max-width|15|features/schedule/components/MonthGrid.tsx|max-[680px]:text-[15px]',
 ];
 
+/**
+ * Eyebrow: nhãn mục viết HOA, cỡ nhỏ, giãn chữ — mặc thẻ heading để có landmark ngữ
+ * nghĩa cho trình đọc màn hình, KHÔNG phải để làm tiêu đề. Cùng lý do đã duyệt cho
+ * `ScheduleDebtBar`. Giữ nguyên ⇒ 0 thay đổi thị giác. Quân chốt 02/09 cho SÁU chỗ này.
+ */
+const EYEBROWS_APPROVED = [
+  'nền|11|features/history/components/FocusSessionList.tsx|text-[11px]',
+  'nền|11|features/history/components/SessionList.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewSessionPage.tsx|text-[11px]',
+  'nền|11|pages/verify/InterviewSessionPage.tsx|text-[11px]',
+];
+
+/**
+ * ⏳ CÙNG hình dạng eyebrow, nhưng CHƯA được kê đích danh — chờ xác nhận, không tự
+ * duyệt. Hình dạng đo được giống hệt sáu chỗ trên ở cả ba thuộc tính: `uppercase` +
+ * `tracking-*` + cỡ ≤13px, đều là `h3`/`h4` mang nhãn mục.
+ *
+ * Vì sao chúng vắng khỏi danh sách đã duyệt: phạm vi được dựng bằng
+ * `git grep -E "<h[123][ >]"`, nên `h4` và thẻ xuống dòng vô hình với chính phép liệt kê.
+ * Cùng trần recall đã cắn cả hai lane hôm nay — xem docstring đầu tệp.
+ */
+const EYEBROWS_SAME_SHAPE = [
+  'nền|11|features/history/components/AiNote.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+];
+
+/**
+ * ⏳ Lệch ≥3px so bậc `card`(18) nên vượt ngưỡng snap tự động — đã bọc `<Heading>` và
+ * GIỮ cỡ cũ bằng override, chờ Quân quyết từng cái. Marker `#387: TODO` tại chỗ.
+ */
+const PENDING_SIZE_DECISION = [
+  'nền|13|features/history/components/SessionDetailPanel.tsx|text-[13px]',
+  'nền|15|features/dashboard/components/PlanCatalog.tsx|text-[15px]',
+];
+
 const KNOWN = [
   ...HERO_EXCEPTION,
   ...OUT_OF_SCOPE_LABELS,
   ...OUT_OF_SCOPE_WORDMARKS,
   ...RESPONSIVE_CONCESSION,
+  ...EYEBROWS_APPROVED,
+  ...EYEBROWS_SAME_SHAPE,
+  ...PENDING_SIZE_DECISION,
 ].sort((a, b) => a.localeCompare(b));
 
 /**
@@ -332,8 +392,13 @@ const KNOWN = [
 const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/auth/components/LoginForm.tsx': [1, 1],
   'features/auth/components/SignupForm.tsx': [1, 1],
+  'features/dashboard/components/PlanCatalog.tsx': [1, 1],
   'features/focus/components/RunningSession.tsx': [2, 2],
-  'features/interview/components/AiSummaryCard.tsx': [1, 1],
+  'features/history/components/AiNote.tsx': [1, 1],
+  'features/history/components/FocusSessionList.tsx': [1, 2],
+  'features/history/components/SessionDetailPanel.tsx': [1, 1],
+  'features/history/components/SessionList.tsx': [1, 2],
+  'features/interview/components/AiSummaryCard.tsx': [4, 7],
   'features/interview/components/NextSessionPanel.tsx': [1, 1],
   'features/interview/components/ScoreBreakdown.tsx': [1, 1],
   'features/interview/components/SessionSummary.tsx': [2, 2],
@@ -345,8 +410,11 @@ const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/landing/components/VerdictScene.tsx': [1, 1],
   'features/schedule/components/MonthGrid.tsx': [1, 1],
   'features/schedule/components/ScheduleDebtBar.tsx': [2, 2],
+  'features/study-planner/components/ConceptDetailPanel.tsx': [4, 8],
   'pages/focus/FocusPage.tsx': [2, 2],
   'pages/landing/LandingPage.tsx': [4, 5],
+  'pages/verify/InterviewPage.tsx': [2, 4],
+  'pages/verify/InterviewSessionPage.tsx': [2, 4],
 };
 
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
@@ -380,9 +448,9 @@ describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đ
    */
   it('🔴 mọi tệp trong allowlist đều mang marker `#387:` tại chỗ khai', () => {
     const files = [...new Set(KNOWN.map((k) => k.split('|')[2]))].sort();
-    // Đối chứng dương: khoá tách được và không rỗng. 6 chứ không phải 7 — LandingPage.tsx
-    // giữ HAI mục (một nhãn, một wordmark) nhưng chỉ là MỘT tệp.
-    expect(files).toHaveLength(6);
+    // Đối chứng dương: khoá tách được và không rỗng. Số TỆP nhỏ hơn số mục vì nhiều
+    // tệp giữ nhiều mục (LandingPage: một nhãn + một wordmark; ConceptDetailPanel: 4 eyebrow).
+    expect(files).toHaveLength(15);
 
     const thieu = files.filter((f) => !readFileSync(join(SRC, f), 'utf-8').includes('#387:'));
     expect(thieu).toEqual([]);
