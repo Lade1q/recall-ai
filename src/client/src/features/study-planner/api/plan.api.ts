@@ -15,6 +15,35 @@ export interface CreatePlanResponse {
 }
 
 /**
+ * Dịch lỗi của các thao tác trên thẻ kế hoạch. Hai mã 409 dưới đây chỉ xuất hiện khi trạng thái
+ * server đã lệch khỏi thẻ đang hiển thị hoặc kế hoạch không còn đủ điều kiện để thực hiện thao
+ * tác; câu chung cũ luôn bảo tải lại và vì thế dẫn người dùng có kế hoạch mất tài liệu vào vòng
+ * lặp không thể tự chữa.
+ */
+export function getPlanActionErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return 'Không thực hiện được. Vui lòng thử lại.';
+  }
+  if (!error.response) {
+    return 'Không kết nối được tới máy chủ. Vui lòng thử lại.';
+  }
+
+  const code: string | undefined = error.response.data?.error?.code;
+  switch (code) {
+    case 'REANALYZE_NOT_ALLOWED': {
+      const message: unknown = error.response.data?.error?.message;
+      return typeof message === 'string' && message.trim()
+        ? message
+        : 'Không thể phân tích lại kế hoạch này.';
+    }
+    case 'STATUS_TRANSITION_NOT_ALLOWED':
+      return 'Không thể đổi trạng thái kế hoạch này. Hãy tải lại danh sách để xem trạng thái mới nhất.';
+    default:
+      return 'Không thực hiện được. Vui lòng thử lại.';
+  }
+}
+
+/**
  * Chuyển lỗi retry thành thông báo tiếng Việt. Backend luôn trả cùng một code
  * RETRY_NOT_ALLOWED cho mọi lý do từ chối (job đang chạy, plan không ở trạng
  * thái failed, đã bị cleanup...) nên gộp chung một thông báo yêu cầu tải lại trang

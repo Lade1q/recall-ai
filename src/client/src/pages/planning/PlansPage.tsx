@@ -16,7 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScheduleView } from '@/features/schedule/components/ScheduleView';
 import { PlanCard } from '@/features/study-planner/components/PlanCard';
-import { planApi } from '@/features/study-planner/api/plan.api';
+import { getPlanActionErrorMessage, planApi } from '@/features/study-planner/api/plan.api';
 import { PlanStatus, PlanSummary } from '@/features/study-planner/types/concept';
 
 /**
@@ -180,7 +180,7 @@ export default function PlansPage() {
       toast.success(success);
     } catch (error) {
       console.error('Plan action failed', error);
-      toast.error('Không thực hiện được. Kế hoạch có thể đã đổi trạng thái — hãy tải lại trang.');
+      toast.error(getPlanActionErrorMessage(error));
     } finally {
       setBusyPlanId(null);
     }
