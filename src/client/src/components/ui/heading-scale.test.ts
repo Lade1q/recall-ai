@@ -15,8 +15,15 @@ import { describe, expect, it } from 'vitest';
  *
  * ## Vì sao `IS_HEADING` phải có `<h[1-6]`
  *
- * Bản đầu chỉ khớp `font-heading|headingVariants|<Heading`. Một thẻ THÔ kiểu
- * `<h2 className="text-[16px] font-semibold">` không khớp cái nào ⇒ cổng mù hẳn.
+ * Bản đầu chỉ khớp `font-heading|headingVariants|<Heading`. Một thẻ THÔ — `<h2>` mang
+ * `font-semibold` cùng một cỡ 16px viết bằng cú pháp ngoặc vuông — không khớp cái nào ⇒
+ * cổng mù hẳn.
+ *
+ * ⚠️ Ví dụ ấy trước đây viết ĐỦ token, và token ấy tự sinh ra `font-size:16px` trong CSS
+ * xuất xưởng: **30 byte**. Trớ trêu đúng chỗ — #519 snap `DeadlinePanel` và
+ * `MiniConceptGraph` từ 16px lên bậc `card`, tức gỡ hết cỡ ấy khỏi mã sản phẩm, nên câu
+ * GIẢI THÍCH việc gỡ là thứ duy nhất còn giữ nó sống. Lần thứ hai trong cùng PR: xem ghi
+ * chú 432 byte ở mục ranh giới bên dưới.
  * Nguy hơn: phạm vi của #387 được dựng bằng cách **liệt kê chỗ có chữ `font-heading`**,
  * nên thứ không viết chữ ấy vô hình với chính phép liệt kê đã sinh ra phạm vi.
  *
