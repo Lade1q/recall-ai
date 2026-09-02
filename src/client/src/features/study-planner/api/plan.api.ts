@@ -15,6 +15,37 @@ export interface CreatePlanResponse {
 }
 
 /**
+ * Dịch lỗi của các thao tác trên thẻ kế hoạch. Các mã dưới đây xuất hiện khi kế hoạch đã biến
+ * mất, trạng thái server lệch khỏi thẻ đang hiển thị hoặc kế hoạch không còn đủ điều kiện thực
+ * hiện thao tác; câu chung cũ luôn bảo tải lại và vì thế dẫn người dùng có kế hoạch mất tài liệu
+ * vào vòng lặp không thể tự chữa.
+ */
+export function getPlanActionErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return 'Không thực hiện được. Vui lòng thử lại.';
+  }
+  if (!error.response) {
+    return 'Không kết nối được tới máy chủ. Vui lòng thử lại.';
+  }
+
+  const code: string | undefined = error.response.data?.error?.code;
+  switch (code) {
+    case 'NOT_FOUND':
+      return 'Không tìm thấy kế hoạch này. Hãy tải lại danh sách để xem dữ liệu mới nhất.';
+    case 'REANALYZE_NOT_ALLOWED': {
+      const message: unknown = error.response.data?.error?.message;
+      return typeof message === 'string' && message.trim()
+        ? message
+        : 'Không thể phân tích lại kế hoạch này.';
+    }
+    case 'STATUS_TRANSITION_NOT_ALLOWED':
+      return 'Không thể đổi trạng thái kế hoạch này. Hãy tải lại danh sách để xem trạng thái mới nhất.';
+    default:
+      return 'Không thực hiện được. Vui lòng thử lại.';
+  }
+}
+
+/**
  * Chuyển lỗi retry thành thông báo tiếng Việt. Backend luôn trả cùng một code
  * RETRY_NOT_ALLOWED cho mọi lý do từ chối (job đang chạy, plan không ở trạng
  * thái failed, đã bị cleanup...) nên gộp chung một thông báo yêu cầu tải lại trang
@@ -106,7 +137,15 @@ export const planApi = {
     const response = await apiClient.get<{ success: boolean; data: { plans: PlanSummary[] } }>(
       ENDPOINTS.PLANS.BASE
     );
-    return response.data.data.plans;
+    const plans = response.data.data.plans;
+
+    // Kiểu generic của Axios không kiểm tra payload lúc chạy. Ném ngay tại biên để mọi consumer
+    // đi vào đường xử lý lỗi của chính nó, thay vì nhận `undefined` rồi vỡ ở `.length`/spread.
+    if (!Array.isArray(plans)) {
+      throw new TypeError('Invalid /plans response: data.plans must be an array');
+    }
+
+    return plans;
   },
 
   createPlan: async (formData: FormData): Promise<CreatePlanResponse> => {

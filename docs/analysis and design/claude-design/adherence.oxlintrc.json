@@ -30,8 +30,8 @@
         "message": "Màu hex thô — dùng token màu của design system qua var()."
       },
       {
-        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\"]?(?:Geist|Geist Mono|Noto Serif))/i]",
-        "message": "Font ngoài design system. Chỉ có: Geist, Geist Mono, Noto Serif."
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\"]?(?:Geist|Geist Mono|JetBrains Mono))/i]",
+        "message": "Font ngoài design system. Chỉ có: Geist, Geist Mono, JetBrains Mono."
       }
     ]
   },

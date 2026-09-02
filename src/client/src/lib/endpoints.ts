@@ -29,6 +29,12 @@ export const ENDPOINTS = {
     RESUME: (id: string) => `/api/v1/interviews/${id}/resume`,
     ABANDON: (id: string) => `/api/v1/interviews/${id}/abandon`,
     SUMMARY: (id: string) => `/api/v1/interviews/${id}/summary`,
+    /**
+     * AE-10 (#248) — phản hồi về điểm MỘT LƯỢT. Đường dẫn theo lượt, không lồng dưới `:id`:
+     * cha của tài nguyên này là lượt, và thêm id phiên vào URL chỉ đẻ thêm một nhánh 404
+     * "lượt không thuộc phiên này".
+     */
+    TURN_FEEDBACK: (turnId: string) => `/api/v1/interviews/turns/${turnId}/feedback`,
   },
   REVIEW_QUEUE: {
     BASE: '/api/v1/review-queue',

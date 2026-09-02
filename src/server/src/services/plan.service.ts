@@ -602,7 +602,11 @@ export async function reanalyzePlan(
     // #106) or never ran. An archived plan is restored first; re-analysing one the user has
     // retired would burn an AI call on material they said they were done with.
     if (plan.status !== 'active') {
-      throw new AppError('Only an active plan can be re-analysed', 409, 'REANALYZE_NOT_ALLOWED');
+      throw new AppError(
+        'Chỉ có thể phân tích lại kế hoạch đang hoạt động. Hãy tải lại danh sách để xem trạng thái mới nhất.',
+        409,
+        'REANALYZE_NOT_ALLOWED'
+      );
     }
 
     // A job wedged in `pending`/`processing` (server restart, Gemini timeout) would
@@ -618,7 +622,11 @@ export async function reanalyzePlan(
     if (latestJob?.status === 'pending' || latestJob?.status === 'processing') {
       const isStale = Date.now() - latestJob.createdAt.getTime() > STALE_JOB_THRESHOLD_MS;
       if (!isStale) {
-        throw new AppError('An analysis is already in progress', 409, 'REANALYZE_NOT_ALLOWED');
+        throw new AppError(
+          'Kế hoạch này đang được phân tích. Hãy chờ quá trình hiện tại hoàn tất.',
+          409,
+          'REANALYZE_NOT_ALLOWED'
+        );
       }
       await tx.analysisJob.update({
         where: { id: latestJob.id },
@@ -634,7 +642,7 @@ export async function reanalyzePlan(
 
     if (!document) {
       throw new AppError(
-        'This plan has no source document to re-analyse',
+        'Kế hoạch này không còn tài liệu nguồn để phân tích lại. Hãy liên hệ hỗ trợ.',
         409,
         'REANALYZE_NOT_ALLOWED'
       );

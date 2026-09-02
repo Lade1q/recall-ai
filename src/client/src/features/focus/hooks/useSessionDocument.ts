@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { planApi } from '@/features/study-planner/api/plan.api';
-import type { ConceptSourceExcerpt } from '@/features/study-planner/types/concept';
+import type {
+  ConceptDocumentSummary,
+  ConceptSourceExcerpt,
+} from '@/features/study-planner/types/concept';
 
 /** Ba mức của FS-04, theo đúng thứ tự phím `D` xoay vòng. */
 export type DocumentLevel = 'hidden' | 'excerpt' | 'fulltext';
@@ -10,16 +13,24 @@ const LEVEL_ORDER: DocumentLevel[] = ['hidden', 'excerpt', 'fulltext'];
 /** Hằng số chứ không phải `[]` viết tại chỗ: mảng mới mỗi lần render sẽ phá `useMemo` bên dưới. */
 const NO_SOURCES: ConceptSourceExcerpt[] = [];
 
-/** Vì sao hai mức tài liệu đang khoá — hiện nguyên văn trong tooltip của nút bị vô hiệu. */
-export type DocumentUnavailableReason = 'loading' | 'no-sources' | 'fetch-failed';
+/** Vì sao một mức tài liệu đang khoá — hiện nguyên văn trong tooltip của nút bị vô hiệu. */
+export type DocumentUnavailableReason = 'loading' | 'no-sources' | 'no-document' | 'fetch-failed';
 
 export const UNAVAILABLE_TOOLTIP: Record<DocumentUnavailableReason, string> = {
-  loading: 'Đang tải trích đoạn của khái niệm này…',
+  loading: 'Đang tải thông tin tài liệu…',
   // "Chưa neo vị trí" chứ không phải "kế hoạch không có tài liệu": kế hoạch vẫn có tệp gốc, chỉ là
   // khái niệm này không có `ConceptSourceRef` nào trỏ vào đoạn nào (vd. khái niệm thêm tay #172).
   'no-sources': 'Khái niệm này chưa được neo vị trí trong tài liệu nên không có đoạn nào để mở.',
-  'fetch-failed': 'Chưa tải được trích đoạn của khái niệm này. Thử lại sau.',
+  'no-document': 'Kế hoạch này không có tài liệu gốc để mở.',
+  'fetch-failed': 'Chưa tải được thông tin tài liệu. Thử lại sau.',
 };
+
+type VisibleDocumentLevel = Exclude<DocumentLevel, 'hidden'>;
+
+export interface FullTextDocumentSource extends ConceptDocumentSummary {
+  /** `null` opens the file from the beginning when the concept has no page anchor. */
+  pageFrom: number | null;
+}
 
 interface UseSessionDocumentArgs {
   planId: string | null;
@@ -38,8 +49,10 @@ export interface SessionDocument {
   selectedLevel: DocumentLevel;
   setLevel: (level: DocumentLevel) => void;
   sources: ConceptSourceExcerpt[];
-  /** `null` khi hai mức tài liệu dùng được. */
-  unavailableReason: DocumentUnavailableReason | null;
+  /** Metadata for the original file, independent from whether an excerpt anchor exists. */
+  fullTextSource: FullTextDocumentSource | null;
+  /** Mỗi mức có thể khoá vì lý do khác nhau (#378). */
+  unavailableReasons: Record<VisibleDocumentLevel, DocumentUnavailableReason | null>;
 }
 
 /** `pageFrom` rỗng xuống cuối: không neo được trang thì không chen ngang thứ tự các đoạn có neo. */
@@ -68,9 +81,11 @@ export function useSessionDocument({
   // nhãn đó chưa khớp — chứ không phải một `setSources(null)` dọn dẹp ở đầu effect. Cách này vừa
   // tránh cascading render (effect chỉ setState trong callback bất đồng bộ), vừa khiến việc hiện
   // nhầm nguồn của khái niệm trước trong lúc chờ khái niệm sau trở thành điều không biểu diễn được.
-  const [fetched, setFetched] = useState<{ key: string; sources: ConceptSourceExcerpt[] } | null>(
-    null
-  );
+  const [fetched, setFetched] = useState<{
+    key: string;
+    sources: ConceptSourceExcerpt[];
+    document: ConceptDocumentSummary | null;
+  } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);
 
   // Phiên không gắn kế hoạch thì không có tài liệu nào để neo — biết ngay, không phải hỏi server.
@@ -85,7 +100,11 @@ export function useSessionDocument({
       .getConceptDetail(planId, conceptId)
       .then((detail) => {
         if (isMounted)
-          setFetched({ key: requestKey, sources: [...detail.sources].sort(byPageFrom) });
+          setFetched({
+            key: requestKey,
+            sources: [...detail.sources].sort(byPageFrom),
+            document: detail.document,
+          });
       })
       .catch(() => {
         if (isMounted) setFailedKey(requestKey);
@@ -98,25 +117,38 @@ export function useSessionDocument({
 
   const sources =
     requestKey === null ? NO_SOURCES : fetched?.key === requestKey ? fetched.sources : null;
+  const fetchedDocument =
+    requestKey !== null && fetched?.key === requestKey ? fetched.document : null;
+  const fullTextSource = useMemo<FullTextDocumentSource | null>(() => {
+    const firstSource = sources?.[0];
+    if (firstSource) {
+      return {
+        documentId: firstSource.documentId,
+        filename: firstSource.filename,
+        kind: firstSource.kind,
+        pageFrom: firstSource.pageFrom,
+      };
+    }
+    return fetchedDocument ? { ...fetchedDocument, pageFrom: null } : null;
+  }, [fetchedDocument, sources]);
 
-  const unavailableReason: DocumentUnavailableReason | null =
-    failedKey !== null && failedKey === requestKey
-      ? 'fetch-failed'
-      : sources === null
-        ? 'loading'
-        : sources.length === 0
-          ? 'no-sources'
-          : null;
+  const unavailableReasons = useMemo<SessionDocument['unavailableReasons']>(() => {
+    if (requestKey === null) return { excerpt: 'no-sources', fulltext: 'no-document' };
+    if (failedKey === requestKey) return { excerpt: 'fetch-failed', fulltext: 'fetch-failed' };
+    if (sources === null) return { excerpt: 'loading', fulltext: 'loading' };
 
-  // Khái niệm không có nguồn thì KHÔNG mức nào mở được — kể cả "Toàn văn": id tài liệu chỉ đi kèm
-  // `ConceptSourceRef`, tóm tắt kế hoạch (`PlanDetails.document`) có tên tệp nhưng không có id nên
-  // không đủ để gọi endpoint #203. Đây là hệ quả của dữ liệu, không phải lựa chọn thiết kế.
+    return {
+      excerpt: sources.length === 0 ? 'no-sources' : null,
+      fulltext: fullTextSource === null ? 'no-document' : null,
+    };
+  }, [failedKey, fullTextSource, requestKey, sources]);
+
   const setLevel = useCallback(
     (level: DocumentLevel) => {
-      if (level !== 'hidden' && unavailableReason !== null) return;
+      if (level !== 'hidden' && unavailableReasons[level] !== null) return;
       setSelectedLevel(level);
     },
-    [unavailableReason]
+    [unavailableReasons]
   );
 
   // `D` xoay vòng. Bỏ qua khi đang gõ chữ (ô nhập, vùng soạn thảo) — không thì gõ chữ "d" trong ghi
@@ -130,27 +162,43 @@ export function useSessionDocument({
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       // Sân khấu đang là màn nghỉ/rời tab: mở tài liệu lúc đó vô nghĩa vì nó không được vẽ.
       if (isStageTakenOver) return;
-      if (unavailableReason !== null) return;
 
       e.preventDefault();
-      setSelectedLevel((prev) => LEVEL_ORDER[(LEVEL_ORDER.indexOf(prev) + 1) % LEVEL_ORDER.length]);
+      setSelectedLevel((prev) => {
+        const availableLevels = LEVEL_ORDER.filter(
+          (level) => level === 'hidden' || unavailableReasons[level] === null
+        );
+        const currentIndex = availableLevels.includes(prev) ? availableLevels.indexOf(prev) : 0;
+        return availableLevels[(currentIndex + 1) % availableLevels.length];
+      });
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isStageTakenOver, unavailableReason]);
+  }, [isStageTakenOver, unavailableReasons]);
+
+  const selectedLevelUnavailable =
+    selectedLevel === 'hidden' ? null : unavailableReasons[selectedLevel];
 
   return useMemo(
     () => ({
-      // Mức hiển thị thật SUY RA từ dữ liệu, không phải chỉ từ nút người dùng bấm: khoá cả khi chưa
-      // có nguồn thì `sources[0]` mà mức "Toàn văn" đọc không bao giờ là `undefined` — bằng cấu
-      // trúc, không nhờ mỗi component tự nhớ kiểm tra.
-      level: isStageTakenOver || unavailableReason !== null ? 'hidden' : selectedLevel,
+      // Mức hiển thị thật SUY RA theo đúng mức đang chọn: thiếu neo chỉ khoá trích đoạn, không được
+      // kéo "Toàn văn" xuống theo khi kế hoạch vẫn còn tài liệu gốc (#378).
+      level: isStageTakenOver || selectedLevelUnavailable !== null ? 'hidden' : selectedLevel,
       selectedLevel,
       setLevel,
       sources: sources ?? NO_SOURCES,
-      unavailableReason,
+      fullTextSource,
+      unavailableReasons,
     }),
-    [isStageTakenOver, selectedLevel, setLevel, sources, unavailableReason]
+    [
+      fullTextSource,
+      isStageTakenOver,
+      selectedLevel,
+      selectedLevelUnavailable,
+      setLevel,
+      sources,
+      unavailableReasons,
+    ]
   );
 }

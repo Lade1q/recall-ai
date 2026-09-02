@@ -17,6 +17,7 @@ import { NotesPanel } from './NotesPanel';
 import { PomodoroClockRing } from './PomodoroClockRing';
 import { PomodoroConfigPanel } from './PomodoroConfigPanel';
 import { SessionDocumentPanel, SessionDocumentSegment } from './SessionDocument';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Dòng tổng kết trong phiên (`.tally` của mockup) — chỉ dùng ở màn KHÔNG mở tài liệu (nằm ngang dưới
@@ -475,9 +476,9 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <h1 className="font-heading mt-1 text-balance text-[17px] leading-[1.25] tracking-[-0.02em]">
+                <Heading as="h1" size="section" className="mt-1 leading-[1.25]">
                   {item.name}
-                </h1>
+                </Heading>
               </div>
 
               <div className="text-center">
@@ -529,9 +530,9 @@ export function RunningSession({
                   <div className="text-muted-foreground font-mono text-[44px] font-semibold tabular-nums tracking-[-0.03em]">
                     {formatClock(Math.max(0, timer.phaseTargetMs - timer.phaseElapsedMs))}
                   </div>
-                  <h1 className="font-heading text-[19px] tracking-[-0.02em]">
+                  <Heading as="h1" size="section">
                     Đồng hồ tập trung đã dừng
-                  </h1>
+                  </Heading>
                   <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
                     Bạn rời tab lúc {formatClockTime(new Date(awayInfo.leftAt))} và quay lại sau{' '}
                     <strong className="text-foreground">
@@ -563,7 +564,9 @@ export function RunningSession({
                   <div className="text-muted-foreground font-mono text-[44px] font-semibold tabular-nums tracking-[-0.03em]">
                     {formatClock(Math.max(0, timer.phaseTargetMs - timer.phaseElapsedMs))}
                   </div>
-                  <h1 className="font-heading text-[19px] tracking-[-0.02em]">{breakLabel}</h1>
+                  <Heading as="h1" size="section">
+                    {breakLabel}
+                  </Heading>
                   <p className="text-muted-foreground max-w-[46ch] text-pretty text-[13px] leading-[1.7]">
                     Hết giờ nghỉ, Pomodoro {(timer.pomodorosCompleted % timer.config.cycles) + 1}/
                     {timer.config.cycles} tự bắt đầu với cùng khái niệm{' '}
@@ -597,9 +600,9 @@ export function RunningSession({
                 <>
                   <section className="flex flex-col items-center gap-2.5 text-center">
                     {chip && <Badge tone="remediate">{chip}</Badge>}
-                    <h1 className="font-heading text-balance text-[34px] leading-[1.15] tracking-[-0.025em]">
+                    <Heading as="h1" size="page" className="leading-[1.15] tracking-[-0.025em]">
                       {item.name}
-                    </h1>
+                    </Heading>
                     <p className="text-muted-foreground max-w-[46ch] text-[13px] leading-[1.65]">
                       {item.reasonText}
                     </p>
@@ -649,10 +652,10 @@ export function RunningSession({
                     <span className="inline-flex items-center gap-1.5">
                       <Kbd>Space</Kbd> tạm dừng
                     </span>
-                    {/* Chỉ mời dùng `D` khi nó THẬT SỰ làm được gì: khái niệm chưa neo vị trí thì phím
-                    này không mở nổi mức nào, quảng cáo nó chỉ tạo một lối tắt bấm vào không phản
-                    hồi — tệ hơn là không nhắc. Lý do khoá đã nằm ở tooltip của segment. */}
-                    {sessionDocument.unavailableReason === null && (
+                    {/* Chỉ mời dùng `D` khi ít nhất một mức tài liệu mở được. Thiếu neo chỉ loại
+                    "Trích đoạn" khỏi vòng xoay; tài liệu gốc vẫn cho `D` mở "Toàn văn" (#378). */}
+                    {(sessionDocument.unavailableReasons.excerpt === null ||
+                      sessionDocument.unavailableReasons.fulltext === null) && (
                       <span className="inline-flex items-center gap-1.5">
                         <Kbd>D</Kbd> tài liệu
                       </span>

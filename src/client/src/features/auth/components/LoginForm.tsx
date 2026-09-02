@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { headingVariants } from '@/components/ui/heading';
 
 export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) {
   const navigate = useNavigate();
@@ -48,8 +49,15 @@ export function LoginForm({ className, ...props }: React.ComponentProps<'div'>) 
     <div className={cn('flex flex-col gap-6', className)} {...props}>
       <Card className="[--card-spacing:--spacing(7)]">
         <CardHeader className="gap-1.5">
+          {/* #387: KHÔNG snap — wordmark, không phải tiêu đề. Phụ lục D1 đã loại khỏi phạm
+              vi thang; hồ sơ ở `OUT_OF_SCOPE_WORDMARKS` trong `heading-scale.test.ts`. */}
           <div className="font-heading mb-6.5 text-base tracking-tight">Recall AI</div>
-          <CardTitle className="font-heading text-[23px] font-bold leading-[1.2] tracking-tight">
+          <CardTitle
+            className={cn(
+              headingVariants({ size: 'section' }),
+              'font-bold leading-[1.2] tracking-tight'
+            )}
+          >
             Đăng nhập
           </CardTitle>
           <CardDescription className="text-[13px] leading-[1.6]">

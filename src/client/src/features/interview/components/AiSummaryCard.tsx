@@ -1,21 +1,27 @@
 import { Sparkles, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SessionSummaryReport } from '../types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 interface AiSummaryCardProps {
   summary: SessionSummaryReport;
 }
 
 export function AiSummaryCard({ summary }: AiSummaryCardProps) {
+  // Phiên bỏ dở không gọi summarize_session có chủ đích: `message: null` phân biệt nó với
+  // UC-14 E1, nơi AI thật sự hỏng và server trả câu giải thích. Không dựng cảnh báo giả cho
+  // một bước chưa từng được chạy.
+  if (!summary.generatedByAi && summary.message === null) return null;
+
   return (
     <section className="flex flex-col gap-4" aria-labelledby="tt-nhan-xet">
       <div>
         <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
           Diễn giải
         </p>
-        <h2 className="text-foreground font-heading text-xl tracking-[-0.01em]" id="tt-nhan-xet">
+        <Heading as="h2" size="section" className="text-foreground" id="tt-nhan-xet">
           Nhận xét cuối phiên
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2 text-[14.5px] leading-[1.6]">
           Phần duy nhất trên trang do AI viết. Đọc lại toàn bộ phiên để chỉ ra điểm nghẽn và gợi ý
           cách khắc phục.
@@ -31,9 +37,7 @@ export function AiSummaryCard({ summary }: AiSummaryCardProps) {
         {!summary.generatedByAi ? (
           <div className="flex items-center gap-3">
             <AlertCircle className="text-muted-foreground h-5 w-5 shrink-0" />
-            <p className="text-muted-foreground text-[14.5px]">
-              {summary.message || 'Không thể tổng hợp nhận xét lúc này.'}
-            </p>
+            <p className="text-muted-foreground text-[14.5px]">{summary.message}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5">
@@ -51,6 +55,10 @@ export function AiSummaryCard({ summary }: AiSummaryCardProps) {
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-8">
               {summary.strengths.length > 0 && (
                 <div className="flex-1">
+                  {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+                      heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+                      cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+                      Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
                   <h4 className="text-mastery-strong mb-2 text-[13px] font-semibold uppercase tracking-wider">
                     Điểm sáng
                   </h4>

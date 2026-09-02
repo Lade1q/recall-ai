@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatMinutesPhrase } from '../utils/format';
+import { headingVariants } from '@/components/ui/heading';
 
 interface CancelSessionDialogProps {
   open: boolean;
@@ -35,9 +36,7 @@ export function CancelSessionDialog({
     <Dialog open={open} onOpenChange={(next) => !isSubmitting && onOpenChange(next)}>
       <DialogContent showCloseButton={false} className="rounded-[calc(var(--radius)*1.1)]">
         <DialogHeader>
-          <DialogTitle className="font-heading text-[17px] tracking-[-0.02em]">
-            Hủy phiên này?
-          </DialogTitle>
+          <DialogTitle className={headingVariants({ size: 'card' })}>Hủy phiên này?</DialogTitle>
           <DialogDescription>
             {formatMinutesPhrase(focusedSeconds)} tập trung sẽ không được ghi vào lịch sử học tập,
             và <strong className="text-foreground">{conceptName}</strong> vẫn nằm nguyên ở đầu hàng

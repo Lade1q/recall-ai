@@ -2,11 +2,11 @@
    Mirrors src/client/src/global.css. Plain CSS custom properties
    (no Tailwind) so these previews render standalone in Claude Design. */
 
-@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   --font-sans: 'Geist', 'Helvetica Neue', sans-serif;
-  --font-heading: 'Noto Serif', 'Newsreader', serif;
+  --font-heading: 'JetBrains Mono', ui-monospace, monospace; /* mirror: global.css dùng bản Variable */
   --font-mono: 'Geist Mono', 'SF Mono', monospace;
 
   --background: oklch(0.984 0.004 262);
@@ -100,8 +100,11 @@ body {
 
 .font-heading {
   font-family: var(--font-heading);
+  font-weight: 700;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  /* 1.25 chứ không 1.1 — khớp global.css. Bản mirror này đã trôi khỏi nguồn từ
+     lúc global.css đổi sang 1.25; sửa luôn vì đang mở đúng khối đó ra. */
+  line-height: 1.25;
 }
 
 .meta-mono {

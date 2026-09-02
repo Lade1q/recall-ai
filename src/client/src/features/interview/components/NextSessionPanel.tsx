@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { MetaMono } from '@/components/ui/kbd';
 import type { SessionSummaryReviewItemResponse } from '../types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 interface NextSessionPanelProps {
   /** Cả hàng đợi phiên này sinh ra — server đã sort: truy ngược trước, rồi ôn giãn cách. */
@@ -68,9 +69,9 @@ export function NextSessionPanel({ schedule, skippedItemIds }: NextSessionPanelP
         <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
           Bước tiếp theo
         </p>
-        <h2 className="text-foreground font-heading text-xl tracking-[-0.01em]" id="tt-tiep">
+        <Heading as="h2" size="section" className="text-foreground" id="tt-tiep">
           Phiên kế tiếp sẽ học gì
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2 text-[14.5px] leading-[1.6]">
           {tracebackCount > 0
             ? `${tracebackCount === 1 ? 'Khái niệm nền' : `${tracebackCount} khái niệm nền`} lên đầu hàng đợi. Các khái niệm bạn vừa làm không quay lại ngay — chúng có ngày ôn riêng, xa dần theo mức bạn đã nắm.`

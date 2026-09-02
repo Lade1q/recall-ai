@@ -1,5 +1,6 @@
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { greetingForHour, formatFullDate } from '../utils/format';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Header chào theo buổi + ngày (mockup: "Chào buổi tối, Minh Anh" / "Thứ hai, 27/07/2026").
@@ -14,10 +15,10 @@ export function DashboardHeader() {
 
   return (
     <header className="mb-7 sm:mb-8">
-      <h1 className="font-heading text-[26px] leading-[1.1] sm:text-[32px]">
+      <Heading as="h1" size="page" className="leading-[1.1]">
         {greeting}
         {name ? `, ${name}` : ''}
-      </h1>
+      </Heading>
       <p className="text-muted-foreground mt-1.5 font-mono text-[13px]">{formatFullDate(now)}</p>
     </header>
   );

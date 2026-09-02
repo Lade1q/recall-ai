@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { PlanSummary } from '@/features/study-planner/types/concept';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Mục nav "Đồ thị khái niệm" (Issue #173) không có màn hình riêng — đồ thị luôn gắn với một
@@ -15,9 +16,9 @@ import { PlanSummary } from '@/features/study-planner/types/concept';
 function GraphIndexNotice({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
     <div className="bg-card border-border max-w-140 rounded-xl border p-6">
-      <h1 className="font-heading mb-2 text-[22px] leading-tight tracking-tight">
+      <Heading as="h1" size="section" className="mb-2 leading-tight tracking-tight">
         Đồ thị khái niệm
-      </h1>
+      </Heading>
       <p className="text-muted-foreground text-pretty text-[13.5px] leading-[1.65]">{children}</p>
       {action && <div className="mt-5">{action}</div>}
     </div>

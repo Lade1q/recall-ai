@@ -8,7 +8,7 @@ Header `Authorization: Bearer <TOKEN>`.
 > quả cuối; `POST /:id/abandon` kết thúc sớm mà vẫn chấm phần đã làm. Trường **`sourceCitation`**
 > (C5) đi kèm mọi câu hỏi — đặc tả ở mục 8.
 >
-> **Mục lục:** 1. Bắt đầu phiên · 2. Lấy trạng thái + transcript · 3. Nộp trả lời ⭐ · 4. Tạm dừng · 5. Tiếp tục · 6. Danh sách phiên (lịch sử) · 7. Kết quả tổng hợp · 8. `sourceCitation` · 9. Kết thúc sớm.
+> **Mục lục:** 1. Bắt đầu phiên · 2. Lấy trạng thái + transcript · 3. Nộp trả lời ⭐ · 4. Tạm dừng · 5. Tiếp tục · 6. Danh sách phiên (lịch sử) · 7. Kết quả tổng hợp · 8. `sourceCitation` · 9. Kết thúc sớm · 10. Phản hồi điểm chấm (AE-10).
 
 ---
 
@@ -99,7 +99,7 @@ Header `Authorization: Bearer <TOKEN>`.
 - **Dùng để:** FE dựng lại màn phỏng vấn (I6.6) — câu hỏi đang chờ, tiến độ, và toàn bộ transcript. Là **nguồn chân lý** khi client không chắc trạng thái (vd sau reload, sau double-click `/answers` bị `replayed`).
 - **Ràng buộc quan trọng:**
   - `currentQuestion = null` khi phiên đã kết thúc (`completed`/`abandoned`) hoặc đang chờ AI sinh câu.
-  - `turns` là transcript đầy đủ, cũ → mới, tối đa **5 khái niệm × 3 lượt**. Lượt đã trả lời mang điểm/verdict; lượt trong fallback có `source = "cache_fallback"`. `mode` là nấc thang câu hỏi (`initial`/`deeper`/`probe`/`hint`, `null` cho lượt cũ và lượt fallback); `countsTowardMastery` là `false` đúng cho lượt `hint` — nó vẫn được chấm và vẫn nằm trong `turns`, chỉ không vào trung bình có trọng số (#392 hướng (c)). ⚠️ Client đọc **cờ**, không tự suy từ `mode`: suy lại là dựng bản thứ hai của luật chấm ở phía client.
+  - `turns` là transcript đầy đủ, cũ → mới, tối đa **5 khái niệm × 3 lượt**. Lượt đã trả lời mang điểm/verdict; lượt trong fallback có `source = "cache_fallback"`. ⚠️ Trước #248 câu này đúng về ngữ nghĩa nhưng **sai về payload** — `source` được `turnSelect` lấy về mà `toTurnResponse` không map ra, nên khoá ấy chưa từng lên dây. Từ #248 nó có thật, và `canAppeal` + `gradingFeedback` (mục 10) đi cùng nó. ⚠️ Client đọc **cờ `canAppeal`**, KHÔNG tự suy từ `verdict`/`source`/`mode` — cùng luật với `countsTowardMastery`: suy lại là dựng bản thứ hai của cổng ở phía client. `mode` là nấc thang câu hỏi (`initial`/`deeper`/`probe`/`hint`, `null` cho lượt cũ và lượt fallback); `countsTowardMastery` là `false` đúng cho lượt `hint` — nó vẫn được chấm và vẫn nằm trong `turns`, chỉ không vào trung bình có trọng số (#392 hướng (c)). ⚠️ Client đọc **cờ**, không tự suy từ `mode`: suy lại là dựng bản thứ hai của luật chấm ở phía client.
   - `fallback ≠ null` khi phiên đang ở chế độ flashcard (AE-05).
 
 - **Response thành công (HTTP 200 OK):**
@@ -126,6 +126,9 @@ Header `Authorization: Bearer <TOKEN>`.
           "countsTowardMastery": true,
           "askedAt": "...",
           "answeredAt": "...",
+          "source": "ai",
+          "canAppeal": true,
+          "gradingFeedback": null,
           "sourceCitation": {
             "documentId": "...",
             "filename": "giai-tich.pdf",
@@ -700,3 +703,66 @@ Header `Authorization: Bearer <TOKEN>`.
   - [`src/server/src/services/concept-result.service.ts`](../../src/server/src/services/concept-result.service.ts) (I7.2) — nơi ghi `mastery_score` / `ReviewQueueItem` và chạy truy ngược.
   - [`src/server/src/utils/mastery.ts`](../../src/server/src/utils/mastery.ts) — `gradedTurnScores()` + `calculateMasteryScore()` (chuẩn hoá trọng số).
   - `docs/requirements/use-case_specification/SPEC_DB-03_LichSuPhongVan.md` AF2 + AF3.
+
+---
+
+### 10. Gửi phản hồi về điểm một lượt chấm (Grading Feedback — AE-10 / UC-15)
+
+- **Endpoint:** `POST /api/v1/interviews/turns/:turnId/feedback`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Path params:** `turnId` (UUID, required) — id của `InterviewTurn`.
+- **Dùng để:** sinh viên không đồng ý với điểm một lượt → gửi lý do. **Chỉ ghi log.**
+
+- **Body:**
+
+  ```jsonc
+  {
+    "reasons": ["Câu hỏi không rõ", "Chấm quá nặng"], // tùy chọn, tối đa 10 mục, mỗi mục ≤ 100 ký tự
+    "note": "Tôi có nói tới ngăn xếp ở lượt 2 nhưng không được tính...", // tùy chọn, ≤ 1000 ký tự
+  }
+  ```
+
+- **Ràng buộc quan trọng:**
+  - ⛔ **Endpoint này KHÔNG ghi `interview_turns.score` và KHÔNG ghi `concepts.mastery_score`.**
+    Phạm vi MVP là ghi log để **người** chỉnh rubric chấm (UC-15) — không có cơ chế tự động sửa
+    điểm nào. Không có lời gọi AI: số lời gọi AI của hệ thống vẫn là **4** (C4).
+  - **Một lượt một phản hồi.** Upsert theo `(turnId, userId)` — gửi lại là **sửa** phản hồi cũ,
+    không đẻ hàng thứ hai. Vì thế trả `200`, không phải `201`.
+  - **Lý do là tùy chọn, nhưng không được rỗng cả hai.** Chỉ chip, chỉ text, hoặc cả hai đều
+    hợp lệ; không chip và không text ⇒ `400` (không có thông tin gì để ghi).
+  - **Chỉ lượt khiếu nại được mới nhận.** Điều kiện:
+    `verdict !== null && source !== 'cache_fallback' && countsTowardMastery(turn)`, trả sẵn ra
+    payload dưới tên **`canAppeal`** (mục 2) — client ẩn nút theo cờ ấy, không suy lại.
+    Ba loại trừ, mỗi cái một lý do: chưa chấm thì không có điểm để phản đối; lượt flashcard là
+    điểm sinh viên **tự** đặt (AE-05); lượt `hint` có `countsTowardMastery = false` nên điểm
+    không vào trung bình có trọng số. ⚠️ **Không gộp được vào `verdict`**: lượt flashcard vẫn
+    mang `verdict` thật (ghi từ `SELF_GRADE_VERDICT`).
+
+- **Response thành công (HTTP 200 OK):**
+
+  ```jsonc
+  {
+    "success": true,
+    "data": {
+      "reasons": ["Câu hỏi không rõ", "Chấm quá nặng"],
+      "note": "Tôi có nói tới ngăn xếp ở lượt 2 nhưng không được tính...",
+    },
+  }
+  ```
+
+  Cùng shape này xuất hiện lại ở `gradingFeedback` của mỗi lượt trong mục 2 — mang **nội dung**
+  chứ không phải cờ boolean, để mở lại panel dựng được form với đúng thứ đã gửi mà không tốn
+  thêm một vòng gọi.
+
+- **Lỗi:**
+
+  | HTTP | `code`                | Khi nào                                                                          |
+  | ---- | --------------------- | -------------------------------------------------------------------------------- |
+  | 400  | `VALIDATION_ERROR`    | `turnId` không phải UUID · `reasons` và `note` rỗng cả hai · quá giới hạn độ dài |
+  | 401  | `UNAUTHORIZED`        | thiếu/hỏng token                                                                 |
+  | 404  | `NOT_FOUND`           | lượt không tồn tại **hoặc** thuộc user khác (quy tắc 404-không-403 của #115)     |
+  | 409  | `TURN_NOT_APPEALABLE` | lượt chưa chấm, lượt tự chấm flashcard, hoặc lượt `hint`                         |
+
+- **Liên quan:**
+  - [`src/server/src/services/grading-feedback.service.ts`](../../src/server/src/services/grading-feedback.service.ts) — `isTurnAppealable()` là định nghĩa DUY NHẤT của cổng 409; client ẩn nút theo đúng vị từ đó.
+  - `docs/requirements/use-case_diagram/UC-Overview.md` — AE-10 (UC-15).

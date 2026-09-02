@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import type { ScheduleItem } from '../types/schedule.types';
 import { formatDayLabel, type DeadlineMark } from '../utils/schedule-date';
 import { ScheduleItemRow } from './ScheduleItemRow';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Panel đang nói về cái gì. Union có nhãn chứ không phải hai component: hai ca khác nhau đúng ở
@@ -88,7 +89,9 @@ export function DayPanel({
     >
       <div className="border-border flex items-start justify-between gap-2 border-b px-4 py-3.5">
         <div className="min-w-0">
-          <h3 className="font-heading text-[19px] leading-[1.2]">{heading}</h3>
+          <Heading as="h3" size="card" className="leading-[1.2]">
+            {heading}
+          </Heading>
           <div className="text-muted-foreground mt-0.75 text-[12px]">
             {isDebt ? (
               <>

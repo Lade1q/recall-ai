@@ -51,6 +51,10 @@ export function SessionList({
     >
       {groups.map((group) => (
         <div key={group.label}>
+          {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+              heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+              cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+              Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
           <h3 className="text-muted-foreground px-[18px] pb-1.5 pt-3 text-[11px] uppercase tracking-[0.06em]">
             {group.label}
           </h3>

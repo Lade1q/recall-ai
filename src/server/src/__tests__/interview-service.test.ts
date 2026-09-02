@@ -124,6 +124,8 @@ interface FakeTurn {
   sourcePageTo: number | null;
   askedAt: Date;
   answeredAt: Date | null;
+  /** #248 — hàng `grading_feedback` mà `turnSelect` kéo theo. Mặc định rỗng = chưa khiếu nại. */
+  gradingFeedbacks?: { reasons: unknown; note: string | null }[];
 }
 
 let sessionRow: {
@@ -143,7 +145,10 @@ let turns: FakeTurn[];
 let turnIdSeq: number;
 
 function toTurnRow(t: FakeTurn) {
-  return { ...t, concept: { name: CONCEPT_NAME } };
+  // `gradingFeedbacks` is part of `turnSelect` (#248), so a row this fake hands back must carry
+  // it — an empty list is "no appeal filed". Defaulting it inside `toTurnResponse` instead would
+  // let a real query that forgot the relation return `null` silently.
+  return { ...t, concept: { name: CONCEPT_NAME }, gradingFeedbacks: t.gradingFeedbacks ?? [] };
 }
 
 function seedPendingTurn(overrides: Partial<FakeTurn> = {}): FakeTurn {
@@ -746,17 +751,6 @@ describe('interview.service — AE-05 flashcard fallback', () => {
   });
 
   /**
-   * 🔴 Hai trường #392 (c) thêm vào `InterviewTurnResponse`, trên đường `/interviews/:id`.
-   *
-   * Đo được: đột biến ghim cứng `countsTowardMastery: true` và `mode: null` trong
-   * `toTurnResponse` đều **sống 980/980** — suite ĐI QUA hàm đó (đối chứng: `throw` ở đầu hàm ⇒
-   * 6 đỏ) nhưng chỉ assert `sourceCitation`. Cùng cặp trường ở response `/summary` thì đã có
-   * lưới, nên đây là chỗ khuyết chứ không phải quy ước.
-   *
-   * `verdict` cũng không có assertion nào ở đường này — nợ CÓ SẴN, không thuộc #392, nên nêu ra
-   * chứ không lặng lẽ vá kèm.
-   */
-  /**
    * 🔴 Đọc LẠI hàng vừa được TẠO, không đọc đối số lời gọi.
    *
    * Ca đường ghi ở trên assert `toHaveBeenCalledWith` — nó chứng minh service *gửi* `mode`, không
@@ -791,38 +785,220 @@ describe('interview.service — AE-05 flashcard fallback', () => {
     );
   });
 
+  /**
+   * #475: `objectContaining` chỉ kiểm tập con. Trước bản này, 10/15 trường của `toTurnResponse`
+   * — gồm `answerText`/`score`/`feedback`, thứ chính transcript hiển thị cho người dùng đọc —
+   * không có lưới nào: đổi tên, đảo hai trường cho nhau, hay đánh rơi một trường đều đi qua CI
+   * không dấu vết. Ghim tường minh mọi trường.
+   *
+   * Thứ làm mũi **đảo hai trường** cũng đỏ là **lượt 1**: nó mang giá trị thật ở MỌI cột. Lượt 2
+   * cố ý để CHƯA trả lời, nên `answerText`/`score`/`feedback`/`verdict`/`answeredAt` của nó là
+   * `null` — với riêng những cột ấy lưới đúng là "giá trị / null", và đó là chủ ý chứ không phải
+   * thiếu sót: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi mới, mà ca này đang
+   * đo transcript.
+   */
   it('🔴 transcript mang mode và countsTowardMastery cho từng lượt (#392 (c))', async () => {
-    seedPendingTurn({
+    // `expect.any(String)`/`expect.any(Date)` only prove the field exists with the right TYPE —
+    // a mutant that hard-codes a different (but still string/Date) value survives that. Capture
+    // the real seeded `id`/`askedAt` and assert equality against those instead.
+    const turn1 = seedPendingTurn({
       turnIndex: 1,
+      questionText: 'Turn 1 question text',
+      questionType: 'application',
       answerText: 'trả lời sai',
       score: 0.1,
+      feedback: 'turn 1 feedback',
       verdict: 'wrong',
       mode: 'initial',
-      answeredAt: new Date(),
+      askedAt: new Date('2026-01-01T00:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T00:05:00.000Z'),
     });
     // Lượt 2 để CHƯA trả lời: chấm hết mọi lượt thì `getInterview` đi tiếp sang sinh câu hỏi
     // mới, và ta đang đo transcript chứ không đo đường sinh câu.
-    seedPendingTurn({ turnIndex: 2, mode: 'hint' });
+    const turn2 = seedPendingTurn({
+      turnIndex: 2,
+      questionText: 'Turn 2 hint question text',
+      questionType: 'why',
+      mode: 'hint',
+      askedAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
 
     const result = await getInterview(SESSION_ID, USER_ID);
 
     expect(result.turns).toEqual([
       expect.objectContaining({
+        id: turn1.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
         turnIndex: 1,
+        questionText: 'Turn 1 question text',
+        questionType: 'application',
+        answerText: 'trả lời sai',
+        score: 0.1,
+        feedback: 'turn 1 feedback',
         verdict: 'wrong',
         mode: 'initial',
         countsTowardMastery: true,
+        askedAt: new Date('2026-01-01T00:00:00.000Z'),
+        answeredAt: new Date('2026-01-01T00:05:00.000Z'),
       }),
       // Lượt gợi ý VẪN nằm trong transcript — chỉ mang cờ nói nó không vào công thức. Ở đây nó
       // còn chưa được trả lời, và cờ vẫn đúng: `countsTowardMastery` đọc `mode`, không đọc điểm.
       expect.objectContaining({
+        id: turn2.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
         turnIndex: 2,
+        questionText: 'Turn 2 hint question text',
+        questionType: 'why',
+        answerText: null,
+        score: null,
+        feedback: null,
         verdict: null,
+        mode: 'hint',
+        countsTowardMastery: false,
+        askedAt: new Date('2026-01-02T00:00:00.000Z'),
+        answeredAt: null,
+      }),
+    ]);
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
+  });
+
+  /**
+   * #248 F2 — `source` and `gradingFeedback` on each turn. Both were measured as SURVIVING
+   * mutants before this test existed: `toTurnResponse` could hard-code `source: 'ai'` or return
+   * `gradingFeedback: null` unconditionally and every other suite stayed green, because no turn
+   * fixture ever carried a non-`ai` source or an appeal row.
+   *
+   * The values are chosen so a hard-coded mutant cannot match them: the source is the NON-default
+   * `cache_fallback`, and the appeal carries content rather than being merely non-null.
+   */
+  it('🔴 transcript mang source và gradingFeedback cho từng lượt (#248)', async () => {
+    const appealed = seedPendingTurn({
+      turnIndex: 1,
+      answerText: 'trả lời',
+      score: 0.33,
+      verdict: 'shallow',
+      mode: 'initial',
+      answeredAt: new Date('2026-01-01T00:05:00.000Z'),
+      gradingFeedbacks: [{ reasons: ['Chấm quá nặng'], note: 'thiếu ngữ cảnh' }],
+    });
+    const selfGraded = seedPendingTurn({
+      turnIndex: 2,
+      source: 'cache_fallback',
+      answerText: 'tự chấm',
+      score: 1,
+      verdict: 'deep',
+      answeredAt: new Date('2026-01-02T00:05:00.000Z'),
+    });
+    // Same trap the transcript test above documents: with every turn answered, `getInterview`
+    // walks on to generate a new question and the fake has none. One pending turn stops it.
+    const pending = seedPendingTurn({ turnIndex: 3 });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({
+        id: appealed.id,
+        source: 'ai',
+        // Three turns, three different `canAppeal` answers — a mutant that hard-codes either
+        // boolean fails on at least one of them.
+        canAppeal: true,
+        gradingFeedback: { reasons: ['Chấm quá nặng'], note: 'thiếu ngữ cảnh' },
+      }),
+      expect.objectContaining({
+        id: selfGraded.id,
+        // The whole point of F2: a self-graded turn carries a real `verdict`, so only `source`
+        // separates it — and the client cannot hide the appeal button without this field.
+        verdict: 'deep',
+        source: 'cache_fallback',
+        canAppeal: false,
+        gradingFeedback: null,
+      }),
+      // Chưa chấm ⇒ không có điểm để phản đối, dù nó là lượt AI bình thường.
+      expect.objectContaining({
+        id: pending.id,
+        source: 'ai',
+        verdict: null,
+        canAppeal: false,
+        gradingFeedback: null,
+      }),
+    ]);
+  });
+
+  /**
+   * #475: ca active ở trên tiếp tục đi qua `advanceToNextQuestion`; ca riêng này phủ nhánh trả
+   * về sớm của `getInterview` khi phiên đã kết thúc. Hai lượt đã chấm mang giá trị khác nhau ở
+   * mọi cột mà #475 bổ sung lưới, nên nhánh này có lưới riêng mà không thay thế ca active.
+   */
+  it('transcript giữ nguyên từng trường khi phiên ĐÃ KẾT THÚC (nhánh trả về sớm)', async () => {
+    // `getInterview` chỉ đọc transcript khi phiên đã kết thúc, nên không chạy state machine để
+    // sinh thêm một lượt. Đây là chủ ý của ca phủ nhánh trả về sớm; ca active ngay trên vẫn giữ
+    // assertion chứng minh nó không sinh câu hỏi ngoài ý muốn.
+    sessionRow.status = 'completed';
+    sessionRow.currentConceptIdx = 1;
+
+    const firstTurn = seedPendingTurn({
+      turnIndex: 1,
+      questionText: 'Câu hỏi lượt 1',
+      questionType: 'recall',
+      answerText: 'Câu trả lời lượt 1',
+      score: 0.1,
+      feedback: 'Nhận xét lượt 1',
+      verdict: 'wrong',
+      mode: 'initial',
+      askedAt: new Date('2026-01-01T09:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T09:05:00.000Z'),
+    });
+    const secondTurn = seedPendingTurn({
+      turnIndex: 2,
+      questionText: 'Câu hỏi lượt 2',
+      questionType: 'application',
+      answerText: 'Câu trả lời lượt 2',
+      score: 0.9,
+      feedback: 'Nhận xét lượt 2',
+      verdict: 'deep',
+      mode: 'hint',
+      askedAt: new Date('2026-01-01T10:00:00.000Z'),
+      answeredAt: new Date('2026-01-01T10:08:00.000Z'),
+    });
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.turns).toEqual([
+      expect.objectContaining({
+        id: firstTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: firstTurn.turnIndex,
+        questionText: firstTurn.questionText,
+        questionType: firstTurn.questionType,
+        answerText: firstTurn.answerText,
+        score: firstTurn.score,
+        feedback: firstTurn.feedback,
+        verdict: 'wrong',
+        askedAt: firstTurn.askedAt,
+        answeredAt: firstTurn.answeredAt,
+        mode: 'initial',
+        countsTowardMastery: true,
+      }),
+      expect.objectContaining({
+        id: secondTurn.id,
+        conceptId: CONCEPT_ID,
+        conceptName: CONCEPT_NAME,
+        turnIndex: secondTurn.turnIndex,
+        questionText: secondTurn.questionText,
+        questionType: secondTurn.questionType,
+        answerText: secondTurn.answerText,
+        score: secondTurn.score,
+        feedback: secondTurn.feedback,
+        verdict: 'deep',
+        askedAt: secondTurn.askedAt,
+        answeredAt: secondTurn.answeredAt,
         mode: 'hint',
         countsTowardMastery: false,
       }),
     ]);
-    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
   });
 
   it('freezes the concept anchor onto the turn when a cached question is asked', async () => {

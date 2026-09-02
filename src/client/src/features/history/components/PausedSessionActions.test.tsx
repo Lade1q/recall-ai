@@ -57,6 +57,9 @@ function detail(): GetInterviewResponse {
         sourceCitation: null,
         mode: null,
         countsTowardMastery: true,
+        source: 'ai',
+        canAppeal: true,
+        gradingFeedback: null,
       },
       {
         id: 'turn-2',
@@ -74,6 +77,10 @@ function detail(): GetInterviewResponse {
         sourceCitation: null,
         mode: null,
         countsTowardMastery: true,
+        source: 'ai',
+        // Chưa chấm (`verdict: null`) ⇒ `isTurnAppealable` trả false phía server.
+        canAppeal: false,
+        gradingFeedback: null,
       },
     ],
     fallback: null,

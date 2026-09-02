@@ -79,6 +79,51 @@ export const interviewIdParamSchema = z.object({
 
 export type InterviewIdParam = z.infer<typeof interviewIdParamSchema>;
 
+/**
+ * Params for /interviews/turns/:turnId/... — `InterviewTurn.id` is `@db.Uuid`, so a non-UUID
+ * would reach Prisma as `P2023` and fall through to a 500. Same guard as
+ * `interviewIdParamSchema`, on a different param name.
+ */
+export const turnIdParamSchema = z.object({
+  turnId: z.string().uuid('Turn ID must be a valid UUID'),
+});
+
+export type TurnIdParam = z.infer<typeof turnIdParamSchema>;
+
+/**
+ * POST /interviews/turns/:turnId/feedback — AE-10 (#248). The student disagrees with the score
+ * of one graded turn.
+ *
+ * `reasons` stays a free string list rather than an enum of the three mockup chips: the table is
+ * a log a HUMAN reads when tuning the rubric (UC-15 puts the decision on a person, not the
+ * system), and pinning the chip wording into a server-side enum would make every copy change a
+ * migration. Length caps, not vocabulary, are what this schema owes.
+ *
+ * The `refine` is the 400 the issue asks for: reasons and note are each optional, but a body
+ * that carries neither has nothing to log. `.trim()` runs first, so a whitespace-only note is
+ * empty here — otherwise `"   "` would satisfy the check and store a blank row.
+ */
+export const gradingFeedbackSchema = z
+  .object({
+    reasons: z
+      .array(
+        z
+          .string()
+          .trim()
+          .min(1, 'reasons must not contain empty strings')
+          .max(100, 'each reason must be at most 100 characters')
+      )
+      .max(10, 'reasons must contain at most 10 entries')
+      .default([]),
+    note: z.string().trim().max(1000, 'note must be at most 1000 characters').optional(),
+  })
+  .strict()
+  .refine((body) => body.reasons.length > 0 || (body.note ?? '').length > 0, {
+    message: 'Provide at least one reason or a note',
+  });
+
+export type GradingFeedbackInput = z.infer<typeof gradingFeedbackSchema>;
+
 /** GET /interviews (SPEC_DB-03) — limit/offset, same shape as `listFocusSessionsQuerySchema`. */
 export const listInterviewsQuerySchema = z.object({
   limit: z.coerce

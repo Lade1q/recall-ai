@@ -4,6 +4,7 @@ import { ENDPOINTS } from '@/lib/endpoints';
 import type {
   AbandonInterviewResponse,
   GetInterviewResponse,
+  GradingFeedbackResponse,
   PauseInterviewResponse,
   ResumeInterviewResponse,
   SelfGrade,
@@ -70,11 +71,19 @@ export function getInterviewErrorMessage(error: unknown): string {
       );
     case 'NO_MATERIAL':
       return 'Kế hoạch này chưa có tài liệu để tạo câu hỏi. Hãy tải tài liệu lên trước khi bắt đầu kiểm tra.';
+    case 'DOCUMENT_FILE_MISSING':
+      return 'Tệp tài liệu của kế hoạch không còn khả dụng. Hãy mở kế hoạch, đổi tài liệu khác rồi thử kiểm tra lại.';
     // Ngoại lệ của quy ước "không render thẳng error.message": PLAN_NOT_ACTIVE gộp hai trạng thái
     // (`archived`/`draft`) với hai câu hành động khác nhau — một hằng số phía client không phủ
     // được cả hai, nên dùng nguyên văn câu server đã dựng bằng buildInactivePlanMessage().
     case 'PLAN_NOT_ACTIVE':
       return error.response.data?.error?.message ?? 'Đã xảy ra lỗi, vui lòng thử lại.';
+    // AE-10 (#248). Cổng 409 của server cho lượt chưa chấm / tự chấm flashcard / lượt gợi ý.
+    // Người dùng thường KHÔNG thấy câu này: form chỉ hiện trên lượt khiếu nại được, nên nó tới
+    // được đúng khi client và server lệch nhau (tab mở lâu, sửa tay). Câu chữ vì thế nói về
+    // trạng thái của lượt, không hứa một thao tác sửa nào — mockup không phủ ca này.
+    case 'TURN_NOT_APPEALABLE':
+      return 'Lượt này không gửi phản hồi điểm được: nó chưa được AI chấm, do bạn tự chấm, hoặc là lượt gợi ý.';
     case 'VALIDATION_ERROR':
       return 'Thông tin gửi lên chưa hợp lệ.';
     default:
@@ -92,16 +101,31 @@ export function getInterviewErrorMessage(error: unknown): string {
  * thì vẫn hỏng)? Phân biệt được thì lối vào deep-link mới mời "Thử lại" đúng lúc thay vì bắt
  * chọn lại kế hoạch — chọn lại không sửa được việc Gemini đang chậm.
  *
- * Tính là lỗi hạ tầng/AI khi: không có response (mất mạng hoặc quá 60s chờ Gemini), server
- * trả mã `AI_*` (mọi lỗi Gemini đều nổi lên dưới dạng này — `isAiFailure` phía server), hoặc
- * HTTP 5xx. Còn lại (4xx: NOT_FOUND, NO_MATERIAL, VALIDATION_ERROR…) là lỗi đầu vào.
+ * Tính là lỗi hạ tầng/AI khi: không có response (mất mạng hoặc quá 60s chờ Gemini), hoặc server
+ * trả mã `AI_*` (mọi lỗi Gemini đều nổi lên dưới dạng này — `isAiFailure` phía server). Mã lỗi
+ * có cấu trúc là nguồn chân lý. Hàm này chỉ nhận diện lỗi AI/mạng; lỗi HTTP 5xx không mang mã
+ * `AI_*` được `classifyInterviewStartFailure` xếp vào nhánh lỗi hệ thống riêng.
  */
 export function isAiOrNetworkFailure(error: unknown): boolean {
   if (!isAxiosError(error)) return false;
   if (!error.response) return true;
   const code: string | undefined = error.response.data?.error?.code;
-  if (code?.startsWith('AI_')) return true;
-  return error.response.status >= 500;
+  return code?.startsWith('AI_') ?? false;
+}
+
+export type InterviewStartFailure = 'ai-unavailable' | 'system-error' | 'rejected';
+
+/**
+ * Phân loại lối thoát của deep-link khi không mở được phiên. `isAiOrNetworkFailure` phải chạy
+ * trước để một lỗi AI 5xx vẫn ở nhánh AI; mọi 5xx còn lại là lỗi hệ thống, không được quy cho
+ * dữ liệu đầu vào và không được xoá lựa chọn đúng của người dùng.
+ */
+export function classifyInterviewStartFailure(error: unknown): InterviewStartFailure {
+  if (isAiOrNetworkFailure(error)) return 'ai-unavailable';
+  if (isAxiosError(error) && error.response && error.response.status >= 500) {
+    return 'system-error';
+  }
+  return 'rejected';
 }
 
 export const interviewApi = {
@@ -129,6 +153,23 @@ export const interviewApi = {
     const response = await apiClient.get<ApiEnvelope<GetInterviewResponse>>(
       ENDPOINTS.INTERVIEWS.DETAIL(id),
       { timeout: AI_WAIT_TIMEOUT_MS }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * AE-10 (#248) — gửi phản hồi về điểm một lượt đã chấm. Upsert theo `(turnId, user)`: gửi lại
+   * là SỬA phản hồi cũ, nên `200` chứ không `201` và không có hàng thứ hai nào sinh ra.
+   *
+   * Timeout mặc định, KHÔNG dùng `AI_WAIT_TIMEOUT_MS`: đường này chỉ ghi log, không gọi AI.
+   */
+  submitGradingFeedback: async (
+    turnId: string,
+    payload: { reasons: string[]; note?: string }
+  ): Promise<GradingFeedbackResponse> => {
+    const response = await apiClient.post<ApiEnvelope<GradingFeedbackResponse>>(
+      ENDPOINTS.INTERVIEWS.TURN_FEEDBACK(turnId),
+      payload
     );
     return response.data.data;
   },

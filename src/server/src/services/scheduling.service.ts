@@ -1144,7 +1144,7 @@ export interface ReviewQueueItemReschedule extends ReviewQueueItemUpdate {
  * câu hẹp hơn. (Ghim bằng bài "locks the cluster even when the weak traceback row is not first".)
  * ⚠️ Cụm guard đọc KHÔNG bằng tập `getReviewSchedule` fold: bên đó lọc thêm `plan.status='active'`,
  * `ACTIVE_CONCEPT_WHERE` và `scheduledFor: { not: null }`. Hai bên không lệch nhau **chỉ nhờ**
- * `ReviewItemDraft.scheduledFor` là `Date` không nullable (`concept-schedule.service.ts:43,57`) —
+ * `ReviewItemDraft.scheduledFor` là `Date` không nullable (`concept-schedule.service.ts`) —
  * bất biến đó ở tệp khác, nêu tên ở đây để ai nới nó biết phải quay lại.
  * Trả 409 (không phải 400): body hợp lệ, thứ chặn là trạng thái của cụm — cùng lớp
  * `PLAN_NOT_ACTIVE`/`SESSION_ALREADY_RUNNING` (#426).

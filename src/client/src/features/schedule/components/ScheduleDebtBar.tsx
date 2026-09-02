@@ -1,4 +1,6 @@
 import type { ScheduleItem } from '../types/schedule.types';
+import { cn } from '@/lib/utils';
+import { headingVariants } from '@/components/ui/heading';
 
 interface ScheduleDebtBarProps {
   /** Mọi mục quá hạn, đã lọc theo bộ lọc kế hoạch — gộp từ MỌI ngày, không phải của tháng đang xem. */
@@ -28,7 +30,16 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
     if (!hasAnyItem) return null;
     return (
       <div className="border-mastery-strong/30 bg-mastery-strong/9 mb-3.5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border px-4 py-3">
-        <span className="font-heading text-[15px] font-semibold">Không nợ gì</span>
+        <span
+          /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
+            headingVariants({ size: 'card' }),
+            'text-[15px] font-semibold'
+          )}
+        >
+          Không nợ gì
+        </span>
         <span className="text-mastery-strong font-mono text-[13px] font-semibold">
           0 khái niệm quá hạn
         </span>
@@ -50,7 +61,16 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
       onClick={onOpenDebt}
       className="border-mastery-weak/35 bg-mastery-weak/7 hover:bg-mastery-weak/11 mb-3.5 flex w-full flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border px-4 py-3 text-left"
     >
-      <span className="font-heading text-[15px] font-semibold">Còn nợ</span>
+      <span
+        /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
+          headingVariants({ size: 'card' }),
+          'text-[15px] font-semibold'
+        )}
+      >
+        Còn nợ
+      </span>
       <span className="text-mastery-weak font-mono text-[13px] font-semibold">
         {conceptCount} khái niệm · ≈ {totalMinutes} phút
       </span>

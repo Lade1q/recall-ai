@@ -6,7 +6,19 @@ import { AppError } from './errorHandler';
 // Temporary staging directory — files are moved to final storage by StorageService.
 // Exported so createPlanController can stage pasted text (UC-02 A3) the same way multer
 // stages an uploaded file, and reuse the same cleanup-on-error path.
-export const STAGING_DIR = path.resolve(process.cwd(), 'uploads', '.staging');
+const stagingRoot = path.resolve(process.cwd(), 'uploads', '.staging');
+const jestWorkerId = process.env.JEST_WORKER_ID;
+// Jest assigns a positive integer to every worker. Keeping each worker below its own directory
+// prevents one suite from mistaking another worker's in-flight upload for a leaked file (#447).
+// Outside Jest the environment variable is absent, so production keeps the original path.
+// `jestWorkerId &&` is not a redundant truthiness check in front of the regex: it narrows
+// `string | undefined` down to `string` for the `path.join` below. Dropping it is TS2345, and
+// seven suites then fail to compile — the suite total falls from 993 to 957 (c22a826) rather
+// than one assertion turning red, so it is easy to "clean up" and not notice.
+export const STAGING_DIR =
+  jestWorkerId && /^[1-9]\d*$/.test(jestWorkerId)
+    ? path.join(stagingRoot, jestWorkerId)
+    : stagingRoot;
 
 if (!fs.existsSync(STAGING_DIR)) {
   fs.mkdirSync(STAGING_DIR, { recursive: true });

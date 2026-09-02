@@ -13,6 +13,7 @@ import {
   type MonthCell,
   type MonthCursor,
 } from '../utils/schedule-date';
+import { headingVariants } from '@/components/ui/heading';
 
 export interface MonthGridProps {
   monthCursor: MonthCursor;
@@ -65,7 +66,7 @@ const MAX_CHIPS = 3;
  * Đuôi HAI chữ số (`+10`) bắt đầu từ **n = 12** mục trong một ngày (đuôi = `n − 2`), và ở 320px nó
  * tràn ~3px ⇒ bị `overflow-hidden` xén. ⚠️ KHÔNG viết "bất khả": fold `(planId, conceptId)` chỉ gộp
  * nhiều hàng của CÙNG một khái niệm, nó không chặn nhiều khái niệm KHÁC NHAU rơi cùng ngày — và
- * `concept-schedule.service.ts:196` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
+ * `concept-schedule.service.ts` ghi `scheduledFor: now` cho MỌI tiền đề truy ngược, nên một
  * phiên truy ngược 12 tiền đề đặt đúng 12 mục lên ô hôm nay. Phát biểu đúng là **"chưa dựng được
  * từ dữ liệu dev hôm nay (8 mục / 7 ngày)"**. "Bất khả" là loại chữ người sau dựa vào để bỏ qua
  * một ca.
@@ -158,7 +159,15 @@ export function MonthGrid({
             nguyên nhãn sau khi bấm, nên không có gì khác báo rằng có chuyện gì vừa xảy ra. */}
         <span
           aria-live="polite"
-          className="font-heading min-w-[130px] text-[17px] tracking-[-0.02em] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]"
+          /* #387: KHÔNG snap — 15px dưới 680px là NHƯỢNG BỘ responsive đã chốt (Quân
+             02/09), không phải trôi thang: nền đã đúng bậc `card` (18px), chỉ tầng
+             `max-width` hạ xuống vì dưới ngưỡng đó thẻ mất `min-w-[130px]` và phải co
+             giữa hai nút ‹ ›. Hồ sơ ở `RESPONSIVE_CONCESSION` trong
+             `heading-scale.test.ts`. */
+          className={cn(
+            headingVariants({ size: 'card' }),
+            'min-w-[130px] max-[680px]:min-w-0 max-[680px]:flex-1 max-[680px]:text-[15px]'
+          )}
         >
           {formatMonthLabel(monthCursor)}
         </span>
@@ -196,12 +205,32 @@ export function MonthGrid({
               onSelectDay={onSelectDay}
             />
           ))}
-          {!hasSessionThisMonth && (
-            <EmptyMonthCard
-              monthLabel={formatMonthLabel(monthCursor)}
-              overdueItemCount={overdueItemCount}
-            />
-          )}
+          {/* Ẩn thẻ khi ngày đang chọn NẰM TRONG tháng đang xem — không phải khi "có ngày nào
+              đó đang được chọn".
+
+              Lý do ẩn (#482) vẫn nguyên và chỉ đúng cho ngày TRONG tháng đang xem: `DayPanel`
+              lúc đó đã tự nói "Ngày này trống", và viền chọn `z-[2]` của `DayCell` đè lên thẻ —
+              hai UI chồng nhau, thẻ lúc ấy vừa thừa thông tin vừa bị vẽ đè.
+
+              Nhưng `shiftMonth` chỉ đổi `monthCursor` và cố ý không đụng `selectedDateKey`
+              (`useScheduleViewState.ts:62`), nên điều kiện cũ `selectedDateKey === null` ẩn thẻ
+              ở MỌI tháng rỗng lật qua sau đó — đo LIVE ở T10: không ô nào `aria-pressed`, không
+              ô nào có viền, mà thẻ vẫn biến mất.
+
+              `c.inMonth` là CỐ Ý: ô TRÀN cũng mang viền chọn, nhưng nó luôn ở hàng đầu/hàng
+              cuối còn thẻ thì `place-items-center` ⇒ giao 0px² (đo trên 5 cấu hình). Không có
+              va chạm để tránh, nên thẻ vẫn phải hiện.
+
+              Hỏi qua `cells` chứ KHÔNG dựng lại tiền tố `YYYY-MM` — xem ghi chú ở
+              `hasSessionThisMonth`: so bằng chuỗi tháng là lời mời cắt dữ liệu theo tháng, thứ
+              #401 đã gỡ; hỏi `cells` thì không thể lệch khỏi thứ đang hiển thị. */}
+          {!hasSessionThisMonth &&
+            !cells.some((c) => c.inMonth && c.dateKey === selectedDateKey) && (
+              <EmptyMonthCard
+                monthLabel={formatMonthLabel(monthCursor)}
+                overdueItemCount={overdueItemCount}
+              />
+            )}
         </div>
       </div>
     </div>
@@ -433,7 +462,7 @@ function EmptyMonthCard({
   return (
     <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
       <div className="border-border bg-card px-5.5 py-4.5 shadow-(--shadow-soft) max-w-[46ch] rounded-xl border text-center">
-        <p className="font-heading mb-1.5 text-[16px] tracking-[-0.02em]">
+        <p className={cn(headingVariants({ size: 'card' }), 'mb-1.5')}>
           {monthLabel} chưa có buổi ôn nào
         </p>
         <p className="text-muted-foreground text-[12.5px] leading-[1.5]">

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@/utils/test-utils';
+import { toast } from 'sonner';
+import { act, render, screen, waitFor, within } from '@/utils/test-utils';
 import PlansPage from './PlansPage';
 import { planApi } from '@/features/study-planner/api/plan.api';
 import { scheduleApi } from '@/features/schedule/api/schedule.api';
@@ -8,12 +9,25 @@ import type { PlanSummary } from '@/features/study-planner/types/concept';
 import type { ScheduleResponse } from '@/features/schedule/types/schedule.types';
 
 vi.mock('@/features/study-planner/api/plan.api', () => ({
-  planApi: { listPlans: vi.fn() },
+  getPlanActionErrorMessage: vi.fn((error: unknown) => {
+    const code = (error as { response?: { data?: { error?: { code?: string } } } }).response?.data
+      ?.error?.code;
+    return code === 'REANALYZE_NOT_ALLOWED'
+      ? 'Thông báo phân tích lại đã được dịch.'
+      : 'Thông báo đổi trạng thái đã được dịch.';
+  }),
+  planApi: {
+    listPlans: vi.fn(),
+    reanalyzePlan: vi.fn(),
+    setPlanStatus: vi.fn(),
+  },
 }));
 
 vi.mock('@/features/schedule/api/schedule.api', () => ({
   scheduleApi: { getSchedule: vi.fn() },
 }));
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const TODAY = '2026-08-29';
 
@@ -37,20 +51,83 @@ function makePlan(overrides: Partial<PlanSummary> = {}): PlanSummary {
 
 const EMPTY_SCHEDULE: ScheduleResponse = { todayDateKey: TODAY, items: [] };
 
+/**
+ * Ba ca dưới đây đã chạm trần chờ mặc định khi cả suite chịu tải; ca `forceMount` còn lại thiếu
+ * một rào chắn phụ thuộc dữ liệu. Giữ ngưỡng nới rộng cục bộ cho cả bốn: các test khác vẫn thất
+ * bại nhanh, còn những assertion này có đủ khoảng đệm trên mốc 1.035s đã đo mà không biến một
+ * lỗi treo thành lượt chờ dài của toàn bộ suite.
+ */
+const LOADED_ASYNC_WAIT = { timeout: 3_000 };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 beforeEach(() => {
   // Đếm số lời gọi là một assertion của bộ test này, nên số đếm phải bắt đầu từ 0 ở MỖI test —
   // repo không bật `clearMocks` trong vite config, và cộng dồn ở đây đọc y hệt một lần refetch thừa.
   vi.clearAllMocks();
   vi.mocked(planApi.listPlans).mockResolvedValue([makePlan()]);
+  vi.mocked(planApi.reanalyzePlan).mockResolvedValue();
+  vi.mocked(planApi.setPlanStatus).mockResolvedValue();
   vi.mocked(scheduleApi.getSchedule).mockResolvedValue(EMPTY_SCHEDULE);
 });
 
-/** Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner. */
+/**
+ * Chờ lần tải đầu xong — trước đó cả trang chỉ là một spinner.
+ *
+ * ⛔ Đừng thêm tham số trần chờ vào đây "để sẵn". Đã thử và đã gỡ: cả 4/4 ca chậm của #518
+ * đều đã có chỗ vá riêng — ca `[CHẬM 1014ms]` được vá bằng cách INLINE ra khỏi helper này,
+ * đúng vì helper không nhận được trần. Tám lời gọi còn lại chưa từng được quan sát thấy
+ * giòn. Một núm không ai vặn TRÔNG GIỐNG một bản vá, và lần review sau sẽ có người đọc nó
+ * thành "chỗ này xử lý rồi". Cần thì thêm lại là một dòng.
+ */
 async function renderPage() {
   const view = render(<PlansPage />);
   await screen.findByRole('tab', { name: 'Lịch' });
   return view;
 }
+
+describe('PlansPage — Heading primitive (#387)', () => {
+  it('uses the page scale for the screen title', async () => {
+    await renderPage();
+
+    const heading = screen.getByRole('heading', { level: 1, name: 'Kế hoạch ôn tập' });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[30px]');
+  });
+
+  it('uses the section scale for the empty-state title', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValue([]);
+    render(<PlansPage />);
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Chưa có kế hoạch ôn tập nào',
+    });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[21px]');
+  });
+
+  it('uses the section scale for the load-error title', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValue(new Error('network unavailable'));
+    render(<PlansPage />);
+
+    await user.click(await screen.findByRole('tab', { name: 'Kế hoạch' }));
+
+    const heading = await screen.findByRole('heading', {
+      level: 2,
+      name: 'Không thể tải danh sách kế hoạch',
+    });
+    expect(heading).toHaveAttribute('data-slot', 'heading');
+    expect(heading).toHaveClass('text-[21px]');
+  });
+});
 
 describe('PlansPage — bộ chuyển view', () => {
   it('opens on the calendar — the epic default, unblocked once #405 shipped the draft banner', async () => {
@@ -143,6 +220,176 @@ describe('PlansPage — tab Lịch giữ mount', () => {
   });
 });
 
+describe('PlansPage — /plans hỏng nhưng /schedule độc lập', () => {
+  it('vẫn vẽ lưới, không biến "chưa biết plans" thành trạng thái 0 plan', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValueOnce(new Error('plans unavailable'));
+
+    render(<PlansPage />);
+
+    const schedulePanel = await screen.findByRole('tabpanel');
+    expect(await within(schedulePanel).findByRole('button', { name: 'Tháng sau' })).toBeEnabled();
+    expect(
+      within(schedulePanel).getByText('Chưa tải được danh sách kế hoạch.')
+    ).toBeInTheDocument();
+    expect(within(schedulePanel).getByRole('button', { name: 'Kế hoạch' })).toBeDisabled();
+    expect(
+      within(schedulePanel).getByText('Chưa tải được thông tin hạn chót của kế hoạch.')
+    ).toBeInTheDocument();
+    expect(
+      within(schedulePanel).queryByText('Chưa có kế hoạch nào đang hoạt động')
+    ).not.toBeInTheDocument();
+    // CTA của trạng thái rỗng không được lọt vào lịch; CTA toàn trang trong header vẫn còn.
+    expect(
+      within(schedulePanel).queryByRole('link', { name: 'Tạo kế hoạch mới' })
+    ).not.toBeInTheDocument();
+    expect(within(schedulePanel).queryByText(/kế hoạch chưa xác nhận đồ thị/)).toBeNull();
+
+    const plansTab = screen.getByRole('tab', { name: 'Kế hoạch' });
+    await user.click(plansTab);
+    const plansPanel = document.getElementById(plansTab.getAttribute('aria-controls') ?? '');
+    expect(plansPanel).not.toBeNull();
+    expect(screen.getByText('Không thể tải danh sách kế hoạch')).toBeInTheDocument();
+    expect(
+      within(plansPanel as HTMLElement).getByRole('button', { name: 'Thử lại' })
+    ).toBeEnabled();
+    expect(screen.queryByRole('tab', { name: /Đang hoạt động/ })).not.toBeInTheDocument();
+  });
+
+  it('retry chỉ nạp plans, giữ nguyên lịch rồi phục hồi filter, banner và deadline', async () => {
+    const user = userEvent.setup();
+    const retry = deferred<PlanSummary[]>();
+    vi.mocked(planApi.listPlans)
+      .mockRejectedValueOnce(new Error('plans unavailable'))
+      .mockReturnValueOnce(retry.promise);
+
+    render(<PlansPage />);
+
+    const schedulePanel = await screen.findByRole('tabpanel');
+    const monthNext = await within(schedulePanel).findByRole('button', { name: 'Tháng sau' });
+    await user.click(within(schedulePanel).getByRole('button', { name: 'Thử lại' }));
+
+    await waitFor(() => expect(planApi.listPlans).toHaveBeenCalledTimes(2));
+    expect(monthNext).toBeInTheDocument();
+    expect(within(schedulePanel).getByRole('button', { name: 'Thử lại' })).toBeDisabled();
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      retry.resolve([
+        makePlan({ deadline: '2026-09-02T23:59:59.999Z' }),
+        makePlan({ id: 'plan-draft', name: 'Bản nháp', status: 'draft' }),
+      ]);
+    });
+
+    expect(
+      await within(schedulePanel).findByRole('button', { name: /Kế hoạch 1\/1/ })
+    ).toBeEnabled();
+    expect(within(schedulePanel).getByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
+    expect(
+      within(schedulePanel).queryByText('Chưa tải được thông tin hạn chót của kế hoạch.')
+    ).not.toBeInTheDocument();
+    expect(schedulePanel.querySelector('[data-deadline]')).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('retry trả response [] thật thì chuyển về onboarding 0 kế hoạch', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans)
+      .mockRejectedValueOnce(new Error('plans unavailable'))
+      .mockResolvedValueOnce([]);
+
+    render(<PlansPage />);
+
+    // Hai cổng NỐI TIẾP, nên tổng dung sai không bị chặn ở 1000 ms — nhưng riêng chặng chờ
+    // `/plans` trả về thì chỉ có trần mặc định, mà `/plans` chậm chính là điều kiện gốc của
+    // #518. Nới cả rào chắn đầu, không chỉ rào sau.
+    const schedulePanel = await screen.findByRole('tabpanel', {}, LOADED_ASYNC_WAIT);
+    const retryButton = await within(schedulePanel).findByRole(
+      'button',
+      { name: 'Thử lại' },
+      LOADED_ASYNC_WAIT
+    );
+    await user.click(retryButton);
+
+    expect(await screen.findByText('Chưa có kế hoạch ôn tập nào')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
+    expect(planApi.listPlans).toHaveBeenCalledTimes(2);
+    expect(scheduleApi.getSchedule).toHaveBeenCalledTimes(1);
+  });
+
+  it('giữ hai lỗi độc lập khi cả /plans và /schedule cùng hỏng', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.listPlans).mockRejectedValueOnce(new Error('plans unavailable'));
+    vi.mocked(scheduleApi.getSchedule).mockRejectedValueOnce(new Error('schedule unavailable'));
+
+    render(<PlansPage />);
+
+    expect(
+      await screen.findByText(
+        'Không tải được lịch ôn tập. Kiểm tra kết nối rồi thử lại.',
+        {},
+        LOADED_ASYNC_WAIT
+      )
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
+    expect(screen.getByText('Không thể tải danh sách kế hoạch')).toBeInTheDocument();
+  });
+});
+
+describe('PlansPage — danh sách plans đã tải thành công', () => {
+  it('response [] thật vẫn dùng onboarding 0 kế hoạch và không tải lịch', async () => {
+    vi.mocked(planApi.listPlans).mockResolvedValueOnce([]);
+
+    render(<PlansPage />);
+
+    expect(
+      await screen.findByText('Chưa có kế hoạch ôn tập nào', {}, LOADED_ASYNC_WAIT)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Lịch' })).not.toBeInTheDocument();
+    expect(scheduleApi.getSchedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('PlansPage — lỗi thao tác kế hoạch (#370)', () => {
+  const actionError = (code: string) => ({
+    isAxiosError: true,
+    response: { status: 409, data: { error: { code } } },
+  });
+
+  async function openPlanActions(user: ReturnType<typeof userEvent.setup>) {
+    await renderPage();
+    await user.click(screen.getByRole('tab', { name: 'Kế hoạch' }));
+    await user.click(screen.getByRole('button', { name: 'Tuỳ chọn cho Kiến trúc phần mềm' }));
+  }
+
+  it('shows the mapped re-analysis guidance instead of the shared reload sentence', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.reanalyzePlan).mockRejectedValueOnce(actionError('REANALYZE_NOT_ALLOWED'));
+    await openPlanActions(user);
+
+    await user.click(screen.getByRole('menuitem', { name: 'Phân tích lại tài liệu' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Thông báo phân tích lại đã được dịch.')
+    );
+  });
+
+  it('shows the mapped status-transition guidance for archive races', async () => {
+    const user = userEvent.setup();
+    vi.mocked(planApi.setPlanStatus).mockRejectedValueOnce(
+      actionError('STATUS_TRANSITION_NOT_ALLOWED')
+    );
+    await openPlanActions(user);
+
+    await user.click(screen.getByRole('menuitem', { name: 'Lưu trữ kế hoạch' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Thông báo đổi trạng thái đã được dịch.')
+    );
+  });
+});
+
 /**
  * Ca đã đẻ ra hồi quy PR #409, và là điều kiện DUY NHẤT còn lại chặn `DEFAULT_VIEW = 'schedule'`.
  *
@@ -162,10 +409,14 @@ describe('PlansPage — tài khoản chỉ có kế hoạch draft', () => {
   });
 
   it('mở vào Lịch rỗng nhưng vẫn nói ra là có kế hoạch chưa xác nhận', async () => {
-    await renderPage();
+    render(<PlansPage />);
 
-    expect(screen.getByRole('tab', { name: 'Lịch' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('tab', { name: 'Lịch' }, LOADED_ASYNC_WAIT)).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     expect(await screen.findByText(/1 kế hoạch chưa xác nhận đồ thị/)).toBeInTheDocument();
+    expect(screen.getByText('Chưa có kế hoạch nào đang hoạt động')).toBeInTheDocument();
   });
 
   it('banner đưa sang view Kế hoạch VÀ tab Chưa xác nhận, không chỉ một trong hai', async () => {

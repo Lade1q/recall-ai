@@ -7,6 +7,7 @@ import { SourceCitation } from './SourceCitation';
 import { SystemMessage } from './SystemMessage';
 import { VERDICT_LABEL } from '../utils/verdict';
 import type { InterviewTurnResponse, TurnVerdict } from '../types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 interface TurnHistoryProps {
   /** Transcript ĐẦY ĐỦ của phiên, cũ nhất trước — kể cả lượt đang chờ trả lời. */
@@ -56,9 +57,9 @@ export function TurnHistory({
         return (
           <Fragment key={turn.id}>
             {isNewConcept && (
-              <h3 className="font-heading text-foreground text-lg tracking-[-0.01em]">
+              <Heading as="h3" size="card" className="text-foreground">
                 {turn.conceptName}
-              </h3>
+              </Heading>
             )}
             <section className="flex flex-col gap-3" aria-label={`Lượt ${turn.turnIndex}`}>
               <div className="border-border text-muted-foreground flex items-baseline justify-between border-b pb-1.5 text-xs font-medium">

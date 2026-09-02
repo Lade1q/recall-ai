@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchDocumentObjectUrl } from '@/features/study-planner/utils/documentFile';
-import type { ConceptSourceExcerpt } from '@/features/study-planner/types/concept';
+import type { FullTextDocumentSource } from '../hooks/useSessionDocument';
 import { DocumentBar } from './DocumentExcerpt';
 
 /**
@@ -21,11 +21,13 @@ import { DocumentBar } from './DocumentExcerpt';
 export function DocumentFullText({
   planId,
   source,
-  onFallbackToExcerpt,
+  fallbackLabel,
+  onFallback,
 }: {
   planId: string;
-  source: ConceptSourceExcerpt;
-  onFallbackToExcerpt: () => void;
+  source: FullTextDocumentSource;
+  fallbackLabel: string;
+  onFallback: () => void;
 }) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [hasError, setHasError] = useState(false);
@@ -70,10 +72,10 @@ export function DocumentFullText({
           <p className="m-0">Chưa mở được tài liệu. Kiểm tra kết nối rồi thử lại.</p>
           <button
             type="button"
-            onClick={onFallbackToExcerpt}
+            onClick={onFallback}
             className="border-border hover:border-foreground mt-2 border-b text-[12.5px]"
           >
-            Quay lại trích đoạn
+            {fallbackLabel}
           </button>
         </div>
       ) : objectUrl === null ? (

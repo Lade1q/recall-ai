@@ -29,6 +29,7 @@ import type {
   SelfGrade,
   SessionSummaryResponse,
 } from '@/features/interview/types/interview.types';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * AE-02 — màn phỏng vấn nhiều lượt do state machine tất định điều phối.
@@ -414,7 +415,17 @@ export default function InterviewSessionPage() {
               Về Dashboard
             </Button>
           )}
-          <h1 className="font-heading truncate text-base tracking-tight">Kiểm tra vấn đáp</h1>
+          {/* Nhãn chrome, KHÔNG phải heading — và cố ý KHÔNG mượn `font-heading`. Nhánh
+              kết quả của CHÍNH màn này đã hạ nhãn tương đương xuống đúng chuỗi class này
+              từ `4e46458` (`<p>` "Kết quả kiểm tra"); giữ mono 16px ở đây làm hai nhánh của
+              một màn lệch nhau, và kéo thêm một dòng vào allowlist của
+              `heading-scale.test.ts` chỉ để dung nạp chính nó.
+              Trước đó đây là `h1`. Tiêu đề thật của màn là KHÁI NIỆM đang kiểm, nằm ở
+              `<Heading as="h1">` phía dưới. Snap 16 → 21 không cứu được gì: khi đó `h1`
+              chỉ BẰNG `h2` ngay dưới, thứ bậc vẫn phẳng.
+              ⛔ Đừng bọc `<Heading>` vào đây: đây vẫn là nhãn chrome, không phải heading,
+              và dùng primitive ấy sẽ kéo mặt chữ/cỡ chữ của tiêu đề nội dung vào nhãn. */}
+          <span className="truncate text-sm font-semibold">Kiểm tra vấn đáp</span>
         </div>
 
         <ConceptMeter progress={progress} className="hidden md:flex" />
@@ -466,9 +477,12 @@ export default function InterviewSessionPage() {
         <div className="flex min-h-0 flex-col">
           <div className="border-border gap-x-4.5 flex flex-none flex-wrap items-center gap-y-2 border-b px-5 py-3.5 lg:px-8">
             <div className="flex min-w-0 items-baseline gap-3">
-              <h2 className="font-heading truncate text-[22px] leading-[1.15] tracking-[-0.02em]">
+              {/* `h1` của trạng thái đang-kiểm — quyết định ghi ở ghi chú của `<span>`
+                  "Kiểm tra vấn đáp" phía trên. `wrap="truncate"` chọn một chế độ loại trừ
+                  `text-balance`, nên tên dài giữ đúng một dòng và hiện dấu ba chấm. */}
+              <Heading as="h1" size="section" wrap="truncate" className="leading-[1.15]">
                 {currentConcept?.name ?? 'Đang tải…'}
-              </h2>
+              </Heading>
               <MetaMono className="text-muted-foreground whitespace-nowrap text-xs">
                 khái niệm {conceptPosition}/{progress.conceptTotal}
               </MetaMono>
@@ -839,6 +853,10 @@ function ConceptQueueRail({
 
   return (
     <section>
+      {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+          heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+          cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+          Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
       <h2 className="text-muted-foreground mb-2.5 text-[11px] font-semibold uppercase tracking-[0.07em]">
         Hàng đợi khái niệm
       </h2>

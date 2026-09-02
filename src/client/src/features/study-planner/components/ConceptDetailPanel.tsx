@@ -8,6 +8,7 @@ import { ConceptDetail } from '../types/concept';
 import { masteryBand, masteryLabel, type MasteryBand } from '@/components/ui/concept-node';
 import { formatAbsoluteDate, formatRelativeDays, formatDayTime } from '../utils/planDates';
 import { ConceptSourceList } from './ConceptSources';
+import { Heading } from '@/components/ui/heading';
 
 /** One row of the "Tiên quyết" / "Phụ thuộc" lists — resolved from the graph the client
  *  already holds (see `ConceptDetailResponse`'s doc comment for why the server doesn't
@@ -153,9 +154,9 @@ export function ConceptDetailPanel({
       <div>
         <div className="mb-1.5 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="font-heading text-[18px] leading-tight tracking-[-0.01em]">
+            <Heading as="h2" size="card" className="leading-tight">
               {conceptName}
-            </h2>
+            </Heading>
             <Badge tone={BAND_BADGE_TONE[band]} className="mt-1.5">
               {masteryLabel(band)}
             </Badge>
@@ -227,6 +228,10 @@ export function ConceptDetailPanel({
           </div>
 
           <div>
+            {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+                heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+                cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+                Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
             <h4 className="text-muted-foreground mb-2.5 text-[11px] font-semibold uppercase tracking-[0.06em]">
               Trích từ tài liệu
             </h4>
@@ -235,6 +240,7 @@ export function ConceptDetailPanel({
               sources={detail?.sources ?? []}
               conceptName={conceptName}
               prerequisiteNames={prerequisites.map((p) => p.name)}
+              document={detail?.document ?? null}
             />
           </div>
 

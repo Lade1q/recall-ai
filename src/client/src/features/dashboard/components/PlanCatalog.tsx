@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { MasteryBar } from '@/features/study-planner/components/MasteryBar';
 import { formatDeadlineShort } from '@/features/study-planner/utils/planDates';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Thẻ kế hoạch trên Dashboard — bản RÚT GỌN của `PlanCard` (SP-03): chỉ tên + meta + thanh
@@ -30,7 +31,9 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
         isCurrent && 'border-foreground'
       )}
     >
-      <h3 className="text-[15px] font-semibold leading-snug">{plan.name}</h3>
+      <Heading as="h3" size="card" className="font-semibold leading-snug">
+        {plan.name}
+      </Heading>
       <div className="text-muted-foreground mt-0.5 font-mono text-[11.5px]">{meta}</div>
       <div className="mt-4">
         <MasteryBar distribution={plan.masteryDistribution} total={plan.conceptCount} />
@@ -92,9 +95,9 @@ function CatalogOnboarding({ message, pending }: { message: string | null; pendi
             <path d="M7.6 10.6l2.4-2.6M7.6 13.4l2.4 2.6M14.2 7.6l2.5 2.6M14.2 16.4l2.5-2.6" />
           </svg>
         </div>
-        <h2 className="font-heading mb-2 text-[20px] tracking-[-0.02em]">
+        <Heading as="h2" size="section" className="mb-2">
           Bắt đầu kế hoạch ôn tập đầu tiên
-        </h2>
+        </Heading>
         {/* `min-h` giữ chỗ đúng MỘT dòng cho ca `message === null`, nên CTA không giật khi câu
             của server về — chừng nào câu đó còn nằm gọn một dòng.
 
@@ -226,7 +229,9 @@ export function PlanCatalog({
     <section>
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <div>
-          <h2 className="text-[17px] font-semibold">Kế hoạch ôn tập</h2>
+          <Heading as="h2" size="card" className="font-semibold">
+            Kế hoạch ôn tập
+          </Heading>
           <p className="text-muted-foreground mt-1 text-[13px] leading-relaxed">
             {activePlans.length} kế hoạch đang hoạt động —{' '}
             <Link

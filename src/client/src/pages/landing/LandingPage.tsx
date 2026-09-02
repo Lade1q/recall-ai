@@ -7,6 +7,8 @@ import {
   TracebackScene,
   VerdictScene,
 } from '@/features/landing';
+import { cn } from '@/lib/utils';
+import { Heading, headingVariants } from '@/components/ui/heading';
 
 /**
  * Trang landing công khai (`/`, issue #388) — điểm vào cho người chưa đăng nhập.
@@ -17,8 +19,10 @@ import {
  * engine chứ không phải hình minh hoạ trang trí.
  *
  * Gấu Trúc là linh vật, vẽ pixel art trên lưới 16×16 (`features/landing/data`).
- * Đây là phần tử pixel DUY NHẤT của trang — chữ vẫn Noto Serif, đường vẫn
- * mảnh, khoảng trắng vẫn rộng. Tương phản đó là chủ đích.
+ * Đây là phần tử pixel DUY NHẤT của trang — đường vẫn mảnh, khoảng trắng vẫn
+ * rộng. ⚠️ Từ 02/09 tiêu đề là JetBrains Mono, nằm gần trục "kỹ thuật" — cùng
+ * trục với lưới pixel. Tương phản pixel-art ↔ chữ vì thế YẾU đi so với thời
+ * Noto Serif, và mức yếu tới đâu thì phải nhìn mắt thường, chưa ai đo.
  */
 export default function LandingPage() {
   return (
@@ -26,6 +30,8 @@ export default function LandingPage() {
       <header className="border-border mx-auto flex w-full max-w-[1280px] items-center justify-between border-b px-5 py-4 sm:px-8 lg:px-14">
         <div className="flex items-center gap-2.5">
           <PandaSprite pose="idle" size={26} />
+          {/* #387: KHÔNG snap — wordmark, không phải tiêu đề. Phụ lục D1 đã loại khỏi phạm
+              vi thang; hồ sơ ở `OUT_OF_SCOPE_WORDMARKS` trong `heading-scale.test.ts`. */}
           <span className="font-heading text-base tracking-tight">Recall AI</span>
         </div>
         <div className="flex items-center gap-3 sm:gap-5">
@@ -63,9 +69,9 @@ export default function LandingPage() {
         */}
         <section className="px-5 py-16 sm:px-8 lg:px-14 lg:py-20">
           <div className="border-border bg-card mx-auto max-w-[1160px] rounded-xl border p-8 text-center lg:p-12">
-            <h2 className="font-heading mx-auto max-w-[26ch] text-balance text-[24px] sm:text-[27px]">
+            <Heading as="h2" size="section" className="mx-auto max-w-[26ch] sm:text-[30px]">
               Không chỉ hỏi bạn, Recall AI biết bạn đã hiểu đến đâu.
-            </h2>
+            </Heading>
             <p className="text-muted-foreground mx-auto mt-4 max-w-[68ch] text-pretty text-[14px] leading-[1.8]">
               Recall AI đặt câu hỏi dựa trên tài liệu bạn học, đánh giá câu trả lời và cập nhật lộ
               trình theo những gì bạn thể hiện, để bạn không chỉ hoàn thành bài học, mà biết mình
@@ -76,9 +82,9 @@ export default function LandingPage() {
 
         <section className="flex flex-col items-center gap-5 px-5 pb-20 pt-10 text-center sm:px-8">
           <PandaSprite pose="cheer" size={128} shadow />
-          <h2 className="font-heading max-w-[22ch] text-balance text-[26px] sm:text-[32px]">
+          <Heading as="h2" size="page" className="max-w-[22ch]">
             Tải lên tài liệu, nhận lộ trình học của riêng bạn.
-          </h2>
+          </Heading>
           <Button asChild size="lg">
             <Link to="/register">Nhận lộ trình học ngay</Link>
           </Button>
@@ -88,7 +94,16 @@ export default function LandingPage() {
       <footer className="border-border mx-auto flex w-full max-w-[1280px] items-center justify-between border-t px-5 py-5 sm:px-8 lg:px-14">
         <div className="flex items-center gap-2.5">
           <PandaSprite pose="idle" size={22} />
-          <span className="font-heading text-[15px] tracking-tight">Recall AI</span>
+          <span
+            /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
+              headingVariants({ size: 'card' }),
+              'text-[15px] tracking-tight'
+            )}
+          >
+            Recall AI
+          </span>
         </div>
         <span className="text-muted-foreground font-mono text-[12px]">© 2026 Recall AI</span>
       </footer>

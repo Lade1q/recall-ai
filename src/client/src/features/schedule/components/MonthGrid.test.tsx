@@ -247,6 +247,41 @@ describe('MonthGrid — tháng chưa có buổi ôn nào', () => {
     renderGrid({ days: [day('2026-09-02', [item('A')])] });
     expect(screen.getByText('Tháng 8 2026 chưa có buổi ôn nào')).toBeInTheDocument();
   });
+
+  it('steps aside once a day is selected (#482)', () => {
+    // Viền chọn của DayCell là `z-[2]`, cao hơn thẻ này (`z-auto`) — nên khi cả hai cùng hiện,
+    // viền vẽ đè lên thẻ, trông như hai UI chồng nhau. Và `DayPanel` (ScheduleView) lúc đó đã tự
+    // nói "Ngày này trống", nên thẻ giữa lưới lúc này thừa thông tin chứ không chỉ chồng hình.
+    renderGrid({ days: [], selectedDateKey: '2026-08-12' });
+    expect(screen.queryByText(/chưa có buổi ôn nào/)).not.toBeInTheDocument();
+  });
+
+  /**
+   * `shiftMonth` chỉ đổi `monthCursor` và cố ý KHÔNG đụng `selectedDateKey`
+   * (`useScheduleViewState.ts:62`) — nên với guard cũ (`selectedDateKey === null`), một lần chọn
+   * ngày làm thẻ biến mất ở MỌI tháng rỗng lật qua sau đó. Đo LIVE ở T10: không ô nào
+   * `aria-pressed`, không ô nào có viền, mà thẻ vẫn ẩn.
+   *
+   * Hai ca tách RIÊNG, không gộp: chúng ghim hai token khác nhau của guard, và gộp lại thì
+   * `1 failed` không nói được token nào chịu tải (bài học #472/#477).
+   */
+  it('🔴 ngày chọn ở tháng khác và KHÔNG có ô nào trong lưới ⇒ thẻ vẫn hiện', () => {
+    // Lưới T10/2026 chạy 28/09 → 08/11; 17/09 không có ô nào ở đây.
+    renderGrid({ monthCursor: { year: 2026, month: 10 }, days: [], selectedDateKey: '2026-09-17' });
+    expect(screen.getByText(/chưa có buổi ôn nào/)).toBeInTheDocument();
+  });
+
+  /**
+   * 🔴 Ca ghim riêng token `c.inMonth`. Lưới T10/2026 MỞ ĐẦU bằng ba ô tràn 28·29·30/09, nên
+   * `2026-09-30` CÓ một ô trong lưới — nhưng là ô tràn, và ô tràn nằm ở hàng đầu trong khi thẻ
+   * `place-items-center` nằm giữa ⇒ giao 0px². Không có va chạm để tránh ⇒ thẻ vẫn phải hiện.
+   *
+   * Bỏ `c.inMonth &&` thì ca này đỏ còn ca trên vẫn xanh — đó là cách phân biệt hai token.
+   */
+  it('🔴 ngày chọn là Ô TRÀN của tháng khác ⇒ thẻ vẫn hiện (token inMonth)', () => {
+    renderGrid({ monthCursor: { year: 2026, month: 10 }, days: [], selectedDateKey: '2026-09-30' });
+    expect(screen.getByText(/chưa có buổi ôn nào/)).toBeInTheDocument();
+  });
 });
 
 describe('MonthGrid — bề ngang hẹp (<680px)', () => {

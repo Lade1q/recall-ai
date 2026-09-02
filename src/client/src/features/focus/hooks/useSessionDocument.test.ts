@@ -2,7 +2,11 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSessionDocument } from './useSessionDocument';
 import { planApi } from '@/features/study-planner/api/plan.api';
-import type { ConceptDetail, ConceptSourceExcerpt } from '@/features/study-planner/types/concept';
+import type {
+  ConceptDetail,
+  ConceptDocumentSummary,
+  ConceptSourceExcerpt,
+} from '@/features/study-planner/types/concept';
 
 vi.mock('@/features/study-planner/api/plan.api', () => ({
   planApi: { getConceptDetail: vi.fn() },
@@ -22,7 +26,14 @@ function source(over: Partial<ConceptSourceExcerpt> = {}): ConceptSourceExcerpt 
   };
 }
 
-function detail(sources: ConceptSourceExcerpt[]): ConceptDetail {
+function detail(
+  sources: ConceptSourceExcerpt[],
+  document: ConceptDocumentSummary | null = {
+    documentId: 'doc-1',
+    filename: 'ctdl.pdf',
+    kind: 'pdf',
+  }
+): ConceptDetail {
   return {
     id: 'c-1',
     name: 'Stack',
@@ -31,6 +42,7 @@ function detail(sources: ConceptSourceExcerpt[]): ConceptDetail {
     lastTestedAt: null,
     isRemediating: false,
     remediationReason: null,
+    document,
     sources,
     history: [],
   };
@@ -70,7 +82,7 @@ describe('useSessionDocument — data + level machine', () => {
     );
     const { result } = setup();
 
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     expect(result.current.sources.map((s) => s.pageFrom)).toEqual([12, 43, null]);
     expect(getConceptDetail).toHaveBeenCalledTimes(1);
@@ -79,7 +91,7 @@ describe('useSessionDocument — data + level machine', () => {
   it('does not refetch when the level changes', async () => {
     getConceptDetail.mockResolvedValue(detail([source()]));
     const { result } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     act(() => result.current.setLevel('excerpt'));
     act(() => result.current.setLevel('fulltext'));
@@ -91,36 +103,63 @@ describe('useSessionDocument — data + level machine', () => {
   it('starts hidden and never restores a previous choice on its own', async () => {
     getConceptDetail.mockResolvedValue(detail([source()]));
     const { result } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     expect(result.current.level).toBe('hidden');
   });
 });
 
-describe('useSessionDocument — locked when a concept has no sources', () => {
-  it('reports no-sources and refuses to leave hidden', async () => {
+describe('useSessionDocument — independent excerpt and full-text availability', () => {
+  it('locks only the excerpt when a concept has no source anchors', async () => {
     getConceptDetail.mockResolvedValue(detail([]));
     const { result } = setup();
 
-    await waitFor(() => expect(result.current.unavailableReason).toBe('no-sources'));
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBe('no-sources'));
+    expect(result.current.unavailableReasons.fulltext).toBeNull();
 
     act(() => result.current.setLevel('excerpt'));
     expect(result.current.selectedLevel).toBe('hidden');
-    expect(result.current.level).toBe('hidden');
+    act(() => result.current.setLevel('fulltext'));
+
+    expect(result.current.level).toBe('fulltext');
+    expect(result.current.fullTextSource).toEqual({
+      documentId: 'doc-1',
+      filename: 'ctdl.pdf',
+      kind: 'pdf',
+      pageFrom: null,
+    });
   });
 
   it('reports fetch-failed when the detail call rejects', async () => {
     getConceptDetail.mockRejectedValue(new Error('network'));
     const { result } = setup();
 
-    await waitFor(() => expect(result.current.unavailableReason).toBe('fetch-failed'));
+    await waitFor(() =>
+      expect(result.current.unavailableReasons).toEqual({
+        excerpt: 'fetch-failed',
+        fulltext: 'fetch-failed',
+      })
+    );
   });
 
-  it('treats a plan-less session as no-sources without calling the API', async () => {
+  it('locks both levels for a plan-less session without calling the API', async () => {
     const { result } = setup({ planId: null });
 
-    await waitFor(() => expect(result.current.unavailableReason).toBe('no-sources'));
+    expect(result.current.unavailableReasons).toEqual({
+      excerpt: 'no-sources',
+      fulltext: 'no-document',
+    });
     expect(getConceptDetail).not.toHaveBeenCalled();
+  });
+
+  it('locks full text when the plan truly has no document', async () => {
+    getConceptDetail.mockResolvedValue(detail([], null));
+    const { result } = setup();
+
+    await waitFor(() => expect(result.current.unavailableReasons.fulltext).toBe('no-document'));
+
+    act(() => result.current.setLevel('fulltext'));
+    expect(result.current.level).toBe('hidden');
   });
 });
 
@@ -128,7 +167,7 @@ describe('useSessionDocument — the D shortcut', () => {
   it('cycles hidden -> excerpt -> fulltext -> hidden', async () => {
     getConceptDetail.mockResolvedValue(detail([source()]));
     const { result } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     press('d');
     expect(result.current.level).toBe('excerpt');
@@ -138,11 +177,13 @@ describe('useSessionDocument — the D shortcut', () => {
     expect(result.current.level).toBe('hidden');
   });
 
-  it('does nothing while a concept has no sources', async () => {
+  it('skips the locked excerpt and opens full text when a concept has no sources', async () => {
     getConceptDetail.mockResolvedValue(detail([]));
     const { result } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBe('no-sources'));
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBe('no-sources'));
 
+    press('d');
+    expect(result.current.level).toBe('fulltext');
     press('d');
     expect(result.current.level).toBe('hidden');
   });
@@ -150,7 +191,7 @@ describe('useSessionDocument — the D shortcut', () => {
   it('is inert while the stage is taken over by a break', async () => {
     getConceptDetail.mockResolvedValue(detail([source()]));
     const { result, rerender } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     act(() => result.current.setLevel('excerpt'));
     rerender({ planId: 'plan-1', conceptId: 'c-1', isStageTakenOver: true });
@@ -165,7 +206,7 @@ describe('useSessionDocument — break hides but preserves the level', () => {
   it('forces hidden while taken over, then restores the chosen level', async () => {
     getConceptDetail.mockResolvedValue(detail([source()]));
     const { result, rerender } = setup();
-    await waitFor(() => expect(result.current.unavailableReason).toBeNull());
+    await waitFor(() => expect(result.current.unavailableReasons.excerpt).toBeNull());
 
     act(() => result.current.setLevel('fulltext'));
     expect(result.current.level).toBe('fulltext');

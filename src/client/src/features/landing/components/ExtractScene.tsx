@@ -9,6 +9,7 @@ import {
   carryEdgeGeometry,
   carryFrame,
 } from '../data/carry-sequence';
+import { Heading } from '@/components/ui/heading';
 
 /**
  * Nhịp kịch bản. Phải DÀI HƠN mọi transition bên dưới (`lp-carrier`: đi 1800ms,
@@ -81,9 +82,9 @@ export function ExtractScene() {
       <div className="mx-auto max-w-[1160px]">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-remediate font-mono text-[11px] tracking-[0.1em]">CẢNH 1</span>
-          <h2 className="font-heading text-[22px] sm:text-[27px]">
+          <Heading as="h2" size="section" className="sm:text-[30px]">
             Từ tài liệu thành lộ trình học tập
-          </h2>
+          </Heading>
         </div>
         <p className="text-muted-foreground mt-3 max-w-[66ch] text-[14px] leading-[1.7]">
           Recall AI tách tài liệu thành từng khái niệm, rồi nối chúng lại theo mối quan hệ phụ

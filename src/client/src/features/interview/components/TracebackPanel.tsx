@@ -8,6 +8,7 @@ import type {
   SessionSummaryReviewItemResponse,
 } from '../types/interview.types';
 import { TRACEBACK_THRESHOLD, masteryColor } from '../utils/summary-display';
+import { Heading } from '@/components/ui/heading';
 
 interface TracebackPanelProps {
   /** Chỉ hàng `reason === 'traceback'` — hàng ôn giãn cách thuộc về `NextSessionPanel`. */
@@ -67,9 +68,9 @@ export function TracebackPanel({
         <p className="text-muted-foreground mb-1 text-[13px] font-medium uppercase tracking-wider">
           Hệ quả
         </p>
-        <h2 className="text-foreground font-heading text-xl tracking-[-0.01em]" id="tt-lich">
+        <Heading as="h2" size="section" className="text-foreground" id="tt-lich">
           Hệ thống đã xếp lại lịch ôn
-        </h2>
+        </Heading>
         <p className="text-muted-foreground mt-2 text-[14.5px] leading-[1.6]">
           {groups.size > 0
             ? `${groups.size === 1 ? 'Một khái niệm' : `${groups.size} khái niệm`} dưới ${TRACEBACK_THRESHOLD.toFixed(2)} được truy ngược tìm khái niệm nền. Lịch đã cập nhật theo kết quả đó — bạn bỏ bớt được ngay tại đây, hoặc sau này trong Kế hoạch ôn tập.`
