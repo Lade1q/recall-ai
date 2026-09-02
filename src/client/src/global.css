@@ -305,6 +305,16 @@
        badge 5.02 · --accent/--secondary 5.48 · --muted 5.54 · --card 6.22
      Dark mode không đổi: --remediate ở đó là 0.72 0.13 55, đã đồng bộ với anh em
      và đo được 5.55 trên badge. */
+  /* ⚠️ NGOÀI GAMUT như đang khai, có từ TRƯỚC đợt 02/09 — ghi lại vì file này đã có
+     tiền lệ ghi loại lỗi đó ở `--primary-foreground`. Ở hue 55, chroma tối đa còn
+     trong sRGB tại L 0.50 nhỏ hơn 0.14, nên trình duyệt kẹp và vẽ ra `#9d4700`
+     thay vì giá trị khai (dE 0.0142 trong OKLab, JND ≈ 0.01).
+
+     `.concept-node--remediating` dịch màu chữ xuống L 0.48 qua `--on-tint-text-l-shift`,
+     làm chỗ kẹp sâu thêm: dE 0.0186, vẽ ra `#964100`. Phần đợt 02/09 thêm vào là
+     **0.0044 — chưa tới nửa JND** — và tương phản trên nền `/14` của chính nó vẫn 5.47,
+     nên không vá gấp. Muốn vá đúng thì hạ chroma của token xuống ≤ 0.118, KHÔNG phải
+     đặc cách một token trong công thức dịch dùng chung. */
   --remediate: oklch(0.5 0.14 55);
   --remediate-foreground: oklch(0.99 0.002 262);
 

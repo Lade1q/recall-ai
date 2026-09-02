@@ -16,7 +16,7 @@
           "src/global.css"
         ],
         "createdAt": "2026-09-02T14:50:21.489Z",
-        "reason": "user cho phep 02/09/2026: .graph-canvas--view::before la luoi tren canvas react-flow keo/tha duoc — dung carve-out cua chinh luat do (actual canvas/map/blueprint surfaces)."
+        "reason": "user cho phep 02/09/2026: luoi tren canvas react-flow keo/tha duoc — dung carve-out cua chinh luat do (actual canvas/map/blueprint surfaces). Wildcard nay phu HAI rule, ca hai deu la nen cua cung canvas do: .graph-canvas--view::before (luoi ke) va .graph-canvas--edit::before (luoi cham o che do sua). Da doi chieu 03/09: global.css khong con nen dang luoi nao khac."
       }
     ]
   }
