@@ -327,9 +327,19 @@ const EYEBROWS_APPROVED = [
 ];
 
 /**
- * Ngoại lệ CỠ đã quyết (Quân chốt 02/09): đã bọc `<Heading>` để vào thang về mặt cấu
- * trúc, nhưng GIỮ cỡ cũ bằng override. Bậc `card`(18) lệch 5px = **+38%**, và bán kính là
+ * Ngoại lệ đã quyết (Quân chốt 02/09): đã bọc `<Heading>` để vào thang về mặt cấu trúc,
+ * nhưng GIỮ diện mạo cũ bằng override. Bậc `card`(18) lệch 5px = **+38%**, và bán kính là
  * mọi tiêu đề mục trong panel chi tiết phiên — quá lớn để đổi lấy sự đồng đều.
+ *
+ * ⚠️ Ngoại lệ này ghim **BA trục**, không riêng cỡ — đọc "ngoại lệ cỡ" là đọc hẹp hơn sự
+ * thật, và bản đầu của docstring này đã đọc hẹp như thế. Bọc `<Heading>` kéo theo hai thứ
+ * nữa mà không ai kê số: `card` có `tracking-[-0.015em]`, và `.font-heading` (`@layer
+ * base`) có `line-height:1.25`. Đo trên bản dựng thật: leading 20,8px → 16,25px (**−22%**,
+ * mất 4,55px mỗi dòng), tracking 0 → −0,195px. Nên override là `text-[13px]` +
+ * `leading-[1.6]` (13 × 1.6 = đúng 20,8px) + `tracking-normal` (`--tracking-normal: 0em`).
+ *
+ * ⛔ Trục **mặt chữ** thì KHÔNG ghim được: `.font-heading` đổi sans → mono, và gỡ nó đi
+ * thì không còn là `<Heading>` nữa. Đổi có chủ ý, Quân chấp nhận sau khi xem số.
  */
 const SIZE_EXCEPTION = ['nền|13|features/history/components/SessionDetailPanel.tsx|text-[13px]'];
 
@@ -368,11 +378,18 @@ const KNOWN = [
  * nhận ra đều bắt đầu bằng `text-` — nhưng đừng đọc con số này thành "tổng số tiêu đề".
  *
  * ⛔ **Cổng chứng nhận KHÔNG CÒN CỠ NGOÀI THANG. Nó KHÔNG chứng nhận mỗi tiêu đề chọn
- * ĐÚNG BẬC.** Một thẻ bọc `<Heading size="…">` mà không kèm token `text-` nào thì không có
- * mặt trong kiểm kê này (vòng quét chạy theo các lần xuất hiện của `text-`), nên đổi
- * `display` ↔ `card` ở bất kỳ chỗ nào cũng KHÔNG làm cổng đỏ. Đây là giới hạn CẤU TRÚC,
- * không phải một lỗ hổng cục bộ; lưới đúng cho việc ấy là kiểm tương thích thẻ↔bậc
- * (`h1` không được `card`, `h3` không được `display`), chưa dựng.
+ * ĐÚNG BẬC.** Lớp mù là **mọi lần đổi `size=`**, không riêng những thẻ đã rơi khỏi kiểm kê.
+ * Hai đường vào lớp ấy:
+ *
+ *   thẻ bọc KHÔNG có token `text-`  → vắng mặt hẳn (vòng quét chạy theo `text-`)
+ *   thẻ bọc CÓ token `text-`        → có mặt, nhưng override nuốt cỡ; đổi `card` → `page`
+ *                                     chỉ làm `tracking-[-0.015em]` của bậc biến mất, mà
+ *                                     cổng không nhìn `tracking`. Kiểm kê đứng yên.
+ *
+ * `SessionDetailPanel` là ca thứ hai — nó **vẫn nằm trong** kiểm kê mà vẫn đổi bậc được
+ * mà không ai đỏ. Đây là giới hạn CẤU TRÚC, không phải lỗ hổng cục bộ; lưới đúng cho việc
+ * ấy là kiểm tương thích thẻ↔bậc (`h1` không được `card`, `h3` không được `display`), chưa
+ * dựng — và nó phải quét **thuộc tính `size`**, không nối dài được vòng quét `text-` này.
  *
  * Sinh ra từ chính `scan()` rồi đọc lại bằng mắt, không chép tay.
  *

@@ -158,10 +158,18 @@ function Block({
   return (
     <section className="mt-[26px] first:mt-0">
       {/* #387: KHÔNG snap — giữ 13px (Quân chốt 02/09). Bậc `card`(18) lệch 5px, tức
-          **+38%**, và bán kính là MỌI tiêu đề mục trong panel chi tiết phiên. Đã bọc
-          `<Heading>` để vào thang về mặt cấu trúc, cỡ giữ bằng override có chủ ý.
-          Hồ sơ ở nhóm ngoại lệ cỡ trong `heading-scale.test.ts`. */}
-      <Heading as="h3" size="card" className="m-0 mb-3 text-[13px] font-semibold">
+          **+38%**, và bán kính là MỌI tiêu đề mục trong panel chi tiết phiên.
+          Ghim BA trục, không chỉ cỡ: `card` kéo theo `tracking-[-0.015em]` (utility) và
+          `.font-heading` kéo theo `line-height:1.25` (base) — đo trên bản dựng thật thì
+          leading tụt 20,8px → 16,25px (−22%, mất 4,55px mỗi dòng) và tracking từ 0 xuống
+          −0,195px. `leading-[1.6]` cho đúng 20,8px ở 13px; `tracking-normal` trả về 0.
+          ⚠️ Mặt chữ VẪN đổi sans → mono; không gỡ được khi đã bọc `<Heading>`, Quân chấp
+          nhận. Hồ sơ ở `SIZE_EXCEPTION` trong `heading-scale.test.ts`. */}
+      <Heading
+        as="h3"
+        size="card"
+        className="m-0 mb-3 text-[13px] font-semibold leading-[1.6] tracking-normal"
+      >
         {title}
       </Heading>
       {hint && (
