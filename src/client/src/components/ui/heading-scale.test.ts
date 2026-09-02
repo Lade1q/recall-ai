@@ -12,6 +12,30 @@ import { describe, expect, it } from 'vitest';
  *
  * ⛔ Nó KHÔNG phán chỗ nào đúng chỗ nào sai. Việc của test là: không cho danh sách
  * dài thêm, và bắt phải sửa danh sách khi có chỗ được snap.
+ *
+ * ## Ranh giới của cổng — KHAI ra, không vá
+ *
+ * Cổng có ranh giới được khai thì dùng được; ranh giới ẨN thì nguy hơn không có cổng.
+ * Mỗi dạng dưới đây đã kiểm bằng cách dựng thật hai lần (có probe / không probe) rồi
+ * so CSS phát ra, kèm đối chứng âm `font-size:999px` = 0 ở cả hai bản.
+ *
+ * **Thoát PHÂN LOẠI nhưng KHÔNG thoát kiểm kê thẻ** — `KNOWN` đứng yên, nhưng cột token
+ * của `HEADING_CENSUS` lệch ⇒ `toEqual` đỏ ⇒ vẫn buộc người sửa phải nhìn:
+ *
+ *   text-[1.3rem] · text-[2em]        regex phân loại ép đuôi `px`
+ *   text-2xl/8 · text-[32px]/[1.2]    modifier line-height phá neo `$`
+ *   !text-[33px] · text-[34px]!       `important` hai đầu phá neo `^` và `$`
+ *   text-[calc(1rem+8px)]             `[0-9.]+` không nuốt `calc(...)` (cả hai dạng dấu cách)
+ *
+ * **Mù hoàn toàn** — cả `KNOWN` lẫn kiểm kê đều đứng yên, đã đo:
+ *
+ *   style={{ fontSize: 32 }}          inline style đè mọi class; cổng không quét prop `style`
+ *   chuỗi class trong tệp `.ts`       `walk()` chỉ nhặt `.tsx`
+ *   bù trừ trong CÙNG một tệp         xoá 1 thẻ 1-token, thêm 1 thẻ 1-token có bẫy
+ *
+ * **Đã LOẠI, không phải lỗ:** `text-[32px]/1.2` (modifier không ngoặc) — dựng thật không
+ * sinh selector nào. Nó vẫn làm kiểm kê đỏ vì là một token `text-` mới; đó là báo động về
+ * một class CHẾT, không phải báo động sai về cỡ chữ.
  */
 
 const SRC = join(__dirname, '..', '..');
@@ -43,15 +67,61 @@ const NAMED: Record<string, number> = {
 const IS_HEADING = /font-heading|headingVariants|<Heading\b/;
 
 /**
+ * Một lượt duy nhất: gỡ comment, và đánh dấu vị trí nào nằm TRONG chuỗi.
+ *
+ * Cả hai vế đều là lỗ ĐÃ ĐO trên chính cổng này, không phải giả thuyết — mỗi ca đều
+ * qua `tsc` sạch, tức viết được trong mã thật:
+ * - `// cỡ này > 40` trong thẻ mở: `>` đóng cửa sổ SỚM, `className` rơi ra ngoài, một
+ *   khai `text-[23px]` biến mất khỏi kiểm kê mà cổng vẫn xanh. (Nhánh `block` đã bịt
+ *   từ trước; nhánh `//` thì chưa.)
+ * - `title="a > b"` đặt TRƯỚC `className` ⇒ xanh (lỗ); đặt SAU ⇒ đỏ. Thứ tự thuộc
+ *   tính quyết định — đó là đối chứng cho thấy cơ chế đúng là cửa sổ, không phải gì khác.
+ *
+ * Comment thay bằng khoảng trắng CÙNG ĐỘ DÀI, giữ nguyên `\n`: mọi offset phải đứng
+ * yên vì `seen` khử trùng thẻ theo `enc.start`.
+ */
+function scanSource(raw: string): { src: string; inString: Uint8Array } {
+  const out = raw.split('');
+  const inString = new Uint8Array(raw.length);
+  let i = 0;
+  while (i < raw.length) {
+    const ch = raw[i];
+    if (ch === '/' && raw[i + 1] === '*') {
+      const end = raw.indexOf('*/', i + 2);
+      const stop = end === -1 ? raw.length : end + 2;
+      for (let j = i; j < stop; j++) if (out[j] !== '\n') out[j] = ' ';
+      i = stop;
+    } else if (ch === '/' && raw[i + 1] === '/') {
+      // Chỉ tới hết dòng, và KHÔNG nuốt `\n` — nuốt thì số dòng lệch.
+      while (i < raw.length && raw[i] !== '\n') out[i++] = ' ';
+    } else if (ch === '"' || ch === "'" || ch === '`') {
+      let j = i + 1;
+      while (j < raw.length && raw[j] !== ch) {
+        if (raw[j] === '\\') inString[j++] = 1;
+        if (j < raw.length) inString[j++] = 1;
+      }
+      i = j + 1;
+    } else i++;
+  }
+  return { src: out.join(''), inString };
+}
+
+/**
  * Cửa sổ khoanh phần tử — ghim ở đây để người sau đếm ra CÙNG một số.
  * Lùi tới `<` gần nhất; tiến tới `>` đầu tiên ở **độ sâu ngoặc 0**, nên một
- * `{cn(...)}` trải nhiều dòng không bị cắt ngang.
+ * `{cn(...)}` trải nhiều dòng không bị cắt ngang. Bỏ qua mọi ký tự nằm trong chuỗi,
+ * cho cả việc đếm độ sâu lẫn việc tìm `>`.
  */
-function enclosingTag(src: string, idx: number): { start: number; tag: string } | null {
+function enclosingTag(
+  src: string,
+  inString: Uint8Array,
+  idx: number
+): { start: number; tag: string } | null {
   const start = src.lastIndexOf('<', idx);
   if (start === -1) return null;
   let depth = 0;
   for (let i = start; i < src.length; i++) {
+    if (inString[i]) continue;
     const ch = src[i];
     if (ch === '{' || ch === '(') depth++;
     else if (ch === '}' || ch === ')') depth--;
@@ -105,29 +175,29 @@ interface Finding {
   notation: string;
 }
 
-function scan(): { findings: Finding[]; filesScanned: number; headingTags: number } {
+type Census = Record<string, [tags: number, textTokens: number]>;
+
+function scan(): { findings: Finding[]; filesScanned: number; census: Census } {
   const scale = scaleFromHeadingTsx();
   const findings: Finding[] = [];
   const files = walk(SRC);
-  let headingTags = 0;
+  const census: Census = {};
 
   for (const p of files) {
-    // Gỡ comment TRƯỚC khi khoanh thẻ. Một ký tự `>` trong comment JSX đóng cửa sổ
-    // sớm và findings BIẾN MẤT lặng lẽ — đã xảy ra thật khi một comment chứa `> 40`
-    // làm cả ba khai cỡ của hero rơi khỏi kiểm kê. Thay bằng khoảng trắng cùng độ
-    // dài để số dòng không lệch.
-    const src = readFileSync(p, 'utf-8').replace(/\/\*[\s\S]*?\*\//g, (m) =>
-      m.replace(/[^\n]/g, ' ')
-    );
+    const { src, inString } = scanSource(readFileSync(p, 'utf-8'));
     const rel = p.slice(SRC.length + 1).replace(/\\/g, '/');
     const seen = new Set<number>();
     for (const m of src.matchAll(/\btext-/g)) {
-      const enc = enclosingTag(src, m.index!);
+      const enc = enclosingTag(src, inString, m.index!);
       if (!enc || seen.has(enc.start) || !IS_HEADING.test(enc.tag)) continue;
       seen.add(enc.start);
-      headingTags++;
+      const cell = (census[rel] ??= [0, 0]);
+      cell[0]++;
       for (const lit of enc.tag.matchAll(/["'`]([^"'`]*)["'`]/g)) {
         for (const token of lit[1].split(/\s+/)) {
+          // Cùng regex lái vòng ngoài, nên tự nhất quán: `^text-` sẽ TRƯỢT
+          // `sm:text-[33px]` và `!text-[33px]` — đúng hai dạng hay dùng nhất.
+          if (/\btext-/.test(token)) cell[1]++;
           const c = classify(token);
           if (c && !scale.has(c.px)) findings.push({ ...c, where: rel, token });
         }
@@ -160,7 +230,7 @@ function scan(): { findings: Finding[]; filesScanned: number; headingTags: numbe
       `${b.tier}|${b.px}|${b.where}|${b.token}`
     )
   );
-  return { findings, filesScanned: files.length, headingTags };
+  return { findings, filesScanned: files.length, census };
 }
 
 /**
@@ -213,12 +283,60 @@ const KNOWN = [
   ...RESPONSIVE_CONCESSION,
 ].sort((a, b) => a.localeCompare(b));
 
+/**
+ * KIỂM KÊ THẺ — mỗi tệp: [số thẻ tiêu đề bộ quét CHẠM tới, số token khớp `/\btext-/`].
+ *
+ * Thay cho `expect(headingTags).toBeGreaterThan(20)` cũ. Ngưỡng ấy **che được**: nếu một
+ * bẫy rơi vào thẻ ĐÃ được đếm sẵn thì tổng không nhúc nhích, và một tiêu đề 32px thật —
+ * render thật, CSS sinh ra thật — vẫn đi qua với `vitest` xanh, `tsc -b && vite build`
+ * EXIT=0, `lint` EXIT=0. Hai cột bắt hai chiều khác nhau:
+ *
+ *   bẫy ở thẻ CHƯA đếm  → cột 1 đổi
+ *   bẫy ở thẻ ĐÃ đếm    → cột 2 đổi
+ *
+ * ⛔ Cột 2 cố ý KHÔNG lọc token cỡ: `text-balance`, `text-foreground` cũng tính. Lọc
+ * xuống "chỉ token cỡ" thì `text-foreground` → `text-muted-foreground` (đổi chính đáng)
+ * sẽ làm cổng ĐỎ OAN.
+ *
+ * ⛔ Và neo là `/\btext-/`, KHÔNG phải `^text-`: `classify()` cắt tiền tố bằng
+ * `lastIndexOf(':')` rồi mới neo trên phần base, nên token trong `className` vẫn mang
+ * nguyên tiền tố. `^text-` sẽ trượt `sm:text-[33px]` và `!text-[33px]` — đúng hai dạng
+ * hay dùng nhất. Dùng chính regex lái vòng ngoài thì không phải nghĩ về tiền tố nào cả.
+ *
+ * "Thẻ bộ quét CHẠM tới" ≠ "mọi thẻ tiêu đề": vòng quét chạy theo các lần xuất hiện của
+ * `text-`, nên `<Heading size="page" className="leading-[1.1]">` (không có token `text-`
+ * nào) KHÔNG có mặt ở đây. Không mất gì cho việc phát hiện — mọi cách viết mà `classify`
+ * nhận ra đều bắt đầu bằng `text-` — nhưng đừng đọc con số này thành "tổng số tiêu đề".
+ *
+ * Sinh ra từ chính `scan()` rồi đọc lại bằng mắt, không chép tay.
+ */
+const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
+  'features/auth/components/LoginForm.tsx': [1, 1],
+  'features/auth/components/SignupForm.tsx': [1, 1],
+  'features/focus/components/RunningSession.tsx': [2, 2],
+  'features/interview/components/AiSummaryCard.tsx': [1, 1],
+  'features/interview/components/NextSessionPanel.tsx': [1, 1],
+  'features/interview/components/ScoreBreakdown.tsx': [1, 1],
+  'features/interview/components/SessionSummary.tsx': [2, 2],
+  'features/interview/components/TracebackPanel.tsx': [1, 1],
+  'features/interview/components/TurnHistory.tsx': [1, 1],
+  'features/landing/components/ExtractScene.tsx': [1, 1],
+  'features/landing/components/LandingHero.tsx': [1, 4],
+  'features/landing/components/TracebackScene.tsx': [1, 1],
+  'features/landing/components/VerdictScene.tsx': [1, 1],
+  'features/schedule/components/MonthGrid.tsx': [1, 1],
+  'features/schedule/components/ScheduleDebtBar.tsx': [2, 2],
+  'pages/focus/FocusPage.tsx': [2, 2],
+  'pages/landing/LandingPage.tsx': [4, 5],
+};
+
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
   it('đối chứng dương: thang đọc được từ heading.tsx, và bộ quét CHẠM tới mã thật', () => {
     expect([...scaleFromHeadingTsx()].sort((a, b) => a - b)).toEqual([18, 21, 30, 40]);
-    const { filesScanned, headingTags } = scan();
-    expect(filesScanned).toBeGreaterThan(100);
-    expect(headingTags).toBeGreaterThan(20);
+    const { filesScanned, census } = scan();
+    // Sàn, không phải mốc cố định: số tệp `.tsx` chỉ tăng theo thời gian.
+    expect(filesScanned).toBeGreaterThanOrEqual(117);
+    expect(census).toEqual(HEADING_CENSUS);
   });
 
   it('🔴 danh sách khai cỡ ngoài thang KHÔNG được dài thêm', () => {
