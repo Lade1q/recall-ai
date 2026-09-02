@@ -30,6 +30,8 @@ export default function LandingPage() {
       <header className="border-border mx-auto flex w-full max-w-[1280px] items-center justify-between border-b px-5 py-4 sm:px-8 lg:px-14">
         <div className="flex items-center gap-2.5">
           <PandaSprite pose="idle" size={26} />
+          {/* #387: KHÔNG snap — wordmark, không phải tiêu đề. Phụ lục D1 đã loại khỏi phạm
+              vi thang; hồ sơ ở `OUT_OF_SCOPE_WORDMARKS` trong `heading-scale.test.ts`. */}
           <span className="font-heading text-base tracking-tight">Recall AI</span>
         </div>
         <div className="flex items-center gap-3 sm:gap-5">

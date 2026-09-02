@@ -415,18 +415,19 @@ export default function InterviewSessionPage() {
               Về Dashboard
             </Button>
           )}
-          {/* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `font-heading` để
-              lấy BỘ CHỮ của thanh trên. Quân chốt 02/09 đưa ra ngoài phạm vi thang, nhóm
-              NHÃN trong `heading-scale.test.ts` (cùng ô với wordmark "Recall AI").
-              Trước đó đây là `h1`. Tiêu đề thật của màn là KHÁI NIỆM đang kiểm, không phải
-              tên màn trên thanh trên — cùng quyết định đã áp cho nhánh kết quả ở trên
-              (`<p>` "Kết quả kiểm tra"). Snap 16 → 21 không cứu được gì: khi đó `h1` chỉ
-              BẰNG `h2` ngay dưới, thứ bậc vẫn phẳng.
+          {/* Nhãn chrome, KHÔNG phải heading — và cố ý KHÔNG mượn `font-heading`. Nhánh
+              kết quả của CHÍNH màn này đã hạ nhãn tương đương xuống đúng chuỗi class này
+              từ `4e46458` (`<p>` "Kết quả kiểm tra"); giữ mono 16px ở đây làm hai nhánh của
+              một màn lệch nhau, và kéo thêm một dòng vào allowlist của
+              `heading-scale.test.ts` chỉ để dung nạp chính nó.
+              Trước đó đây là `h1`. Tiêu đề thật của màn là KHÁI NIỆM đang kiểm, nằm ở
+              `<Heading as="h1">` phía dưới. Snap 16 → 21 không cứu được gì: khi đó `h1`
+              chỉ BẰNG `h2` ngay dưới, thứ bậc vẫn phẳng.
               ⛔ Đừng bọc `<Heading>` vào đây. `headingVariants` có `text-balance`; đo trong
               Chrome 151 thì `text-wrap:balance` (rule đứng sau, cùng `@layer utilities`) đè
               `white-space:nowrap` của `truncate` — chữ xuống dòng thay vì có ba chấm. Thẻ
               thô nên `truncate` còn chạy. */}
-          <span className="font-heading truncate text-base tracking-tight">Kiểm tra vấn đáp</span>
+          <span className="truncate text-sm font-semibold">Kiểm tra vấn đáp</span>
         </div>
 
         <ConceptMeter progress={progress} className="hidden md:flex" />

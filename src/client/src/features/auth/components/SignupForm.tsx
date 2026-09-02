@@ -66,6 +66,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<typeof 
   return (
     <Card className={cn('[--card-spacing:--spacing(7)]', className)} {...props}>
       <CardHeader className="gap-1.5">
+        {/* #387: KHÔNG snap — wordmark, không phải tiêu đề. Phụ lục D1 đã loại khỏi phạm
+            vi thang; hồ sơ ở `OUT_OF_SCOPE_WORDMARKS` trong `heading-scale.test.ts`. */}
         <div className="font-heading mb-6.5 text-base tracking-tight">Recall AI</div>
         <CardTitle
           className={cn(

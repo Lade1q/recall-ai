@@ -187,9 +187,6 @@ const OUT_OF_SCOPE_LABELS = [
   'nền|15|features/schedule/components/ScheduleDebtBar.tsx|text-[15px]',
   'nền|15|features/schedule/components/ScheduleDebtBar.tsx|text-[15px]',
   'nền|15|pages/landing/LandingPage.tsx|text-[15px]',
-  // Nhãn thanh trên của phiên vấn đáp (Quân chốt 02/09). Từng là `h1`; đã đổi thành
-  // `<span>` vì tiêu đề thật của màn là tên khái niệm — xem ghi chú tại chỗ.
-  'nền|16|pages/verify/InterviewSessionPage.tsx|text-base',
 ];
 
 /** Wordmark "Recall AI" — phụ lục D1 của #387 đã loại khỏi phạm vi. */
@@ -232,6 +229,24 @@ describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đ
   it('🔴 cả ba tầng đều có mặt trong lưới, không tầng nào bị bỏ quên', () => {
     const tiers = new Set(scan().findings.map((f) => f.tier));
     expect([...tiers].sort()).toEqual(['breakpoint', 'max-width', 'nền']);
+  });
+
+  /**
+   * Đường tra ngược allowlist → mã. Quy ước sẵn có trong repo là một comment mở đầu
+   * bằng `#387:` ngay tại chỗ khai; không có nó thì người sửa luật của một nhóm sẽ
+   * grep marker và SÓT đúng những chỗ chưa được đánh dấu — đã thủng 3/4 một lần.
+   *
+   * Chỉ kiểm marker CÓ MẶT, không kiểm nội dung: nội dung là việc của người đọc, còn
+   * thứ rơi rụng lặng lẽ là cái marker.
+   */
+  it('🔴 mọi tệp trong allowlist đều mang marker `#387:` tại chỗ khai', () => {
+    const files = [...new Set(KNOWN.map((k) => k.split('|')[2]))].sort();
+    // Đối chứng dương: khoá tách được và không rỗng. 6 chứ không phải 7 — LandingPage.tsx
+    // giữ HAI mục (một nhãn, một wordmark) nhưng chỉ là MỘT tệp.
+    expect(files).toHaveLength(6);
+
+    const thieu = files.filter((f) => !readFileSync(join(SRC, f), 'utf-8').includes('#387:'));
+    expect(thieu).toEqual([]);
   });
 
   it('🔴 cả hai cách viết class đều được bộ quét nhận ra', () => {
