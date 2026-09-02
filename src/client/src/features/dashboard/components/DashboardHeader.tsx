@@ -15,11 +15,7 @@ export function DashboardHeader() {
 
   return (
     <header className="mb-7 sm:mb-8">
-      <Heading
-        as="h1"
-        size="page"
-        /* TODO(#387): giu nguyen 26px cho Quan quyet; snap se la 30px (page) */ className="text-[26px] leading-[1.1] sm:text-[32px]"
-      >
+      <Heading as="h1" size="page" className="leading-[1.1]">
         {greeting}
         {name ? `, ${name}` : ''}
       </Heading>

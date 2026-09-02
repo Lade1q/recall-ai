@@ -133,7 +133,7 @@ function ActiveNudge({
     <section className={`${CARD_CLASS} grid grid-cols-1 md:grid-cols-[1fr_320px]`}>
       <div className="p-6 sm:p-7">
         <Badge tone={REASON_TONE[top.reason]}>Gợi ý hôm nay</Badge>
-        <Heading as="h2" size="section" className="mt-3.5 leading-[1.15] sm:text-[24px]">
+        <Heading as="h2" size="section" className="mt-3.5 leading-[1.15]">
           {top.name}
         </Heading>
         <p className="text-muted-foreground mt-2.5 max-w-[52ch] text-sm leading-[1.7]">
@@ -195,7 +195,7 @@ function EmptyNudge({
         ) : null}
         {heading ? (
           <>
-            <Heading as="h2" size="section" className="mt-3.5 leading-[1.2] sm:text-[22px]">
+            <Heading as="h2" size="section" className="mt-3.5 leading-[1.2]">
               {heading}
             </Heading>
             <p className="text-muted-foreground mx-auto mt-2.5 max-w-[46ch] text-sm leading-[1.7]">

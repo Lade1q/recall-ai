@@ -31,7 +31,9 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
     return (
       <div className="border-mastery-strong/30 bg-mastery-strong/9 mb-3.5 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border px-4 py-3">
         <span
-          /* TODO(#387): giu nguyen 15px cho Quan quyet; snap se la 18px (card) */ className={cn(
+          /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
             headingVariants({ size: 'card' }),
             'text-[15px] font-semibold'
           )}
@@ -60,7 +62,9 @@ export function ScheduleDebtBar({ debtItems, hasAnyItem, onOpenDebt }: ScheduleD
       className="border-mastery-weak/35 bg-mastery-weak/7 hover:bg-mastery-weak/11 mb-3.5 flex w-full flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-lg border px-4 py-3 text-left"
     >
       <span
-        /* TODO(#387): giu nguyen 15px cho Quan quyet; snap se la 18px (card) */ className={cn(
+        /* #387: KHÔNG snap — đây là NHÃN, không phải tiêu đề. Nó mượn `headingVariants`
+             để lấy BỘ CHỮ, và 15px là cỡ của nhãn. Quân chốt 02/09 đưa ra ngoài
+             phạm vi thang, cùng nhóm với wordmark "Recall AI". */ className={cn(
           headingVariants({ size: 'card' }),
           'text-[15px] font-semibold'
         )}

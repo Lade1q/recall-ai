@@ -82,7 +82,7 @@ export function ExtractScene() {
       <div className="mx-auto max-w-[1160px]">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-remediate font-mono text-[11px] tracking-[0.1em]">CẢNH 1</span>
-          <Heading as="h2" size="section" className="sm:text-[27px]">
+          <Heading as="h2" size="section" className="sm:text-[30px]">
             Từ tài liệu thành lộ trình học tập
           </Heading>
         </div>

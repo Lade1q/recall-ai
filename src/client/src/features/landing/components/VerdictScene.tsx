@@ -23,7 +23,7 @@ export function VerdictScene() {
       <div className="mx-auto max-w-[1160px]">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <span className="text-remediate font-mono text-[11px] tracking-[0.1em]">CẢNH 3</span>
-          <Heading as="h2" size="section" className="sm:text-[27px]">
+          <Heading as="h2" size="section" className="sm:text-[30px]">
             Trả lời dở dang không đồng nghĩa bạn sai.
           </Heading>
         </div>
