@@ -157,11 +157,10 @@ function Block({
 }) {
   return (
     <section className="mt-[26px] first:mt-0">
-      {/* #387: TODO — bọc `<Heading>` để vào thang, nhưng GIỮ cỡ cũ bằng override — lệch
-          5px so bậc `card`(18), vượt ngưỡng snap tự động ≤2px nên phải chờ quyết.
-          ⚠️ Việc bọc này KHÔNG trung tính về thị giác: `headingVariants` kéo theo
-          `.font-heading`, tức mặt chữ đổi sans → JetBrains Mono. `font-semibold` giữ
-          nguyên nên weight vẫn 600 (utility thắng `@layer base`). Đo trong PR. */}
+      {/* #387: KHÔNG snap — giữ 13px (Quân chốt 02/09). Bậc `card`(18) lệch 5px, tức
+          **+38%**, và bán kính là MỌI tiêu đề mục trong panel chi tiết phiên. Đã bọc
+          `<Heading>` để vào thang về mặt cấu trúc, cỡ giữ bằng override có chủ ý.
+          Hồ sơ ở nhóm ngoại lệ cỡ trong `heading-scale.test.ts`. */}
       <Heading as="h3" size="card" className="m-0 mb-3 text-[13px] font-semibold">
         {title}
       </Heading>

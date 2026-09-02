@@ -302,11 +302,24 @@ const RESPONSIVE_CONCESSION = [
 /**
  * Eyebrow: nhãn mục viết HOA, cỡ nhỏ, giãn chữ — mặc thẻ heading để có landmark ngữ
  * nghĩa cho trình đọc màn hình, KHÔNG phải để làm tiêu đề. Cùng lý do đã duyệt cho
- * `ScheduleDebtBar`. Giữ nguyên ⇒ 0 thay đổi thị giác. Quân chốt 02/09 cho SÁU chỗ này.
+ * `ScheduleDebtBar`. Giữ nguyên ⇒ 0 thay đổi thị giác. Quân chốt 02/09.
+ *
+ * Cả 14 chỗ một nhóm, một lý do. Quyết định ban đầu chỉ kê SÁU — tám chỗ còn lại vắng vì
+ * phạm vi dựng bằng `git grep -E "<h[123][ >]"`, hụt `h4`. Cùng hình dạng đo được
+ * (`uppercase` + `tracking-*` + cỡ ≤13px) thì cùng quyết định; giữ hai nhóm chỉ vì phép
+ * liệt kê đầu tiên thiếu là lưu một phân biệt không có nội dung.
  */
 const EYEBROWS_APPROVED = [
+  'nền|11|features/history/components/AiNote.tsx|text-[11px]',
   'nền|11|features/history/components/FocusSessionList.tsx|text-[11px]',
   'nền|11|features/history/components/SessionList.tsx|text-[11px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
+  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
   'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
   'nền|11|pages/verify/InterviewPage.tsx|text-[11px]',
   'nền|11|pages/verify/InterviewSessionPage.tsx|text-[11px]',
@@ -314,33 +327,11 @@ const EYEBROWS_APPROVED = [
 ];
 
 /**
- * ⏳ CÙNG hình dạng eyebrow, nhưng CHƯA được kê đích danh — chờ xác nhận, không tự
- * duyệt. Hình dạng đo được giống hệt sáu chỗ trên ở cả ba thuộc tính: `uppercase` +
- * `tracking-*` + cỡ ≤13px, đều là `h3`/`h4` mang nhãn mục.
- *
- * Vì sao chúng vắng khỏi danh sách đã duyệt: phạm vi được dựng bằng
- * `git grep -E "<h[123][ >]"`, nên `h4` và thẻ xuống dòng vô hình với chính phép liệt kê.
- * Cùng trần recall đã cắn cả hai lane hôm nay — xem docstring đầu tệp.
+ * Ngoại lệ CỠ đã quyết (Quân chốt 02/09): đã bọc `<Heading>` để vào thang về mặt cấu
+ * trúc, nhưng GIỮ cỡ cũ bằng override. Bậc `card`(18) lệch 5px = **+38%**, và bán kính là
+ * mọi tiêu đề mục trong panel chi tiết phiên — quá lớn để đổi lấy sự đồng đều.
  */
-const EYEBROWS_SAME_SHAPE = [
-  'nền|11|features/history/components/AiNote.tsx|text-[11px]',
-  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
-  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
-  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
-  'nền|11|features/study-planner/components/ConceptDetailPanel.tsx|text-[11px]',
-  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
-  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
-  'nền|13|features/interview/components/AiSummaryCard.tsx|text-[13px]',
-];
-
-/**
- * ⏳ Lệch ≥3px so bậc `card`(18) nên vượt ngưỡng snap tự động — đã bọc `<Heading>` và
- * GIỮ cỡ cũ bằng override, chờ Quân quyết từng cái. Marker `#387: TODO` tại chỗ.
- */
-const PENDING_SIZE_DECISION = [
-  'nền|13|features/history/components/SessionDetailPanel.tsx|text-[13px]',
-  'nền|15|features/dashboard/components/PlanCatalog.tsx|text-[15px]',
-];
+const SIZE_EXCEPTION = ['nền|13|features/history/components/SessionDetailPanel.tsx|text-[13px]'];
 
 const KNOWN = [
   ...HERO_EXCEPTION,
@@ -348,8 +339,7 @@ const KNOWN = [
   ...OUT_OF_SCOPE_WORDMARKS,
   ...RESPONSIVE_CONCESSION,
   ...EYEBROWS_APPROVED,
-  ...EYEBROWS_SAME_SHAPE,
-  ...PENDING_SIZE_DECISION,
+  ...SIZE_EXCEPTION,
 ].sort((a, b) => a.localeCompare(b));
 
 /**
@@ -377,6 +367,13 @@ const KNOWN = [
  * nào) KHÔNG có mặt ở đây. Không mất gì cho việc phát hiện — mọi cách viết mà `classify`
  * nhận ra đều bắt đầu bằng `text-` — nhưng đừng đọc con số này thành "tổng số tiêu đề".
  *
+ * ⛔ **Cổng chứng nhận KHÔNG CÒN CỠ NGOÀI THANG. Nó KHÔNG chứng nhận mỗi tiêu đề chọn
+ * ĐÚNG BẬC.** Một thẻ bọc `<Heading size="…">` mà không kèm token `text-` nào thì không có
+ * mặt trong kiểm kê này (vòng quét chạy theo các lần xuất hiện của `text-`), nên đổi
+ * `display` ↔ `card` ở bất kỳ chỗ nào cũng KHÔNG làm cổng đỏ. Đây là giới hạn CẤU TRÚC,
+ * không phải một lỗ hổng cục bộ; lưới đúng cho việc ấy là kiểm tương thích thẻ↔bậc
+ * (`h1` không được `card`, `h3` không được `display`), chưa dựng.
+ *
  * Sinh ra từ chính `scan()` rồi đọc lại bằng mắt, không chép tay.
  *
  * 🔴 **Kiểm kê đỏ ở một tệp bạn KHÔNG cố ý đổi ⇒ ĐỪNG cập nhật bảng này.** Trước hết đi
@@ -392,7 +389,6 @@ const KNOWN = [
 const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/auth/components/LoginForm.tsx': [1, 1],
   'features/auth/components/SignupForm.tsx': [1, 1],
-  'features/dashboard/components/PlanCatalog.tsx': [1, 1],
   'features/focus/components/RunningSession.tsx': [2, 2],
   'features/history/components/AiNote.tsx': [1, 1],
   'features/history/components/FocusSessionList.tsx': [1, 2],
@@ -450,7 +446,7 @@ describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đ
     const files = [...new Set(KNOWN.map((k) => k.split('|')[2]))].sort();
     // Đối chứng dương: khoá tách được và không rỗng. Số TỆP nhỏ hơn số mục vì nhiều
     // tệp giữ nhiều mục (LandingPage: một nhãn + một wordmark; ConceptDetailPanel: 4 eyebrow).
-    expect(files).toHaveLength(15);
+    expect(files).toHaveLength(14);
 
     const thieu = files.filter((f) => !readFileSync(join(SRC, f), 'utf-8').includes('#387:'));
     expect(thieu).toEqual([]);

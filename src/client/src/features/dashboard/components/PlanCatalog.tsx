@@ -31,12 +31,7 @@ function DashboardPlanCard({ plan, isCurrent }: { plan: PlanSummary; isCurrent: 
         isCurrent && 'border-foreground'
       )}
     >
-      {/* #387: TODO — bọc `<Heading>` để vào thang, nhưng GIỮ cỡ cũ bằng override — lệch
-          3px so bậc `card`(18), vượt ngưỡng snap tự động ≤2px nên phải chờ quyết.
-          ⚠️ Việc bọc này KHÔNG trung tính về thị giác: `headingVariants` kéo theo
-          `.font-heading`, tức mặt chữ đổi sans → JetBrains Mono. `font-semibold` giữ
-          nguyên nên weight vẫn 600 (utility thắng `@layer base`). Đo trong PR. */}
-      <Heading as="h3" size="card" className="text-[15px] font-semibold leading-snug">
+      <Heading as="h3" size="card" className="font-semibold leading-snug">
         {plan.name}
       </Heading>
       <div className="text-muted-foreground mt-0.5 font-mono text-[11.5px]">{meta}</div>
