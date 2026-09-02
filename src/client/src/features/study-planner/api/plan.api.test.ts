@@ -15,6 +15,12 @@ const axiosErr = (status: number, code?: string, message?: string) => ({
 });
 
 describe('getPlanActionErrorMessage', () => {
+  it('maps a deleted plan to the stale-list recovery step', () => {
+    expect(getPlanActionErrorMessage(axiosErr(404, 'NOT_FOUND'))).toBe(
+      'Không tìm thấy kế hoạch này. Hãy tải lại danh sách để xem dữ liệu mới nhất.'
+    );
+  });
+
   it('keeps the server guidance for the missing-document re-analysis branch', () => {
     const message = getPlanActionErrorMessage(
       axiosErr(

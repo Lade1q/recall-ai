@@ -15,10 +15,10 @@ export interface CreatePlanResponse {
 }
 
 /**
- * Dịch lỗi của các thao tác trên thẻ kế hoạch. Hai mã 409 dưới đây chỉ xuất hiện khi trạng thái
- * server đã lệch khỏi thẻ đang hiển thị hoặc kế hoạch không còn đủ điều kiện để thực hiện thao
- * tác; câu chung cũ luôn bảo tải lại và vì thế dẫn người dùng có kế hoạch mất tài liệu vào vòng
- * lặp không thể tự chữa.
+ * Dịch lỗi của các thao tác trên thẻ kế hoạch. Các mã dưới đây xuất hiện khi kế hoạch đã biến
+ * mất, trạng thái server lệch khỏi thẻ đang hiển thị hoặc kế hoạch không còn đủ điều kiện thực
+ * hiện thao tác; câu chung cũ luôn bảo tải lại và vì thế dẫn người dùng có kế hoạch mất tài liệu
+ * vào vòng lặp không thể tự chữa.
  */
 export function getPlanActionErrorMessage(error: unknown): string {
   if (!isAxiosError(error)) {
@@ -30,6 +30,8 @@ export function getPlanActionErrorMessage(error: unknown): string {
 
   const code: string | undefined = error.response.data?.error?.code;
   switch (code) {
+    case 'NOT_FOUND':
+      return 'Không tìm thấy kế hoạch này. Hãy tải lại danh sách để xem dữ liệu mới nhất.';
     case 'REANALYZE_NOT_ALLOWED': {
       const message: unknown = error.response.data?.error?.message;
       return typeof message === 'string' && message.trim()
