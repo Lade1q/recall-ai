@@ -476,7 +476,7 @@ export function RunningSession({
                 <div className="text-muted-foreground text-[11px] uppercase tracking-[0.08em]">
                   Đang học
                 </div>
-                <Heading as="h1" size="section" className="mt-1 text-balance leading-[1.25]">
+                <Heading as="h1" size="section" className="mt-1 leading-[1.25]">
                   {item.name}
                 </Heading>
               </div>
@@ -603,7 +603,7 @@ export function RunningSession({
                     <Heading
                       as="h1"
                       size="page"
-                      className="text-balance leading-[1.15] tracking-[-0.025em]"
+                      className="leading-[1.15] tracking-[-0.025em]"
                     >
                       {item.name}
                     </Heading>

@@ -72,7 +72,7 @@ export default function LandingPage() {
             <Heading
               as="h2"
               size="section"
-              className="mx-auto max-w-[26ch] text-balance sm:text-[30px]"
+              className="mx-auto max-w-[26ch] sm:text-[30px]"
             >
               Không chỉ hỏi bạn, Recall AI biết bạn đã hiểu đến đâu.
             </Heading>
@@ -86,7 +86,7 @@ export default function LandingPage() {
 
         <section className="flex flex-col items-center gap-5 px-5 pb-20 pt-10 text-center sm:px-8">
           <PandaSprite pose="cheer" size={128} shadow />
-          <Heading as="h2" size="page" className="max-w-[22ch] text-balance">
+          <Heading as="h2" size="page" className="max-w-[22ch]">
             Tải lên tài liệu, nhận lộ trình học của riêng bạn.
           </Heading>
           <Button asChild size="lg">

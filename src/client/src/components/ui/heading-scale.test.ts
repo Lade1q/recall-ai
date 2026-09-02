@@ -332,7 +332,6 @@ const KNOWN = [
 const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/auth/components/LoginForm.tsx': [1, 1],
   'features/auth/components/SignupForm.tsx': [1, 1],
-  'features/focus/components/RunningSession.tsx': [2, 2],
   'features/interview/components/AiSummaryCard.tsx': [1, 1],
   'features/interview/components/NextSessionPanel.tsx': [1, 1],
   'features/interview/components/ScoreBreakdown.tsx': [1, 1],
@@ -340,13 +339,12 @@ const HEADING_CENSUS: Record<string, [tags: number, textTokens: number]> = {
   'features/interview/components/TracebackPanel.tsx': [1, 1],
   'features/interview/components/TurnHistory.tsx': [1, 1],
   'features/landing/components/ExtractScene.tsx': [1, 1],
-  'features/landing/components/LandingHero.tsx': [1, 4],
+  'features/landing/components/LandingHero.tsx': [1, 3],
   'features/landing/components/TracebackScene.tsx': [1, 1],
   'features/landing/components/VerdictScene.tsx': [1, 1],
   'features/schedule/components/MonthGrid.tsx': [1, 1],
   'features/schedule/components/ScheduleDebtBar.tsx': [2, 2],
-  'pages/focus/FocusPage.tsx': [2, 2],
-  'pages/landing/LandingPage.tsx': [4, 5],
+  'pages/landing/LandingPage.tsx': [3, 3],
 };
 
 describe('#387 — kiểm kê cỡ chữ ngoài thang trên phần tử tiêu đề', () => {
