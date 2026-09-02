@@ -131,7 +131,10 @@
     }
 
     .section-head h2 {
-      font-size: 17px;
+      /* Mirror bậc `card` của `heading.tsx` — xem ghi chú ở `.plan-card h3`. */
+      font-family: var(--font-heading);
+      font-size: 18px;
+      letter-spacing: -0.015em;
       margin: 0;
       font-weight: 600;
     }
@@ -162,7 +165,12 @@
     }
 
     .plan-card h3 {
-      font-size: 15px;
+      /* Mirror bậc `card` của `heading.tsx` (`text-[18px] tracking-[-0.015em]` cộng
+         `.font-heading`) — cùng lối mirror như `--font-heading` khai trong `tokens.css`.
+         Đổi thang bên mã thì phải đổi cả ở đây, đừng để hai bên trôi. */
+      font-family: var(--font-heading);
+      font-size: 18px;
+      letter-spacing: -0.015em;
       margin: 0;
       font-weight: 600;
     }
@@ -250,7 +258,10 @@
     }
 
     .panel h2 {
-      font-size: 16px;
+      /* Mirror bậc `card` của `heading.tsx` — xem ghi chú ở `.plan-card h3`. */
+      font-family: var(--font-heading);
+      font-size: 18px;
+      letter-spacing: -0.015em;
       margin: 0;
       font-weight: 600;
     }
@@ -960,7 +971,7 @@
               style="padding:20px; border-style:dashed;">
               <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chờ xác
                 nhận</span>
-              <h3 style="margin:10px 0 0; font-size:15px; font-weight:600;">Xác suất thống kê</h3>
+              <h3 style="margin:10px 0 0; font-family:var(--font-heading); font-size:18px; letter-spacing:-0.015em; font-weight:600;">Xác suất thống kê</h3>
               <div class="plan-card__meta">28 khái niệm · 34 trang tài liệu</div>
               <p style="font-size:12.5px; color:var(--muted-foreground); margin:14px 0 0; line-height:1.65;">
                 AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.
@@ -973,7 +984,7 @@
             <div class="card" style="padding:20px; border-style:dashed;">
               <span class="badge" style="background: var(--muted); color: var(--muted-foreground);">Chờ xác
                 nhận</span>
-              <h3 style="margin:10px 0 0; font-size:15px; font-weight:600;">Kiến trúc máy tính</h3>
+              <h3 style="margin:10px 0 0; font-family:var(--font-heading); font-size:18px; letter-spacing:-0.015em; font-weight:600;">Kiến trúc máy tính</h3>
               <div class="plan-card__meta">21 khái niệm · 41 trang tài liệu</div>
               <p style="font-size:12.5px; color:var(--muted-foreground); margin:14px 0 0; line-height:1.65;">
                 AI đã trích xuất xong. Đối chiếu các khái niệm với tài liệu rồi xác nhận để kế hoạch bắt đầu chạy.
@@ -1017,11 +1028,11 @@
 
           <div class="plan-grid" style="margin-bottom:0; grid-template-columns:repeat(2, 1fr);">
             <div class="card" style="padding:20px; opacity:0.6;">
-              <h3 style="margin:0; font-size:15px; font-weight:600;">Giải tích 2</h3>
+              <h3 style="margin:0; font-family:var(--font-heading); font-size:18px; letter-spacing:-0.015em; font-weight:600;">Giải tích 2</h3>
               <div class="plan-card__meta">19 khái niệm · đã lưu trữ</div>
             </div>
             <div class="card" style="padding:20px; opacity:0.6;">
-              <h3 style="margin:0; font-size:15px; font-weight:600;">Nhập môn Lập trình</h3>
+              <h3 style="margin:0; font-family:var(--font-heading); font-size:18px; letter-spacing:-0.015em; font-weight:600;">Nhập môn Lập trình</h3>
               <div class="plan-card__meta">15 khái niệm · đã lưu trữ</div>
             </div>
           </div>

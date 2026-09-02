@@ -74,6 +74,10 @@ function NoteList({
   if (items.length === 0) return null;
   return (
     <div className="flex-1">
+      {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
+          heading để có landmark ngữ nghĩa cho trình đọc màn hình, không phải để làm tiêu đề —
+          cùng lý do đã duyệt cho `ScheduleDebtBar`. Giữ nguyên: 0 thay đổi thị giác.
+          Hồ sơ ở nhóm eyebrow trong `heading-scale.test.ts`. */}
       <h4 className={`mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] ${titleClass}`}>
         {title}
       </h4>

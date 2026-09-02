@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Heading } from '@/components/ui/heading';
 import { daysUntilDeadline, formatTimeLeft } from '@/features/study-planner/utils/planDates';
 import type { PlanSummary } from '@/features/study-planner/types/concept';
 
@@ -26,7 +27,9 @@ export function DeadlinePanel({ plans }: { plans: PlanSummary[] }) {
 
   return (
     <section className="border-border bg-card sm:px-6.5 rounded-xl border p-6 sm:py-6">
-      <h2 className="text-[16px] font-semibold">Sắp đến hạn</h2>
+      <Heading as="h2" size="card" className="font-semibold">
+        Sắp đến hạn
+      </Heading>
       <p className="text-muted-foreground mb-4 mt-1 text-[13px]">Trên tất cả kế hoạch</p>
 
       {items.length === 0 ? (

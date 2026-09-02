@@ -157,7 +157,34 @@ function Block({
 }) {
   return (
     <section className="mt-[26px] first:mt-0">
-      <h3 className="m-0 mb-3 text-[13px] font-semibold">{title}</h3>
+      {/* #387: KHÔNG snap — giữ 13px (Quân chốt 02/09). Bậc `card`(18) lệch 5px, tức
+          **+38%**, và bán kính là MỌI tiêu đề mục trong panel chi tiết phiên.
+          Ghim BA trục, không chỉ cỡ: `card` kéo theo `tracking-[-0.015em]` (utility) và
+          `.font-heading` kéo theo `line-height:1.25` (base) — đo trên bản dựng thật thì
+          leading tụt 18,5714px → 16,25px (−12,5%, mất 2,32px mỗi dòng) và tracking từ 0
+          xuống −0,195px.
+          ⚠️ 18,5714px KHÔNG phải 1,6 của `body`: tổ tiên gần hơn là `TabsContent`
+          (`tabs.tsx`) mang `text-sm`, mà `--text-sm--line-height` là `calc(1.25 / .875)` —
+          KHÔNG đơn vị nên thừa kế theo TỈ LỆ, tức 13 × 1,42857. Bản đầu của comment này suy
+          thẳng từ `body` xuống mà không kiểm có gì chen giữa, ra 20,8px, phóng đại mức hụt
+          **1,96×** — và bản vá theo con số ấy lại NÂNG cỡ dòng +12%, ngược ý định.
+          `leading-[inherit]` gỡ đúng dòng `line-height` mà `.font-heading` áp, trả h3 về
+          giá trị nó vẫn thừa kế (18,5714px); `tracking-normal` trả về 0.
+          ⚠️ ĐỪNG thay bằng một `leading` arbitrary trỏ vào biến `--text-sm--line-height`:
+          gõ sai tên biến ở dạng
+          ấy là *invalid at computed-value time*, thuộc tính thừa kế nên rơi về `inherit`,
+          tức ra ĐÚNG con số cổng đòi — lỗi không phát hiện được bằng phép đo. Dạng
+          `inherit` gõ sai thì khai báo hỏng lúc parse, `.font-heading` thắng, tụt còn
+          16,25px: hỏng thì KÊU TO. (Đo cả hai chiều trên trình duyệt thật.)
+          ⚠️ Mặt chữ VẪN đổi sans → mono; không gỡ được khi đã bọc `<Heading>`, Quân chấp
+          nhận. Hồ sơ ở `SIZE_EXCEPTION` trong `heading-scale.test.ts`. */}
+      <Heading
+        as="h3"
+        size="card"
+        className="m-0 mb-3 text-[13px] font-semibold leading-[inherit] tracking-normal"
+      >
+        {title}
+      </Heading>
       {hint && (
         <p className="text-muted-foreground -mt-1.5 mb-3.5 max-w-[68ch] text-[12.5px] leading-[1.65]">
           {hint}
