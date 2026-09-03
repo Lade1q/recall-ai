@@ -18,14 +18,20 @@ import { TURN_WEIGHTS } from './mastery';
 
 /** What the session does next. Ordered as the decision table in #115 reads. */
 export type NextStep =
-  'ask_deeper' | 'ask_probe' | 'ask_hint' | 'finish_concept' | 'finish_session';
+  'ask_deeper' | 'ask_probe' | 'ask_hint' | 'trace_back' | 'finish_concept' | 'finish_session';
 
 /**
- * Deliberately **no** `finish_concept_with_traceback` (audit A5): whether a finished concept
- * needs remediation is decided by `finalizeConceptResult()` (I7.2) from the concept's final
- * weighted mastery score, not from one turn's verdict. A `deep → deep → wrong` concept can end
- * on `wrong` and still score 0.65, above the 0.6 threshold — the two conditions genuinely
- * disagree, so only one of them may own the decision.
+ * There is still deliberately **no** `finish_concept_with_traceback` (audit A5). Whether a
+ * *finished* concept needs remediation is decided by `finalizeConceptResult()` (I7.2) from its
+ * final weighted mastery score, not from one turn's verdict: a `deep → deep → wrong` concept
+ * ends on `wrong` and still scores 0.65, above the 0.6 threshold, so the two conditions
+ * genuinely disagree and only one of them may own that decision.
+ *
+ * `trace_back` does not reopen that argument, because it answers a different question. It never
+ * finishes or scores anything: it puts the weak prerequisites of the concept the student is
+ * *currently stuck on* in front of it, and the concept then closes later, through the same
+ * mastery-score path as before, from everything the student answered about it. The scheduling
+ * decision stays where audit A5 put it; only the order of the questions changes.
  */
 export interface InterviewStateInput {
   /** Verdict of the turn that was just graded. */
@@ -36,6 +42,31 @@ export interface InterviewStateInput {
   maxTurns: number;
   /** Concepts still queued *after* the current one. */
   remainingConcepts: number;
+  /**
+   * Whether the caller has a live traceback to offer: at least one weak prerequisite of this
+   * concept that `planTracebackInsert` would actually add to the queue (`utils/interview-queue`).
+   *
+   * A boolean rather than the graph itself, so this function stays pure and knows nothing about
+   * Prisma or about what a prerequisite is — the caller has already asked the graph and applied
+   * every budget rule. Optional and defaulting to `false` so that every existing call site, and
+   * every test written before live traceback, describes exactly the behaviour it always did.
+   */
+  tracebackAvailable?: boolean;
+  /**
+   * Whether this concept has ALREADY sent the session to its base and got it back.
+   *
+   * Changes what a `wrong` answer means. Before the detour it means "you are stuck" and the
+   * right move is to narrow the question (#392). After it, the student has been taken through
+   * the foundations and asked again — that is a fresh test of whether the remediation worked,
+   * not the same question made easier, so it is routed to `ask_probe` and DOES count towards
+   * mastery.
+   *
+   * Measured on a live run before this existed: a concept answered wrong, remediated, then
+   * answered `deep` still scored 0.12, because the turn that proved the remediation had worked
+   * was a `hint` and `countsTowardMastery` drops those. Live traceback that cannot move the
+   * score is a feature with no consequence.
+   */
+  tracedBackAlready?: boolean;
 }
 
 /** Default N in "at most N turns per concept" (UC-11), overridable per session within C6. */
@@ -65,17 +96,34 @@ export const DEFAULT_CONCEPTS_PER_SESSION = 3;
  * Decides the next step after a turn is graded (#115's decision table, UC-11; revised by #392
  * phương án B — see AE-02 step 9):
  *
- * | verdict   | turns left | step                             |
- * | --------- | ---------- | -------------------------------- |
- * | `deep`    | yes        | `ask_deeper` — same concept      |
- * | `shallow` | yes        | `ask_probe` — same concept       |
- * | `wrong`   | yes        | `ask_hint` — narrow THIS question|
- * | any       | no         | end the concept (C6 hard limit)  |
+ * | verdict   | traceback? | turns left | step                              |
+ * | --------- | ---------- | ---------- | --------------------------------- |
+ * | `wrong`   | yes        | any        | `trace_back` — go to the base     |
+ * | `wrong`   | been there | yes        | `ask_probe` — re-test, and it counts |
+ * | `wrong`   | no         | yes        | `ask_hint` — narrow THIS question |
+ * | `deep`    | —          | yes        | `ask_deeper` — same concept       |
+ * | `shallow` | —          | yes        | `ask_probe` — same concept        |
+ * | any       | no         | no         | end the concept (C6 hard limit)   |
  *
  * Ending a concept is reported as `finish_concept` while the queue still holds another one and
  * as `finish_session` on the last, but both mean "finalise this concept first": the caller runs
  * `finalizeConceptResult()` on either, so every concept gets its mastery score and its
  * spaced-repetition row even when the student answered it perfectly (audit A4).
+ *
+ * **`trace_back` is checked first, and it is not gated on `turnIndex`** — it spends no turn of
+ * the current concept, so the C6 ceiling below is untouched by it. A `wrong` on the last allowed
+ * turn therefore still visits the base before the concept closes, which is the case that needs it
+ * most. Termination does not rely on the turn budget: the caller sets `tracebackAvailable` from
+ * `planTracebackInsert`, which refuses to queue a concept already in the queue, so when the chain
+ * walks back onto this concept there is nothing left to insert, the flag is `false`, and the rows
+ * below take over.
+ *
+ * Ordering `trace_back` above `ask_hint` is the substance of the change (Quân, 03/09): a wrong
+ * answer means "check what this is built on", and only when there is nothing to check does
+ * narrowing the same question become the best remaining move. Keeping `ask_hint` as that fallback
+ * matters — a root concept has no prerequisites, and dropping the ladder for it would return to
+ * the pre-#392 rule where one wrong answer closed a concept outright (#384 measured 26/33
+ * concept-visits ending after a single turn under that rule).
  *
  * #392: `wrong` no longer ends the concept on the spot — one answer must not get to decide a
  * concept's fate by itself (spike S0's R-A, independently reached by Quân and by #394's
@@ -93,14 +141,26 @@ export function decideNextStep({
   turnIndex,
   maxTurns,
   remainingConcepts,
+  tracebackAvailable = false,
+  tracedBackAlready = false,
 }: InterviewStateInput): NextStep {
+  // Before the turn budget, and deliberately so: hopping to a prerequisite costs this concept
+  // no turn, so C6 is not what should decide whether it happens.
+  if (verdict === 'wrong' && tracebackAvailable) {
+    return 'trace_back';
+  }
+
   // C6: `turnIndex` is the turn just answered, so another one is only allowed while it is
   // strictly below the limit. `>=` here rather than `===` so a session whose limit was somehow
   // lowered mid-flight still stops instead of running away.
   const hasTurnsLeft = turnIndex < maxTurns;
 
   if (hasTurnsLeft) {
-    if (verdict === 'wrong') return 'ask_hint';
+    // A concept that has been to its base and come back is probed, not hinted: the question is
+    // asked again on the far side of a real intervention, so it is a rung of the ladder and must
+    // reach `mastery_score`. Narrowing it instead would put the proof that remediation worked
+    // into the one turn kind the formula throws away.
+    if (verdict === 'wrong') return tracedBackAlready ? 'ask_probe' : 'ask_hint';
     return verdict === 'deep' ? 'ask_deeper' : 'ask_probe';
   }
 
@@ -114,7 +174,11 @@ const MODE_BY_STEP: Partial<Record<NextStep, QuestionMode>> = {
   ask_hint: 'hint',
 };
 
-/** `null` for the two terminal steps — they end a concept instead of asking anything. */
+/**
+ * `null` for the two terminal steps and for `trace_back` — none of them asks a question of the
+ * concept the session is currently on. `trace_back` rewrites the queue and hands control back to
+ * the caller, which re-enters the state machine on the prerequisite it just put in front.
+ */
 export function questionModeForStep(step: NextStep): QuestionMode | null {
   return MODE_BY_STEP[step] ?? null;
 }

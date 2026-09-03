@@ -6,7 +6,11 @@ import { VerdictBadge } from './VerdictBadge';
 import { SourceCitation } from './SourceCitation';
 import { SystemMessage } from './SystemMessage';
 import { VERDICT_LABEL } from '../utils/verdict';
-import type { InterviewTurnResponse, TurnVerdict } from '../types/interview.types';
+import type {
+  InterviewQueueItemResponse,
+  InterviewTurnResponse,
+  TurnVerdict,
+} from '../types/interview.types';
 import { Heading } from '@/components/ui/heading';
 
 interface TurnHistoryProps {
@@ -22,6 +26,15 @@ interface TurnHistoryProps {
    * khác `decideNextStep` của chế độ AI. Ghi chú điều phối phải nói theo luật đang chạy.
    */
   fallbackMode: boolean;
+  /**
+   * Hàng đợi khái niệm của phiên, kèm lý do mỗi khái niệm có mặt.
+   *
+   * Cần ở đây vì transcript MỘT MÌNH không phân biệt được hai chuyện trông giống hệt nhau:
+   * "khái niệm đã chốt điểm, sang khái niệm kế" và "khái niệm CHƯA chốt điểm, hệ thống truy
+   * ngược xuống nền của nó rồi sẽ quay lại". Cả hai đều hiện ra dưới dạng lượt kế mang
+   * `conceptId` khác. Đoán bằng transcript là cách chắc chắn để nói sai một trong hai.
+   */
+  queue: InterviewQueueItemResponse[];
 }
 
 /**
@@ -35,7 +48,13 @@ export function TurnHistory({
   currentTurnId,
   maxTurnsPerConcept,
   fallbackMode,
+  queue,
 }: TurnHistoryProps) {
+  // Khái niệm nào được truy ngược kéo vào, và từ khái niệm nào. Khớp theo ID chứ không theo
+  // tên: hai khái niệm cùng plan có thể trùng tên.
+  const viaByConceptId = new Map(
+    queue.filter((item) => item.hop > 0 && item.viaConceptId).map((item) => [item.conceptId, item])
+  );
   // Lượt ĐỨNG SAU trong transcript chính là quyết định điều phối mà phần mềm đã ra (hỏi
   // tiếp khái niệm này hay sang khái niệm khác). Nó có thể là câu hỏi đang chờ — thứ bị lọc
   // khỏi danh sách hiển thị — nên phải tra bảng "lượt kế" TRƯỚC khi lọc.
@@ -97,6 +116,7 @@ export function TurnHistory({
                     nextTurn={nextTurnById.get(turn.id) ?? null}
                     fallbackMode={fallbackMode}
                     isLatest={turn.id === latestGradedId}
+                    viaByConceptId={viaByConceptId}
                   />
                 </>
               )}
@@ -153,6 +173,8 @@ interface SystemNoteProps {
   maxTurns: number;
   /** Lượt kế trong transcript; `null` khi phần mềm chưa ra bước tiếp theo. */
   nextTurn: InterviewTurnResponse | null;
+  /** Khái niệm do truy ngược kéo vào → entry hàng đợi của nó (mang tên khái niệm gốc). */
+  viaByConceptId: Map<string, InterviewQueueItemResponse>;
   fallbackMode: boolean;
   isLatest: boolean;
 }
@@ -185,9 +207,28 @@ function SystemNote({
   nextTurn,
   fallbackMode,
   isLatest,
+  viaByConceptId,
 }: SystemNoteProps) {
   const verdictLabel = VERDICT_LABEL[verdict].toLowerCase();
   const isSameConceptNext = nextTurn !== null && nextTurn.conceptId === conceptId;
+
+  // Lượt kế thuộc một khái niệm mà truy ngược vừa kéo vào TỪ CHÍNH khái niệm này ⇒ đây là cú
+  // hop, không phải chuyển khái niệm bình thường. Phải tách hẳn: khái niệm này CHƯA chốt điểm,
+  // và câu "đã chốt điểm khái niệm này" ở nhánh dưới sẽ là một lời nói dối trên đúng màn mà
+  // ràng buộc C4 đang được trưng ra.
+  const hop = nextTurn === null ? undefined : viaByConceptId.get(nextTurn.conceptId);
+  const isTracebackHop = hop !== undefined && hop.viaConceptId === conceptId;
+
+  if (isTracebackHop && nextTurn) {
+    return (
+      <SystemMessage variant="remediate" isLive={isLatest}>
+        Kết quả <strong className="font-medium">{verdictLabel}</strong> → truy ngược đồ thị khái
+        niệm. <strong className="font-medium">{nextTurn.conceptName}</strong> là nền của{' '}
+        <strong className="font-medium">{hop.viaConceptName}</strong>, nên hệ thống kiểm phần nền
+        trước rồi quay lại. Khái niệm này chưa chốt điểm.
+      </SystemMessage>
+    );
+  }
 
   return (
     <SystemMessage isLive={isLatest}>

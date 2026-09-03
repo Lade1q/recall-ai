@@ -12,6 +12,7 @@ import {
   type PreviousTurn,
 } from './gemini.service';
 import { finalizeConceptResult, type FinalizeConceptResultOutput } from './concept-result.service';
+import { findRelatedConcepts, findWeakPrerequisites } from './concept-graph.service';
 import { buildInactivePlanMessage, getReviewQueueForPlan } from './scheduling.service';
 import { listConceptCheckpoints } from './checkpoint.service';
 import { recordTurnEvidence } from './interview-evidence.service';
@@ -30,6 +31,13 @@ import {
   SELF_GRADE_VERDICT,
   type SelfGrade,
 } from '../utils/interview-state';
+import {
+  hasTracedBackFrom,
+  planTracebackInsert,
+  readConceptQueue,
+  writeConceptQueue,
+  type QueueEntry,
+} from '../utils/interview-queue';
 import { UPLOAD_DIR, resolveMaterialSource } from '../utils/material';
 import {
   anchorMatchesCachedQuestion,
@@ -40,6 +48,8 @@ import { countsTowardMastery, gradedTurnScores } from '../utils/mastery';
 import type {
   AbandonInterviewResponse,
   ConceptCompletedResponse,
+  InterviewQueueItemResponse,
+  TracebackHopResponse,
   GetInterviewResponse,
   InterviewFallbackResponse,
   InterviewQuestionResponse,
@@ -156,7 +166,8 @@ type TranscriptTurnRow = Prisma.InterviewTurnGetPayload<{ select: typeof transcr
  */
 interface SessionView {
   session: SessionRow;
-  queue: string[];
+  /** The concept queue as stored, including any prerequisites live traceback put in front. */
+  queue: QueueEntry[];
   conceptIndex: number;
   /** `null` once the queue is exhausted — the session has nothing left to ask. */
   concept: { id: string; name: string } | null;
@@ -176,12 +187,17 @@ interface SessionView {
 // --- Loading ----------------------------------------------------------------------------
 
 /**
- * `conceptQueue` is a JSON column, so its contents are validated rather than trusted. Exported
- * for `session-summary.service.ts` (AE-09), which needs the same queue order to list a
- * session's concepts.
+ * The queue as a plain list of concept ids, in order. Exported for `session-summary.service.ts`
+ * (AE-09) and `interview-history.service.ts`, which need the order but not the reason.
+ *
+ * Now a thin projection of `readConceptQueue`, which accepts BOTH the legacy `string[]` and the
+ * object form live traceback writes. Leaving the old `typeof id === 'string'` filter here would
+ * have made both of those callers read an object-form queue as empty — a completed session whose
+ * result screen lists no concepts at all, which is the kind of regression that only shows up on
+ * the screen everybody looks at last.
  */
 export function parseConceptQueue(value: Prisma.JsonValue): string[] {
-  return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
+  return readConceptQueue(value).map((entry) => entry.conceptId);
 }
 
 /**
@@ -212,12 +228,12 @@ export async function loadSession(sessionId: string, userId: string): Promise<Se
  */
 async function resolveCurrentConcept(
   session: SessionRow,
-  queue: string[]
+  queue: QueueEntry[]
 ): Promise<{ concept: { id: string; name: string } | null; conceptIndex: number }> {
   let index = Math.max(session.currentConceptIdx, 0);
 
   while (index < queue.length) {
-    const conceptId = queue[index];
+    const conceptId = queue[index]?.conceptId;
     const concept = conceptId
       ? await prisma.concept.findFirst({
           where: { id: conceptId, planId: session.planId },
@@ -235,7 +251,7 @@ async function resolveCurrentConcept(
 }
 
 async function buildView(session: SessionRow): Promise<SessionView> {
-  const queue = parseConceptQueue(session.conceptQueue);
+  const queue = readConceptQueue(session.conceptQueue);
   const { concept, conceptIndex } = await resolveCurrentConcept(session, queue);
 
   if (conceptIndex !== session.currentConceptIdx && conceptIndex <= queue.length) {
@@ -444,9 +460,59 @@ function toTurnResponse(
   };
 }
 
-function toSessionState(view: SessionView): InterviewSessionState {
+/**
+ * The queue with names attached, in stored order.
+ *
+ * A concept whose row has been deleted between sessions (SP-05 re-analysis) is dropped rather
+ * than shown as a blank line — `resolveCurrentConcept` already skips those when choosing what to
+ * ask, so listing them here would promise questions that will never be asked. `viaConceptName`
+ * is resolved from the same batch, and is `null` when the concept that pulled an entry in has
+ * itself been deleted.
+ */
+async function toQueueItems(
+  entries: readonly QueueEntry[],
+  planId: string
+): Promise<InterviewQueueItemResponse[]> {
+  if (entries.length === 0) return [];
+
+  const ids = new Set<string>();
+  for (const entry of entries) {
+    ids.add(entry.conceptId);
+    if (entry.viaConceptId) ids.add(entry.viaConceptId);
+  }
+
+  const concepts = await prisma.concept.findMany({
+    where: { id: { in: [...ids] }, planId },
+    select: { id: true, name: true },
+  });
+  const nameById = new Map(concepts.map((concept) => [concept.id, concept.name]));
+
+  return entries.flatMap((entry) => {
+    const name = nameById.get(entry.conceptId);
+    if (name === undefined) return [];
+    return [
+      {
+        conceptId: entry.conceptId,
+        name,
+        hop: entry.hop,
+        viaConceptId: entry.viaConceptId,
+        viaConceptName: entry.viaConceptId ? (nameById.get(entry.viaConceptId) ?? null) : null,
+      },
+    ];
+  });
+}
+
+/**
+ * Async purely because of `queue`: the session stores concept ids, and the screen needs names.
+ *
+ * One extra `findMany` per session read, which is why it is batched here rather than resolved
+ * per row. `resolveCurrentConcept` already reads the current concept one row at a time for a
+ * different reason (it has to skip deleted ones in order), so this does not replace that.
+ */
+async function toSessionState(view: SessionView): Promise<InterviewSessionState> {
   const { session } = view;
   const isEnded = session.status === 'completed' || session.status === 'abandoned';
+  const queue = await toQueueItems(view.queue, session.planId);
 
   return {
     id: session.id,
@@ -464,6 +530,7 @@ function toSessionState(view: SessionView): InterviewSessionState {
     // it did not. `completedConcepts` still needs the bumped index, so only this field is
     // nulled — see the bump in `abandonInterview`.
     currentConcept: isEnded ? null : view.concept,
+    queue,
     progress: {
       conceptIndex: view.conceptIndex,
       conceptTotal: view.queue.length,
@@ -704,6 +771,73 @@ interface AdvanceResult {
   /** Concepts finalised on the way to that question — normally none or one. */
   completed: ConceptCompletedResponse[];
   fallback: InterviewFallbackResponse | null;
+  /**
+   * Set when this request hopped to a prerequisite instead of asking again about the concept the
+   * student was on. The client has no other way to know: the concept simply changes and the
+   * queue gets longer, which without a sentence of explanation reads as a bug.
+   */
+  tracedBack: TracebackHopResponse | null;
+}
+
+/**
+ * Works out whether the concept the student just got wrong has a base worth visiting right now,
+ * and what the queue would become if it did. Returns `null` when there is nothing to hop to —
+ * the state machine then falls back to #392's hint ladder.
+ *
+ * Every rule about *whether* to insert lives in `planTracebackInsert` (pure, R05); every rule
+ * about *which* concepts count as weak lives in `traceback.service.ts` (pure, R05). This
+ * function is only the wiring between them and the database, and it writes nothing.
+ *
+ * Two guards run before the graph is read, and they are NOT the same kind of thing:
+ *   - `tracebackEnabled` is **correctness**. It is the plan-level switch `scheduleConceptReview`
+ *     already honours; a student who turned remediation off must not have their session
+ *     re-ordered by it either. Nothing downstream re-checks it.
+ *   - `hasTracedBackFrom` is **cost only**, and saying otherwise would be wrong. Termination is
+ *     owned by `planTracebackInsert`'s first rule: a prerequisite already in the queue is never
+ *     queued again, and a hop never removes anything, so the concept the chain walks back onto
+ *     can find nothing new to insert however many times it is asked. Deleting this line changes
+ *     no outcome — measured, by removing it and watching every test stay green. What it does buy
+ *     is the two queries below, on every remaining wrong answer of a concept that already
+ *     traced back (up to two more per concept once the hint ladder takes over).
+ */
+async function planTracebackHop(
+  view: SessionView,
+  concept: { id: string; name: string }
+): Promise<{ entries: QueueEntry[]; response: TracebackHopResponse } | null> {
+  if (hasTracedBackFrom(view.queue, concept.id)) return null;
+
+  const plan = await prisma.studyPlan.findUnique({
+    where: { id: view.session.planId },
+    select: { tracebackEnabled: true },
+  });
+  if (!plan?.tracebackEnabled) return null;
+
+  const prerequisites = await findWeakPrerequisites(view.session.planId, concept.id);
+  if (prerequisites.length === 0) return null;
+
+  const planned = planTracebackInsert({
+    entries: view.queue,
+    cursor: view.conceptIndex,
+    prerequisites,
+  });
+  if (planned.inserted.length === 0) return null;
+
+  const insertedIds = new Set(planned.inserted);
+  return {
+    entries: planned.entries,
+    response: {
+      fromConceptId: concept.id,
+      fromConceptName: concept.name,
+      prerequisites: prerequisites
+        .filter((prerequisite) => insertedIds.has(prerequisite.conceptId))
+        .map((prerequisite) => ({
+          conceptId: prerequisite.conceptId,
+          name: prerequisite.name,
+          reason: prerequisite.reason,
+          masteryScore: prerequisite.masteryScore,
+        })),
+    },
+  };
 }
 
 /**
@@ -725,13 +859,20 @@ async function advanceToNextQuestion(
       question: toQuestionResponse(view.pending, view.documents),
       completed,
       fallback: null,
+      tracedBack: null,
     };
   }
 
   const concept = view.concept;
   if (!concept) {
     const session = await completeSession(view.session);
-    return { view: { ...view, session }, question: null, completed, fallback: null };
+    return {
+      view: { ...view, session },
+      question: null,
+      completed,
+      fallback: null,
+      tracedBack: null,
+    };
   }
 
   // Once fallbackMode is set, no code path below this line may run for the rest of the
@@ -745,12 +886,36 @@ async function advanceToNextQuestion(
   let mode: QuestionMode = 'initial';
 
   if (lastGraded?.verdict) {
+    // Only a wrong answer can trace back, so the graph is only read on that branch — a session
+    // where nothing goes wrong pays nothing for this feature.
+    const hop = lastGraded.verdict === 'wrong' ? await planTracebackHop(view, concept) : null;
+
     const step = decideNextStep({
       verdict: lastGraded.verdict,
       turnIndex: lastGraded.turnIndex,
       maxTurns: view.session.maxTurnsPerConcept,
       remainingConcepts: view.queue.length - view.conceptIndex - 1,
+      tracebackAvailable: hop !== null,
+      tracedBackAlready: hasTracedBackFrom(view.queue, concept.id),
     });
+
+    if (step === 'trace_back' && hop) {
+      // `currentConceptIdx` is deliberately NOT touched. The prerequisites went in *before* the
+      // concept the student is on, so the index that used to address it now addresses the first
+      // prerequisite, and the concept itself has slid down the queue un-finalised — no mastery
+      // score written, no review row queued, its turn budget still where the student left it.
+      // Advancing the index here as well would skip straight past the base we just queued.
+      await prisma.interviewSession.update({
+        where: { id: view.session.id },
+        data: { conceptQueue: writeConceptQueue(hop.entries) as Prisma.InputJsonValue },
+      });
+      const fresh = await reloadView(view.session.id, view.session.userId);
+      const next = await advanceToNextQuestion(fresh, completed);
+      // The hop is reported by the request that made it. A later GET re-derives the state and
+      // finds the prerequisite already in front, so it must NOT announce the hop again.
+      return { ...next, tracedBack: hop.response };
+    }
+
     const nextMode = questionModeForStep(step);
 
     if (!nextMode) {
@@ -771,6 +936,7 @@ async function advanceToNextQuestion(
       question: toQuestionResponse(turn, fresh.documents),
       completed,
       fallback: null,
+      tracedBack: null,
     };
   } catch (error) {
     if (!isAiFailure(error)) throw error;
@@ -784,6 +950,7 @@ async function advanceToNextQuestion(
       question: null,
       completed,
       fallback: { reason: 'question_unavailable', message: FALLBACK_QUESTION_MESSAGE },
+      tracedBack: null,
     };
   }
 }
@@ -845,6 +1012,7 @@ async function advanceFallback(
       question: null,
       completed,
       fallback: { reason: 'no_cached_questions', message: NO_CACHE_MESSAGE },
+      tracedBack: null,
     };
   }
 
@@ -855,6 +1023,7 @@ async function advanceFallback(
     question: toQuestionResponse(turn, fresh.documents),
     completed,
     fallback: null,
+    tracedBack: null,
   };
 }
 
@@ -974,7 +1143,7 @@ export async function startInterview(
     const view = await buildView(existing);
     return {
       created: false,
-      session: toSessionState(view),
+      session: await toSessionState(view),
       question: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
       message: RESUME_MESSAGE,
       fallback: null,
@@ -987,7 +1156,7 @@ export async function startInterview(
     data: {
       userId,
       planId: plan.id,
-      conceptQueue,
+      conceptQueue: writeConceptQueue(conceptQueue) as Prisma.InputJsonValue,
       maxTurnsPerConcept: input.maxTurnsPerConcept ?? DEFAULT_MAX_TURNS_PER_CONCEPT,
     },
     select: sessionSelect,
@@ -1008,7 +1177,7 @@ export async function startInterview(
 
   return {
     created: true,
-    session: toSessionState(advance.view),
+    session: await toSessionState(advance.view),
     question: advance.question,
     message: advance.fallback?.message ?? null,
     fallback: advance.fallback,
@@ -1039,12 +1208,18 @@ async function rollbackUnstartedSession(sessionId: string): Promise<void> {
  * The concepts the session will cover, in the order they will be asked. A client-supplied list
  * wins; otherwise the top of the review queue (I7.3) is taken, which is already ordered
  * traceback-first, weakest-first.
+ *
+ * Every entry starts at `hop: 0` — these are the concepts the session opened with. Live traceback
+ * adds `hop >= 1` entries later, from `advanceToNextQuestion`.
  */
 async function resolveConceptQueue(
   planId: string,
   userId: string,
   requested: string[] | undefined
-): Promise<string[]> {
+): Promise<QueueEntry[]> {
+  const asEntries = (ids: string[]): QueueEntry[] =>
+    ids.map((conceptId) => ({ conceptId, hop: 0, viaConceptId: null }));
+
   if (requested && requested.length > 0) {
     const unique = [...new Set(requested)];
     const found = await prisma.concept.findMany({
@@ -1061,7 +1236,25 @@ async function resolveConceptQueue(
         'NOT_FOUND'
       );
     }
-    return unique;
+
+    // A session is a set of RELATED concepts, not one concept (UC-11; Quân, 03/09). Every deep
+    // link into the interview outside "Dùng gợi ý hôm nay" carries exactly one id — the review
+    // queue row, the graph panel's "Kiểm tra ngay", the focus summary — so without this a
+    // student who clicks a concept gets a one-concept sitting and the whole queue rail, the
+    // progress meter and the "Khái niệm 1/N" header describe a session of one.
+    //
+    // Filled from the GRAPH rather than from the review queue: the point is concepts related to
+    // the one they chose, and the graph is the only thing that knows which those are. A concept
+    // with no neighbours simply stays a one-concept session — that is a real answer, not a
+    // failure, and it must not turn into "here are two unrelated things that were also due".
+    if (unique.length === 1) {
+      const seed = unique[0];
+      if (seed) {
+        const related = await findRelatedConcepts(planId, seed, DEFAULT_CONCEPTS_PER_SESSION - 1);
+        return asEntries([seed, ...related.map((concept) => concept.id)]);
+      }
+    }
+    return asEntries(unique);
   }
 
   const queue = await getReviewQueueForPlan(planId, userId, DEFAULT_CONCEPTS_PER_SESSION);
@@ -1074,7 +1267,7 @@ async function resolveConceptQueue(
   if (conceptIds.length === 0) {
     throw new AppError(queue.message ?? NO_CONCEPTS_MESSAGE, 409, 'NO_CONCEPTS_TO_REVIEW');
   }
-  return conceptIds;
+  return asEntries(conceptIds);
 }
 
 /**
@@ -1094,7 +1287,7 @@ export async function getInterview(
 
   if (session.status !== 'active') {
     return {
-      session: toSessionState(view),
+      session: await toSessionState(view),
       currentQuestion: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
       turns: view.turns.map((turn) => toTurnResponse(turn, view.documents)),
       fallback: null,
@@ -1103,7 +1296,7 @@ export async function getInterview(
 
   const advance = await advanceToNextQuestion(view);
   return {
-    session: toSessionState(advance.view),
+    session: await toSessionState(advance.view),
     currentQuestion: advance.question,
     turns: advance.view.turns.map((turn) => toTurnResponse(turn, advance.view.documents)),
     fallback: advance.fallback,
@@ -1250,11 +1443,12 @@ export async function submitAnswer(
   const advance = await advanceToNextQuestion(await reloadView(sessionId, userId));
 
   return {
-    session: toSessionState(advance.view),
+    session: await toSessionState(advance.view),
     grading: { score: graded.score, feedback: graded.feedback, verdict: graded.verdict },
     gradedTurnId: pending.id,
     nextQuestion: advance.question,
     conceptCompleted: advance.completed[0] ?? null,
+    tracedBack: advance.tracedBack,
     sessionCompleted: advance.view.session.status === 'completed',
     replayed: false,
     fallback: advance.fallback,
@@ -1306,7 +1500,7 @@ async function replayAnswer(
   const view = await reloadView(sessionId, userId);
 
   return {
-    session: toSessionState(view),
+    session: await toSessionState(view),
     // `feedback` alone can't tell "not graded yet" from "self-graded" (self-grading legitimately
     // leaves it `null`) — `verdict` is the field both AI grading and self-grading always set.
     grading:
@@ -1317,7 +1511,10 @@ async function replayAnswer(
     nextQuestion: view.pending ? toQuestionResponse(view.pending, view.documents) : null,
     // What the first request reported about the concept it may have finished is not
     // reconstructed here — GET /interviews/:id and the end-of-session summary (I6.5) carry it.
+    // Same for a traceback hop: the request that actually hopped announced it, and re-announcing
+    // it to a double-click would show the student the same explanation twice.
     conceptCompleted: null,
+    tracedBack: null,
     sessionCompleted: view.session.status === 'completed',
     replayed: true,
     fallback: null,
@@ -1361,11 +1558,14 @@ async function gradingUnavailable(
   }
 
   return {
-    session: toSessionState({ ...view, session }),
+    session: await toSessionState({ ...view, session }),
     grading: null,
     gradedTurnId: pending.id,
     nextQuestion: toQuestionResponse(pending, view.documents),
     conceptCompleted: null,
+    // Nothing was graded, so there is no verdict to trace back from — the same question is
+    // simply re-shown for the student to resend.
+    tracedBack: null,
     sessionCompleted: false,
     replayed: false,
     fallback: { reason: 'grading_unavailable', message: FALLBACK_GRADING_MESSAGE },
@@ -1427,11 +1627,15 @@ export async function submitSelfGrade(
   const advance = await advanceToNextQuestion(await reloadView(sessionId, userId));
 
   return {
-    session: toSessionState(advance.view),
+    session: await toSessionState(advance.view),
     grading: { score, feedback: null, verdict },
     gradedTurnId: pending.id,
     nextQuestion: advance.question,
     conceptCompleted: advance.completed[0] ?? null,
+    // Always `null` today: self-grading only happens in fallback mode, and `advanceFallback`
+    // never traces back — it has no live AI call to ask the prerequisite with. Wired from
+    // `advance` rather than hard-coded so it stops being null the day that changes.
+    tracedBack: advance.tracedBack,
     sessionCompleted: advance.view.session.status === 'completed',
     replayed: false,
     fallback: advance.fallback,
@@ -1446,7 +1650,7 @@ export async function pauseInterview(
   const session = await loadSession(sessionId, userId);
 
   if (session.status === 'paused') {
-    return { session: toSessionState(await buildView(session)) };
+    return { session: await toSessionState(await buildView(session)) };
   }
   if (session.status !== 'active') {
     throw new AppError('This interview session has already ended', 409, 'SESSION_ENDED');
@@ -1458,7 +1662,7 @@ export async function pauseInterview(
     select: sessionSelect,
   });
 
-  return { session: toSessionState(await buildView(paused)) };
+  return { session: await toSessionState(await buildView(paused)) };
 }
 
 /**
@@ -1487,7 +1691,7 @@ export async function resumeInterview(
   const advance = await advanceToNextQuestion(await buildView(active));
 
   return {
-    session: toSessionState(advance.view),
+    session: await toSessionState(advance.view),
     currentQuestion: advance.question,
     fallback: advance.fallback,
   };
@@ -1519,7 +1723,7 @@ export async function abandonInterview(
   // Idempotent, the same way `pauseInterview` is for an already-paused session: a retried or
   // double-clicked request reports the state back, it does not score the concept twice.
   if (session.status === 'abandoned') {
-    return { session: toSessionState(await buildView(session)), conceptCompleted: null };
+    return { session: await toSessionState(await buildView(session)), conceptCompleted: null };
   }
   if (session.status !== 'active' && session.status !== 'paused') {
     throw new AppError('This interview session has already ended', 409, 'SESSION_ENDED');
@@ -1541,7 +1745,7 @@ export async function abandonInterview(
     select: sessionSelect,
   });
 
-  return { session: toSessionState(await buildView(abandoned)), conceptCompleted };
+  return { session: await toSessionState(await buildView(abandoned)), conceptCompleted };
 }
 
 /**

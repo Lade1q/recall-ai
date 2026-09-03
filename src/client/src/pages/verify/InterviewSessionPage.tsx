@@ -25,6 +25,7 @@ import { useInterviewSession } from '@/features/interview/hooks/useInterviewSess
 import { interviewApi } from '@/features/interview/api/interview.api';
 import type {
   InterviewProgress,
+  InterviewQueueItemResponse,
   InterviewTurnResponse,
   SelfGrade,
   SessionSummaryResponse,
@@ -355,7 +356,8 @@ export default function InterviewSessionPage() {
   // Cùng giá trị với `isSessionActive` ở trên (tính lại bằng non-null `session` cho gọn).
   const isActive = isSessionActive;
   // completedConcepts là số khái niệm đã chốt; +1 là khái niệm đang hỏi (không vượt tổng).
-  const conceptPosition = Math.min(progress.completedConcepts + 1, progress.conceptTotal);
+  // Vị trí con trỏ, không phải số đã xong — xem ghi chú ở `ConceptMeter`.
+  const conceptPosition = Math.min(progress.conceptIndex + 1, progress.conceptTotal);
   const turnIndex = progress.turnIndex ?? currentQuestion?.turnIndex ?? null;
   // ⚠️ Lượt gợi ý KHÔNG có trọng số nào (#392 (c)) — gắn một con số cho nó ở đây là nói dối
   // ngay trên màn sinh viên đang trả lời.
@@ -442,7 +444,7 @@ export default function InterviewSessionPage() {
           aria-label="Phạm vi bài kiểm tra"
           className="border-border bg-sidebar gap-6.5 pt-5.5 hidden min-h-0 flex-col overflow-y-auto border-r px-5 pb-5 lg:flex"
         >
-          <ConceptQueueRail progress={progress} currentConceptName={currentConcept?.name ?? null} />
+          <ConceptQueueRail progress={progress} queue={session.queue} />
           <TurnStackRail
             progress={progress}
             currentConceptId={currentConcept?.id ?? null}
@@ -537,6 +539,7 @@ export default function InterviewSessionPage() {
                 currentTurnId={pendingTurnAnswered ? null : (currentQuestion?.turnId ?? null)}
                 maxTurnsPerConcept={progress.maxTurnsPerConcept}
                 fallbackMode={fallbackMode}
+                queue={session.queue}
               />
 
               {currentQuestion && !pendingTurnAnswered && (
@@ -785,9 +788,12 @@ function ConceptMeter({
   progress: InterviewProgress;
   className?: string;
 }) {
+  // `conceptIndex` là VỊ TRÍ CON TRỎ, `completedConcepts` là SỐ ĐÃ XONG. Hai số này bằng nhau
+  // ở đường thuận, nhưng chỉ số đầu mới là thứ câu hỏi đang đứng ở đó — và truy ngược trong
+  // phiên chèn khái niệm vào TRƯỚC con trỏ, nên đọc nhầm số kia sẽ tô sáng sai ô.
   const segments = Array.from({ length: progress.conceptTotal }, (_, i) => {
-    if (i < progress.completedConcepts) return 'done';
-    if (i === progress.completedConcepts) return 'now';
+    if (i < progress.conceptIndex) return 'done';
+    if (i === progress.conceptIndex) return 'now';
     return 'pending';
   });
 
@@ -809,7 +815,7 @@ function ConceptMeter({
         ))}
       </div>
       <MetaMono className="text-muted-foreground whitespace-nowrap text-xs">
-        Khái niệm {Math.min(progress.completedConcepts + 1, progress.conceptTotal)}/
+        Khái niệm {Math.min(progress.conceptIndex + 1, progress.conceptTotal)}/
         {progress.conceptTotal}
       </MetaMono>
     </div>
@@ -838,19 +844,20 @@ function TurnPips({ turnIndex, maxTurns }: { turnIndex: number; maxTurns: number
 }
 
 /**
- * Hàng đợi khái niệm (`.rail__queue`). Chỉ derive được từ `InterviewProgress`: tổng số +
- * số đã xong + khái niệm đang hỏi. Không có tên/điểm của các khái niệm còn lại trong hàng
- * đợi ở tầng dữ liệu này (server chưa trả), nên không bịa — dùng nhãn số thứ tự chung.
+ * Hàng đợi khái niệm (`.rail__queue`) — tên thật của từng khái niệm, theo đúng thứ tự sẽ hỏi.
+ *
+ * Trước đây chỉ derive được từ `InterviewProgress` (tổng số + số đã xong) nên mọi khái niệm
+ * ngoài khái niệm đang hỏi hiện gạch ngang; giờ server trả `session.queue` có tên, đúng như
+ * mockup `screen-interview.html:2417` yêu cầu. Khái niệm do truy ngược kéo vào mang thêm dòng
+ * "nền của X" — nếu không, hàng đợi tự dài ra giữa phiên mà không ai hiểu vì sao.
  */
 function ConceptQueueRail({
   progress,
-  currentConceptName,
+  queue,
 }: {
   progress: InterviewProgress;
-  currentConceptName: string | null;
+  queue: InterviewQueueItemResponse[];
 }) {
-  const slots = Array.from({ length: progress.conceptTotal }, (_, i) => i);
-
   return (
     <section>
       {/* #387: KHÔNG snap — đây là EYEBROW (nhãn mục viết hoa, cỡ nhỏ, giãn chữ). Nó mặc thẻ
@@ -861,12 +868,12 @@ function ConceptQueueRail({
         Hàng đợi khái niệm
       </h2>
       <div className="flex flex-col gap-0.5">
-        {slots.map((i) => {
+        {queue.map((item, i) => {
           const no = String(i + 1).padStart(2, '0');
-          const isNow = i === progress.completedConcepts;
+          const isNow = i === progress.conceptIndex;
           return (
             <div
-              key={i}
+              key={`${item.conceptId}-${i}`}
               aria-current={isNow ? 'step' : undefined}
               className={cn(
                 'grid grid-cols-[20px_minmax(0,1fr)] items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px]',
@@ -874,12 +881,13 @@ function ConceptQueueRail({
               )}
             >
               <MetaMono className="text-muted-foreground text-[11px]">{no}</MetaMono>
-              {/* FIX E: server không trả tên cho khái niệm nào ngoài khái niệm đang hỏi — kể
-                  cả khái niệm đã xong lẫn khái niệm chưa tới lượt. "Khái niệm N" cũ đọc như
-                  tên thật, dễ hiểu lầm. Dùng gạch ngang trung tính thay vì bịa chữ, số thứ tự
-                  đã có sẵn ở cột MetaMono bên trái rồi nên không mất thông tin. */}
-              <span className="min-w-0 truncate">
-                {isNow ? (currentConceptName ?? 'Đang hỏi') : '—'}
+              <span className="min-w-0">
+                <span className="block truncate">{item.name}</span>
+                {item.hop > 0 && item.viaConceptName && (
+                  <span className="text-remediate block truncate text-[11px] font-normal">
+                    nền của {item.viaConceptName}
+                  </span>
+                )}
               </span>
             </div>
           );

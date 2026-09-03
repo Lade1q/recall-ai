@@ -28,6 +28,9 @@ jest.mock('../config/prisma', () => ({
     },
     interviewTurn: { count: jest.fn(), findMany: jest.fn(), create: jest.fn() },
     concept: { findMany: jest.fn(), findFirst: jest.fn() },
+    // A one-concept deep link now fills the rest of the session from the graph (03/09). No edges
+    // means no neighbours, so these suites keep starting the one-concept sessions they assert on.
+    conceptEdge: { findMany: jest.fn().mockResolvedValue([]) },
     conceptSourceRef: { findFirst: jest.fn() },
     document: { findFirst: jest.fn(), findMany: jest.fn() },
     questionCache: { findMany: jest.fn() },
@@ -46,6 +49,7 @@ jest.mock('../services/scheduling.service', () => ({
 
 const mockedPrisma = prisma as unknown as {
   studyPlan: { findUnique: jest.Mock };
+  conceptEdge: { findMany: jest.Mock };
   interviewSession: {
     findFirst: jest.Mock;
     findUnique: jest.Mock;

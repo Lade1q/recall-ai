@@ -57,6 +57,15 @@ function transcript(status: InterviewSessionStatus): GetInterviewResponse {
       fallbackMode: false,
       startedAt: new Date(2026, 7, 13, 21, 40).toISOString(),
       endedAt: null,
+      queue: [
+        {
+          conceptId: 'concept-1',
+          name: 'Duyệt đồ thị DFS',
+          hop: 0,
+          viaConceptId: null,
+          viaConceptName: null,
+        },
+      ],
       currentConcept: { id: 'concept-1', name: 'Duyệt đồ thị DFS' },
       progress: {
         conceptIndex: 0,

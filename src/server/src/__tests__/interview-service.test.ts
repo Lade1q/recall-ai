@@ -34,7 +34,13 @@ jest.mock('../config/prisma', () => {
       updateMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    concept: { findFirst: jest.fn() },
+    // Live traceback (03/09) reads the graph on a wrong verdict, and every session read now
+    // resolves the queue's concept names. Defaulted to empty so a suite that is not about
+    // traceback keeps describing the behaviour it always did: no edges means no prerequisite to
+    // hop to, and the state machine falls straight through to the #392 hint ladder.
+    concept: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+    conceptEdge: { findMany: jest.fn().mockResolvedValue([]) },
+    studyPlan: { findUnique: jest.fn().mockResolvedValue({ tracebackEnabled: true }) },
     conceptSourceRef: { findFirst: jest.fn() },
     document: { findMany: jest.fn() },
     questionCache: { findMany: jest.fn() },
@@ -64,7 +70,9 @@ const mockedPrisma = prisma as unknown as {
     updateMany: jest.Mock;
     findUnique: jest.Mock;
   };
-  concept: { findFirst: jest.Mock };
+  concept: { findFirst: jest.Mock; findMany: jest.Mock };
+  conceptEdge: { findMany: jest.Mock };
+  studyPlan: { findUnique: jest.Mock };
   conceptSourceRef: { findFirst: jest.Mock };
   document: { findMany: jest.Mock };
   questionCache: { findMany: jest.Mock };

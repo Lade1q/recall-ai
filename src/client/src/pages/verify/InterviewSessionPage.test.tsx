@@ -80,6 +80,15 @@ function session(turnIndex: number | null): InterviewSessionState {
     fallbackMode: false,
     startedAt: '2026-08-30T10:00:00.000Z',
     endedAt: null,
+    queue: [
+      {
+        conceptId: CONCEPT.id,
+        name: CONCEPT.name,
+        hop: 0,
+        viaConceptId: null,
+        viaConceptName: null,
+      },
+    ],
     currentConcept: CONCEPT,
     progress: {
       conceptIndex: 0,

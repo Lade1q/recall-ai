@@ -30,6 +30,15 @@ function detail(): GetInterviewResponse {
       fallbackMode: false,
       startedAt: '2026-08-30T10:00:00.000Z',
       endedAt: null,
+      queue: [
+        {
+          conceptId: 'concept-1',
+          name: 'Duyệt đồ thị DFS',
+          hop: 0,
+          viaConceptId: null,
+          viaConceptName: null,
+        },
+      ],
       currentConcept: { id: 'concept-1', name: 'Duyệt đồ thị DFS' },
       progress: {
         conceptIndex: 1,
