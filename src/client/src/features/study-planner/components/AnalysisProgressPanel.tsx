@@ -8,7 +8,7 @@ import { formatElapsed } from '../utils/planDates';
  * AnalysisJob, before the job's own status can be anything but `pending`.
  */
 
-const PHASE_ORDER: AnalysisPhase[] = ['sending_to_ai', 'extracting', 'validating'];
+const PHASE_ORDER: AnalysisPhase[] = ['sending_to_ai', 'extracting', 'linking', 'validating'];
 
 type SubPhaseState = 'done' | 'now' | 'pending';
 
@@ -91,6 +91,15 @@ interface AnalysisProgressPanelProps {
   now: Date;
   phase: AnalysisPhase | null;
   /**
+   * How many documents this job is reading, and how many are done — the panel says "đã đọc 2/3
+   * tệp" instead of showing a blind bar while several are extracted in parallel.
+   *
+   * `null`/absent means NOT KNOWN (a job from before these columns existed), and is rendered as
+   * no count at all. Reading it as 0 would print "đã đọc 0/0 tệp" over a job that is working.
+   */
+  documentsTotal?: number | null;
+  documentsDone?: number | null;
+  /**
    * True once the AnalysisJob has actually finished. `phase` alone tops out at `validating`,
    * which would otherwise leave the last row stuck showing its spinner forever — the caller
    * must hold this view for a beat after completion so the user actually sees that checkmark
@@ -106,6 +115,8 @@ export function AnalysisProgressPanel({
   startedAt,
   now,
   phase,
+  documentsTotal = null,
+  documentsDone = null,
   complete = false,
 }: AnalysisProgressPanelProps) {
   const currentIndex = complete ? PHASE_ORDER.length : phase ? PHASE_ORDER.indexOf(phase) : 0;
@@ -115,6 +126,11 @@ export function AnalysisProgressPanel({
   // createPlanInDb commit (plan+document+job cùng transaction), và panel
   // chỉ render sau 201. Đừng suy từ pageCount (chỉ PDF) hay document!=null
   // (analysisPlan còn null tới lần poll đầu, +2500ms).
+  // Only shown once the numbers are actually known AND there is more than one file: "đã đọc
+  // 1/1 tệp" is noise, and a null count must render as nothing rather than as zero.
+  const multiDocument = documentsTotal !== null && documentsTotal > 1;
+  const readProgress = multiDocument ? ` · đã đọc ${documentsDone ?? 0}/${documentsTotal} tệp` : '';
+
   const phases: { label: string; state: SubPhaseState }[] = [
     {
       label: `Tải tệp lên kho lưu trữ · lưu bản ghi documents${
@@ -126,10 +142,20 @@ export function AnalysisProgressPanel({
       ? []
       : [{ label: 'Gửi tài liệu tới AI Service', state: subPhaseState(0, currentIndex) }]),
     {
-      label: 'Trích xuất khái niệm, độ khó và quan hệ tiên quyết',
+      label: `Trích xuất khái niệm, độ khó và quan hệ tiên quyết${readProgress}`,
       state: subPhaseState(1, currentIndex),
     },
-    { label: 'Kiểm tra chu trình (DAG) và dựng đồ thị', state: subPhaseState(2, currentIndex) },
+    // The linking pass only runs for two documents or more, so for a single-file plan the row
+    // must not appear at all — a step that is never going to happen cannot sit there pending.
+    ...(multiDocument
+      ? [
+          {
+            label: 'Xếp thứ tự nên học giữa các chủ đề',
+            state: subPhaseState(2, currentIndex),
+          },
+        ]
+      : []),
+    { label: 'Kiểm tra chu trình (DAG) và dựng đồ thị', state: subPhaseState(3, currentIndex) },
   ];
 
   const elapsed = startedAt ? formatElapsed(startedAt, now) : null;

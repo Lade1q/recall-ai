@@ -2,9 +2,16 @@ import fs from 'fs';
 import path from 'path';
 import { AnalysisJobPhase, Prisma } from '@prisma/client';
 import prisma from '../config/prisma';
-import { extractConcepts, uploadFile } from './gemini.service';
-import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
+import { extractConcepts, linkTopics, uploadFile } from './gemini.service';
+import { mockExtractForFile, mockTopicEdgesForDocuments } from '../utils/mock-ai';
 import { validateAndFixDag } from '../utils/dag';
+import { mapWithConcurrency } from '../utils/concurrency';
+import {
+  DocumentExtraction,
+  buildTopicLinkMaterial,
+  mapTopicEdgesToDocumentIds,
+  mergeExtractions,
+} from '../utils/extraction-merge';
 import { buildConceptSourceRows } from '../utils/concept-source';
 import { planCheckpointMerge, readExtractedCheckpoints } from '../utils/checkpoint';
 import { planConceptMerge, normalizeConceptKey } from '../utils/concept-merge';
@@ -17,6 +24,20 @@ import { AiExtractResponse, ConceptExtract } from '../schemas/ai-extract.schema'
 const MAX_ATTEMPTS = 3; // 1 initial call + 2 retries, per I3.2 acceptance criteria
 const BACKOFF_BASE_MS = 2000;
 
+/**
+ * How many phase-1 extractions may be in flight at once.
+ *
+ * Default 4, not 8. A probe on 2026-09-03 ran 3, 5 and 8 concurrent Gemini calls on this
+ * project's free-tier key with zero failures — but with short text prompts, so it bounds
+ * requests-per-minute and says nothing about tokens-per-minute, which is what a batch of PDF
+ * extractions actually spends. 4 keeps an 8-file upload to two rounds while staying well inside
+ * the only limit that was measured.
+ */
+const MAX_CONCURRENT_EXTRACT = (() => {
+  const raw = Number(process.env.GEMINI_MAX_CONCURRENT_EXTRACT);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 4;
+})();
+
 // A `pending`/`processing` AnalysisJob older than this is considered stuck (server
 // restart mid-job, fire-and-forget never picked up, Gemini hang outside
 // callAiWithRetry) — shared with plan.service's retry staleness check (Issue #178).
@@ -25,10 +46,19 @@ export const STALE_JOB_THRESHOLD_MS = 10 * 60 * 1000;
 /** Reports which real sub-step of `callAi` is running, for the UI's 4-phase progress (#186). */
 type OnPhase = (phase: AnalysisJobPhase) => Promise<void>;
 
-async function callAi(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
+async function callAi(
+  fileKey: string,
+  onPhase: OnPhase,
+  documentIndex?: number
+): Promise<AiExtractResponse> {
   if (process.env.USE_MOCK_AI === 'true') {
     await onPhase('extracting');
-    return MOCK_EXTRACT_RESULT;
+    // Keyed on the document's POSITION, not just the file key: a plan can hold several
+    // documents and each gets its own call, so a shared constant would give every topic the
+    // same concepts and the two-level graph would have nothing to show. Hashing the key alone
+    // does not spread reliably over so few banks — the three CNPM PDFs on this machine hash to
+    // banks 1, 1, 0 (measured 2026-09-03).
+    return mockExtractForFile(fileKey, documentIndex);
   }
 
   const absolutePath = path.join(UPLOAD_DIR, fileKey);
@@ -74,14 +104,23 @@ export async function resolveMaterialText(fileKey: string): Promise<string | nul
   return fs.promises.readFile(path.join(UPLOAD_DIR, fileKey), 'utf-8').catch(() => null);
 }
 
-async function callAiWithRetry(fileKey: string, onPhase: OnPhase): Promise<AiExtractResponse> {
+/**
+ * The retry budget is PER DOCUMENT, which is the point of extracting them separately: one file
+ * hitting a 503 costs three attempts on that file, not on the batch. A file that still fails
+ * after them fails the whole job — see `runPhaseOne`.
+ */
+async function callAiWithRetry(
+  fileKey: string,
+  onPhase: OnPhase,
+  documentIndex?: number
+): Promise<AiExtractResponse> {
   let lastError: unknown;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, BACKOFF_BASE_MS * 2 ** (attempt - 1)));
     }
     try {
-      return await callAi(fileKey, onPhase);
+      return await callAi(fileKey, onPhase, documentIndex);
     } catch (error) {
       lastError = error;
     }
@@ -226,6 +265,161 @@ export async function cleanupStaleJobs(): Promise<number> {
  */
 class JobClaimLostError extends Error {}
 
+/** One document queued for phase 1, plus what came back. */
+type CompletedExtraction = DocumentExtraction & { fileKey: string; materialText: string | null };
+
+interface ExtractionTarget {
+  documentId: string | null;
+  filename: string;
+  fileKey: string;
+  order: number;
+}
+
+/**
+ * Phase 1 — one `extract_concepts` call per document, several in flight at once.
+ *
+ * A document that fails all its retries rejects, and that rejection fails the whole job. Skipping
+ * it instead would hand the student a plan missing part of their syllabus with nothing on screen
+ * saying so — the same dishonesty C5 exists to prevent, just at the level of the plan rather than
+ * a citation. The recovery is cheap and in the student's hands: drop that file and upload again.
+ */
+async function runPhaseOne(
+  jobId: string,
+  targets: readonly ExtractionTarget[],
+  setPhase: OnPhase
+): Promise<CompletedExtraction[]> {
+  let done = 0;
+  await prisma.analysisJob.update({
+    where: { id: jobId },
+    data: { documentsTotal: targets.length, documentsDone: 0 },
+  });
+
+  return mapWithConcurrency(targets, MAX_CONCURRENT_EXTRACT, async (target) => {
+    // `target.order` (position in the PLAN), not `index` (position in this batch): an append job
+    // carries one target, so `index` is always 0 and every added document would draw the same
+    // mock bank as the plan's first file.
+    const result = await callAiWithRetry(target.fileKey, setPhase, target.order);
+    const materialText = await resolveMaterialText(target.fileKey);
+    done += 1;
+    // Best-effort: the counter only drives a progress label, so a failed write must not cost a
+    // successful extraction. Not awaited into the result either — it is not on the critical path.
+    await prisma.analysisJob
+      .update({ where: { id: jobId }, data: { documentsDone: done } })
+      .catch((error) => console.warn(`[analysis] progress update failed for job ${jobId}:`, error));
+    return { ...target, result, materialText };
+  });
+}
+
+/**
+ * Rebuilds a phase-1-shaped result for a document that this job did NOT re-read, from what is
+ * already in the database.
+ *
+ * This is what lets `new_only` still produce a complete topic order: phase 2 has to see every
+ * document of the plan, or the new file becomes an island. The old documents come back as their
+ * stored concepts plus the excerpt already anchored to them — the same kind of derived text a
+ * freshly-extracted document contributes, so phase 2's input is uniform.
+ *
+ * The result is ONLY fed to phase 2. It never reaches the merge, so it cannot rewrite a stored
+ * concept with this thinner copy of itself.
+ */
+async function loadStoredExtraction(document: {
+  id: string;
+  filename: string;
+  fileKey: string;
+  order: number;
+}): Promise<CompletedExtraction> {
+  const concepts = await prisma.concept.findMany({
+    where: { primaryDocumentId: document.id, status: 'active' },
+    select: {
+      name: true,
+      difficulty: true,
+      conceptSources: {
+        where: { documentId: document.id, excerpt: { not: null } },
+        select: { excerpt: true },
+        take: 1,
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  return {
+    documentId: document.id,
+    filename: document.filename,
+    fileKey: document.fileKey,
+    order: document.order,
+    materialText: null,
+    result: {
+      concepts: concepts.map((concept) => ({
+        name: concept.name,
+        difficulty: concept.difficulty ?? 1,
+        checkpoints: null,
+        source_excerpt: concept.conceptSources[0]?.excerpt ?? null,
+      })),
+      edges: [],
+      language_detected: 'en',
+      topic_edges: [],
+    },
+  };
+}
+
+/**
+ * Phase 2 — ONE call that orders the documents relative to each other.
+ *
+ * Skipped entirely below two documents: with one topic there is no order to ask about, and the
+ * call would cost money to return an empty list.
+ *
+ * A failure here does NOT fail the job. Phase 1 has already succeeded at that point — minutes of
+ * work and real money — and what is lost is only the arrows BETWEEN topics. The degraded result
+ * is honest on screen: the student sees their N topics with no order drawn between them, which is
+ * exactly true. Failing the job instead would throw away a complete concept graph to punish a
+ * missing convenience.
+ */
+async function runPhaseTwo(
+  extractions: readonly CompletedExtraction[],
+  documents: readonly { id: string; filename: string }[]
+): Promise<{ edges: { from: string; to: string }[]; autoFixed: boolean }> {
+  if (documents.length < 2) return { edges: [], autoFixed: false };
+
+  let topicEdges;
+  try {
+    // The flag has to be honoured HERE too, not only in `callAi`. Without this branch the
+    // "offline" path still reached out to Gemini for the linking pass, and the failure was
+    // invisible: the catch below turns it into "no study order", which is indistinguishable
+    // from a model that genuinely found none.
+    topicEdges =
+      process.env.USE_MOCK_AI === 'true'
+        ? mockTopicEdgesForDocuments(documents.map((d) => d.filename))
+        : await linkTopics(buildTopicLinkMaterial(extractions));
+  } catch (error) {
+    console.warn(
+      '[analysis] topic linking failed; the plan keeps its concepts but gets no study order ' +
+        'between documents:',
+      error
+    );
+    return { edges: [], autoFixed: false };
+  }
+
+  const mapped = mapTopicEdgesToDocumentIds(topicEdges, documents);
+  if (mapped.unresolved.length > 0) {
+    console.warn(
+      `[analysis] dropped ${mapped.unresolved.length} topic edge(s) naming no document of this ` +
+        `plan: ${mapped.unresolved.map((e) => `${e.from} -> ${e.to}`).join(', ')}`
+    );
+  }
+
+  // Second use of the same DAG fixer, now in the document-id key space. By this point every
+  // endpoint is a real document id, so all it can still find is a cycle.
+  const dag = validateAndFixDag(
+    documents.map((d) => d.id),
+    mapped.edges
+  );
+  if (dag.removedEdges.length > 0) {
+    console.warn(`[analysis] broke a cycle in the topic order, dropped ${dag.removedEdges.length}`);
+  }
+
+  return { edges: dag.edges, autoFixed: mapped.autoFixed || dag.autoFixed };
+}
+
 /**
  * Processes one pending AnalysisJob end-to-end: calls the AI (or mock), validates
  * the returned graph is a DAG, and persists Concepts/ConceptEdges in one transaction.
@@ -267,13 +461,92 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       await prisma.analysisJob.update({ where: { id: jobId }, data: { phase } });
     };
 
-    const extracted = await callAiWithRetry(job.fileKey, setPhase);
-    const materialText = await resolveMaterialText(job.fileKey);
+    // The AI is driven by the plan's `documents` rows, not by `job.fileKey`. `fileKey` stays on
+    // the job because `retryPlanAnalysis` guards on it, and because it is still the right answer
+    // for the degraded case below.
+    const documents = await prisma.document.findMany({
+      where: { planId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, filename: true, fileKey: true },
+    });
+
+    // A plan with no `documents` row is a broken state rather than a supported one, but the job
+    // still knows which file to read, and the concepts are still worth having. They just belong
+    // to no topic: `documentId: null` puts them in the UI's "Chưa xếp chủ đề" bucket, and nothing
+    // anchors them in `concept_sources`. This is exactly what this code did before it learned
+    // about multiple documents, so no existing plan changes behaviour.
+    const allTargets: ExtractionTarget[] =
+      documents.length > 0
+        ? documents.map((document, order) => ({
+            documentId: document.id,
+            filename: document.filename,
+            fileKey: document.fileKey,
+            order,
+          }))
+        : [{ documentId: null, filename: job.fileKey, fileKey: job.fileKey, order: 0 }];
+
+    // `new_only`: read ONLY the documents this job was created for. The cheap mode of "thêm tài
+    // liệu" — one extraction instead of re-reading the whole subject — and the reason every
+    // merge decision below has to ask which mode it is in.
+    const scopeIds = new Set(
+      job.scope === 'new_only' && Array.isArray(job.scopeDocumentIds)
+        ? (job.scopeDocumentIds as unknown[]).filter((id): id is string => typeof id === 'string')
+        : []
+    );
+    const appendOnly = job.scope === 'new_only' && scopeIds.size > 0;
+    const targets = appendOnly
+      ? allTargets.filter((target) => target.documentId && scopeIds.has(target.documentId))
+      : allTargets;
+
+    if (appendOnly && targets.length === 0) {
+      await markFailed(jobId, new Error('append job names no document of this plan'));
+      return;
+    }
+
+    const extractions = await runPhaseOne(jobId, targets, setPhase);
+    const merged = mergeExtractions(extractions);
+
+    // Phase 1 sees ONE file per call, so it cannot know an order between two of them — anything
+    // it puts in `topic_edges` is invented. The schema still asks for the field (`.catch([])`
+    // does not remove it from `required`, measured 2026-09-03), so the model does answer, and
+    // this is where the answer dies. Without this the invariant "every document_edges row came
+    // from phase 2" is false from the very first upload, and with it goes the reason
+    // `document_edges` needs no `source` column.
+    if (merged.droppedTopicEdgeCount > 0) {
+      console.warn(
+        `[analysis] dropped ${merged.droppedTopicEdgeCount} topic edge(s) invented by phase 1`
+      );
+    }
+
+    await setPhase('linking');
+    // Phase 2 ALWAYS sees every document, even in append mode: it is what stops a newly added
+    // file from becoming an island on the topic graph, and it costs one call rather than a
+    // re-read of the whole subject. Documents this job did not read contribute their stored
+    // concepts and excerpts instead.
+    const linkInput = appendOnly
+      ? (
+          await Promise.all(
+            allTargets.map((target) => {
+              const fresh = extractions.find((e) => e.documentId === target.documentId);
+              if (fresh) return Promise.resolve(fresh);
+              if (!target.documentId) return Promise.resolve(null);
+              return loadStoredExtraction({
+                id: target.documentId,
+                filename: target.filename,
+                fileKey: target.fileKey,
+                order: target.order,
+              });
+            })
+          )
+        ).filter((e): e is CompletedExtraction => e !== null)
+      : extractions;
+    const topicOrder = await runPhaseTwo(linkInput, documents);
+
     await setPhase('validating');
     // Concepts aren't persisted yet, so the graph is keyed by concept name here.
     const { edges, autoFixed } = validateAndFixDag(
-      extracted.concepts.map((c) => c.name),
-      extracted.edges
+      merged.concepts.map((c) => c.name),
+      merged.edges
     );
 
     await prisma.$transaction(async (tx) => {
@@ -282,18 +555,51 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       // no concepts, so the merge degenerates to inserting everything — one path for both.
       const existing = await tx.concept.findMany({
         where: { planId },
-        select: { id: true, name: true, status: true },
+        // `primaryDocumentId` is not part of the merge — it is read so append mode can tell a
+        // concept that already belongs to a topic from one that does not.
+        select: { id: true, name: true, status: true, primaryDocumentId: true },
       });
-      const mergePlan = planConceptMerge(existing, extracted.concepts);
+      const filedUnder = new Map(existing.map((c) => [c.id, c.primaryDocumentId]));
+      const mergePlan = planConceptMerge(existing, merged.concepts);
 
       // Keyed by normalized name so edge endpoints, which the AI gives by name, resolve
       // through the same identity the merge used.
       const conceptIdByKey = new Map<string, string>();
 
+      // Which document each concept is filed under. Assigned from the CALL SITE — phase 1 sends
+      // one file per call, so the answer is known without asking the model. Left untouched when
+      // the merge has no answer (the no-documents path above), rather than written as null, so a
+      // degraded re-analysis cannot strip a topic off concepts that already had one.
+      const topicOf = (name: string): { primaryDocumentId: string } | Record<string, never> => {
+        const documentId = merged.primaryDocumentIdByKey.get(normalizeConceptKey(name));
+        return documentId ? { primaryDocumentId: documentId } : {};
+      };
+
       for (const kept of mergePlan.toKeep) {
+        // 🔴 A concept the new file ALSO teaches. In append mode this extraction saw one file, so
+        // it is not entitled to rewrite what the old graph says about a concept it shares:
+        //
+        //   - `primaryDocumentId` — MEASURED on real material 2026-09-03. Adding "LN09 - Test
+        //     Automation" to a plan already holding LN08 re-filed the concept "Test Automation"
+        //     from LN08 to LN09, because phase 1 never saw LN08's claim on it. That breaks the
+        //     documented rule (the EARLIEST document owns a shared concept), and it does it
+        //     silently: LN08's topic quietly lost a node.
+        //   - `name` / `difficulty` — same argument, and the dialog promises the mode "chỉ thêm,
+        //     không sửa … gì của đồ thị cũ". Rewriting either would make that copy false.
+        //
+        // `status` is the one field append does touch: a file that teaches a concept is evidence
+        // it belongs, and reviving a tombstone grows the graph rather than editing it.
+        const keepsItsPlace = appendOnly && filedUnder.get(kept.id) != null;
         await tx.concept.update({
           where: { id: kept.id },
-          data: { name: kept.name, difficulty: kept.difficulty, status: 'active' },
+          data: keepsItsPlace
+            ? { status: 'active' }
+            : {
+                name: kept.name,
+                difficulty: kept.difficulty,
+                status: 'active',
+                ...topicOf(kept.name),
+              },
         });
         conceptIdByKey.set(normalizeConceptKey(kept.name), kept.id);
       }
@@ -301,7 +607,13 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       const created = await Promise.all(
         mergePlan.toCreate.map((c) =>
           tx.concept.create({
-            data: { planId, name: c.name, difficulty: c.difficulty, source: 'ai_generated' },
+            data: {
+              planId,
+              name: c.name,
+              difficulty: c.difficulty,
+              source: 'ai_generated',
+              ...topicOf(c.name),
+            },
           })
         )
       );
@@ -309,7 +621,11 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
         conceptIdByKey.set(normalizeConceptKey(c.name), c.id);
       }
 
-      if (mergePlan.toDeprecate.length > 0) {
+      // 🔴 In append mode the AI only saw the NEW files, so EVERY concept of the old ones is
+      // "absent" from this extraction. Deprecating them would empty the student's whole graph —
+      // the single most destructive silent failure this mode can have. `planConceptMerge` stays
+      // untouched (it is a pure function with its own tests); the caller ignores its verdict.
+      if (!appendOnly && mergePlan.toDeprecate.length > 0) {
         await tx.concept.updateMany({
           where: { id: { in: mergePlan.toDeprecate } },
           data: { status: 'deprecated' },
@@ -317,11 +633,37 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       }
 
       // The ruler each concept will be graded against, committed here and nowhere else (INV-1).
-      await persistCheckpoints(tx, extracted.concepts, conceptIdByKey);
+      //
+      // Append mode commits it only for the concepts it CREATED. A concept the new file shares
+      // with an old one already has a ruler, derived from the file that first taught it and used
+      // to grade every answer the student has given about it; `planCheckpointMerge` would replace
+      // that ruler with one derived from a file phase 1 read in isolation. Same reasoning as the
+      // fields left alone above, with a sharper edge: this one changes how answers are scored.
+      const createdKeys = new Set(created.map((c) => normalizeConceptKey(c.name)));
+      const checkpointScope = appendOnly
+        ? merged.concepts.filter((c) => createdKeys.has(normalizeConceptKey(c.name)))
+        : merged.concepts;
+      await persistCheckpoints(tx, checkpointScope, conceptIdByKey);
 
       // Edges are rebuilt wholesale: the new extraction is the whole truth about structure,
       // and an edge carries no student data worth preserving. No-op on a first analysis.
-      await tx.conceptEdge.deleteMany({ where: { planId } });
+      //
+      // Except in append mode, where this extraction is NOT the whole truth — it saw one file.
+      // The existing edges are added to, not replaced; the `create` loop below already skips a
+      // pair that is already stored, so no `@@unique` violation can fail the transaction.
+      if (!appendOnly) {
+        await tx.conceptEdge.deleteMany({ where: { planId } });
+      }
+      const storedEdgeKeys = appendOnly
+        ? new Set(
+            (
+              await tx.conceptEdge.findMany({
+                where: { planId },
+                select: { fromConceptId: true, toConceptId: true },
+              })
+            ).map((e) => `${e.fromConceptId}->${e.toConceptId}`)
+          )
+        : new Set<string>();
 
       // `edges` was de-duplicated by exact name upstream; two spellings of one concept can
       // still collapse onto the same id pair here, which the [planId, from, to] unique index
@@ -332,37 +674,50 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
         const toId = conceptIdByKey.get(normalizeConceptKey(edge.to));
         if (!fromId || !toId || fromId === toId) continue;
         const edgeKey = `${fromId}->${toId}`;
-        if (seenEdges.has(edgeKey)) continue;
+        if (seenEdges.has(edgeKey) || storedEdgeKeys.has(edgeKey)) continue;
         seenEdges.add(edgeKey);
         await tx.conceptEdge.create({ data: { planId, fromConceptId: fromId, toConceptId: toId } });
       }
 
-      // Anchor each concept to the passage it came from (concept_sources). One document per
-      // plan in the SP-01 flow. Page/excerpt are best-effort from the AI — a concept with
-      // neither is simply not anchored. All routing is deterministic; the AI only extracts (C4).
-      const document = await tx.document.findFirst({
-        where: { planId },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true },
-      });
-      if (document) {
+      // Anchor each concept to the passage it came from (concept_sources), ONE DOCUMENT AT A
+      // TIME. Each phase-1 result already knows which file produced it, so nothing has to be
+      // guessed here: no `resolveSourceDocumentId`, no matching by name. A concept taught in two
+      // files legitimately gets an anchor row in each — that table is N:M and both are true —
+      // even though it sits under only one topic. Page/excerpt are best-effort from the AI; a
+      // concept with neither is simply not anchored.
+      for (const extraction of extractions) {
+        if (!extraction.documentId) continue;
         // Anchors cite pages of the previous extraction, so they are replaced, not appended.
-        await tx.conceptSourceRef.deleteMany({ where: { documentId: document.id } });
+        await tx.conceptSourceRef.deleteMany({ where: { documentId: extraction.documentId } });
         const conceptIdByName = new Map(
-          extracted.concepts.flatMap((c) => {
+          extraction.result.concepts.flatMap((c) => {
             const id = conceptIdByKey.get(normalizeConceptKey(c.name));
             return id ? [[c.name, id] as [string, string]] : [];
           })
         );
         const anchors = buildConceptSourceRows(
-          extracted.concepts,
+          extraction.result.concepts,
           conceptIdByName,
-          document.id,
-          materialText
+          extraction.documentId,
+          extraction.materialText
         );
         if (anchors.length > 0) {
           await tx.conceptSourceRef.createMany({ data: anchors });
         }
+      }
+
+      // The topic layer, replaced wholesale like concept edges: phase 2 always runs over ALL the
+      // plan's documents, so what it returns is the complete order, and keeping older rows
+      // alongside it would leave contradictory arrows nobody ever deletes.
+      await tx.documentEdge.deleteMany({ where: { planId } });
+      if (topicOrder.edges.length > 0) {
+        await tx.documentEdge.createMany({
+          data: topicOrder.edges.map((edge) => ({
+            planId,
+            fromDocumentId: edge.from,
+            toDocumentId: edge.to,
+          })),
+        });
       }
 
       // `status` stays `draft` on purpose (Issue #265): analysis produces a *proposal*, and
@@ -373,8 +728,12 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       await tx.studyPlan.update({
         where: { id: planId },
         data: {
-          dagAutoFixed: autoFixed,
-          languageDetected: extracted.language_detected,
+          // One flag for both layers: the banner text ("we adjusted the graph, please check")
+          // is true either way, and a student has no use for knowing which layer moved.
+          dagAutoFixed: autoFixed || topicOrder.autoFixed,
+          // Append mode saw one file; letting its verdict overwrite the plan's language would
+          // let a single English appendix re-label a Vietnamese course.
+          ...(appendOnly ? {} : { languageDetected: merged.languageDetected }),
         },
       });
       // Guard mirroring the initial claim: if this job was pulled out from under us

@@ -26,10 +26,13 @@ export async function getConceptDetail(
     where: { id: planId },
     select: {
       userId: true,
+      // Every document, oldest first. `take: 1` on `desc` used to be a fine shorthand for "the
+      // plan's file" back when a plan had exactly one; with a whole subject in one plan it picked
+      // the most recently ADDED file and showed it as the source of every concept — so a concept
+      // from chapter 2 was labelled with the appendix someone uploaded last week.
       documents: {
         select: { id: true, filename: true, kind: true },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+        orderBy: { createdAt: 'asc' },
       },
     },
   });
@@ -43,12 +46,26 @@ export async function getConceptDetail(
 
   const concept = await prisma.concept.findFirst({
     where: { id: conceptId, planId },
-    select: { id: true, name: true, difficulty: true, masteryScore: true, lastTestedAt: true },
+    select: {
+      id: true,
+      name: true,
+      difficulty: true,
+      masteryScore: true,
+      lastTestedAt: true,
+      primaryDocumentId: true,
+    },
   });
 
   if (!concept) {
     throw new AppError('Concept not found in this study plan', 404, 'NOT_FOUND');
   }
+
+  // The file this concept is filed under — its topic. Falls back to the plan's FIRST document
+  // (oldest), which is the right answer for the single-document plans that predate the topic
+  // layer and for the concepts a graph edit left unfiled.
+  const conceptDocument =
+    plan.documents.find((document) => document.id === concept.primaryDocumentId) ??
+    plan.documents[0];
 
   const [sourceRefs, remediationItem, turns, focusSessions] = await Promise.all([
     prisma.conceptSourceRef.findMany({
@@ -98,11 +115,11 @@ export async function getConceptDetail(
     lastTestedAt: concept.lastTestedAt,
     isRemediating: remediationItem !== null,
     remediationReason: remediationItem?.reason ?? null,
-    document: plan.documents[0]
+    document: conceptDocument
       ? {
-          documentId: plan.documents[0].id,
-          filename: plan.documents[0].filename,
-          kind: plan.documents[0].kind,
+          documentId: conceptDocument.id,
+          filename: conceptDocument.filename,
+          kind: conceptDocument.kind,
         }
       : null,
     sources: sourceRefs.map((ref) => ({

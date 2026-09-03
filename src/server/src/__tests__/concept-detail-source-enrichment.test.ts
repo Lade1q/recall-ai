@@ -98,7 +98,7 @@ describe('getConceptDetail — sectionTitle/context passthrough (#296)', () => {
 });
 
 describe('getConceptDetail — plan document fallback (#378)', () => {
-  it('returns the latest plan document when the concept has no source anchors', async () => {
+  it('falls back to the plan’s FIRST document when the concept has no source anchors', async () => {
     mockedPrisma.conceptSourceRef.findMany.mockResolvedValue([]);
 
     const detail = await getConceptDetail(PLAN_ID, CONCEPT_ID, USER_ID);
@@ -109,17 +109,46 @@ describe('getConceptDetail — plan document fallback (#378)', () => {
       filename: 'giao-trinh.pdf',
       kind: 'pdf',
     });
+    // Oldest first, and no `take`: the plan can hold a whole subject now, and the answer is the
+    // concept's OWN topic (below) rather than whichever file happens to be newest.
     expect(mockedPrisma.studyPlan.findUnique).toHaveBeenCalledWith({
       where: { id: PLAN_ID },
       select: {
         userId: true,
         documents: {
           select: { id: true, filename: true, kind: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+          orderBy: { createdAt: 'asc' },
         },
       },
     });
+  });
+
+  /**
+   * 🔴 The case a multi-document plan makes real: a concept from chapter 8 must not be labelled
+   * with chapter 2's file just because chapter 2 was uploaded first. Before #378 was widened this
+   * showed the LAST-added document instead, which is wrong in the other direction.
+   */
+  it('names the document the concept is filed under, not the plan’s first', async () => {
+    mockedPrisma.studyPlan.findUnique.mockResolvedValue({
+      userId: USER_ID,
+      documents: [
+        { id: 'doc-1', filename: 'LN02.pdf', kind: 'pdf' },
+        { id: 'doc-2', filename: 'LN08.pdf', kind: 'pdf' },
+      ],
+    });
+    mockedPrisma.concept.findFirst.mockResolvedValue({
+      id: CONCEPT_ID,
+      name: 'Integration testing',
+      difficulty: 3,
+      masteryScore: null,
+      lastTestedAt: null,
+      primaryDocumentId: 'doc-2',
+    });
+    mockedPrisma.conceptSourceRef.findMany.mockResolvedValue([]);
+
+    const detail = await getConceptDetail(PLAN_ID, CONCEPT_ID, USER_ID);
+
+    expect(detail.document).toMatchObject({ documentId: 'doc-2', filename: 'LN08.pdf' });
   });
 
   it('returns null when the plan has no document', async () => {

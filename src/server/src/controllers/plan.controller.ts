@@ -10,6 +10,7 @@ import {
   retryPlanAnalysis,
   changePlanDocument,
   reanalyzePlan,
+  addPlanDocuments,
   updatePlanStatus,
   deletePlan,
 } from '../services/plan.service';
@@ -17,6 +18,7 @@ import {
   createPlanSchema,
   updatePlanStatusSchema,
   planIdParamSchema,
+  addPlanDocumentsSchema,
 } from '../schemas/plan.schema';
 import { createStorageService } from '../services/storage.service';
 import { triggerAnalysis } from '../services/analysis.service';
@@ -25,6 +27,7 @@ import { getPdfPageCount, EncryptedPdfError } from '../utils/pdf';
 import { DocumentMeta } from '../types/plan.types';
 import { AppError } from '../middleware/errorHandler';
 import { STAGING_DIR } from '../middleware/upload.middleware';
+import { MAX_FILES_PER_PLAN, MAX_TOTAL_UPLOAD_SIZE } from '../config/upload-limits';
 
 const storageService = createStorageService();
 
@@ -105,62 +108,147 @@ function stagePastedContent(content: string): {
 }
 
 /**
+ * Every file of one multipart request, whichever field name carried it.
+ *
+ * The route is `upload.fields([{name:'files'}, {name:'file'}])` rather than `upload.array`, so a
+ * client that has not been redeployed yet — and seven backend tests — keep posting `file` and
+ * still work. Both fields are read here and treated as one list; a request using both is not an
+ * error, it is just a request with more files, and the count check below sees the true total.
+ *
+ * `req.file` is NOT set by `upload.fields`, so nothing may read it in this flow.
+ */
+function collectUploadedFiles(req: Request): Express.Multer.File[] {
+  const fields = req.files;
+  if (!fields || Array.isArray(fields)) return [];
+  return [...(fields.files ?? []), ...(fields.file ?? [])];
+}
+
+/** Removes staged files that never made it to storage. Best-effort, never throws. */
+async function unlinkStagedFiles(paths: readonly string[]): Promise<void> {
+  await Promise.all(
+    paths.map(async (filePath) => {
+      try {
+        await fs.promises.access(filePath);
+        await fs.promises.unlink(filePath);
+      } catch {
+        // Already moved or never existed — nothing to clean up.
+      }
+    })
+  );
+}
+
+/**
  * POST /api/v1/plans
  * Creates a new StudyPlan and triggers background analysis.
- * Expects multipart/form-data with either a `file` upload or a pasted-text `content`
- * field (not both) — plus `name`, `deadline`.
+ * Expects multipart/form-data with either file uploads (`files`, or legacy `file`) or a
+ * pasted-text `content` field (not both) — plus `name`, `deadline`.
+ *
+ * One plan now holds a whole subject's worth of documents, and each of them becomes one topic in
+ * the graph. A file that fails validation fails the WHOLE request, before anything is written:
+ * accepting 4 of 5 would hand the student a plan missing a fifth of their syllabus with nothing
+ * on screen saying so. The recovery is cheap — the client keeps the `File[]`, the student removes
+ * the offending file and submits again — and every error message names the file it is about,
+ * which with five uploads is the difference between an actionable error and a riddle.
  */
 export async function createPlanController(req: Request, res: Response): Promise<void> {
   if (!req.userId) {
     throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
   }
 
-  // Set from `req.file` up front so cleanup (step 7) still fires if Zod validation
-  // below throws on a request that *did* stage a multer file.
-  let localFilePath: string | null = req.file?.path ?? null;
-  let uploadedFileKey: string | null = null;
+  const uploadedFiles = collectUploadedFiles(req);
+
+  // Seeded from the staged uploads up front so cleanup (step 7) still fires if Zod validation
+  // below throws on a request that *did* stage files.
+  let localFilePaths: string[] = uploadedFiles.map((file) => file.path);
+  const uploadedFileKeys: string[] = [];
 
   try {
     // 1. Validate inputs (Zod) trước tiên
     const input = createPlanSchema.parse(req.body);
 
-    if (req.file && input.content) {
+    if (uploadedFiles.length > 0 && input.content) {
       throw new AppError(
         'Provide either a file upload or pasted content, not both',
         400,
         'CONTENT_OR_FILE_CONFLICT'
       );
     }
-    if (!req.file && !input.content) {
+    if (uploadedFiles.length === 0 && !input.content) {
       throw new AppError('File or pasted content is required', 400, 'FILE_REQUIRED');
     }
+    // Busboy's own `files` limit is deliberately one higher, because the two accepted field
+    // names can each be within their own limit while the request as a whole is over. This is
+    // the check that actually holds the ceiling.
+    if (uploadedFiles.length > MAX_FILES_PER_PLAN) {
+      throw new AppError(
+        `A plan can hold at most ${MAX_FILES_PER_PLAN} documents (received ${uploadedFiles.length})`,
+        400,
+        'TOO_MANY_FILES'
+      );
+    }
+    const totalBytes = uploadedFiles.reduce((sum, file) => sum + (file.size ?? 0), 0);
+    if (totalBytes > MAX_TOTAL_UPLOAD_SIZE) {
+      throw new AppError(
+        `Total upload size is ${Math.round(totalBytes / 1024 / 1024)}MB, over the ` +
+          `${Math.round(MAX_TOTAL_UPLOAD_SIZE / 1024 / 1024)}MB limit for one plan`,
+        400,
+        'TOTAL_SIZE_EXCEEDED'
+      );
+    }
 
-    const source = req.file
-      ? { path: req.file.path, originalname: req.file.originalname, size: req.file.size }
-      : stagePastedContent(input.content as string);
-    localFilePath = source.path;
+    const sources =
+      uploadedFiles.length > 0
+        ? uploadedFiles.map((file) => ({
+            path: file.path,
+            originalname: file.originalname,
+            size: file.size,
+          }))
+        : [stagePastedContent(input.content as string)];
+    localFilePaths = sources.map((source) => source.path);
 
     // 2. Generate uuid cho StudyPlan trước
     const planId = crypto.randomUUID();
-    const ext = path.extname(source.originalname);
-    uploadedFileKey = `plans/${planId}/${Date.now()}${ext}`;
 
     // 3. Thu thập metadata tài liệu. page_count đọc từ file cục bộ TRƯỚC khi upload
     //    (upload sẽ move/unlink file staging). Ném AppError 400 nếu PDF bị mã hoá,
-    //    trước khi file được upload hay AnalysisJob được tạo (Issue #223).
-    const documentMeta = await buildDocumentMeta(
-      localFilePath,
-      source.originalname,
-      ext,
-      source.size,
-      uploadedFileKey
-    );
+    //    trước khi file được upload hay AnalysisJob được tạo (Issue #223) — và trước khi
+    //    BẤT KỲ tệp nào của lô được đưa lên storage, nên một tệp hỏng ở vị trí 3/5 không để
+    //    lại hai tệp mồ côi trên storage.
+    const documentMetas: DocumentMeta[] = [];
+    for (const [index, source] of sources.entries()) {
+      const ext = path.extname(source.originalname);
+      // `index` keeps the keys distinct when several files are staged inside the same
+      // millisecond — `Date.now()` alone collides, and a collision would silently make two
+      // documents share one stored file.
+      const fileKey = `plans/${planId}/${Date.now()}-${index}${ext}`;
+      try {
+        documentMetas.push(
+          await buildDocumentMeta(source.path, source.originalname, ext, source.size, fileKey)
+        );
+      } catch (error) {
+        // With several files, "this PDF is locked" is not an actionable message unless it says
+        // WHICH one.
+        if (error instanceof AppError && sources.length > 1) {
+          throw new AppError(
+            `${source.originalname}: ${error.message}`,
+            error.statusCode,
+            error.code
+          );
+        }
+        throw error;
+      }
+    }
 
     // 4. Upload lên Storage Service ngoài DB transaction
-    await storageService.upload(localFilePath, uploadedFileKey);
+    for (const [index, source] of sources.entries()) {
+      const meta = documentMetas[index];
+      if (!meta) continue; // unreachable: built one meta per source just above
+      await storageService.upload(source.path, meta.fileKey);
+      uploadedFileKeys.push(meta.fileKey);
+    }
 
-    // 5. Lưu metadata vào DB (plan + document + analysis job)
-    const plan = await createPlanInDb(req.userId, planId, input, documentMeta);
+    // 5. Lưu metadata vào DB (plan + documents + analysis job)
+    const plan = await createPlanInDb(req.userId, planId, input, documentMetas);
 
     // 6. Kích hoạt phân tích Gemini chạy nền — response không đợi (SP-06 polling).
     void triggerAnalysis(planId).catch((err) =>
@@ -175,22 +263,14 @@ export async function createPlanController(req: Request, res: Response): Promise
       },
     });
   } catch (error) {
-    // 7. Cleanup orphaned files on any error (validation, DB, etc.)
+    // 7. Cleanup orphaned files on any error (validation, DB, etc.) — EVERY staged file of the
+    // batch, not just the one that failed, since the whole request is being rejected.
+    await unlinkStagedFiles(localFilePaths);
 
-    // Delete staging file if it hasn't been moved yet
-    if (localFilePath) {
+    // Delete uploaded files from storage if the DB transaction failed after upload
+    for (const fileKey of uploadedFileKeys) {
       try {
-        await fs.promises.access(localFilePath);
-        await fs.promises.unlink(localFilePath);
-      } catch {
-        // File already moved or doesn't exist — no cleanup needed
-      }
-    }
-
-    // Delete uploaded file from storage if DB transaction failed after upload
-    if (uploadedFileKey) {
-      try {
-        await storageService.delete(uploadedFileKey);
+        await storageService.delete(fileKey);
       } catch (err) {
         console.error('Failed to delete uploaded file key from storage:', err);
       }
@@ -395,4 +475,110 @@ export async function deletePlanController(req: Request, res: Response): Promise
   await deletePlan(id, req.userId);
 
   res.status(204).send();
+}
+
+/**
+ * POST /api/v1/plans/:id/documents
+ *
+ * Adds one or more documents to an existing plan and queues the analysis that folds them in
+ * (§4). Plural, and deliberately not the same route as the singular `POST /:id/document`, which
+ * REPLACES the file of a failed draft.
+ *
+ * Expects multipart/form-data: `files` (repeatable) and a required `mode` field. The staging /
+ * upload / cleanup shape is copied from createPlanController on purpose — the failure modes are
+ * identical (a locked PDF at position 3 of 5 must leave nothing behind, on disk or in storage).
+ */
+export async function addPlanDocumentsController(req: Request, res: Response): Promise<void> {
+  if (!req.userId) {
+    throw new AppError('Unauthorized', 401, 'UNAUTHORIZED');
+  }
+
+  const { id } = planIdParamSchema.parse(req.params);
+  const uploadedFiles = collectUploadedFiles(req);
+
+  let localFilePaths: string[] = uploadedFiles.map((file) => file.path);
+  const uploadedFileKeys: string[] = [];
+
+  try {
+    const { mode } = addPlanDocumentsSchema.parse(req.body);
+
+    if (uploadedFiles.length === 0) {
+      throw new AppError('File is required', 400, 'FILE_REQUIRED');
+    }
+    // A per-request ceiling as well as the plan-wide one in the service: this rejects an
+    // over-sized request before anything reaches storage, and it is the only check that can
+    // still fire when the plan itself is empty.
+    if (uploadedFiles.length > MAX_FILES_PER_PLAN) {
+      throw new AppError(
+        `A plan can hold at most ${MAX_FILES_PER_PLAN} documents (received ${uploadedFiles.length})`,
+        400,
+        'TOO_MANY_FILES'
+      );
+    }
+    const totalBytes = uploadedFiles.reduce((sum, file) => sum + (file.size ?? 0), 0);
+    if (totalBytes > MAX_TOTAL_UPLOAD_SIZE) {
+      throw new AppError(
+        `Total upload size is ${Math.round(totalBytes / 1024 / 1024)}MB, over the ` +
+          `${Math.round(MAX_TOTAL_UPLOAD_SIZE / 1024 / 1024)}MB limit for one plan`,
+        400,
+        'TOTAL_SIZE_EXCEEDED'
+      );
+    }
+
+    localFilePaths = uploadedFiles.map((file) => file.path);
+
+    const documentMetas: DocumentMeta[] = [];
+    for (const [index, file] of uploadedFiles.entries()) {
+      const ext = path.extname(file.originalname);
+      const fileKey = `plans/${id}/${Date.now()}-add-${index}${ext}`;
+      try {
+        documentMetas.push(
+          await buildDocumentMeta(file.path, file.originalname, ext, file.size, fileKey)
+        );
+      } catch (error) {
+        if (error instanceof AppError && uploadedFiles.length > 1) {
+          throw new AppError(
+            `${file.originalname}: ${error.message}`,
+            error.statusCode,
+            error.code
+          );
+        }
+        throw error;
+      }
+    }
+
+    for (const [index, meta] of documentMetas.entries()) {
+      const source = uploadedFiles[index];
+      if (!source) continue; // unreachable: built one meta per uploaded file just above
+      await storageService.upload(source.path, meta.fileKey);
+      uploadedFileKeys.push(meta.fileKey);
+    }
+
+    const plan = await addPlanDocuments(id, req.userId, documentMetas, mode);
+
+    // The AI Examiner caches the plan's material for 12h; a session started after this analysis
+    // finishes would otherwise still be quizzing from the file set as it was before.
+    invalidatePlanMaterial(id);
+
+    void triggerAnalysis(id).catch((err) =>
+      console.error(`[analysis] add-documents trigger failed for plan ${id}:`, err)
+    );
+
+    res.status(202).json({
+      success: true,
+      data: { plan, message: 'Documents added, analysis initiated' },
+    });
+  } catch (error) {
+    await unlinkStagedFiles(localFilePaths);
+
+    for (const fileKey of uploadedFileKeys) {
+      try {
+        await storageService.delete(fileKey);
+      } catch (err) {
+        console.error('Failed to delete uploaded file key from storage:', err);
+      }
+    }
+
+    throw error;
+  }
 }

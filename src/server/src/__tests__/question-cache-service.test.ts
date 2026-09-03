@@ -66,7 +66,9 @@ describe('pregenerateForPlan', () => {
 
     expect(mockedPrisma.concept.findMany).toHaveBeenCalledWith({
       where: { planId: PLAN_ID, status: 'active' },
-      select: { id: true, name: true },
+      // `primaryDocumentId` rides along: pre-generation grounds each concept in the file it is
+      // filed under, so it needs to know which one that is (§4 multi-document plans).
+      select: { id: true, name: true, primaryDocumentId: true },
     });
     expect(mockedPrisma.questionCache.groupBy).not.toHaveBeenCalled();
     expect(mockedGenerateQuestion).not.toHaveBeenCalled();
@@ -260,5 +262,106 @@ describe('clearQuestionCacheForPlan', () => {
     expect(tx.questionCache.deleteMany).toHaveBeenCalledWith({
       where: { concept: { planId: PLAN_ID } },
     });
+  });
+});
+
+/**
+ * §4 / multi-document plans: pre-generation is grounded per TOPIC.
+ *
+ * A single whole-plan load used to happen once up front. On a plan holding a whole subject that
+ * pre-warmed every concept from the plan's first file — so the cached question a student sees
+ * when Gemini is down was written about the wrong chapter, with no way to tell.
+ */
+describe('pregenerateForPlan — material per topic', () => {
+  const originalUseMockAi = process.env.USE_MOCK_AI;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.USE_MOCK_AI = 'true'; // zero throttle delay
+    mockedPrisma.questionCache.groupBy.mockResolvedValue([]);
+    mockedPrisma.questionCache.count.mockResolvedValue(0);
+    mockedPrisma.questionCache.create.mockResolvedValue({});
+    mockedPrisma.studyPlan.findUnique.mockResolvedValue({ languageDetected: 'vi' });
+    mockedGenerateQuestion.mockResolvedValue({
+      question_text: 'Nêu định nghĩa?',
+      question_type: 'definition',
+    });
+  });
+
+  afterAll(() => {
+    process.env.USE_MOCK_AI = originalUseMockAi;
+  });
+
+  it('loads each concept’s own document', async () => {
+    mockedPrisma.concept.findMany.mockResolvedValue([
+      { id: 'c1', name: 'Software Process', primaryDocumentId: 'doc-ln02' },
+      { id: 'c2', name: 'Integration testing', primaryDocumentId: 'doc-ln08' },
+    ]);
+    mockedLoadMaterial.mockResolvedValue(MATERIAL);
+
+    await pregenerateForPlan(PLAN_ID);
+
+    expect(mockedLoadMaterial).toHaveBeenCalledWith(PLAN_ID, 'doc-ln02');
+    expect(mockedLoadMaterial).toHaveBeenCalledWith(PLAN_ID, 'doc-ln08');
+  });
+
+  it('loads a shared document once, however many concepts sit under it', async () => {
+    mockedPrisma.concept.findMany.mockResolvedValue([
+      { id: 'c1', name: 'A', primaryDocumentId: 'doc-ln02' },
+      { id: 'c2', name: 'B', primaryDocumentId: 'doc-ln02' },
+      { id: 'c3', name: 'C', primaryDocumentId: 'doc-ln02' },
+    ]);
+    mockedLoadMaterial.mockResolvedValue(MATERIAL);
+
+    await pregenerateForPlan(PLAN_ID);
+
+    expect(mockedLoadMaterial).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 🔴 One unreadable file must cost only its own topic. The old whole-plan load returned early,
+   * so a single missing chapter left the entire subject with no cached questions — and the cache
+   * is precisely the fallback for when the live call is unavailable.
+   */
+  it('skips only the concepts of a topic whose file cannot be read', async () => {
+    mockedPrisma.concept.findMany.mockResolvedValue([
+      { id: 'c1', name: 'Broken topic', primaryDocumentId: 'doc-missing' },
+      { id: 'c2', name: 'Healthy topic', primaryDocumentId: 'doc-ok' },
+    ]);
+    mockedLoadMaterial.mockImplementation((_planId: string, documentId: string | null) =>
+      documentId === 'doc-missing' ? Promise.reject(new Error('ENOENT')) : Promise.resolve(MATERIAL)
+    );
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      await pregenerateForPlan(PLAN_ID);
+    } finally {
+      warn.mockRestore();
+    }
+
+    const askedFor = mockedGenerateQuestion.mock.calls.map((call) => call[0].conceptName);
+    expect(askedFor).not.toContain('Broken topic');
+    expect(askedFor).toContain('Healthy topic');
+  });
+
+  it('warns once per broken document, not once per concept under it', async () => {
+    mockedPrisma.concept.findMany.mockResolvedValue([
+      { id: 'c1', name: 'A', primaryDocumentId: 'doc-missing' },
+      { id: 'c2', name: 'B', primaryDocumentId: 'doc-missing' },
+      { id: 'c3', name: 'C', primaryDocumentId: 'doc-missing' },
+    ]);
+    mockedLoadMaterial.mockRejectedValue(new Error('ENOENT'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    let warnings: unknown[][];
+    try {
+      await pregenerateForPlan(PLAN_ID);
+      warnings = warn.mock.calls.filter((call) => String(call[0]).includes('could not load'));
+    } finally {
+      warn.mockRestore();
+    }
+
+    expect(warnings).toHaveLength(1);
+    expect(mockedGenerateQuestion).not.toHaveBeenCalled();
   });
 });

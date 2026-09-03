@@ -20,6 +20,13 @@ export const ENDPOINTS = {
     /** Reads one stored document back (#203) — plural, unlike DOCUMENT above which replaces it. */
     DOCUMENT_FILE: (planId: string, documentId: string) =>
       `/api/v1/plans/${planId}/documents/${documentId}`,
+    /**
+     * Adds documents to an existing plan (§4). Same path as DOCUMENT_FILE's parent, different
+     * verb: POST here *adds* files, while the singular DOCUMENT above *replaces* the one file of
+     * a failed draft. Two endpoints one character apart, so the distinction is spelled out at
+     * every call site rather than left to the reader.
+     */
+    ADD_DOCUMENTS: (id: string) => `/api/v1/plans/${id}/documents`,
   },
   INTERVIEWS: {
     BASE: '/api/v1/interviews',

@@ -15,6 +15,17 @@ export const replaceGraphSchema = z.object({
     z.object({
       name: z.string().trim().min(1, 'Concept name is required').max(255),
       difficulty: z.number().int().min(1).max(5).optional(),
+      /**
+       * Which document (= topic) a NEWLY created concept belongs under.
+       *
+       * Only read for a name the plan does not already hold; an existing concept keeps the topic
+       * it was extracted into, so re-sending the whole graph cannot shuffle the topic layer.
+       *
+       * Without this, a concept the student adds while a topic is open lands with
+       * `primary_document_id = NULL` and disappears from the very topic they added it to —
+       * silently, since it reappears only in the "Chưa xếp chủ đề" bucket.
+       */
+      primaryDocumentId: z.string().uuid().optional(),
     })
   ),
   edges: z.array(
@@ -23,6 +34,25 @@ export const replaceGraphSchema = z.object({
       to: z.string().trim().min(1),
     })
   ),
+  /**
+   * The topic layer: which document should be studied before which, by document id.
+   *
+   * **OPTIONAL, and its absence is not "no edges"** — it means "leave the topic layer exactly as
+   * it is". That distinction is the whole safety of this field: the editor's live DAG re-check
+   * re-sends the concept graph on every keystroke and knows nothing about topics, so treating a
+   * missing field as an empty list would wipe the study order between documents on the first
+   * edit, silently, with the arrows nowhere on screen at that moment.
+   *
+   * Sent as `[]` only by a caller that means it — a student who deleted the last topic arrow.
+   */
+  documentEdges: z
+    .array(
+      z.object({
+        from: z.string().uuid(),
+        to: z.string().uuid(),
+      })
+    )
+    .optional(),
   confirm: z.boolean().optional().default(false),
 });
 

@@ -36,7 +36,7 @@ type FormValues = z.infer<typeof formSchema>;
 
 export default function CreatePlanPage() {
   const navigate = useNavigate();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitPhase, setSubmitPhase] = useState<'idle' | 'uploading' | 'analyzing'>('idle');
   const [fileError, setFileError] = useState(false);
   const [activeTab, setActiveTab] = useState<'pdf' | 'img' | 'text'>('pdf');
@@ -70,7 +70,7 @@ export default function CreatePlanPage() {
     : null;
 
   const onSubmit = async (values: FormValues) => {
-    let fileToUpload: File | null = selectedFile;
+    let filesToUpload: File[] = selectedFiles;
 
     if (activeTab === 'text') {
       if (!textContent.trim()) {
@@ -83,9 +83,10 @@ export default function CreatePlanPage() {
         toast.error(`Văn bản dán vào nặng ${sizeMB} MB, vượt giới hạn 10 MB.`);
         return;
       }
-      fileToUpload = new File([blob], 'pasted-text.txt', { type: 'text/plain' });
+      // Pasted text stays one document — one topic — by construction.
+      filesToUpload = [new File([blob], 'pasted-text.txt', { type: 'text/plain' })];
     } else {
-      if (!selectedFile) {
+      if (selectedFiles.length === 0) {
         setFileError(true);
         return;
       }
@@ -98,7 +99,12 @@ export default function CreatePlanPage() {
       const formData = new FormData();
       formData.append('name', values.planName);
       formData.append('deadline', format(values.deadline, 'yyyy-MM-dd'));
-      formData.append('file', fileToUpload!);
+      // Field name `files`, repeated once per document. The server also still accepts a single
+      // `file` (that is what `upload.fields` buys), so an old client keeps working — but a new
+      // one must not send both, or the count check sees more files than the student picked.
+      for (const file of filesToUpload) {
+        formData.append('files', file);
+      }
 
       const response = await planApi.createPlan(formData);
 
@@ -134,7 +140,12 @@ export default function CreatePlanPage() {
   };
 
   if (submitPhase !== 'idle') {
-    const documentLabel = activeTab === 'text' ? 'Văn bản (Dán)' : selectedFile?.name || 'Tài liệu';
+    const documentLabel =
+      activeTab === 'text'
+        ? 'Văn bản (Dán)'
+        : selectedFiles.length > 1
+          ? `${selectedFiles.length} tài liệu`
+          : (selectedFiles[0]?.name ?? 'Tài liệu');
 
     return (
       <div className="mx-auto w-full max-w-3xl pb-12 pt-6">
@@ -205,6 +216,8 @@ export default function CreatePlanPage() {
                 documentKind={analysisPlan?.document?.kind}
                 startedAt={analysisPlan?.analysisStartedAt}
                 now={now}
+                documentsTotal={analysisPlan?.analysisDocumentsTotal ?? null}
+                documentsDone={analysisPlan?.analysisDocumentsDone ?? null}
                 phase={analysisPlan?.analysisPhase ?? null}
                 complete={analysisPlan?.analysisStatus === 'done'}
               />
@@ -385,17 +398,16 @@ export default function CreatePlanPage() {
             />
           ) : (
             <FileDropzone
-              selectedFile={selectedFile}
-              onFileSelect={(file) => {
-                setSelectedFile(file);
-                if (file) setFileError(false);
+              selectedFiles={selectedFiles}
+              onFilesChange={(files) => {
+                setSelectedFiles(files);
+                if (files.length > 0) setFileError(false);
               }}
               error={fileError ? 'Vui lòng tải lên tài liệu để tiếp tục.' : undefined}
               allowedTypes={
                 activeTab === 'pdf' ? ['application/pdf'] : ['image/png', 'image/jpeg', 'image/jpg']
               }
               acceptString={activeTab === 'pdf' ? '.pdf' : '.png,.jpg,.jpeg'}
-              hintText={activeTab === 'pdf' ? 'PDF · tối đa 10 MB' : 'PNG, JPG · tối đa 10 MB'}
               errorText={
                 activeTab === 'pdf'
                   ? 'Định dạng không được hỗ trợ. Chỉ nhận PDF.'

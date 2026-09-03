@@ -30,6 +30,39 @@ export interface PlanDocumentSummary {
   kind: DocumentKind;
 }
 
+/**
+ * One document of a plan, as a node of the topic layer.
+ *
+ * ONE FILE = ONE TOPIC, so this is the topic layer's node type — there is no `Topic` row to
+ * carry an id of its own. `id` is what `?topic=<uuid>` in the URL names, and what
+ * `Concept.primaryDocumentId` points at.
+ *
+ * There is no display name here on purpose: the label is derived from `filename` on the client
+ * (`topicLabel`). `Document.filename` must stay byte-for-byte what the student uploaded, because
+ * an `UPDATE` on `documents` bumps `updatedAt`, which is the marker C5 citations use to tell "the
+ * file was swapped after this quote was taken".
+ */
+export interface PlanDocumentItemResponse {
+  id: string;
+  filename: string;
+  pageCount: number | null;
+  kind: DocumentKind;
+}
+
+/**
+ * One edge of the topic layer: "study `fromDocumentId` before `toDocumentId`".
+ *
+ * Every row is inferred by the phase-2 linking call from concept descriptions, never read off a
+ * page — phase 1 only ever sees one file, so it cannot produce one of these. That is why there is
+ * no `source` field: the property belongs to the whole collection, and the client draws ALL of
+ * these dashed and asks the student to check them.
+ */
+export interface DocumentEdgeItemResponse {
+  id: string;
+  fromDocumentId: string;
+  toDocumentId: string;
+}
+
 export interface PlanItemResponse {
   id: string;
   name: string;
@@ -54,7 +87,11 @@ export interface PlanItemResponse {
   analysisStartedAt: Date | null;
   /** Real reason the latest job failed, truncated/safe — null unless status is `failed` (#183). */
   analysisErrorMessage: string | null;
+  /** The FIRST document of the plan — the card names one file even when the plan holds several. */
   document: PlanDocumentSummary | null;
+  /** How many documents the plan holds, so the card can say "+2 tệp khác" rather than lie by
+   *  omission. `0` for the (broken, but existing) case of a plan with no document row. */
+  documentCount: number;
   createdAt: Date;
 }
 
@@ -87,6 +124,13 @@ export interface ConceptItemResponse {
  */
 export interface GraphConceptItemResponse extends ConceptItemResponse {
   isRemediating: boolean;
+  /**
+   * Which document (= topic) this concept is filed under, or `null` for one that belongs to
+   * none — a concept the student added by hand at the verification step, or one extracted while
+   * the plan had no document row. The client groups those under "Chưa xếp chủ đề" rather than
+   * hiding them.
+   */
+  primaryDocumentId: string | null;
 }
 
 export interface EdgeItemResponse {
@@ -112,11 +156,26 @@ export interface PlanDetailResponse {
   analysisStatus: AnalysisJobStatus | null;
   /** Sub-step of a `processing` job — null outside that state (Issue #186). */
   analysisPhase: AnalysisJobPhase | null;
+  /**
+   * Progress of the extraction phase, so the panel can say "đã đọc 2/3 tệp" instead of showing
+   * a blind bar while several documents are read in parallel.
+   *
+   * `null` for a job that ran before these columns existed. The client must read that as "not
+   * known" and fall back to the phase-only bar — NOT as zero, which would render "đã đọc 0/0".
+   */
+  analysisDocumentsTotal: number | null;
+  analysisDocumentsDone: number | null;
   /** When the latest job was queued — the client turns it into an elapsed timer (Issue #186). */
   analysisStartedAt: Date | null;
   /** Real reason the latest job failed, truncated/safe — null unless status is `failed` (#183). */
   analysisErrorMessage: string | null;
+  /** The first document, kept for the SP-06 progress panel that names a single file. */
   document: PlanDocumentSummary | null;
+  /** Every document of the plan, oldest first — the nodes of the topic layer. */
+  documents: PlanDocumentItemResponse[];
+  /** Study order between those documents. Empty is a legitimate answer ("order unknown"), and
+   *  the client must still draw the topics, just without arrows. */
+  documentEdges: DocumentEdgeItemResponse[];
   dagAutoFixed: boolean;
   tracebackEnabled: boolean;
   createdAt: Date;
@@ -235,4 +294,22 @@ export interface ChangeDocumentResponse {
   deadline: Date | null;
   status: StudyPlanStatus;
   analysisStatus: AnalysisJobStatus;
+}
+
+/**
+ * Response shape for POST /plans/:id/documents (§4 — thêm tài liệu).
+ *
+ * Same envelope as reanalyze: the plan drops back to `draft` and a job is pending, so the
+ * client polls the very same progress endpoint. `mode` is echoed back because the two modes
+ * behave visibly differently at the end (append never deprecates), and a client that has to
+ * explain "vì sao khái niệm cũ vẫn còn" needs to know which one actually ran.
+ */
+export interface AddPlanDocumentsResponse {
+  id: string;
+  name: string;
+  deadline: Date | null;
+  status: StudyPlanStatus;
+  analysisStatus: AnalysisJobStatus;
+  mode: 'full' | 'append';
+  documentCount: number;
 }

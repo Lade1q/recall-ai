@@ -44,3 +44,40 @@ describe('replaceGraphSchema confirm field', () => {
     expect(replaceGraphSchema.parse({ ...base, confirm: false }).confirm).toBe(false);
   });
 });
+
+/**
+ * 🔴 `documentEdges` must NOT default to `[]`.
+ *
+ * `confirm` right above it defaults, and the natural instinct when adding an array field is to
+ * do the same. Here that would be destructive: the editor's live DAG re-check re-sends the
+ * concept graph on every edit and never mentions topics, so a defaulted empty list would read as
+ * "the student deleted every arrow between documents" and wipe the study order on the first
+ * keystroke — with the topic layer not even on screen.
+ *
+ * This is a SCHEMA test on purpose: `replacePlanGraph`'s own tests call the service with a typed
+ * object and never touch Zod, so they cannot see this default at all (measured 03/09 — adding
+ * `.default([])` left every service test green).
+ */
+describe('replaceGraphSchema documentEdges field', () => {
+  const base = { concepts: [{ name: 'A' }], edges: [] };
+
+  it('stays undefined when omitted — absence means "leave the topic layer alone"', () => {
+    expect(replaceGraphSchema.parse(base).documentEdges).toBeUndefined();
+  });
+
+  it('keeps an explicit empty list distinguishable from omission', () => {
+    expect(replaceGraphSchema.parse({ ...base, documentEdges: [] }).documentEdges).toEqual([]);
+  });
+
+  it('accepts document ids and rejects anything that is not a uuid', () => {
+    const from = '11111111-1111-4111-8111-111111111111';
+    const to = '22222222-2222-4222-8222-222222222222';
+
+    expect(
+      replaceGraphSchema.parse({ ...base, documentEdges: [{ from, to }] }).documentEdges
+    ).toEqual([{ from, to }]);
+    expect(
+      replaceGraphSchema.safeParse({ ...base, documentEdges: [{ from: 'LN02.pdf', to }] }).success
+    ).toBe(false);
+  });
+});

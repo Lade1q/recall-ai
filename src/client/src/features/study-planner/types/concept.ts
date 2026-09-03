@@ -15,6 +15,12 @@ export interface Concept {
   lastTestedAt?: string | null;
   /** Second, orthogonal channel next to mastery band: pending in the AE-07 review queue. */
   isRemediating?: boolean;
+  /**
+   * Tài liệu mà khái niệm này được xếp dưới — tức CHỦ ĐỀ của nó ở tầng trên của đồ thị.
+   * `null`/vắng nghĩa là chưa xếp chủ đề nào (khái niệm người dùng tự thêm ở bước kiểm chứng);
+   * UI gom chúng vào rổ "Chưa xếp chủ đề" chứ không giấu đi.
+   */
+  primaryDocumentId?: string | null;
 }
 
 export interface ConceptEdge {
@@ -37,7 +43,7 @@ export type PlanStatus = 'draft' | 'active' | 'archived';
 export type AnalysisStatus = 'pending' | 'processing' | 'done' | 'failed';
 
 /** Sub-step of a `processing` AnalysisJob (Issue #186, SP-06 mockup's 4-phase progress). */
-export type AnalysisPhase = 'sending_to_ai' | 'extracting' | 'validating';
+export type AnalysisPhase = 'sending_to_ai' | 'extracting' | 'linking' | 'validating';
 
 /**
  * `kind` matters to the SP-06 progress panel: a `text` document is inlined into the extract
@@ -50,6 +56,34 @@ export interface PlanDocumentSummary {
   kind: 'pdf' | 'image' | 'text';
 }
 
+/**
+ * Một tài liệu của kế hoạch — và, vì MỘT TỆP = MỘT CHỦ ĐỀ, cũng chính là một NODE của tầng chủ
+ * đề. Không có bảng `topics` nào, nên `id` ở đây là thứ `?topic=<uuid>` trên URL trỏ tới và là
+ * thứ `Concept.primaryDocumentId` chỉ vào.
+ *
+ * Không có tên hiển thị riêng: nhãn suy ra từ `filename` bằng `topicLabel` ở client, vì
+ * `Document.filename` phải giữ nguyên byte-for-byte những gì sinh viên tải lên.
+ */
+export interface PlanDocument {
+  id: string;
+  filename: string;
+  pageCount: number | null;
+  kind: 'pdf' | 'image' | 'text';
+}
+
+/**
+ * Một cạnh của tầng chủ đề: "học `fromDocumentId` trước `toDocumentId`".
+ *
+ * MỌI hàng đều do lượt nối (pha 2) SUY RA từ mô tả khái niệm, không phải đọc thẳng trang tài
+ * liệu — pha 1 chỉ nhìn một tệp nên về nguyên tắc không sinh được cạnh loại này. Vì thế không có
+ * trường `source`: tính chất đó là của cả tập hợp, và UI vẽ TOÀN BỘ cạnh này bằng nét đứt.
+ */
+export interface PlanDocumentEdge {
+  id: string;
+  fromDocumentId: string;
+  toDocumentId: string;
+}
+
 export interface PlanDetails {
   id: string;
   name: string;
@@ -57,10 +91,19 @@ export interface PlanDetails {
   status: PlanStatus;
   analysisStatus?: AnalysisStatus | null;
   analysisPhase?: AnalysisPhase | null;
+  /** Tiến độ pha đọc tài liệu: "đã đọc k/N tệp". `null` = job cũ, chưa có số — đọc là "không
+   *  biết" rồi rơi về thanh theo pha, KHÔNG đọc là 0. */
+  analysisDocumentsTotal?: number | null;
+  analysisDocumentsDone?: number | null;
   analysisStartedAt?: string | null;
   /** Real reason the latest job failed, truncated/safe — null unless status is `failed` (#183). */
   analysisErrorMessage?: string | null;
   document?: PlanDocumentSummary | null;
+  /** Mọi tài liệu của kế hoạch, cũ nhất trước — các node của tầng chủ đề. */
+  documents?: PlanDocument[];
+  /** Thứ tự học giữa các tài liệu. Rỗng là câu trả lời hợp lệ ("chưa biết thứ tự"): vẫn phải vẽ
+   *  đủ các ô chủ đề, chỉ không có mũi tên. */
+  documentEdges?: PlanDocumentEdge[];
   dagAutoFixed?: boolean;
   graph: PlanGraph;
 }
@@ -86,6 +129,8 @@ export interface PlanSummary {
   /** Real reason the latest job failed, truncated/safe — null unless status is `failed` (#183). */
   analysisErrorMessage: string | null;
   document: PlanDocumentSummary | null;
+  /** Kế hoạch có mấy tài liệu — thẻ nêu tên tệp đầu và đếm phần còn lại. */
+  documentCount?: number;
   createdAt: string;
   /** Số KHÁI NIỆM distinct đang chờ ôn của plan (#232 phần 2, đếm theo `conceptId` — KHÔNG phải
    *  số dòng `ReviewQueueItem`) — chân thẻ SP-03 dùng, khác `conceptCount`. */
@@ -101,6 +146,7 @@ export interface BackendConcept {
   lastTestedAt?: string | null;
   isRemediating?: boolean;
   source?: ConceptSource;
+  primaryDocumentId?: string | null;
 }
 
 export interface BackendEdge {
@@ -160,9 +206,13 @@ export interface BackendPlanDetails {
   status: PlanStatus;
   analysisStatus: AnalysisStatus | null;
   analysisPhase: AnalysisPhase | null;
+  analysisDocumentsTotal?: number | null;
+  analysisDocumentsDone?: number | null;
   analysisStartedAt: string | null;
   analysisErrorMessage: string | null;
   document: PlanDocumentSummary | null;
+  documents?: PlanDocument[];
+  documentEdges?: PlanDocumentEdge[];
   dagAutoFixed: boolean;
   concepts: BackendConcept[];
   edges: BackendEdge[];

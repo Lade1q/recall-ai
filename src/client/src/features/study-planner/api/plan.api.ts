@@ -83,6 +83,15 @@ const UPLOAD_VALIDATION_CODES = new Set([
   // plan.schema.ts, which normalises an untouched textarea's `''` away), so this is the branch
   // that catches such a client rather than dead weight.
   'CONTENT_OR_FILE_CONFLICT',
+  // Multi-document upload. Both carry a server message that already names the real numbers
+  // ("received 9", "31MB over the 25MB limit"), which is more useful than anything the client
+  // could compose from the code alone.
+  //
+  // TOO_MANY_FILES arrives from two places with the same meaning: the controller, which counts
+  // both accepted field names together, and the multer LIMIT_FILE_COUNT mapping for a request
+  // that floods a single field.
+  'TOO_MANY_FILES',
+  'TOTAL_SIZE_EXCEEDED',
 ]);
 
 /** Same shape as getRetryErrorMessage, for POST /plans/:id/document's DOCUMENT_CHANGE_NOT_ALLOWED
@@ -98,6 +107,15 @@ export function getChangeDocumentErrorMessage(error: unknown): string {
   const code: string | undefined = error.response.data?.error?.code;
   if (code === 'DOCUMENT_CHANGE_NOT_ALLOWED') {
     return 'Không thể đổi tài liệu lúc này — kế hoạch có thể đã đổi trạng thái. Vui lòng tải lại trang.';
+  }
+  // A plan holding several documents has no single file to replace. The server's message names
+  // the real count and the way out, so pass it through rather than flattening it to the generic
+  // "đổi trạng thái" line above, which would be plainly wrong here.
+  if (code === 'DOCUMENT_CHANGE_AMBIGUOUS') {
+    const message: unknown = error.response.data?.error?.message;
+    return typeof message === 'string' && message.trim()
+      ? message
+      : 'Kế hoạch này có nhiều tài liệu nên không xác định được tệp cần thay.';
   }
   if (code && UPLOAD_VALIDATION_CODES.has(code)) {
     return error.response.data?.error?.message ?? 'Tài liệu không hợp lệ.';
@@ -120,6 +138,34 @@ export function getCreatePlanErrorMessage(error: unknown): string {
     return error.response.data?.error?.message ?? 'Tài liệu không hợp lệ.';
   }
   return 'Có lỗi xảy ra khi tạo kế hoạch. Vui lòng thử lại.';
+}
+
+/**
+ * Lỗi của POST /plans/:id/documents (§4 — thêm tài liệu).
+ *
+ * `ADD_DOCUMENTS_NOT_ALLOWED` gộp bốn lý do từ chối (đang phân tích dở, kế hoạch đã lưu trữ,
+ * draft chưa phân tích xong, job cũ kẹt) và server viết sẵn một câu tiếng Việt KHÁC NHAU cho
+ * từng lý do — nên ở đây phải chuyển tiếp `message`, không được thay bằng một câu chung. Đây là
+ * đúng cái bẫy `PLAN_NOT_ACTIVE` (#350) đã rơi vào: câu server viết cẩn thận bị nuốt mất.
+ */
+export function getAddDocumentsErrorMessage(error: unknown): string {
+  if (!isAxiosError(error)) {
+    return 'Không thêm được tài liệu. Vui lòng thử lại.';
+  }
+  if (!error.response) {
+    return 'Không kết nối được tới máy chủ. Vui lòng thử lại.';
+  }
+  const code: string | undefined = error.response.data?.error?.code;
+  const message: unknown = error.response.data?.error?.message;
+  if (code === 'ADD_DOCUMENTS_NOT_ALLOWED') {
+    return typeof message === 'string' && message.trim()
+      ? message
+      : 'Không thể thêm tài liệu vào kế hoạch này lúc này. Vui lòng tải lại trang.';
+  }
+  if (code && UPLOAD_VALIDATION_CODES.has(code)) {
+    return typeof message === 'string' && message.trim() ? message : 'Tài liệu không hợp lệ.';
+  }
+  return 'Không thêm được tài liệu. Vui lòng thử lại.';
 }
 
 interface BackendCreatePlanResponse {
@@ -177,6 +223,7 @@ export const planApi = {
       lastTestedAt: c.lastTestedAt ?? null,
       isRemediating: c.isRemediating ?? false,
       source: c.source,
+      primaryDocumentId: c.primaryDocumentId ?? null,
     }));
 
     const mappedEdges: ConceptEdge[] = backendData.edges.map((e) => ({
@@ -192,9 +239,15 @@ export const planApi = {
       status: backendData.status,
       analysisStatus: backendData.analysisStatus,
       analysisPhase: backendData.analysisPhase,
+      analysisDocumentsTotal: backendData.analysisDocumentsTotal ?? null,
+      analysisDocumentsDone: backendData.analysisDocumentsDone ?? null,
       analysisStartedAt: backendData.analysisStartedAt,
       analysisErrorMessage: backendData.analysisErrorMessage,
       document: backendData.document,
+      // `?? []` chứ không để undefined: nơi tiêu thụ chọn tầng theo `documents.length`, và một
+      // `undefined` ở đó đọc thành "0 tài liệu" chỉ khi ai đó nhớ viết `?.length ?? 0`.
+      documents: backendData.documents ?? [],
+      documentEdges: backendData.documentEdges ?? [],
       dagAutoFixed: backendData.dagAutoFixed,
       graph: {
         concepts: mappedConcepts,
@@ -206,16 +259,30 @@ export const planApi = {
   updatePlanGraph: async (
     id: string,
     concepts: Concept[],
-    edges: ConceptEdge[]
+    edges: ConceptEdge[],
+    /**
+     * The topic layer. `undefined` (the default) means "leave it alone" — the server treats an
+     * absent field and an empty list differently on purpose, so this must never be defaulted to
+     * `[]` on the way out either.
+     */
+    documentEdges?: { from: string; to: string }[]
   ): Promise<{ success: boolean; data?: { status: string } }> => {
     // Backend PUT expects concepts: [{name, difficulty}], edges: [{from, to}] referencing by NAME.
     const nameMap = new Map<string, string>();
     concepts.forEach((c) => nameMap.set(c.id, c.name));
 
     const backendConcepts = concepts.map((c) => {
-      const payload: { name: string; difficulty?: number } = { name: c.name };
+      const payload: { name: string; difficulty?: number; primaryDocumentId?: string } = {
+        name: c.name,
+      };
       if (c.difficulty != null) {
         payload.difficulty = c.difficulty;
+      }
+      // Only meaningful for a concept the plan does not hold yet — the server reads it for new
+      // names and ignores it for existing ones, so an existing concept can never be shuffled
+      // into another topic by a re-send of the whole graph.
+      if (c.primaryDocumentId) {
+        payload.primaryDocumentId = c.primaryDocumentId;
       }
       return payload;
     });
@@ -230,6 +297,7 @@ export const planApi = {
       {
         concepts: backendConcepts,
         edges: backendEdges,
+        ...(documentEdges ? { documentEdges } : {}),
         confirm: true,
       }
     );
@@ -301,6 +369,24 @@ export const planApi = {
    */
   reanalyzePlan: async (id: string): Promise<void> => {
     await apiClient.post(ENDPOINTS.PLANS.REANALYZE(id));
+  },
+
+  /**
+   * Adds documents to an existing plan and starts the analysis that folds them in (§4).
+   *
+   * `mode` is required and has no default on either side of the wire: `'full'` re-reads every
+   * file of the plan (accurate, N AI calls), `'append'` reads only the new ones (fast, and it
+   * never deprecates or rewrites anything the old graph holds). The dialog makes the user pick.
+   */
+  addDocuments: async (id: string, files: File[], mode: 'full' | 'append'): Promise<void> => {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('files', file);
+    }
+    formData.append('mode', mode);
+    await apiClient.post(ENDPOINTS.PLANS.ADD_DOCUMENTS(id), formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 
   /** Permanent, cascading delete (SP-04). No undo. */

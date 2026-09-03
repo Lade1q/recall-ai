@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
-import { ConceptGraph } from '@/features/study-planner/components/ConceptGraph';
+import { PlanGraphExplorer } from '@/features/study-planner/components/PlanGraphExplorer';
 import { AnalysisProgressPanel } from '@/features/study-planner/components/AnalysisProgressPanel';
 import { PlanCreationStepper } from '@/features/study-planner/components/PlanCreationStepper';
 import {
@@ -246,10 +246,17 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
   };
 
   // Thêm try/catch cho handleConfirmGraph
-  const handleConfirmGraph = async (concepts: Concept[], edges: ConceptEdge[]) => {
+  const handleConfirmGraph = async (
+    concepts: Concept[],
+    edges: ConceptEdge[],
+    // Only present when the student actually removed a topic arrow — see the explorer. Passing
+    // it unconditionally would make every confirm rewrite the topic layer from whatever the
+    // screen happened to hold.
+    documentEdges?: { from: string; to: string }[]
+  ) => {
     if (!id) return;
     try {
-      await planApi.updatePlanGraph(id, concepts, edges);
+      await planApi.updatePlanGraph(id, concepts, edges, documentEdges);
       // Đọc lại kế hoạch từ server thay vì vá `plan` tại chỗ. Bản vá cũ dựng lại `graph`
       // từ chính payload vừa gửi, mà payload đó chỉ mang id/name/mastery_score
       // (ConceptGraph.handleConfirm) — nên `difficulty` biến mất khỏi màn xem cho tới lần
@@ -404,6 +411,8 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
                   documentKind={plan?.document?.kind}
                   startedAt={plan?.analysisStartedAt}
                   now={now}
+                  documentsTotal={plan?.analysisDocumentsTotal ?? null}
+                  documentsDone={plan?.analysisDocumentsDone ?? null}
                   phase={plan?.analysisPhase ?? null}
                   complete={isCompletionPause}
                 />
@@ -476,10 +485,12 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
                 </div>
               </div>
             ) : plan ? (
-              <ConceptGraph
+              <PlanGraphExplorer
                 planId={plan.id}
-                initialConcepts={plan.graph.concepts}
-                initialEdges={plan.graph.edges}
+                documents={plan.documents ?? []}
+                documentEdges={plan.documentEdges ?? []}
+                concepts={plan.graph.concepts}
+                edges={plan.graph.edges}
                 mode="edit"
                 onConfirm={handleConfirmGraph}
                 confirmLabel={
@@ -622,10 +633,12 @@ export default function PlanDetailPage({ routeMode }: PlanDetailPageProps) {
             </div>
           </div>
         ) : (
-          <ConceptGraph
+          <PlanGraphExplorer
             planId={plan.id}
-            initialConcepts={plan.graph.concepts}
-            initialEdges={plan.graph.edges}
+            documents={plan.documents ?? []}
+            documentEdges={plan.documentEdges ?? []}
+            concepts={plan.graph.concepts}
+            edges={plan.graph.edges}
             mode="view"
             onConfirm={undefined}
           />

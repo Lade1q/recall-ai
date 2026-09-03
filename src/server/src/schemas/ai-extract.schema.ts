@@ -72,6 +72,18 @@ export const aiExtractResponseSchema = z.object({
   // (ca-ES-valencia is 14): the `.catch` below means an over-long tag would silently
   // become 'en' and the student would be examined in the wrong language.
   language_detected: z.string().min(2).max(20).catch('en'),
+  /**
+   * Study order BETWEEN uploaded documents, filled only by the phase-2 linking call
+   * (`linkTopics`). `from`/`to` are `Document.filename`, not concept names.
+   *
+   * `.catch([])` makes a malformed value degrade instead of failing the whole parse, but it
+   * does NOT make the field optional: `z.toJSONSchema` still lists it in `required` (measured
+   * 2026-09-03), so Gemini asks phase 1 for it too — and phase 1 sees a single file, so
+   * anything it returns here is invented. `processAnalysisJob` therefore drops phase 1's
+   * `topic_edges` explicitly; the invariant "every document_edges row came from phase 2"
+   * is held by that line of code, not by this schema.
+   */
+  topic_edges: z.array(edgeExtractSchema).catch([]),
 });
 
 export type ConceptExtract = z.infer<typeof conceptExtractSchema>;

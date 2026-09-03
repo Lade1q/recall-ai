@@ -2,6 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { AppError } from './errorHandler';
+import { MAX_FILE_SIZE, MAX_FILES_PER_PLAN, MAX_TOTAL_UPLOAD_SIZE } from '../config/upload-limits';
 
 // Temporary staging directory — files are moved to final storage by StorageService.
 // Exported so createPlanController can stage pasted text (UC-02 A3) the same way multer
@@ -25,7 +26,9 @@ if (!fs.existsSync(STAGING_DIR)) {
 }
 
 const ALLOWED_MIMES = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg'];
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit (inclusive)
+
+// Re-exported so the many existing importers of `MAX_FILE_SIZE` from this module keep working.
+export { MAX_FILE_SIZE, MAX_FILES_PER_PLAN, MAX_TOTAL_UPLOAD_SIZE };
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -50,7 +53,16 @@ const storage = multer.diskStorage({
  */
 export const upload = multer({
   storage,
-  limits: { fileSize: MAX_FILE_SIZE + 1 },
+  // `files` is MAX_FILES_PER_PLAN + 1 for the same reason `fileSize` is MAX_FILE_SIZE + 1: the
+  // route accepts the files under two field names (`files` for the current client, `file` for the
+  // old single-file one), so a legitimate request can carry 8 in one plus 1 in the other. The
+  // exact ceiling is enforced in the controller, which can see both fields at once; busboy's job
+  // here is only to stop a request that is trying to flood the disk.
+  //
+  // Without a `files` limit the 9th file raises LIMIT_UNEXPECTED_FILE, not LIMIT_FILE_COUNT —
+  // and LIMIT_UNEXPECTED_FILE also means "field name I was not told about", so mapping THAT to
+  // TOO_MANY_FILES would mislabel exactly the old-client case `upload.fields` exists to rescue.
+  limits: { fileSize: MAX_FILE_SIZE + 1, files: MAX_FILES_PER_PLAN + 1 },
   // Busboy decodes non-extended Content-Disposition filename params (i.e. `filename=`,
   // as modern browsers send it) as latin1 by default, mangling UTF-8 filenames like
   // "ngăn-xếp.txt" into mojibake before it ever reaches the controller.

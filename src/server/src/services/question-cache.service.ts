@@ -37,7 +37,10 @@ function sleep(ms: number): Promise<void> {
 export async function pregenerateForPlan(planId: string): Promise<void> {
   const concepts = await prisma.concept.findMany({
     where: { planId, status: 'active' },
-    select: { id: true, name: true },
+    // `primaryDocumentId`: each concept is pre-generated against the file it is filed under, the
+    // same rule the live interview follows. Caching one material for the whole plan would
+    // pre-warm every concept of a whole subject from its first file.
+    select: { id: true, name: true, primaryDocumentId: true },
   });
   if (concepts.length === 0) return;
 
@@ -58,23 +61,40 @@ export async function pregenerateForPlan(planId: string): Promise<void> {
     select: { languageDetected: true },
   });
 
-  let material: AiMaterial;
-  try {
-    material = await loadMaterial(planId);
-  } catch (error) {
-    // A plan with no document / an upload failure would fail identically for every concept —
-    // warn once instead of repeating the same error N times below.
-    console.warn(
-      `[question-cache] could not load material for plan ${planId}, skipping pregeneration:`,
-      error
-    );
-    return;
-  }
+  /**
+   * Material per topic, loaded once each and remembered for this run.
+   *
+   * A whole-plan load used to happen up front, which let one failure end the run with a single
+   * warning. Per topic that shortcut is wrong in both directions: one unreadable file must not
+   * cost the other topics their pre-warmed questions, and one failure repeated per concept would
+   * bury the log. So: memoise per document, cache the FAILURE too, and warn once per document.
+   * `getPlanMaterial` already dedupes across runs; this map only avoids re-awaiting within one.
+   */
+  const materialByDocument = new Map<string, Promise<AiMaterial | null>>();
+  const materialFor = (documentId: string | null): Promise<AiMaterial | null> => {
+    const key = documentId ?? 'default';
+    const existing = materialByDocument.get(key);
+    if (existing) return existing;
+    const loading = loadMaterial(planId, documentId).catch((error: unknown) => {
+      console.warn(
+        `[question-cache] could not load material for plan ${planId} document ${key}, ` +
+          'skipping its concepts:',
+        error
+      );
+      return null;
+    });
+    materialByDocument.set(key, loading);
+    return loading;
+  };
 
   let callsMade = 0;
 
   for (const concept of pendingConcepts) {
     const alreadyCached = cachedCountByConcept.get(concept.id) ?? 0;
+    const material = await materialFor(concept.primaryDocumentId);
+    // Its topic's file could not be read. Its siblings under other topics still can be, so this
+    // skips one concept rather than the plan.
+    if (!material) continue;
 
     try {
       // Only the questions generated in this loop, so the prompt's "don't repeat a question

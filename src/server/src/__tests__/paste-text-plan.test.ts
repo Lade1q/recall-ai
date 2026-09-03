@@ -71,15 +71,17 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
         deadline: '2099-12-31',
         content: 'Giới hạn là khái niệm nền tảng của giải tích.',
       },
-      file: undefined,
+      files: {},
     } as unknown as Request;
     const res = mockRes();
 
     await createPlanController(req, res);
 
     expect(mockedCreatePlanInDb).toHaveBeenCalledTimes(1);
-    const documentMeta = mockedCreatePlanInDb.mock.calls[0][3];
-    expect(documentMeta).toMatchObject({ kind: 'text', pageCount: null });
+    // `createPlanInDb` takes the whole list now; pasted text is a one-element one.
+    const documentMetas = mockedCreatePlanInDb.mock.calls[0][3];
+    expect(documentMetas).toHaveLength(1);
+    expect(documentMetas[0]).toMatchObject({ kind: 'text', pageCount: null });
 
     expect(storage.upload).toHaveBeenCalledTimes(1);
     const stagedPath = storage.upload.mock.calls[0]![0] as string;
@@ -110,7 +112,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
         deadline: '2099-12-31',
         content: '',
       },
-      file: { path: '/tmp/does-not-matter.txt', originalname: 'notes.txt', size: 10 },
+      files: { file: [{ path: '/tmp/does-not-matter.txt', originalname: 'notes.txt', size: 10 }] },
     } as unknown as Request;
     const res = mockRes();
 
@@ -140,7 +142,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
         deadline: '2099-12-31',
         content: '   ',
       },
-      file: { path: '/tmp/does-not-matter.txt', originalname: 'notes.txt', size: 10 },
+      files: { file: [{ path: '/tmp/does-not-matter.txt', originalname: 'notes.txt', size: 10 }] },
     } as unknown as Request;
     const res = mockRes();
 
@@ -159,7 +161,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
         deadline: '2099-12-31',
         content: 'Nội dung dán',
       },
-      file: { path: '/tmp/does-not-matter.pdf', originalname: 'a.pdf', size: 10 },
+      files: { file: [{ path: '/tmp/does-not-matter.pdf', originalname: 'a.pdf', size: 10 }] },
     } as unknown as Request;
     const res = mockRes();
 
@@ -175,7 +177,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
     const req = {
       userId: USER_ID,
       body: { name: 'Kế hoạch', deadline: '2099-12-31' },
-      file: undefined,
+      files: {},
     } as unknown as Request;
     const res = mockRes();
 
@@ -196,7 +198,7 @@ describe('createPlanController — dán text (UC-02 A3, Issue #172)', () => {
         deadline: '2099-12-31',
         content: 'Nội dung sẽ không được lưu vì DB lỗi',
       },
-      file: undefined,
+      files: {},
     } as unknown as Request;
     const res = mockRes();
 

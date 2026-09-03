@@ -93,3 +93,19 @@ export const conceptDetailParamsSchema = planIdParamSchema.extend({
 export const planDocumentParamsSchema = planIdParamSchema.extend({
   documentId: z.string().uuid('Document ID must be a valid UUID'),
 });
+
+/**
+ * Body cho POST /plans/:id/documents (§4 — thêm tài liệu vào kế hoạch đã có).
+ *
+ * `mode` KHÔNG có mặc định, và đó là một quyết định chứ không phải thiếu sót: hai chế độ đánh
+ * đổi ngược nhau (đọc lại toàn bộ thì chính xác nhưng tốn N lượt AI; chỉ đọc tệp mới thì nhanh
+ * nhưng khái niệm mới không có cạnh nào sang khái niệm cũ). Đoán hộ người dùng ở đây là chọn hộ
+ * họ một đánh đổi mà màn hình đã bày ra cho họ chọn.
+ */
+export const addPlanDocumentsSchema = z.object({
+  mode: z.enum(['full', 'append'], {
+    message: 'mode must be either "full" or "append"',
+  }),
+});
+
+export type AddPlanDocumentsInput = z.infer<typeof addPlanDocumentsSchema>;
