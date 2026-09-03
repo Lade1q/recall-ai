@@ -35,6 +35,17 @@ export interface QueueEntry {
   hop: number;
   /** The concept whose wrong answer pulled this one in; `null` for `hop === 0`. */
   viaConceptId: string | null;
+  /**
+   * Did this entry *lengthen* the queue? True only for a bucket-1 insert.
+   *
+   * Deliberately not derived from `hop > 0`. A bucket-2 move also stamps a hop — that is how the
+   * screen says "nền của X" for a concept the session was going to reach anyway — so `hop > 0`
+   * counts moves as if they had cost a slot, and `MAX_LIVE_TRACEBACK_INSERTS` then runs out on a
+   * session that has added nothing. That is not a corner case: a one-concept deep link is filled
+   * from the seed's graph neighbours, which are usually its prerequisites, so the first hop is
+   * typically all moves.
+   */
+  added: boolean;
 }
 
 /**
@@ -71,7 +82,8 @@ export function readConceptQueue(value: unknown): QueueEntry[] {
   const entries: QueueEntry[] = [];
   for (const raw of value) {
     if (typeof raw === 'string') {
-      if (raw.length > 0) entries.push({ conceptId: raw, hop: 0, viaConceptId: null });
+      if (raw.length > 0)
+        entries.push({ conceptId: raw, hop: 0, viaConceptId: null, added: false });
       continue;
     }
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) continue;
@@ -82,14 +94,20 @@ export function readConceptQueue(value: unknown): QueueEntry[] {
 
     const hop = candidate.hop;
     const viaConceptId = candidate.viaConceptId;
+    const added = candidate.added;
+    const readHop = Number.isInteger(hop) && (hop as number) >= 0 ? (hop as number) : 0;
     entries.push({
       conceptId,
       // A non-integer / negative / absent hop reads as 0 rather than dropping the entry: the
       // concept is still a real thing to ask about, and 0 is the reading that under-states the
       // budget already spent, so a corrupt row can never *extend* the chain.
-      hop: Number.isInteger(hop) && (hop as number) >= 0 ? (hop as number) : 0,
+      hop: readHop,
       viaConceptId:
         typeof viaConceptId === 'string' && viaConceptId.length > 0 ? viaConceptId : null,
+      // Absent `added` falls back to `hop > 0` — the only thing such a row can tell us, and it
+      // errs toward *over*-counting the budget, so an old row can shorten a chain but never
+      // extend one. Same direction as the `hop` fallback above.
+      added: typeof added === 'boolean' ? added : readHop > 0,
     });
   }
   return entries;
@@ -101,7 +119,24 @@ export function writeConceptQueue(entries: readonly QueueEntry[]): unknown {
     conceptId: entry.conceptId,
     hop: entry.hop,
     viaConceptId: entry.viaConceptId,
+    added: entry.added,
   }));
+}
+
+/**
+ * The queue as a plain list of concept ids, in order — the reason each entry is there dropped.
+ *
+ * Lives here, next to `readConceptQueue`, rather than in `interview.service.ts`, so that the two
+ * modules that need the order but not the reason (`session-summary.service.ts` for AE-09 and
+ * `interview-history.service.ts`) can reach it without pulling in a service with Prisma and
+ * Gemini behind it. That import cost is exactly why both of their suites used to `jest.mock` a
+ * hand-written copy of this projection: the copy kept the pre-traceback `typeof id === 'string'`
+ * filter, so an object-form queue read as `[]` in production while both suites stayed green —
+ * a finished session whose result screen lists no concepts at all. A pure function they can
+ * import for real is the fix; there is nothing left to keep in sync.
+ */
+export function parseConceptQueue(value: unknown): string[] {
+  return readConceptQueue(value).map((entry) => entry.conceptId);
 }
 
 export interface TracebackInsertInput {
@@ -157,8 +192,10 @@ export interface TracebackInsertResult {
  *   - **Hop budget** — a prerequisite inherits `parent.hop + 1` and is dropped past
  *     `MAX_TRACEBACK_HOPS`.
  *   - **Session budget** — at most `MAX_LIVE_TRACEBACK_INSERTS` *added* concepts across the
- *     whole session, counted from the queue itself (`hop > 0`) rather than from a counter, so it
- *     survives a crash and a resume the same way every other piece of this state does.
+ *     whole session, counted from the queue itself (`entry.added`) rather than from a counter,
+ *     so it survives a crash and a resume the same way every other piece of this state does.
+ *     It must be `added` and not `hop > 0`: a move stamps a hop too, and counting those spent
+ *     the whole budget on the common deep-link shape before a single concept had been added.
  *
  * An empty `inserted` is the caller's signal that there is nothing to hop to — the state
  * machine then falls back to the hint ladder, which is still the best remaining move.
@@ -174,7 +211,10 @@ export function planTracebackInsert(input: TracebackInsertInput): TracebackInser
   if (nextHop > MAX_TRACEBACK_HOPS) return unchanged;
 
   const indexById = new Map(entries.map((entry, index) => [entry.conceptId, index]));
-  const addedSoFar = entries.filter((entry) => entry.hop > 0).length;
+  // Counted from `added`, not from `hop > 0`: a moved entry carries a hop but never lengthened
+  // the queue, and charging it here is what made the budget run out on sessions that had added
+  // nothing (see `QueueEntry.added`).
+  const addedSoFar = entries.filter((entry) => entry.added).length;
   let addBudget = MAX_LIVE_TRACEBACK_INSERTS - addedSoFar;
 
   const front: QueueEntry[] = [];
@@ -182,13 +222,17 @@ export function planTracebackInsert(input: TracebackInsertInput): TracebackInser
 
   for (const prerequisite of prerequisites) {
     const at = indexById.get(prerequisite.conceptId);
+    let added: boolean;
 
     if (at === undefined) {
       if (addBudget <= 0) continue;
       addBudget -= 1;
+      added = true;
     } else if (at > cursor) {
-      // Bucket 2 — already queued but not yet asked. Move it, do not add it.
+      // Bucket 2 — already queued but not yet asked. Move it, do not add it: it keeps whatever
+      // `added` it already had, so moving the same entry twice cannot charge the budget twice.
       movedFrom.add(at);
+      added = entries[at]?.added ?? false;
     } else {
       continue; // Bucket 3 — at or behind the cursor.
     }
@@ -197,6 +241,7 @@ export function planTracebackInsert(input: TracebackInsertInput): TracebackInser
       conceptId: prerequisite.conceptId,
       hop: nextHop,
       viaConceptId: parent.conceptId,
+      added,
     });
     // Guards a graph that lists the same prerequisite twice: the second sighting now resolves to
     // the entry we are about to place, not to its old slot.

@@ -1,5 +1,5 @@
 import prisma from '../config/prisma';
-import { submitAnswer } from '../services/interview.service';
+import { getInterview, submitAnswer } from '../services/interview.service';
 import { finalizeConceptResult } from '../services/concept-result.service';
 import { generateQuestion, gradeAnswer } from '../services/gemini.service';
 import { countsTowardMastery } from '../utils/mastery';
@@ -442,5 +442,54 @@ describe('when there is nothing to hop to, the #392 hint ladder still runs', () 
 
     expect(db.studyPlan.findUnique).not.toHaveBeenCalled();
     expect(db.conceptEdge.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('the reported queue has one row per stored entry, so the rail cannot drift', () => {
+  /**
+   * `progress.conceptIndex` indexes the queue as STORED. If the reported queue dropped the
+   * entries whose Concept row is gone, the two would disagree and the screen would put its
+   * "đang hỏi" mark on the row after the one being asked — or on none at all, when the missing
+   * concept sits before the cursor. `PUT /graph` hard-deletes Concept rows, so this is reachable
+   * from the product, not only from a corrupt column.
+   */
+  const GHOST = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+
+  it('keeps a deleted concept as a row with `name: null` instead of dropping it', async () => {
+    session.conceptQueue = [
+      { conceptId: GHOST, hop: 0, viaConceptId: null, added: false },
+      { conceptId: C, hop: 0, viaConceptId: null, added: false },
+      { conceptId: D, hop: 0, viaConceptId: null, added: false },
+    ];
+    session.currentConceptIdx = 0;
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    expect(result.session.queue).toHaveLength(3);
+    expect(result.session.queue[0]).toEqual({
+      conceptId: GHOST,
+      name: null,
+      hop: 0,
+      viaConceptId: null,
+      viaConceptName: null,
+    });
+    // The number the screen indexes with, stated explicitly: it walked past the ghost onto C,
+    // and row 1 of the reported queue is C.
+    expect(result.session.progress.conceptIndex).toBe(1);
+    expect(result.session.queue[1]?.conceptId).toBe(C);
+    expect(result.session.progress.conceptTotal).toBe(3);
+  });
+
+  it('`viaConceptName` is null when the concept that pulled an entry in is the deleted one', async () => {
+    session.conceptQueue = [
+      { conceptId: P, hop: 1, viaConceptId: GHOST, added: true },
+      { conceptId: C, hop: 0, viaConceptId: null, added: false },
+    ];
+    session.currentConceptIdx = 0;
+
+    const result = await getInterview(SESSION_ID, USER_ID);
+
+    // The row survives and still says it is a base — it just cannot name what of.
+    expect(result.session.queue[0]).toMatchObject({ name: NAMES[P], hop: 1, viaConceptName: null });
   });
 });

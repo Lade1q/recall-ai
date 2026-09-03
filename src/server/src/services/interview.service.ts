@@ -187,20 +187,6 @@ interface SessionView {
 // --- Loading ----------------------------------------------------------------------------
 
 /**
- * The queue as a plain list of concept ids, in order. Exported for `session-summary.service.ts`
- * (AE-09) and `interview-history.service.ts`, which need the order but not the reason.
- *
- * Now a thin projection of `readConceptQueue`, which accepts BOTH the legacy `string[]` and the
- * object form live traceback writes. Leaving the old `typeof id === 'string'` filter here would
- * have made both of those callers read an object-form queue as empty — a completed session whose
- * result screen lists no concepts at all, which is the kind of regression that only shows up on
- * the screen everybody looks at last.
- */
-export function parseConceptQueue(value: Prisma.JsonValue): string[] {
-  return readConceptQueue(value).map((entry) => entry.conceptId);
-}
-
-/**
  * Ownership is reported as 404, not 403 (#115): a session that exists but belongs to somebody
  * else must be indistinguishable from one that does not exist, or the endpoint leaks which
  * ids are real.
@@ -461,13 +447,19 @@ function toTurnResponse(
 }
 
 /**
- * The queue with names attached, in stored order.
+ * The queue with names attached, in stored order — **one item per stored entry, never fewer**.
  *
- * A concept whose row has been deleted between sessions (SP-05 re-analysis) is dropped rather
- * than shown as a blank line — `resolveCurrentConcept` already skips those when choosing what to
- * ask, so listing them here would promise questions that will never be asked. `viaConceptName`
- * is resolved from the same batch, and is `null` when the concept that pulled an entry in has
- * itself been deleted.
+ * A concept whose row is gone reports `name: null` rather than being dropped. Dropping it looks
+ * kinder (no blank line for a question that will never be asked) but it silently re-indexes the
+ * list, and `progress.conceptIndex` / `conceptTotal` are indices into the *stored* queue: the
+ * screen would then highlight the row after the one being asked, or none at all when the missing
+ * concept sits before the cursor, and print "Khái niệm 2/3" above two rows. Keeping the entry
+ * makes that class of drift unrepresentable instead of guarded against.
+ *
+ * The only writer that can produce this is `PUT /graph`, which hard-deletes Concept rows
+ * (`graph.service.ts`); an SP-05 re-analysis leaves a `deprecated` tombstone, and neither this
+ * query nor `resolveCurrentConcept` filters on `status`, so those still resolve their name.
+ * `viaConceptName` comes from the same batch and is `null` on the same condition.
  */
 async function toQueueItems(
   entries: readonly QueueEntry[],
@@ -487,19 +479,13 @@ async function toQueueItems(
   });
   const nameById = new Map(concepts.map((concept) => [concept.id, concept.name]));
 
-  return entries.flatMap((entry) => {
-    const name = nameById.get(entry.conceptId);
-    if (name === undefined) return [];
-    return [
-      {
-        conceptId: entry.conceptId,
-        name,
-        hop: entry.hop,
-        viaConceptId: entry.viaConceptId,
-        viaConceptName: entry.viaConceptId ? (nameById.get(entry.viaConceptId) ?? null) : null,
-      },
-    ];
-  });
+  return entries.map((entry) => ({
+    conceptId: entry.conceptId,
+    name: nameById.get(entry.conceptId) ?? null,
+    hop: entry.hop,
+    viaConceptId: entry.viaConceptId,
+    viaConceptName: entry.viaConceptId ? (nameById.get(entry.viaConceptId) ?? null) : null,
+  }));
 }
 
 /**
@@ -1209,8 +1195,9 @@ async function rollbackUnstartedSession(sessionId: string): Promise<void> {
  * wins; otherwise the top of the review queue (I7.3) is taken, which is already ordered
  * traceback-first, weakest-first.
  *
- * Every entry starts at `hop: 0` — these are the concepts the session opened with. Live traceback
- * adds `hop >= 1` entries later, from `advanceToNextQuestion`.
+ * Every entry starts at `hop: 0`, `added: false` — these are the concepts the session opened
+ * with, so none of them has spent any of the live-traceback insert budget. Live traceback adds
+ * `hop >= 1` entries later, from `advanceToNextQuestion`.
  */
 async function resolveConceptQueue(
   planId: string,
@@ -1218,7 +1205,7 @@ async function resolveConceptQueue(
   requested: string[] | undefined
 ): Promise<QueueEntry[]> {
   const asEntries = (ids: string[]): QueueEntry[] =>
-    ids.map((conceptId) => ({ conceptId, hop: 0, viaConceptId: null }));
+    ids.map((conceptId) => ({ conceptId, hop: 0, viaConceptId: null, added: false }));
 
   if (requested && requested.length > 0) {
     const unique = [...new Set(requested)];

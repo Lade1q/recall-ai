@@ -41,7 +41,12 @@ export interface InterviewProgress {
 /** Một khái niệm trong hàng đợi của phiên, kèm lý do nó có mặt. Gương của server. */
 export interface InterviewQueueItemResponse {
   conceptId: string;
-  name: string;
+  /**
+   * `null` khi hàng Concept đã bị xoá giữa chừng (`PUT /graph`). Server VẪN trả entry đó chứ
+   * không lọc bỏ, vì `progress.conceptIndex` đánh trên hàng đợi ĐÃ LƯU — lọc đi thì rail tô
+   * sáng lệch một dòng.
+   */
+  name: string | null;
   /** 0 = mở phiên đã có; 1+ = truy ngược trong phiên kéo vào, `via*` cho biết từ đâu. */
   hop: number;
   viaConceptId: string | null;

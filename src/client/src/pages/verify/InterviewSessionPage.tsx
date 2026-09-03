@@ -882,7 +882,12 @@ function ConceptQueueRail({
             >
               <MetaMono className="text-muted-foreground text-[11px]">{no}</MetaMono>
               <span className="min-w-0">
-                <span className="block truncate">{item.name}</span>
+                {/* `name === null`: khái niệm đã bị xoá khỏi kế hoạch giữa phiên. Server vẫn
+                    trả entry để chỉ số khớp `progress`, nên dòng này phải nói ra là nó sẽ bị
+                    bỏ qua — im lặng hiện dòng trống thì người dùng đọc thành lỗi render. */}
+                <span className={cn('block truncate', item.name === null && 'italic')}>
+                  {item.name ?? 'Khái niệm đã bị xoá khỏi kế hoạch — sẽ bỏ qua'}
+                </span>
                 {item.hop > 0 && item.viaConceptName && (
                   <span className="text-remediate block truncate text-[11px] font-normal">
                     nền của {item.viaConceptName}

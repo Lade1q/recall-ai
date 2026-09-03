@@ -14,11 +14,25 @@ import { MAX_TRACEBACK_DEPTH } from '../services/traceback.service';
  * these must pass with `DATABASE_URL` and `GEMINI_API_KEY` stripped (SDP risk R05).
  */
 
-const root = (conceptId: string): QueueEntry => ({ conceptId, hop: 0, viaConceptId: null });
+const root = (conceptId: string): QueueEntry => ({
+  conceptId,
+  hop: 0,
+  viaConceptId: null,
+  added: false,
+});
+/** An entry live traceback ADDED: it lengthened the queue, so it charges the session budget. */
 const traced = (conceptId: string, hop: number, via: string): QueueEntry => ({
   conceptId,
   hop,
   viaConceptId: via,
+  added: true,
+});
+/** An entry live traceback MOVED: it carries a hop but was already in the queue. */
+const moved = (conceptId: string, hop: number, via: string): QueueEntry => ({
+  conceptId,
+  hop,
+  viaConceptId: via,
+  added: false,
 });
 
 describe('readConceptQueue', () => {
@@ -119,7 +133,47 @@ describe('planTracebackInsert', () => {
     expect(result.inserted).toEqual(['P']);
     // Moved, not duplicated, and now labelled as what pulled it forward.
     expect(result.entries.filter((entry) => entry.conceptId === 'P')).toHaveLength(1);
-    expect(result.entries[0]).toEqual(traced('P', 1, 'C'));
+    expect(result.entries[0]).toEqual(moved('P', 1, 'C'));
+  });
+
+  it('a move does not SPEND the session budget: four moves still leave room to insert', () => {
+    // The half the previous test could not see. Its fixture arrived with the budget already
+    // spent, so it only proved "a move is allowed when there is no room left" — it would have
+    // stayed green while a move quietly consumed a slot. Here nothing has been added yet, and
+    // the moves must leave all four insert slots intact.
+    const seeds = Array.from({ length: MAX_LIVE_TRACEBACK_INSERTS }, (_, i) => root(`P${i}`));
+    const afterMoves = planTracebackInsert({
+      entries: [root('C'), ...seeds],
+      cursor: 0,
+      prerequisites: seeds.map((entry) => ({ conceptId: entry.conceptId })),
+    });
+
+    expect(afterMoves.inserted).toHaveLength(MAX_LIVE_TRACEBACK_INSERTS);
+    // Stated explicitly rather than left implied: the queue is the same length it started at.
+    expect(afterMoves.entries).toHaveLength(MAX_LIVE_TRACEBACK_INSERTS + 1);
+    expect(afterMoves.entries.filter((entry) => entry.added)).toEqual([]);
+
+    // The concept the chain moved to now fails in turn, and its own prerequisite is new.
+    const next = planTracebackInsert({
+      entries: afterMoves.entries,
+      cursor: 0,
+      prerequisites: [{ conceptId: 'fresh' }],
+    });
+    expect(next.inserted).toEqual(['fresh']);
+    expect(next.entries[0]?.added).toBe(true);
+
+    // Control, in the same test so the two cannot drift apart: had those four been INSERTS
+    // rather than moves, this second hop would have been refused.
+    const spent = Array.from({ length: MAX_LIVE_TRACEBACK_INSERTS }, (_, i) =>
+      traced(`added-${i}`, 1, 'C')
+    );
+    expect(
+      planTracebackInsert({
+        entries: [...spent, root('C')],
+        cursor: spent.length,
+        prerequisites: [{ conceptId: 'fresh' }],
+      }).inserted
+    ).toEqual([]);
   });
 
   it('a move costs nothing against the session budget — it lengthens nothing', () => {

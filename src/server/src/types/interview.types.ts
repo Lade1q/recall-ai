@@ -197,7 +197,14 @@ export interface TracebackHopResponse {
 /** One concept of the session's queue, as the screen needs to draw it. */
 export interface InterviewQueueItemResponse {
   conceptId: string;
-  name: string;
+  /**
+   * `null` when the Concept row is gone — a re-analysis or a `PUT /graph` can delete it while
+   * the session is open (`graph.service.ts` hard-deletes; `resolveCurrentConcept` then skips
+   * the entry). The entry is still reported rather than dropped: `progress.conceptIndex` and
+   * `conceptTotal` are indices into the *stored* queue, so a filtered list would make the
+   * screen highlight the wrong row and count rows it does not show.
+   */
+  name: string | null;
   /** 0 = opened with the session; 1+ = pulled in by live traceback, `via*` says from where. */
   hop: number;
   /** Both the id and the name: the screen shows the name, but matches on the id — two concepts

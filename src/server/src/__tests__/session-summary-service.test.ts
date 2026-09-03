@@ -7,8 +7,13 @@ import { AppError } from '../middleware/errorHandler';
 /**
  * AE-09 (I6.5) — `getSessionSummary()` against mocked Prisma / Gemini / `interview.service`.
  * `interview.service.ts` is a 900-line module with its own heavy dependency tree — mocked down
- * to the two functions this file actually reuses from it (`loadSession`, `parseConceptQueue`),
- * same DRY-reuse pattern as `question-cache.service.ts` reusing `loadMaterial`.
+ * to `loadSession`, the one function this file reuses from it, same DRY-reuse pattern as
+ * `question-cache.service.ts` reusing `loadMaterial`.
+ *
+ * `parseConceptQueue` is deliberately NOT mocked: it is pure and lives in `utils/`, so the real
+ * one runs here. It used to be mocked with a hand-written copy that still had the pre-traceback
+ * `typeof id === 'string'` filter, which meant this suite would have stayed green while the
+ * result screen listed no concepts for every session written in the object form.
  */
 jest.mock('../config/prisma', () => ({
   __esModule: true,
@@ -21,9 +26,6 @@ jest.mock('../config/prisma', () => ({
 }));
 jest.mock('../services/interview.service', () => ({
   loadSession: jest.fn(),
-  parseConceptQueue: jest.fn((value: unknown) =>
-    Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
-  ),
 }));
 jest.mock('../services/gemini.service', () => ({
   summarizeSession: jest.fn(),
@@ -75,7 +77,13 @@ function baseSession(overrides: Record<string, unknown> = {}) {
     userId: USER_ID,
     planId: 'plan-uuid',
     status: 'completed',
-    conceptQueue: [CONCEPT_A, CONCEPT_B],
+    // The OBJECT form, which is what every session written since live traceback stores. The
+    // default fixture uses it rather than the legacy `string[]` so the whole suite runs against
+    // the shape production actually has; the legacy shape gets its own test below.
+    conceptQueue: [
+      { conceptId: CONCEPT_A, hop: 0, viaConceptId: null, added: false },
+      { conceptId: CONCEPT_B, hop: 0, viaConceptId: null, added: false },
+    ],
     currentConceptIdx: 2,
     maxTurnsPerConcept: 3,
     fallbackMode: false,
@@ -86,6 +94,55 @@ function baseSession(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('getSessionSummary — the queue column is read, not re-implemented', () => {
+  /**
+   * AE-09 lists the session's concepts in queue order, and the queue is a JSON column that has
+   * had two shapes. Both suites that read it used to `jest.mock` a hand-written copy of
+   * `parseConceptQueue` carrying the pre-traceback `typeof id === 'string'` filter, so an
+   * object-form queue read as `[]` — a finished session whose result screen lists nothing —
+   * while the suite stayed green. The mock is gone; these two pin both shapes.
+   */
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedPrisma.concept.findMany.mockResolvedValue([
+      { id: CONCEPT_A, name: 'Stack', masteryScore: 0.5 },
+    ]);
+    mockedPrisma.interviewTurn.findMany.mockResolvedValue([
+      { conceptId: CONCEPT_A, turnIndex: 1, score: 0.5, verdict: 'shallow', mode: null },
+    ]);
+    mockedPrisma.reviewQueueItem.findMany.mockResolvedValue([]);
+    mockedSummarizeSession.mockResolvedValue({
+      summary_text: 'ok',
+      strengths: [],
+      weaknesses: [],
+      recommendations: [],
+    });
+  });
+
+  it('🔴 lists the concepts of a queue stored in the OBJECT form (post-traceback sessions)', async () => {
+    mockedLoadSession.mockResolvedValue(
+      baseSession({
+        conceptQueue: [{ conceptId: CONCEPT_A, hop: 0, viaConceptId: null, added: false }],
+      })
+    );
+
+    const result = await getSessionSummary(SESSION_ID, USER_ID);
+
+    // Stated as a number, not as "not empty": zero is the exact regression being guarded.
+    expect(result.concepts).toHaveLength(1);
+    expect(result.concepts[0]?.conceptId).toBe(CONCEPT_A);
+  });
+
+  it('🔴 still lists them for a queue stored in the legacy string[] form', async () => {
+    mockedLoadSession.mockResolvedValue(baseSession({ conceptQueue: [CONCEPT_A] }));
+
+    const result = await getSessionSummary(SESSION_ID, USER_ID);
+
+    expect(result.concepts).toHaveLength(1);
+    expect(result.concepts[0]?.conceptId).toBe(CONCEPT_A);
+  });
+});
 
 describe('getSessionSummary', () => {
   beforeEach(() => {

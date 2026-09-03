@@ -100,9 +100,13 @@ function session(turnIndex: number | null): InterviewSessionState {
   };
 }
 
-function mountWith(turns: InterviewTurnResponse[], turnIndex: number | null) {
+function mountWith(
+  turns: InterviewTurnResponse[],
+  turnIndex: number | null,
+  sessionOverride?: Partial<InterviewSessionState>
+) {
   vi.mocked(useInterviewSession).mockReturnValue({
-    session: session(turnIndex),
+    session: { ...session(turnIndex), ...sessionOverride },
     currentQuestion: null,
     turns,
     fallback: null,
@@ -233,5 +237,80 @@ describe('InterviewSessionPage — vai tiêu đề của trạng thái đang ki�
 
     expect(screen.getByText('Kiểm tra vấn đáp')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Kiểm tra vấn đáp' })).toBeNull();
+  });
+});
+
+describe('InterviewSessionPage — hàng đợi khái niệm bám theo chỉ số của hàng đợi ĐÃ LƯU', () => {
+  /**
+   * `progress.conceptIndex` là chỉ số vào hàng đợi **đã lưu**, còn rail vẽ theo `session.queue`.
+   * Chừng nào server còn trả đúng một dòng cho mỗi entry thì hai thứ đó không thể lệch — nên
+   * hợp đồng phải được ghim ở đây, không phải ghim ở "server nhớ đừng lọc".
+   *
+   * Ca kích hoạt: `PUT /graph` xoá CỨNG một hàng Concept giữa phiên. Server trả `name: null`
+   * cho entry đó thay vì bỏ nó đi; bỏ đi thì rail đánh lại chỉ số và tô sáng lệch một dòng.
+   */
+  /** Các dòng của rail, lấy qua tiêu đề mục thay vì qua chuỗi class — class Tailwind có ngoặc
+   *  vuông nên không dùng được trong selector thuộc tính, và một selector không khớp sẽ trả
+   *  mảng ngắn ĐÚNG BẰNG cái bug đang tìm. */
+  const rows = () => {
+    const heading = screen.getByText('Hàng đợi khái niệm');
+    const list = heading.nextElementSibling as HTMLElement;
+    return [...list.children];
+  };
+
+  function mountQueue(conceptIndex: number) {
+    mountWith([makeTurn('t1', 1, true)], 1, {
+      queue: [
+        { conceptId: 'gone', name: null, hop: 0, viaConceptId: null, viaConceptName: null },
+        {
+          conceptId: CONCEPT.id,
+          name: CONCEPT.name,
+          hop: 0,
+          viaConceptId: null,
+          viaConceptName: null,
+        },
+        {
+          conceptId: 'c3',
+          name: 'Hàng đợi',
+          hop: 1,
+          viaConceptId: CONCEPT.id,
+          viaConceptName: CONCEPT.name,
+        },
+      ],
+      progress: {
+        conceptIndex,
+        conceptTotal: 3,
+        completedConcepts: conceptIndex,
+        turnIndex: 1,
+        maxTurnsPerConcept: 3,
+      },
+    });
+  }
+
+  it('🔴 tô sáng đúng dòng mà `conceptIndex` trỏ tới, kể cả khi dòng TRƯỚC nó mất tên', () => {
+    mountQueue(1);
+
+    const current = rows().filter((row) => row.getAttribute('aria-current') === 'step');
+    expect(current).toHaveLength(1);
+    // Đọc riêng DÒNG TÊN chứ không đọc `textContent` cả hàng: hàng của `c3` mang phụ đề
+    // "nền của Ngăn xếp", nên `toContain(CONCEPT.name)` trên cả hàng sẽ XANH kể cả khi tô sáng
+    // nhảy sang đúng hàng đó — đo được: assert cũ sống sót qua đột biến "lọc bỏ entry mất tên".
+    const nameLine = current[0]?.querySelectorAll('span')[1]?.textContent;
+    expect(nameLine).toBe(CONCEPT.name);
+  });
+
+  it('🔴 entry mất tên VẪN chiếm một dòng, và dòng đó nói ra là nó sẽ bị bỏ qua', () => {
+    mountQueue(1);
+
+    // Ghim SỐ DÒNG: đây chính là thứ mà việc lọc ở server làm hụt đi, và cũng là thứ khiến
+    // "Khái niệm 2/3" đứng trên một rail 2 dòng.
+    expect(rows()).toHaveLength(3);
+    expect(screen.getByText(/Khái niệm đã bị xoá khỏi kế hoạch/)).toBeInTheDocument();
+  });
+
+  it('🔴 dòng do truy ngược kéo vào nói rõ nó là nền của khái niệm nào', () => {
+    mountQueue(1);
+
+    expect(screen.getByText(`nền của ${CONCEPT.name}`)).toBeInTheDocument();
   });
 });
