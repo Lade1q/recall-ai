@@ -391,22 +391,201 @@
 
 ## Summary Table — Focus Session
 
-| TC ID     | Title                                  | Type                                | Priority | Status |
-| --------- | -------------------------------------- | ----------------------------------- | -------- | ------ |
-| TC-FS-001 | Access conditions and entry state      | UI-E2E / Security / API             | High     | PASS   |
-| TC-FS-002 | Pomodoro config per session            | UI-E2E / Integration                | High     | PASS   |
-| TC-FS-004 | Start session and timer                | UI-E2E / Integration                | Critical | PASS   |
-| TC-FS-005 | View original document                 | UI-E2E                              | Medium   | PASS   |
-| TC-FS-006 | Quick notes and auto-save              | UI-E2E / Integration / Database     | High     | PASS   |
-| TC-FS-007 | Natural cycle finish, confirm, summary | UI-E2E / Integration                | Critical | PASS   |
-| TC-FS-008 | End early                              | UI-E2E / API / Database             | High     | PASS   |
-| TC-FS-009 | Pause / Resume                         | UI-E2E / Integration                | High     | PASS   |
-| TC-FS-011 | Suggestions from review queue          | Integration / UI-E2E                | High     | PASS   |
-| TC-FS-012 | Strict Mode                            | UI-E2E / Compatibility              | High     | PASS   |
-| TC-FS-013 | Cancel session                         | UI-E2E / Integration / Database     | High     | PASS   |
-| TC-FS-016 | localStorage recovery ≥60s             | Resilience / UI-E2E / Integration   | High     | PASS   |
-| TC-FS-020 | Quick note auto-save failure           | Resilience / Integration            | High     | PASS   |
-| TC-FS-022 | Isolate Student data                   | Security / API / Database           | Critical | PASS   |
-| TC-FS-023 | Spam click Start                       | UI-E2E / Integration                | High     | PASS   |
-| TC-FS-024 | Reload sub-60-second session           | Resilience / Integration / Database | Low      | PASS   |
-| TC-FS-026 | Navigation post-completion             | UI-E2E / Integration                | Medium   | PASS   |
+| TC ID     | Title                                                 | Type                                | Priority | Status |
+| --------- | ----------------------------------------------------- | ----------------------------------- | -------- | ------ |
+| TC-FS-001 | Access conditions and entry state                     | UI-E2E / Security / API             | High     | PASS   |
+| TC-FS-002 | Pomodoro config per session                           | UI-E2E / Integration                | High     | PASS   |
+| TC-FS-004 | Start session and timer                               | UI-E2E / Integration                | Critical | PASS   |
+| TC-FS-005 | View original document                                | UI-E2E                              | Medium   | PASS   |
+| TC-FS-006 | Quick notes and auto-save                             | UI-E2E / Integration / Database     | High     | PASS   |
+| TC-FS-007 | Natural cycle finish, confirm, summary                | UI-E2E / Integration                | Critical | PASS   |
+| TC-FS-008 | End early                                             | UI-E2E / API / Database             | High     | PASS   |
+| TC-FS-009 | Pause / Resume                                        | UI-E2E / Integration                | High     | PASS   |
+| TC-FS-011 | Suggestions from review queue                         | Integration / UI-E2E                | High     | PASS   |
+| TC-FS-012 | Strict Mode                                           | UI-E2E / Compatibility              | High     | PASS   |
+| TC-FS-013 | Cancel session                                        | UI-E2E / Integration / Database     | High     | PASS   |
+| TC-FS-016 | localStorage recovery ≥60s                            | Resilience / UI-E2E / Integration   | High     | PASS   |
+| TC-FS-020 | Quick note auto-save failure                          | Resilience / Integration            | High     | PASS   |
+| TC-FS-022 | Isolate Student data                                  | Security / API / Database           | Critical | PASS   |
+| TC-FS-023 | Spam click Start                                      | UI-E2E / Integration                | High     | PASS   |
+| TC-FS-024 | Reload sub-60-second session                          | Resilience / Integration / Database | Low      | PASS   |
+| TC-FS-026 | Navigation post-completion                            | UI-E2E / Integration                | Medium   | PASS   |
+| TC-FS-027 | Invalid Pomodoro configuration (FS-02)                | UI-E2E / Validation                 | Medium   | Pass   |
+| TC-FS-028 | Strict Mode ON/OFF — tab-leaving behavior (FS-02)     | UI-E2E / Functionality              | Medium   | Pass   |
+| TC-FS-029 | Pasted-text document panel (FS-04)                    | UI-E2E / Functionality              | Medium   | Pass   |
+| TC-FS-030 | Multi-page document does not block timer (FS-04)      | UI-E2E / Usability                  | Medium   | Pass   |
+| TC-FS-031 | Long notes and special characters (FS-05)             | UI-E2E / Integration / Resilience   | Medium   | Pass   |
+| TC-FS-032 | Concept suggestions follow review-queue order (FS-06) | Integration / Functionality         | High     | Pass   |
+| TC-FS-033 | Focus does not change review schedule (FS-06)         | Integration / Functionality         | Medium   | Pass   |
+
+---
+
+## Additional TCs for FS-02, FS-04, FS-05, FS-06
+
+> The following TCs are added to ensure each use case has at least 3 test cases as required by PA5. All use **Automation (Playwright)**; execution results are recorded in each table below.
+
+### TC-FS-027: Invalid Pomodoro configuration and boundary values (FS-02)
+
+| Field                  | Content                                                                                                                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | FS-02 (Study method configuration) — boundary validation and invalid configuration. Source: mockup “In-place Pomodoro configuration panel,” lines 1915–1988.                                                    |
+| **TC ID**              | TC-FS-027                                                                                                                                                                                                       |
+| **Title**              | Pomodoro configuration rejects values outside the allowed range                                                                                                                                                 |
+| **Description**        | Check that the UI prevents the learner from entering negative, zero, or over-maximum Pomodoro durations.                                                                                                        |
+| **Test Type**          | UI-E2E / Validation                                                                                                                                                                                             |
+| **Priority**           | Medium                                                                                                                                                                                                          |
+| **Prerequisites**      | - Frontend is running<br>- Logged in with an active plan, on the Focus screen before starting                                                                                                                   |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                         |
+| **Execution Steps**    | 1. Open the Pomodoro configuration panel.<br>2. Enter study durations of 0 minutes, −5 minutes, and 200 minutes.<br>3. Observe the values before applying.<br>4. Apply the configuration and start the session. |
+| **Input Data**         | a) Work duration = 0.<br>b) Work duration = −5.<br>c) Work duration = 200 (over the limit).                                                                                                                     |
+| **Expected Result**    | a/b) The study value is clamped to 1 minute.<br>c) The value 200 is clamped to 120 minutes.<br>After applying, the session runs only with the clamped value; 0/negative/200 do not remain in the configuration. |
+| **Actual Result**      | a/b) Pass on Chromium and Firefox: 0 and negative values were clamped to 1 minute.<br>c) Pass on Chromium and Firefox: 200 was clamped to 120 minutes and the UI displayed the applied value.                   |
+| **Status**             | a) Pass<br>b) Pass<br>c) Pass<br>Total: Pass                                                                                                                                                                    |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                      |
+| **Notes**              | Confirmed boundary: study duration 1–120 minutes.                                                                                                                                                               |
+| **Comments**           | Boundary validation prevents sessions with meaningless durations and protects timer logic from invalid states.                                                                                                  |
+
+---
+
+### TC-FS-028: Strict Mode prevents tab leaving and auto-pauses (FS-02)
+
+| Field                  | Content                                                                                                                                                                                                                                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | FS-02 (Study method configuration) — Strict Mode affects timer behavior. Source: mockup lines 1891–1907 and “Return after leaving tab” state, lines 2133–2177.                                                                                                                                                        |
+| **TC ID**              | TC-FS-028                                                                                                                                                                                                                                                                                                             |
+| **Title**              | Toggling Strict Mode changes behavior when the learner leaves the tab during a session                                                                                                                                                                                                                                |
+| **Description**        | Check that with Strict Mode enabled the timer pauses when leaving the tab, while with it disabled the timer continues running in the background.                                                                                                                                                                      |
+| **Test Type**          | UI-E2E / Functionality                                                                                                                                                                                                                                                                                                |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                                                                                               |
+| **Priority**           | Medium                                                                                                                                                                                                                                                                                                                |
+| **Prerequisites**      | - Frontend is running<br>- Logged in with a session running                                                                                                                                                                                                                                                           |
+| **Execution Steps**    | 1. Enable Strict Mode in Pomodoro configuration.<br>2. Start a session and record the timer.<br>3. Leave the tab (switch to another tab) for 5 seconds.<br>4. Return to the Focus tab and check the timer.<br>5. Repeat steps 2–4 with Strict Mode disabled.                                                          |
+| **Input Data**         | a) Strict Mode = ON → leave the tab for 5 seconds.<br>b) Strict Mode = OFF → leave the tab for 5 seconds.                                                                                                                                                                                                             |
+| **Expected Result**    | a) The timer pauses when leaving the tab; a warning is shown on return; the total time excludes the 5 seconds away.<br>b) The timer continues while leaving the tab; no warning appears on return; the full 5 seconds is counted.                                                                                     |
+| **Actual Result**      | a) Pass on Chromium and Firefox: Strict Mode stopped the timer, showed a warning on return, and excluded the time away.<br>b) Pass on Chromium and Firefox: after Strict Mode was disabled, the next tab leave continued decrementing the timer. Tab leaving was explicitly simulated according to the headless rule. |
+| **Status**             | a) Pass<br>b) Pass<br>Total: Pass                                                                                                                                                                                                                                                                                     |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                      |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                                                                                                            |
+| **Notes**              | TC-FS-012 tested Strict Mode enabled; this TC directly compares ON/OFF states.                                                                                                                                                                                                                                        |
+| **Comments**           | Strict Mode configuration directly affects the fairness of recorded study time.                                                                                                                                                                                                                                       |
+
+---
+
+### TC-FS-029: View document when no attached PDF exists (FS-04)
+
+| Field                  | Content                                                                                                                                    |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature** | FS-04 (View the original document in a study session) — no-document state. Source: original-document mockup states, lines 2289–2400.       |
+| **TC ID**              | TC-FS-029                                                                                                                                  |
+| **Title**              | The document panel shows the correct empty state when a plan has no PDF file                                                               |
+| **Description**        | Check the UX when the learner opens the document panel during a study session but the plan was created by pasting text (no uploaded file). |
+| **Test Type**          | UI-E2E / Functionality                                                                                                                     |
+| **Execution Method**   | Automation (Playwright)                                                                                                                    |
+| **Priority**           | Medium                                                                                                                                     |
+| **Prerequisites**      | - Frontend is running<br>- A plan created from the “Paste text” tab (no attached PDF)<br>- In a Focus session for this plan                |
+| **Execution Steps**    | 1. Enter a Focus session with the pasted-text plan.<br>2. Open the original-document panel.<br>3. Check the displayed content.             |
+| **Input Data**         | Plan created from pasted text, without a document file.                                                                                    |
+| **Expected Result**    | The panel displays the text document saved for the pasted-text plan; it does not render an empty PDF viewer, and the timer remains active. |
+| **Actual Result**      | Pass on Chromium and Firefox: the text document opened in Full text mode during the session; content, clock, and session remained active.  |
+| **Status**             | Pass                                                                                                                                       |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                           |
+| **Date Tested**        | 2026-09-03                                                                                                                                 |
+| **Notes**              | A pasted-text plan still has a text-type source document.                                                                                  |
+| **Comments**           | Learners using pasted text also need a consistent experience when opening the document panel.                                              |
+
+---
+
+### TC-FS-030: Pagination or scrolling in a long document (FS-04)
+
+| Field                  | Content                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | FS-04 (View the original document in a study session) — multi-page document. Source: mockup “Excerpt” and “Full text” sections, lines 2289–2400.                                                     |
+| **TC ID**              | TC-FS-030                                                                                                                                                                                            |
+| **Title**              | A multi-page document can be scrolled without blocking the timer                                                                                                                                     |
+| **Description**        | Check that when a PDF has multiple pages, the learner can scroll through pages without interrupting the Pomodoro timer.                                                                              |
+| **Test Type**          | UI-E2E / Usability                                                                                                                                                                                   |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                              |
+| **Priority**           | Medium                                                                                                                                                                                               |
+| **Prerequisites**      | - Frontend is running<br>- A plan with a PDF of at least 5 pages<br>- In a Focus session with the timer running                                                                                      |
+| **Execution Steps**    | 1. Open the document panel while the timer is running.<br>2. Scroll down through at least 3 pages.<br>3. Check that the timer is still running.<br>4. Switch between the Excerpt and Full text tabs. |
+| **Input Data**         | Five-page PDF, active plan, running session.                                                                                                                                                         |
+| **Expected Result**    | The document scrolls smoothly through the pages; the timer is not paused or reset; switching between Excerpt/Full text works correctly; no UI error appears.                                         |
+| **Actual Result**      | Pass on Chromium and Firefox: the multi-page PDF opened, could be scrolled, and could switch between Full text and Excerpt; the clock remained visible and did not reset.                            |
+| **Status**             | Pass                                                                                                                                                                                                 |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                     |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                           |
+| **Notes**              | Viewing the document is parallel to the study timer; both must operate independently.                                                                                                                |
+| **Comments**           | Multi-page documents are common in study; scrolling must not interrupt study time.                                                                                                                   |
+
+---
+
+### TC-FS-031: Long notes and character limits (FS-05)
+
+| Field                  | Content                                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature** | FS-05 (Quick notes during a study session) — character boundary and performance. Source: “Quick notes” mockup state, lines 2182–2248.                                                                                                                              |
+| **TC ID**              | TC-FS-031                                                                                                                                                                                                                                                          |
+| **Title**              | Very long notes are handled correctly and auto-save does not lose data                                                                                                                                                                                             |
+| **Description**        | Check behavior when the learner enters a very long note (>1000 characters): auto-save still triggers and the data is saved in full.                                                                                                                                |
+| **Test Type**          | UI-E2E / Integration / Resilience                                                                                                                                                                                                                                  |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                                            |
+| **Priority**           | Medium                                                                                                                                                                                                                                                             |
+| **Prerequisites**      | - Frontend is running<br>- In a Focus session with the Notes panel open                                                                                                                                                                                            |
+| **Execution Steps**    | 1. Enter text longer than 1000 characters in the notes field.<br>2. Wait for auto-save to trigger (or trigger it manually if a button exists).<br>3. Reload the page and re-enter the session.<br>4. Check that the note is fully restored.                        |
+| **Input Data**         | a) A normal 1000-character note.<br>b) A note with special characters (emoji, accented Vietnamese characters, HTML characters).                                                                                                                                    |
+| **Expected Result**    | a) Auto-save triggers; after reloading the session, the note remains complete and longer than 1000 characters, without truncation.<br>b) Special characters are saved and displayed correctly, without incorrect encoding or loss.                                 |
+| **Actual Result**      | a) Pass on Chromium and Firefox: a note longer than 1000 characters was saved and fully displayed in the session.<br>b) Pass on Chromium and Firefox: Vietnamese text, emoji, and the HTML string were displayed intact, without truncation or incorrect encoding. |
+| **Status**             | a) Pass<br>b) Pass<br>Total: Pass                                                                                                                                                                                                                                  |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                                                   |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                                                         |
+| **Notes**              | If the DB schema has a character limit, add a separate TC for exceeding that limit. Do not reload in this case because a session under 60 seconds enters the orphan-cleanup branch by specification; saved state is checked immediately after the save action.     |
+| **Comments**           | Notes are a core study-session action; data loss from missing auto-save would be serious.                                                                                                                                                                          |
+
+---
+
+### TC-FS-032: Suggested priority order with multiple concepts to review (FS-06)
+
+| Field                  | Content                                                                                                                                                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | FS-06 (View concept suggestions) — priority order in the review queue. Source: mockup lines 1761–1799 and 1804–1818; review-queue.md section “Today’s Review Suggestions”.                                                                                                                                          |
+| **TC ID**              | TC-FS-032                                                                                                                                                                                                                                                                                                           |
+| **Title**              | Concept suggestions follow the review queue's published order                                                                                                                                                                                                                                                       |
+| **Description**        | Check that Focus uses the first item in the review queue; the queue prioritizes `traceback` first, followed by descending `priority`.                                                                                                                                                                               |
+| **Test Type**          | Integration / Functionality                                                                                                                                                                                                                                                                                         |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                                                                                             |
+| **Priority**           | High                                                                                                                                                                                                                                                                                                                |
+| **Prerequisites**      | - Frontend is running<br>- An active plan has at least 3 concepts in the review queue, with different priorities (different mastery and review dates)                                                                                                                                                               |
+| **Execution Steps**    | 1. Set up a review queue with: concept A (mastery 0.2, overdue by 3 days), concept B (mastery 0.8, overdue by 1 day), concept C (mastery 0.5, due today).<br>2. Open Focus Session.<br>3. Check which concept is suggested first.<br>4. Click “Choose another concept” (if available) and check the remaining list. |
+| **Input Data**         | A review queue with 3 concepts having different mastery and lateness.                                                                                                                                                                                                                                               |
+| **Expected Result**    | The first `traceback` concept is suggested first; if there is no traceback, the concept with higher `priority` comes first. The suggestion reason displays the correct queue data.                                                                                                                                  |
+| **Actual Result**      | Pass on Chromium and Firefox: the traceback item was selected before the spaced-repetition item even with lower priority; the Traceback label was shown.                                                                                                                                                            |
+| **Status**             | Pass                                                                                                                                                                                                                                                                                                                |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                    |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                                                                                                          |
+| **Notes**              | Priority order is calculated by the review-queue service, not the Focus component. This TC checks integration between the two.                                                                                                                                                                                      |
+| **Comments**           | Suggesting the wrong concept (a lower-priority item first) reduces study effectiveness; the SRS algorithm must be applied correctly.                                                                                                                                                                                |
+
+---
+
+### TC-FS-033: Completing Focus does not change the review schedule (FS-06)
+
+| Field                  | Content                                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | FS-06 (View concept suggestions) — review queue after a study session. Source: review-queue.md; mockup lines 1704–1707.                   |
+| **TC ID**              | TC-FS-033                                                                                                                                 |
+| **Title**              | Completing Focus records time only and does not automatically remove a concept from the review queue                                      |
+| **Description**        | Check that Focus does not change the review schedule; creating/updating the queue belongs to Interview results.                           |
+| **Test Type**          | Integration / Functionality                                                                                                               |
+| **Execution Method**   | Automation (Playwright)                                                                                                                   |
+| **Priority**           | Medium                                                                                                                                    |
+| **Prerequisites**      | - Frontend is running<br>- An active plan has concept X in today's review queue<br>- A Focus session for concept X has been completed     |
+| **Execution Steps**    | 1. Record concept X's queue item.<br>2. Complete Focus for X.<br>3. Refresh the queue and Dashboard.                                      |
+| **Input Data**         | Concept X completed a Focus session today.                                                                                                |
+| **Expected Result**    | The completed Focus session is recorded; X's queue item keeps the same status/schedule, with no queue mutation or mastery change.         |
+| **Actual Result**      | Pass on Chromium and Firefox: completing Focus created/updated the session, but the review-queue snapshot was unchanged before and after. |
+| **Status**             | Pass                                                                                                                                      |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                          |
+| **Date Tested**        | 2026-09-03                                                                                                                                |
+| **Notes**              | Focus does not grade mastery and is not the source that writes ReviewQueueItem.                                                           |
+| **Comments**           | Separating self-study time from assessment results prevents the review schedule from changing implicitly.                                 |

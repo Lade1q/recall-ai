@@ -356,3 +356,545 @@
 | **Nhận xét**             | Component FileDropzone hoạt động nhạy. Việc từ chối drag & drop sai định dạng ngay lập tức đảm bảo luồng nhập liệu không bị kẹt bởi file không hợp lệ.                                      |
 
 ---
+
+## UC-06: Xem chi tiết và xác nhận kế hoạch (SP-02)
+
+> **Loại kiểm thử:** UI-E2E / Integration / Security
+> **Công cụ:** Playwright — thao tác UI và đối chiếu dữ liệu nghiệp vụ theo quy ước E2E
+
+---
+
+### TC-SP-02-01: Xem chi tiết plan đã phân tích xong (Happy Path)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-02 — Xem chi tiết kế hoạch, đồ thị khái niệm và xác nhận đồ thị AI đề xuất                                                                                                                                                                                                                                                           |
+| **Mã TC**                | TC-SP-02-01                                                                                                                                                                                                                                                                                                                             |
+| **Tiêu đề**              | Trang chi tiết plan hiển thị đúng concepts, edges và cho phép xác nhận đồ thị                                                                                                                                                                                                                                                           |
+| **Mô tả**                | Sau khi AI phân tích xong, plan vẫn là `draft` cho tới khi người học xác nhận đồ thị. Người học kiểm chứng graph rồi xác nhận để kích hoạt kế hoạch.                                                                                                                                                                                    |
+| **Loại kiểm thử**        | Functionality / UI-E2E / Integration                                                                                                                                                                                                                                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                                                                 |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                                                    |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Có plan `active` (TC-SP-01-05 đã pass) với ít nhất 3 concepts và 2 edges<br>- Đã đăng nhập                                                                                                                                                                                                         |
+| **Các bước thực hiện**   | 1. Gọi `GET /api/v1/plans/:id` và kiểm tra response<br>2. Mở trình duyệt, truy cập `/plan/:id`<br>3. Quan sát đồ thị khái niệm, màu sắc node và hướng cạnh<br>4. Chọn một node và kiểm tra bảng chi tiết<br>5. Đối với plan vừa tạo ở trạng thái `draft` đang chờ xác nhận: mở `/plan/:id/verify`, xem lại đồ thị rồi nhấn **Xác nhận** |
+| **Dữ liệu đầu vào**      | a) Plan `active` với 3 concepts (difficulty 1/2/3), 2 edges, `analysisStatus = "done"`.<br>b) Plan `draft` (phân tích xong nhưng chưa xác nhận đồ thị), mở `/plan/:id`.                                                                                                                                                                 |
+| **Kết quả mong đợi**     | a) Với plan đã xác nhận, `GET` trả HTTP 200, `data.status = "active"`, đủ 3 concepts/2 edges; đồ thị và bảng chi tiết khớp dữ liệu.<br>b) Với plan phân tích xong nhưng chưa xác nhận, route chuyển về `/plan/:id/verify`; sau Xác nhận, plan mới chuyển `active` và route về chế độ xem.                                               |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: kế hoạch active hiển thị đủ 3 concepts/2 edges, đồ thị và bảng chi tiết khớp dữ liệu.<br>b) Pass trên Chromium và Firefox: kế hoạch draft mở màn kiểm chứng, xác nhận thành công và chuyển active.                                                                                                    |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                                                                        |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                                        |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                                                              |
+| **Ghi chú**              | Màn `/verify` chỉ xuất hiện cho plan `draft`; plan `active` truy cập `/verify` sẽ bị redirect về `/plan/:id`.                                                                                                                                                                                                                           |
+| **Nhận xét**             | Luồng xem chi tiết và xác nhận đồ thị hoạt động nhất quán, không cho phép người học bỏ qua bước kiểm chứng.                                                                                                                                                                                                                             |
+
+---
+
+### TC-SP-02-02: Xem plan của người dùng khác — bảo mật quyền sở hữu
+
+| Trường                   | Nội dung                                                                                                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-02 — Bảo mật: không truy cập được plan của người dùng khác                                                                                                                                                                     |
+| **Mã TC**                | TC-SP-02-02                                                                                                                                                                                                                       |
+| **Tiêu đề**              | Người học không xem được plan của người học khác                                                                                                                                                                                  |
+| **Mô tả**                | Kiểm tra `GET /api/v1/plans/:id` từ chối khi người học B dùng planId của người học A.                                                                                                                                             |
+| **Loại kiểm thử**        | Security / API                                                                                                                                                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                           |
+| **Độ ưu tiên**           | Critical                                                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | - Người học chính có ít nhất một kế hoạch; người học khác có token hợp lệ riêng và không sở hữu kế hoạch đó                                                                                                                       |
+| **Các bước thực hiện**   | 1. Dùng token người học chính gọi `GET /api/v1/plans/<planId>` và xác nhận truy cập hợp lệ<br>2. Dùng token người học khác gọi `GET /api/v1/plans/<planId>`<br>3. Kiểm tra response và dữ liệu của người học chính không thay đổi |
+| **Dữ liệu đầu vào**      | Token người học khác; mã kế hoạch thuộc người học chính                                                                                                                                                                           |
+| **Kết quả mong đợi**     | HTTP `403 Forbidden` — không trả dữ liệu kế hoạch của người học chính.                                                                                                                                                            |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: người học chính đọc được kế hoạch (200); người học khác nhận 403, không lộ dữ liệu và kế hoạch của người học chính không đổi.                                                                      |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                              |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                  |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                        |
+| **Ghi chú**              | Service kiểm tra `userId` từ JWT sau khi tìm plan; plan tồn tại nhưng thuộc user khác nên contract hiện tại trả 403.                                                                                                              |
+| **Nhận xét**             | Kiểm tra ownership ở server ngăn user khác đọc dữ liệu plan.                                                                                                                                                                      |
+
+---
+
+### TC-SP-02-03: Xem plan khi phân tích đang chạy — polling và trạng thái loading
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | SP-02 — Xem plan đang phân tích (`analysisStatus = "pending"/"processing"`)                                                                                                                                                                                        |
+| **Mã TC**                | TC-SP-02-03                                                                                                                                                                                                                                                        |
+| **Tiêu đề**              | Trang chi tiết hiển thị đúng trạng thái loading khi AI đang phân tích                                                                                                                                                                                              |
+| **Mô tả**                | Kiểm tra UX khi người học truy cập trang chi tiết ngay sau khi tạo plan, trước khi AI hoàn tất.                                                                                                                                                                    |
+| **Loại kiểm thử**        | UI-E2E / Functionality                                                                                                                                                                                                                                             |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                            |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                                             |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy với Mock AI có độ trễ (hoặc AI thật chậm)<br>- Vừa tạo một plan mới, `analysisStatus` còn `pending`                                                                                                                                |
+| **Các bước thực hiện**   | 1. Tạo plan mới (TC-SP-01-01) và ngay lập tức mở `/plan/:id`<br>2. Quan sát UI trong lúc AI đang chạy<br>3. Chờ AI hoàn tất và quan sát chuyển đổi                                                                                                                 |
+| **Dữ liệu đầu vào**      | Plan mới tạo với `analysisStatus = "pending"` hoặc `"processing"`                                                                                                                                                                                                  |
+| **Kết quả mong đợi**     | a) Trang hiển thị ProgressPanel (loading indicator) với thông báo "Đang phân tích..." và không hiện đồ thị trống lỗi.<br>b) Sau khi `analysisStatus = "done"`: ProgressPanel biến mất, đồ thị khái niệm hiện ra tự động (polling 2.5s) mà không cần tải lại trang. |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: kế hoạch draft đang xử lý hiển thị “Đang phân tích”/“Bạn có thể rời trang”, không hiện đồ thị rỗng.<br>b) Pass trên Chromium và Firefox: khi phân tích hoàn tất, màn kiểm chứng và đồ thị khái niệm xuất hiện tự động.           |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                   |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                   |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                         |
+| **Ghi chú**              | Polling interval là 2500ms. ProgressPanel hiển thị 3 giai đoạn.                                                                                                                                                                                                    |
+| **Nhận xét**             | UX không bắt người học chờ thụ động và tự động chuyển sang đồ thị sau khi AI xong.                                                                                                                                                                                 |
+
+---
+
+## UC-07: Quản lý danh sách kế hoạch (SP-03)
+
+---
+
+### TC-SP-03-01: Danh sách plan phân theo trạng thái — tab active / draft / archived
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-03 — Danh sách kế hoạch phân tab active/draft/archived                                                                                                                                                                                                                           |
+| **Mã TC**                | TC-SP-03-01                                                                                                                                                                                                                                                                         |
+| **Tiêu đề**              | Trang danh sách kế hoạch phân loại đúng plan theo trạng thái vào từng tab                                                                                                                                                                                                           |
+| **Mô tả**                | Kiểm tra trang `/plans` hiển thị đúng plans trong mỗi tab (Đang hoạt động, Chưa xác nhận, Đã lưu trữ) và đúng số lượng.                                                                                                                                                             |
+| **Loại kiểm thử**        | Functionality / UI-E2E                                                                                                                                                                                                                                                              |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                             |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Đã đăng nhập<br>- Người học có: 1 plan `active`, 1 plan `draft`, 1 plan `archived`                                                                                                                                                             |
+| **Các bước thực hiện**   | 1. Truy cập `/plans`<br>2. Quan sát tab mặc định (Lịch)<br>3. Chuyển sang view Kế hoạch và kiểm tra tab "Đang hoạt động"<br>4. Chuyển tab "Chưa xác nhận"<br>5. Chuyển tab "Đã lưu trữ"                                                                                             |
+| **Dữ liệu đầu vào**      | a) Tab "Đang hoạt động" — 1 plan active.<br>b) Tab "Chưa xác nhận" — 1 plan draft.<br>c) Tab "Đã lưu trữ" — 1 plan archived.                                                                                                                                                        |
+| **Kết quả mong đợi**     | a) Tab "Đang hoạt động" chỉ hiển thị plan `active`, không lẫn `draft`/`archived`.<br>b) Tab "Chưa xác nhận" chỉ hiển thị plan `draft`.<br>c) Tab "Đã lưu trữ" chỉ hiển thị plan `archived`; mỗi card có đủ tên, deadline và số khái niệm.                                           |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: tab Đang hoạt động chỉ hiển thị kế hoạch active.<br>b) Pass trên Chromium và Firefox: tab Chưa xác nhận chỉ hiển thị kế hoạch draft.<br>c) Pass trên Chromium và Firefox: tab Đã lưu trữ chỉ hiển thị kế hoạch archived cùng thông tin cần thiết. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                                                                                                         |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                    |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                          |
+| **Ghi chú**              | View mặc định là Lịch (schedule view); view Kế hoạch là tab thứ hai.                                                                                                                                                                                                                |
+| **Nhận xét**             | Phân loại đúng 3 trạng thái giúp người học nhanh chóng biết kế hoạch nào đang hoạt động hay cần xem lại.                                                                                                                                                                            |
+
+---
+
+### TC-SP-03-03: Polling tự động cập nhật trạng thái plan đang phân tích trong danh sách
+
+| Trường                   | Nội dung                                                                                                                                                                                                   |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-03 — Polling trạng thái plan trong danh sách                                                                                                                                                            |
+| **Mã TC**                | TC-SP-03-03                                                                                                                                                                                                |
+| **Tiêu đề**              | Danh sách tự cập nhật khi plan đang phân tích xong và chờ xác nhận                                                                                                                                         |
+| **Mô tả**                | Kiểm tra trang `/plans` tự động polling và cập nhật card plan từ `pending` sang `done`, vẫn ở `draft` chờ xác nhận đồ thị.                                                                                 |
+| **Loại kiểm thử**        | Functionality / UI-E2E                                                                                                                                                                                     |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                    |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                     |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Vừa tạo plan mới, `analysisStatus = "pending"`<br>- Đang ở trang `/plans` tab "Chưa xác nhận"                                                                         |
+| **Các bước thực hiện**   | 1. Tạo plan mới (TC-SP-01-01) và ngay lập tức chuyển sang trang `/plans`.<br>2. Quan sát card plan trong tab "Chưa xác nhận".<br>3. Chờ background job hoàn tất.<br>4. Quan sát card có tự cập nhật không. |
+| **Dữ liệu đầu vào**      | Plan với `analysisStatus = "pending"` → `"done"`, `status = "draft"`.                                                                                                                                      |
+| **Kết quả mong đợi**     | Card hiển thị trạng thái đang phân tích; khi job xong UI tự cập nhật thành **Chờ xác nhận** với lối vào Kiểm chứng đồ thị, không cần tải lại thủ công.                                                     |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: card đang phân tích tự đổi sang Chờ xác nhận sau job done, plan vẫn draft.                                                                                                  |
+| **Trạng thái**           | Pass                                                                                                                                                                                                       |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                           |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                 |
+| **Ghi chú**              | Chu kỳ polling là 2500ms; polling chỉ chạy khi danh sách còn plan `pending`/`processing`.                                                                                                                  |
+| **Nhận xét**             | Cập nhật tự động giúp người học thấy kế hoạch sẵn sàng kiểm chứng mà không phải tự tải lại trang.                                                                                                          |
+
+---
+
+## UC-11: Xem lịch ôn tập (SP-07)
+
+---
+
+### TC-SP-07-01: Lịch ôn tập hiển thị đúng khái niệm theo ngày
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-07 — Schedule View đọc review queue của các plan đang hoạt động                                                                                                                                                                                                                                                                                                                                      |
+| **Mã TC**                | TC-SP-07-01                                                                                                                                                                                                                                                                                                                                                                                             |
+| **Tiêu đề**              | View Lịch hiển thị khái niệm cần ôn theo ngày dựa trên review queue                                                                                                                                                                                                                                                                                                                                     |
+| **Mô tả**                | Kiểm tra view Lịch trên `/plans` hiển thị đúng danh sách khái niệm đến hạn ôn theo từng ngày trong tuần, lấy từ review queue.                                                                                                                                                                                                                                                                           |
+| **Loại kiểm thử**        | Functionality / Integration / UI-E2E                                                                                                                                                                                                                                                                                                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                                                                                                                    |
+| **Điều kiện tiên quyết** | - Frontend và Backend đang chạy<br>- Có plan `active` với ít nhất 1 concept đến hạn ôn hôm nay trong review queue<br>- Đã đăng nhập                                                                                                                                                                                                                                                                     |
+| **Các bước thực hiện**   | 1. Truy cập `/plans`, quan sát view Lịch mặc định<br>2. Xác nhận có concept hiển thị trong ngày hôm nay<br>3. Kiểm tra ngày không có concept cần ôn hiển thị gì<br>4. Trường hợp người học chưa có plan active: quan sát trạng thái trống                                                                                                                                                               |
+| **Dữ liệu đầu vào**      | a) Có concept đến hạn hôm nay trong review queue.<br>b) Không có concept nào đến hạn (lịch rỗng).<br>c) Chỉ có plan `draft`, không có `active`.                                                                                                                                                                                                                                                         |
+| **Kết quả mong đợi**     | a) Ô ngày và panel ngày hiển thị đúng tên khái niệm, tên plan, độ ưu tiên/lý do và thời lượng từ review queue; mở một dòng mới thấy CTA **Vào phiên kiểm tra** và **Học lại**.<br>b) Ngày không có mục hiển thị trạng thái trống, không lỗi.<br>c) Khi chỉ có plan `draft`, hiện banner số plan chờ xác nhận và trạng thái **Chưa có kế hoạch nào đang hoạt động**, kèm lối về tạo plan/xác nhận graph. |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: ô ngày/panel hiển thị đúng mục review của hôm nay và mở đúng concept/kế hoạch.<br>b) Pass trên Chromium và Firefox: ngày không có mục vẫn hiển thị trạng thái trống ổn định.<br>c) Pass trên Chromium và Firefox: chỉ có kế hoạch draft thì hiển thị trạng thái chưa có kế hoạch active và lối đi tiếp.                                                               |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                                                                                                                             |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                                                                                                        |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Ghi chú**              | `/review-queue/schedule` chỉ trả mục của plan `active`; ngày và thứ tự item là dữ liệu do server chốt.                                                                                                                                                                                                                                                                                                  |
+| **Nhận xét**             | View Lịch trả lời được câu "hôm nay học gì" và dẫn người học đi tiếp mà không cần qua Dashboard.                                                                                                                                                                                                                                                                                                        |
+
+---
+
+### TC-SP-07-02: Bộ lọc kế hoạch và hạn chót trong Schedule View
+
+| Trường                   | Nội dung                                                                                                                                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-07 — Lọc lịch theo kế hoạch và hiển thị deadline                                                                                                                                                                             |
+| **Mã TC**                | TC-SP-07-02                                                                                                                                                                                                                     |
+| **Tiêu đề**              | Ẩn/hiện một plan chỉ đổi các mục và deadline của plan đó                                                                                                                                                                        |
+| **Mô tả**                | Kiểm tra Schedule View dùng cùng trạng thái lọc cho lưới, panel ngày và dấu hạn chót.                                                                                                                                           |
+| **Loại kiểm thử**        | UI-E2E / Integration                                                                                                                                                                                                            |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                         |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | Người học có hai plan `active`, mỗi plan có review item và deadline khác ngày.                                                                                                                                                  |
+| **Các bước thực hiện**   | 1. Mở `/plans` ở view Lịch.<br>2. Mở menu **Kế hoạch**, bỏ chọn kế hoạch được chọn.<br>3. Kiểm tra lưới, panel ngày và dấu deadline của kế hoạch được ẩn.<br>4. Bấm **Hiện tất cả**.                                            |
+| **Dữ liệu đầu vào**      | Hai kế hoạch đang hoạt động, mỗi kế hoạch có ít nhất một mục được xếp lịch.                                                                                                                                                     |
+| **Kết quả mong đợi**     | Sau bước 2, chỉ mục và deadline của kế hoạch được ẩn biến mất, kế hoạch còn lại vẫn hiển thị và màn nêu rõ đang ẩn 1/2 kế hoạch. Sau bước 4, toàn bộ mục và deadline của kế hoạch được ẩn trở lại; review queue không thay đổi. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: ẩn/hiện kế hoạch đồng bộ mục và deadline; review queue không thay đổi.                                                                                                                           |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                            |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                      |
+| **Ghi chú**              | Filter là state cục bộ của view, không sửa lịch trên server.                                                                                                                                                                    |
+| **Nhận xét**             | Bộ lọc chỉ thay đổi góc nhìn cá nhân, giúp người học tập trung vào một kế hoạch mà không làm thay đổi lịch đã lập.                                                                                                              |
+
+---
+
+### TC-SP-07-03: Lịch xử lý độc lập lỗi danh sách kế hoạch
+
+| Trường                   | Nội dung                                                                                                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-07 — Khả năng phục hồi khi metadata plan và lịch có trạng thái khác nhau                                                                                                              |
+| **Mã TC**                | TC-SP-07-03                                                                                                                                                                              |
+| **Tiêu đề**              | Lịch vẫn xem được khi tải danh sách plan thất bại                                                                                                                                        |
+| **Mô tả**                | Kiểm tra nguồn `/review-queue/schedule` độc lập với `/plans`; lỗi metadata không được làm mất lịch đã tải.                                                                               |
+| **Loại kiểm thử**        | UI-E2E / Resilience                                                                                                                                                                      |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                  |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                   |
+| **Điều kiện tiên quyết** | Có lịch hợp lệ; một lần tải danh sách kế hoạch gặp lỗi mạng nhưng lịch ôn vẫn tải thành công.                                                                                            |
+| **Các bước thực hiện**   | 1. Mở `/plans` ở view Lịch.<br>2. Chờ lịch tải xong trong khi request danh sách plan lỗi.<br>3. Chọn ngày có item và thử lại tải danh sách plan.                                         |
+| **Dữ liệu đầu vào**      | Schedule có một item; `/plans` trả lỗi tạm thời.                                                                                                                                         |
+| **Kết quả mong đợi**     | Lưới, panel ngày và item lịch vẫn dùng được; khu vực filter/deadline báo không tải được thông tin kế hoạch và nút **Thử lại**. Thử lại chỉ tải metadata, không reset hoặc nhân bản lịch. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: khi danh sách kế hoạch không tải được, lịch vẫn dùng được và hiển thị cảnh báo thông tin kế hoạch cùng nút Thử lại.                                       |
+| **Trạng thái**           | Pass                                                                                                                                                                                     |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                         |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                               |
+| **Ghi chú**              | Đây là lỗi nguồn dữ liệu, không phải trạng thái lịch rỗng. Chỉ mô phỏng hẹp một lần lỗi mạng ở tải metadata kế hoạch; dữ liệu lịch vẫn đi qua backend thật.                              |
+| **Nhận xét**             | Lịch vẫn hữu dụng khi metadata kế hoạch tạm thời lỗi, nên người học không mất lịch ôn chỉ vì một nguồn dữ liệu phụ gặp sự cố.                                                            |
+
+---
+
+## UC-08: Lưu trữ, Khôi phục và Xóa kế hoạch (SP-04)
+
+---
+
+### TC-SP-04-01: Lưu trữ kế hoạch đang hoạt động
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                            |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-04 — Lưu trữ (archive) kế hoạch                                                                                                                                                                                                                                                                  |
+| **Mã TC**                | TC-SP-04-01                                                                                                                                                                                                                                                                                         |
+| **Tiêu đề**              | Lưu trữ plan `active` chuyển sang `archived` và không còn hiển thị trong tab Đang hoạt động                                                                                                                                                                                                         |
+| **Mô tả**                | Người học lưu trữ một kế hoạch đang hoạt động. Hệ thống cập nhật trạng thái plan sang `archived` và loại khỏi danh sách active.                                                                                                                                                                     |
+| **Loại kiểm thử**        | Functionality / API / Database                                                                                                                                                                                                                                                                      |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                             |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Có plan `active` thuộc người học đang kiểm thử                                                                                                                                                                                                                              |
+| **Các bước thực hiện**   | 1. Gọi `PATCH /api/v1/plans/:id` với body `{ "status": "archived" }`<br>2. Kiểm tra response<br>3. Gọi `GET /api/v1/plans` và xác nhận plan không còn trong danh sách (hoặc chuyển sang archived)<br>4. Gọi `GET /api/v1/plans/:id` kiểm tra trạng thái trong DB                                    |
+| **Dữ liệu đầu vào**      | a) Plan `active` → archive thành `archived`.<br>b) Plan `draft` → thử archive.                                                                                                                                                                                                                      |
+| **Kết quả mong đợi**     | a) PATCH trả HTTP 200, `data.plan.status = "archived"`; plan không còn trong danh sách `active` khi GET list; GET chi tiết vẫn trả plan với `status = "archived"`.<br>b) Service từ chối chuyển `draft` → `archived` bằng HTTP 409 `STATUS_TRANSITION_NOT_ALLOWED`; trạng thái plan vẫn là `draft`. |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: kế hoạch active được lưu trữ, biến khỏi danh sách active và vẫn xem được ở trạng thái archived.<br>b) Pass trên Chromium và Firefox: draft→archived trả 409, kế hoạch draft giữ nguyên.                                                                           |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                                    |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                    |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                          |
+| **Ghi chú**              | Chỉ plan `active` mới được archive; `draft` phải xác nhận đồ thị trước.                                                                                                                                                                                                                             |
+| **Nhận xét**             | Kiểm soát chặt transition trạng thái ngăn người học vô tình bỏ qua bước xác nhận.                                                                                                                                                                                                                   |
+
+---
+
+### TC-SP-04-02: Khôi phục kế hoạch đã lưu trữ và xóa kế hoạch
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-04 — Khôi phục (restore) và Xóa vĩnh viễn kế hoạch                                                                                                                                                                                                                                                                         |
+| **Mã TC**                | TC-SP-04-02                                                                                                                                                                                                                                                                                                                   |
+| **Tiêu đề**              | Khôi phục plan `archived` về `active` và xóa vĩnh viễn plan                                                                                                                                                                                                                                                                   |
+| **Mô tả**                | Kiểm tra hai nhánh còn lại của quản lý vòng đời plan: khôi phục từ archived về active và xóa hoàn toàn plan cùng dữ liệu liên quan.                                                                                                                                                                                           |
+| **Loại kiểm thử**        | Functionality / API / Database                                                                                                                                                                                                                                                                                                |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                                                       |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Có plan `archived` thuộc người học đang kiểm thử (dùng plan sau TC-SP-04-01)<br>- Có plan thứ hai để test xóa                                                                                                                                                                                         |
+| **Các bước thực hiện**   | **Khôi phục:** 1. Gọi `PATCH /api/v1/plans/:id` với `{ "status": "active" }` cho plan `archived`<br>2. Kiểm tra response và GET list xác nhận plan quay lại tab active<br>**Xóa:** 3. Gọi `DELETE /api/v1/plans/:id` cho plan thứ hai<br>4. Kiểm tra response<br>5. Gọi `GET /api/v1/plans/:id` để xác nhận không còn tồn tại |
+| **Dữ liệu đầu vào**      | a) Plan `archived` → restore thành `active`.<br>b) Plan `active` hoặc `archived` → DELETE.                                                                                                                                                                                                                                    |
+| **Kết quả mong đợi**     | a) PATCH trả HTTP 200, `data.plan.status = "active"`; plan xuất hiện lại trong tab Đang hoạt động.<br>b) DELETE trả HTTP 204 No Content; GET chi tiết plan sau đó trả 404; danh sách không còn plan này.                                                                                                                      |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: kế hoạch archived được khôi phục thành active và xuất hiện lại ở tab tương ứng.<br>b) Pass trên Chromium và Firefox: xóa vĩnh viễn trả 204, sau đó không thể tải kế hoạch và danh sách không còn kế hoạch đó.                                                                               |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                                                              |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                              |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                                                    |
+| **Ghi chú**              | DELETE là thao tác không hoàn tác; concepts, edges và documents liên quan cũng bị xóa theo cascade.                                                                                                                                                                                                                           |
+| **Nhận xét**             | Vòng đời kế hoạch (active ↔ archived → deleted) hoạt động nhất quán và an toàn.                                                                                                                                                                                                                                               |
+
+---
+
+### TC-SP-04-03: Người dùng khác không lưu trữ hay xóa được plan của người khác
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-04 — Bảo mật quyền sở hữu khi thay đổi trạng thái và xóa                                                                                                                                                                                                                                                                 |
+| **Mã TC**                | TC-SP-04-03                                                                                                                                                                                                                                                                                                                 |
+| **Tiêu đề**              | Người học khác không thể archive hoặc xóa plan của người học chính                                                                                                                                                                                                                                                          |
+| **Mô tả**                | Kiểm tra PATCH và DELETE trả 403 khi planId không thuộc user đang thực hiện request.                                                                                                                                                                                                                                        |
+| **Loại kiểm thử**        | Security / API                                                                                                                                                                                                                                                                                                              |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                                                     |
+| **Độ ưu tiên**           | Critical                                                                                                                                                                                                                                                                                                                    |
+| **Điều kiện tiên quyết** | - Người học chính có kế hoạch; người học khác có token hợp lệ riêng                                                                                                                                                                                                                                                         |
+| **Các bước thực hiện**   | 1. Dùng token người học chính gọi `GET /api/v1/plans/<planId>` và xác nhận truy cập hợp lệ<br>2. Dùng token người học khác gọi `PATCH /api/v1/plans/<planId>` với `{ "status": "archived" }`<br>3. Dùng token người học khác gọi `DELETE /api/v1/plans/<planId>`<br>4. Xác nhận kế hoạch của người học chính không thay đổi |
+| **Dữ liệu đầu vào**      | a) PATCH với token người học khác và mã kế hoạch của người học chính.<br>b) DELETE với token người học khác và mã kế hoạch của người học chính.                                                                                                                                                                             |
+| **Kết quả mong đợi**     | a) HTTP 403 — kế hoạch không thuộc người học khác, không thay đổi trạng thái.<br>b) HTTP 403 — kế hoạch không bị xóa; GET bằng token người học chính vẫn trả kế hoạch nguyên vẹn.                                                                                                                                           |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: người học chính kiểm tra quyền thành công (200); người học khác PATCH/DELETE nhận 403, kế hoạch vẫn active.                                                                                                                                                                                  |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                                                        |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                            |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                                                  |
+| **Ghi chú**              | Service kiểm tra `userId` từ JWT trước thao tác ghi và trả 403 cho plan của user khác.                                                                                                                                                                                                                                      |
+| **Nhận xét**             | Quyền sở hữu plan được bảo vệ ở mọi thao tác ghi (PATCH, DELETE).                                                                                                                                                                                                                                                           |
+
+---
+
+## UC-09: Retry phân tích, Đổi tài liệu và Tái phân tích (SP-05)
+
+---
+
+### TC-SP-05-01: Retry phân tích khi AI thất bại
+
+| Trường                   | Nội dung                                                                                                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-05 — Retry phân tích thất bại (POST `/:id/retry`)                                                                                                                                                            |
+| **Mã TC**                | TC-SP-05-01                                                                                                                                                                                                     |
+| **Tiêu đề**              | Retry phân tích thất bại tái kích hoạt job AI và giữ plan chờ xác nhận                                                                                                                                          |
+| **Mô tả**                | Sau khi AI fail (TC-SP-01-06), người học nhấn Retry. Hệ thống tạo AnalysisJob mới, kích hoạt lại AI ngầm.                                                                                                       |
+| **Loại kiểm thử**        | Functionality / API / Database                                                                                                                                                                                  |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                         |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                            |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Có plan `draft` với `analysisStatus = "failed"` (dùng plan sau TC-SP-01-06 hoặc đổi tên plan để không trigger mock fail nữa)                                                            |
+| **Các bước thực hiện**   | 1. Gọi `POST /api/v1/plans/:id/retry`<br>2. Kiểm tra response (202) và job mới trong DB<br>3. Xác nhận plan vẫn ở trạng thái `draft` trong lúc job chạy<br>4. Gọi retry cho một plan `active` để kiểm tra guard |
+| **Dữ liệu đầu vào**      | a) Plan `draft` có job gần nhất `failed` → retry được chấp nhận và xử lý bất đồng bộ.<br>b) Plan đang `active` (không có failed job) → thử retry.                                                               |
+| **Kết quả mong đợi**     | a) POST retry trả HTTP 202; tạo đúng một `AnalysisJob` mới và plan vẫn là `draft` trong khi xử lý bất đồng bộ.<br>b) POST retry cho plan `active` bị từ chối HTTP 409 theo contract.                            |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: retry lỗi tạo đúng một job mới và kế hoạch vẫn draft.<br>b) Pass trên Chromium và Firefox: retry trên kế hoạch active bị từ chối.                                             |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                      |
+| **Ghi chú**              | Retry chỉ hợp lệ với plan `draft` có `analysisStatus = "failed"`.                                                                                                                                               |
+| **Nhận xét**             | Người học không cần xóa và tạo lại plan khi AI gặp lỗi tạm thời — tiết kiệm thao tác đáng kể.                                                                                                                   |
+
+---
+
+### TC-SP-05-02: Đổi tài liệu khi file gốc bị lỗi
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | SP-05 — Đổi tài liệu nguồn (POST `/:id/document`)                                                                                                                                                                                                                        |
+| **Mã TC**                | TC-SP-05-02                                                                                                                                                                                                                                                              |
+| **Tiêu đề**              | Đổi tài liệu khác khởi động lại phân tích với file mới                                                                                                                                                                                                                   |
+| **Mô tả**                | Khi retry cùng file không đủ (file gốc bị lỗi), người học tải lên file mới. Hệ thống thay tài liệu và khởi chạy job phân tích mới.                                                                                                                                       |
+| **Loại kiểm thử**        | Functionality / API / Database                                                                                                                                                                                                                                           |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                  |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                     |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Plan `draft` với `analysisStatus = "failed"`<br>- File PDF hợp lệ nhiều trang chuẩn bị sẵn                                                                                                                                                       |
+| **Các bước thực hiện**   | 1. Gọi `POST /api/v1/plans/:id/document` với form-data có field `file = search_algorithms.pdf`<br>2. Kiểm tra response (202), document mới và plan `draft`<br>3. Gọi lại endpoint với file PDF mã hóa<br>4. Kiểm tra response lỗi và đối chiếu document/job cũ không đổi |
+| **Dữ liệu đầu vào**      | a) File PDF hợp lệ nhiều trang → đổi thành công.<br>b) File PDF mã hoá (encrypted PDF) → bị từ chối trước khi tạo job.                                                                                                                                                   |
+| **Kết quả mong đợi**     | a) POST trả HTTP 202; document mới được lưu, tạo job mới và plan vẫn là `draft` để xử lý bất đồng bộ.<br>b) POST trả HTTP 400 `ENCRYPTED_PDF` — không tạo document mới, không chạy job.                                                                                  |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: thay PDF hợp lệ tạo tài liệu và job mới, kế hoạch vẫn chờ xử lý.<br>b) Pass trên Chromium và Firefox: PDF mã hóa trả 400 `ENCRYPTED_PDF`, tài liệu cũ và số job giữ nguyên.                                                            |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                         |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                         |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                               |
+| **Ghi chú**              | Encrypted PDF guard chạy trước khi upload lên storage. Tài liệu cũ không bị giữ khi đổi thành công.                                                                                                                                                                      |
+| **Nhận xét**             | Người học có phương án thay tài liệu thay vì xóa toàn bộ plan khi file gốc có vấn đề.                                                                                                                                                                                    |
+
+---
+
+### TC-SP-05-03: Tái phân tích plan đang hoạt động (reanalyze)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-05 — Tái phân tích plan `active` (POST `/:id/reanalyze`)                                                                                                                                                                       |
+| **Mã TC**                | TC-SP-05-03                                                                                                                                                                                                                       |
+| **Tiêu đề**              | Tái phân tích plan active giữ nguyên mastery và chuyển về draft                                                                                                                                                                   |
+| **Mô tả**                | Khi người học muốn AI cập nhật lại đồ thị khái niệm, reanalyze được dùng. Điểm mastery của các concept hiện có phải được giữ nguyên trong khi job mới xử lý bất đồng bộ.                                                          |
+| **Loại kiểm thử**        | Functionality / API / Database                                                                                                                                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                           |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                              |
+| **Điều kiện tiên quyết** | - Server đang chạy<br>- Có plan `active` với concepts đã có mastery score khác null                                                                                                                                               |
+| **Các bước thực hiện**   | 1. Ghi lại mastery score của concepts hiện có<br>2. Gọi `POST /api/v1/plans/:id/reanalyze`<br>3. Kiểm tra response (202), plan chuyển về `draft` và job mới được tạo<br>4. Đối chiếu mastery của các concept cũ ngay sau mutation |
+| **Dữ liệu đầu vào**      | Plan `active` có 3 concepts với mastery khác nhau (null, 0.5, 0.8).                                                                                                                                                               |
+| **Kết quả mong đợi**     | POST reanalyze trả HTTP 202; plan chuyển về `draft`, tạo job phân tích mới và mastery score của các concept hiện có vẫn giữ nguyên trong lúc xử lý. Kết quả graph mới được xử lý bất đồng bộ và sẽ được kiểm chứng ở luồng SP-02. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: reanalyze active trả 202, hạ plan về draft và giữ nguyên mastery của concept.                                                                                                                      |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                              |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                  |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                        |
+| **Ghi chú**              | Plan về `draft` trong khi reanalyze job chạy; người học bị redirect về `/verify` nếu đang xem đồ thị.                                                                                                                             |
+| **Nhận xét**             | Reanalyze cho phép cập nhật đồ thị mà không mất lịch sử học của người dùng — quan trọng khi tài liệu nguồn được bổ sung nội dung.                                                                                                 |
+
+---
+
+## UC-10: Xử lý phân tích bất đồng bộ (SP-06)
+
+### TC-SP-06-01: Hiển thị tiến độ của plan đang phân tích
+
+| Trường                   | Nội dung                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-06 (Phân tích bất đồng bộ) — trạng thái pending/processing                                            |
+| **Mã TC**                | TC-SP-06-01                                                                                              |
+| **Tiêu đề**              | Plan mới hiển thị tiến độ trong khi job phân tích đang chạy                                              |
+| **Mô tả**                | Mở danh sách và chi tiết của plan draft có job `processing` để kiểm tra trạng thái đang chạy.            |
+| **Loại kiểm thử**        | Functionality / UI-E2E                                                                                   |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                  |
+| **Độ ưu tiên**           | High                                                                                                     |
+| **Điều kiện tiên quyết** | Người học có plan draft với job phân tích đang chạy.                                                     |
+| **Các bước thực hiện**   | 1. Mở Kế hoạch ôn tập.<br>2. Mở plan đang phân tích.<br>3. Quan sát card và trang chi tiết.              |
+| **Dữ liệu đầu vào**      | Job phân tích ở trạng thái `processing` (đang xử lý).                                                    |
+| **Kết quả mong đợi**     | Hiện tiến độ thay vì đồ thị trống; không thể khởi động luồng học trước khi graph sẵn sàng.               |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: card draft processing hiển thị tiến độ và link xem tiến trình.            |
+| **Trạng thái**           | Pass                                                                                                     |
+| **Tester**               | Nguyễn Minh Phát                                                                                         |
+| **Ngày Tested**          | 2026-09-03                                                                                               |
+| **Ghi chú**              | Đối chiếu SP-06 và SP-01 E5.                                                                             |
+| **Nhận xét**             | Tiến độ rõ ràng giúp người học biết hệ thống còn đang xử lý thay vì nhầm rằng kế hoạch không có dữ liệu. |
+
+### TC-SP-06-02: Phân tích xong vẫn chờ xác nhận graph
+
+| Trường                   | Nội dung                                                                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-06 (Phân tích bất đồng bộ) kết hợp SP-02 (Kiểm chứng đồ thị)                                                             |
+| **Mã TC**                | TC-SP-06-02                                                                                                                 |
+| **Tiêu đề**              | Job hoàn tất đưa plan về trạng thái chờ xác nhận, không tự kích hoạt                                                        |
+| **Mô tả**                | Theo dõi một job chuyển `done`, sau đó mở lối kiểm chứng.                                                                   |
+| **Loại kiểm thử**        | Functionality / UI-E2E / Database                                                                                           |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                     |
+| **Độ ưu tiên**           | Critical                                                                                                                    |
+| **Điều kiện tiên quyết** | Plan draft đang phân tích, có output graph hợp lệ khi job hoàn tất.                                                         |
+| **Các bước thực hiện**   | 1. Chờ polling báo job xong.<br>2. Mở Kiểm chứng đồ thị.<br>3. Xác nhận graph.                                              |
+| **Dữ liệu đầu vào**      | Output AI hợp lệ có concepts và edges.                                                                                      |
+| **Kết quả mong đợi**     | Trước bước 3, plan là `draft`, `analysisStatus = done`; sau xác nhận duy nhất, plan là `active` và graph không mất dữ liệu. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: job done vẫn draft Chờ xác nhận, link verify mở được, không tự active.                       |
+| **Trạng thái**           | Pass                                                                                                                        |
+| **Tester**               | Nguyễn Minh Phát                                                                                                            |
+| **Ngày Tested**          | 2026-09-03                                                                                                                  |
+| **Ghi chú**              | Xác nhận graph là transition duy nhất từ draft sang active.                                                                 |
+| **Nhận xét**             | Bước xác nhận đồ thị vẫn là cổng kiểm soát rõ ràng, tránh kích hoạt kế hoạch khi người học chưa xem kết quả AI.             |
+
+### TC-SP-06-03: Job thất bại có retry không nhân plan
+
+| Trường                   | Nội dung                                                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-06 (Phân tích bất đồng bộ) — lỗi và chạy lại                                                                       |
+| **Mã TC**                | TC-SP-06-03                                                                                                           |
+| **Tiêu đề**              | Retry plan phân tích lỗi giữ bản nháp và tạo đúng một job mới                                                         |
+| **Mô tả**                | Thực hiện retry ở plan draft có job thất bại và quan sát trạng thái trước/sau job mới.                                |
+| **Loại kiểm thử**        | Resilience / UI-E2E / Database                                                                                        |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                               |
+| **Độ ưu tiên**           | High                                                                                                                  |
+| **Điều kiện tiên quyết** | Người học có một plan draft, job gần nhất `failed`, tài liệu nguồn còn tồn tại.                                       |
+| **Các bước thực hiện**   | 1. Mở plan lỗi.<br>2. Bấm Thử lại một lần.<br>3. Chờ job mới và làm mới danh sách.                                    |
+| **Dữ liệu đầu vào**      | Plan có `analysisStatus = failed`.                                                                                    |
+| **Kết quả mong đợi**     | Plan gốc được giữ; job mới đi qua pending/processing; không có plan trùng. Nếu job xong, plan vẫn chờ xác nhận graph. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: retry job lỗi không tạo thêm plan.                                                     |
+| **Trạng thái**           | Pass                                                                                                                  |
+| **Tester**               | Nguyễn Minh Phát                                                                                                      |
+| **Ngày Tested**          | 2026-09-03                                                                                                            |
+| **Ghi chú**              | Đối chiếu SP-01 E1/E4 và SP-06.                                                                                       |
+| **Nhận xét**             | Retry phục hồi công việc lỗi mà không làm phình danh sách kế hoạch, giữ cho không gian làm việc dễ hiểu.              |
+
+---
+
+## UC-12: Chỉnh sửa lịch ôn tập thủ công (SP-08)
+
+### TC-SP-08-01: Dời một mục lịch sang ngày hợp lệ
+
+| Trường                   | Nội dung                                                                                                                                                                            |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-08 — Dời ngày của mục review trong Schedule View                                                                                                                                 |
+| **Mã TC**                | TC-SP-08-01                                                                                                                                                                         |
+| **Tiêu đề**              | Dời mục spaced-repetition sang ngày khác và giữ nguyên trạng thái pending                                                                                                           |
+| **Mô tả**                | Người học dời một mục không phải traceback yếu từ panel ngày sang một ngày tương lai.                                                                                               |
+| **Loại kiểm thử**        | UI-E2E / Integration / Database                                                                                                                                                     |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                             |
+| **Độ ưu tiên**           | High                                                                                                                                                                                |
+| **Điều kiện tiên quyết** | Có plan `active` và một review item `spaced_repetition`, `pending`, được xếp hôm nay.                                                                                               |
+| **Các bước thực hiện**   | 1. Mở `/plans`, chọn ngày có item và mở rộng item.<br>2. Bấm **Dời sang ngày…**, chọn ngày tương lai T.<br>3. Chờ thông báo thành công và kiểm tra lưới/panel.<br>4. Tải lại trang. |
+| **Dữ liệu đầu vào**      | Review item `spaced_repetition`, ngày đích T theo định dạng ngày hợp lệ và khác ngày hiện tại.                                                                                      |
+| **Kết quả mong đợi**     | Item biến khỏi ngày cũ và xuất hiện đúng một lần ở T; sau reload vẫn ở T với `status = pending`. Request PATCH chỉ dời `scheduledFor`, không đổi mastery, reason hoặc tạo item mới. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: spaced-repetition dời sang ngày hợp lệ, PATCH 200, status pending và scheduledFor đổi.                                                               |
+| **Trạng thái**           | Pass                                                                                                                                                                                |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                    |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                          |
+| **Ghi chú**              | Server chốt instant theo ngày VN; test không tự suy giờ ở client.                                                                                                                   |
+| **Nhận xét**             | Người học có thể điều chỉnh lịch ôn hợp lệ mà không làm mất khái niệm hoặc thay đổi mức độ vững.                                                                                    |
+
+---
+
+### TC-SP-08-02: Không cho dời mục traceback yếu
+
+| Trường                   | Nội dung                                                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-08 — Ràng buộc không dời remediation bắt buộc                                                                                                                |
+| **Mã TC**                | TC-SP-08-02                                                                                                                                                     |
+| **Tiêu đề**              | Mục traceback có mastery yếu bị khóa thao tác dời lịch                                                                                                          |
+| **Mô tả**                | Kiểm tra guard UI và server với concept `traceback` có mastery dưới ngưỡng; đây là nền tảng đang yếu nên lịch không được tự ý trì hoãn.                         |
+| **Loại kiểm thử**        | UI-E2E / Security / Integration                                                                                                                                 |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                         |
+| **Độ ưu tiên**           | High                                                                                                                                                            |
+| **Điều kiện tiên quyết** | Có review item `traceback` với `masteryScore < 0.6` hoặc chưa được kiểm tra.                                                                                    |
+| **Các bước thực hiện**   | 1. Mở item trong panel ngày.<br>2. Kiểm tra các action hiển thị.<br>3. Gửi PATCH dời ngày bằng Playwright request context để kiểm tra server guard.             |
+| **Dữ liệu đầu vào**      | Item traceback yếu và một ngày đích tương lai.                                                                                                                  |
+| **Kết quả mong đợi**     | UI không hiện nút **Dời sang ngày…** và hiển thị giải thích không dời được. PATCH dời ngày bị từ chối; `scheduledFor`, status và queue trong DB không thay đổi. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: traceback yếu không có nút dời; PATCH trả 409 TRACEBACK_REPRESENTATIVE_LOCKED, lịch giữ nguyên.                                  |
+| **Trạng thái**           | Pass                                                                                                                                                            |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                      |
+| **Ghi chú**              | Không áp guard này lên item spaced-repetition bình thường.                                                                                                      |
+| **Nhận xét**             | Khóa dời traceback yếu bảo vệ nội dung nền tảng, buộc người học xử lý điểm yếu trước khi trì hoãn.                                                              |
+
+---
+
+### TC-SP-08-03: Gỡ và đưa lại mục trong hàng đợi ôn của plan
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | SP-08 — Gỡ/khôi phục review item tại `/plan/:id/review-queue`                                                                                                                                                                                                                          |
+| **Mã TC**                | TC-SP-08-03                                                                                                                                                                                                                                                                            |
+| **Tiêu đề**              | Gỡ mục lịch có Hoàn tác, sau đó đưa lại từ nhóm đã gỡ                                                                                                                                                                                                                                  |
+| **Mô tả**                | Kiểm tra hai chiều `pending → skipped → pending` qua màn Hàng đợi ôn, gồm cửa sổ Hoàn tác và dữ liệu bền vững sau reload.                                                                                                                                                              |
+| **Loại kiểm thử**        | UI-E2E / Integration / Database                                                                                                                                                                                                                                                        |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                   |
+| **Điều kiện tiên quyết** | Plan `active` có ít nhất hai review item thật (không phải fallback suggestion).                                                                                                                                                                                                        |
+| **Các bước thực hiện**   | 1. Mở `/plan/:id/review-queue` và bấm **Bỏ khỏi lịch** cho mục lịch được chọn.<br>2. Bấm **Hoàn tác** trong cửa sổ hiện tại, rồi gỡ lại mục đó và chờ cửa sổ đóng.<br>3. Tải lại, mở nhóm **Đã gỡ khỏi lịch**, bấm **Đưa lại vào lịch** cho mục lịch được chọn.<br>4. Tải lại lần nữa. |
+| **Dữ liệu đầu vào**      | Một mục lịch được chọn có mã định danh hợp lệ và trạng thái `pending`.                                                                                                                                                                                                                 |
+| **Kết quả mong đợi**     | Lần Hoàn tác đầu tiên trả mục lịch được chọn về danh sách pending mà không nhân dòng. Lần gỡ thứ hai ghi `skipped` bền vững và mục đó xuất hiện trong nhóm đã gỡ; **Đưa lại vào lịch** trả mục đó về pending đúng một lần sau khi tải lại. Các mục khác không đổi.                     |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: remove/undo/restore qua UI, reload vẫn cho thấy item trong queue.                                                                                                                                                                                       |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                   |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                       |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                             |
+| **Ghi chú**              | Màn Lịch không có Hoàn tác tại chỗ; đường khôi phục chính thức là Hàng đợi ôn của plan.                                                                                                                                                                                                |
+| **Nhận xét**             | Cơ chế hoàn tác và đưa lại lịch giúp người học sửa thao tác nhầm mà không tạo bản ghi trùng.                                                                                                                                                                                           |
+
+---
+
+## Bảng tóm tắt — AI Study Planner (SP)
+
+| Mã TC          | Tiêu đề                                                 | Loại                                 | Độ ưu tiên | Trạng thái |
+| -------------- | ------------------------------------------------------- | ------------------------------------ | ---------- | ---------- |
+| TC-SP-01-01    | Tạo plan thành công với file PDF hợp lệ                 | Functionality / Database             | High       | Pass       |
+| TC-SP-01-02    | Tạo plan thất bại — File vượt quá 10MB                  | Functionality                        | High       | Pass       |
+| TC-SP-01-03    | Tạo plan thất bại — File sai định dạng                  | Functionality                        | High       | Pass       |
+| TC-SP-01-04    | Tạo plan thất bại — Thiếu trường bắt buộc               | Functionality                        | High       | Pass       |
+| TC-SP-01-05    | AI trả JSON hợp lệ → concepts/edges lưu DB đúng         | Database / Interface                 | High       | Pass       |
+| TC-SP-01-06    | AI fail liên tục → analysisStatus "failed"              | Functionality / Database             | High       | Pass       |
+| TC-SP-01-07    | AI tạo cycle → DAG auto-fix → dagAutoFixed=true         | Functionality / Database             | High       | Pass       |
+| TC-SP-01-08    | Xem danh sách plans → hiển thị đúng và cách ly dữ liệu  | Functionality                        | Medium     | Pass       |
+| TC-SP-01-UI-01 | Tạo plan thành công với file PDF (UI)                   | UI / E2E                             | High       | Pass       |
+| TC-SP-01-UI-02 | Tạo plan thành công bằng dán text (UI)                  | UI / E2E                             | High       | Pass       |
+| TC-SP-01-UI-03 | Tạo plan thất bại — Để trống trường bắt buộc (UI)       | UI / Validation                      | High       | Pass       |
+| TC-SP-01-UI-04 | Tạo plan thất bại — Hạn trong quá khứ (UI)              | UI / Validation                      | Medium     | Pass       |
+| TC-SP-01-UI-05 | Tạo plan thất bại — Tài liệu vượt 10MB (UI)             | UI / Validation                      | High       | Pass       |
+| TC-SP-01-UI-06 | Tạo plan thất bại — Sai định dạng tài liệu (UI)         | UI / Validation                      | Medium     | Pass       |
+| TC-SP-02-01    | Xem chi tiết plan và xác nhận đồ thị AI                 | Functionality / UI-E2E               | High       | Pass       |
+| TC-SP-02-02    | Bảo mật — Không xem plan của người khác                 | Security / API                       | Critical   | Pass       |
+| TC-SP-02-03    | Xem plan đang phân tích — polling và loading state      | UI-E2E / Functionality               | Medium     | Pass       |
+| TC-SP-03-01    | Danh sách plan phân tab active/draft/archived           | Functionality / UI-E2E               | High       | Pass       |
+| TC-SP-03-03    | Polling tự cập nhật plan đang phân tích trong danh sách | Functionality / UI-E2E               | Medium     | Pass       |
+| TC-SP-04-01    | Lưu trữ plan active                                     | Functionality / API                  | High       | Pass       |
+| TC-SP-04-02    | Khôi phục plan archived và xóa vĩnh viễn                | Functionality / API                  | High       | Pass       |
+| TC-SP-04-03    | Bảo mật — Không archive/xóa plan của người khác         | Security / API                       | Critical   | Pass       |
+| TC-SP-05-01    | Retry phân tích thất bại                                | Functionality / API                  | High       | Pass       |
+| TC-SP-05-02    | Đổi tài liệu nguồn khi file gốc lỗi                     | Functionality / API                  | High       | Pass       |
+| TC-SP-05-03    | Tái phân tích plan active giữ mastery                   | Functionality / API                  | High       | Pass       |
+| TC-SP-06-01    | Hiển thị tiến độ plan đang phân tích                    | Functionality / UI-E2E               | High       | Pass       |
+| TC-SP-06-02    | Phân tích xong vẫn chờ xác nhận graph                   | Functionality / UI-E2E / Database    | Critical   | Pass       |
+| TC-SP-06-03    | Retry job lỗi không nhân plan                           | Resilience / UI-E2E / Database       | High       | Pass       |
+| TC-SP-07-01    | Lịch hiển thị review queue theo ngày                    | Functionality / Integration / UI-E2E | High       | Pass       |
+| TC-SP-07-02    | Lọc kế hoạch và deadline trong lịch                     | UI-E2E / Integration                 | Medium     | Pass       |
+| TC-SP-07-03    | Lịch vẫn xem được khi tải plan lỗi                      | UI-E2E / Resilience                  | Medium     | Pass       |
+| TC-SP-08-01    | Dời item sang ngày hợp lệ                               | UI-E2E / Integration / Database      | High       | Pass       |
+| TC-SP-08-02    | Khóa dời traceback yếu                                  | UI-E2E / Security / Integration      | High       | Pass       |
+| TC-SP-08-03    | Gỡ và đưa lại item trong hàng đợi                       | UI-E2E / Integration / Database      | High       | Pass       |

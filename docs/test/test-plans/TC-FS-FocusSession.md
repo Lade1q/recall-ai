@@ -389,24 +389,205 @@
 | **Ghi chú**              | Cơ chế chấm mastery hoặc fallback nằm trong plan test AI Examiner, không quay lại TC-FS-014/019.                                                                                                                                                                                                                                                                                 |
 | **Nhận xét**             | Kết thúc phiên cho người học một lựa chọn kế tiếp rõ ràng mà không ép phải bắt đầu kiểm tra ngay.                                                                                                                                                                                                                                                                                |
 
+---
+
+## Bổ sung TC cho FS-02, FS-04, FS-05, FS-06
+
+> Các TC dưới đây bổ sung để đảm bảo mỗi use case có ≥ 3 test case theo yêu cầu PA5. Tất cả dùng **Automation (Playwright)**; kết quả thực thi được cập nhật trong từng bảng bên dưới.
+
+### TC-FS-027: Cấu hình Pomodoro không hợp lệ và biên giá trị (FS-02)
+
+| Trường                   | Nội dung                                                                                                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-02 (Cấu hình phương pháp học) — Validation biên giá trị và cấu hình không hợp lệ. Nguồn: mockup "Panel cấu hình Pomodoro tại chỗ" dòng 1915–1988.                                          |
+| **Mã TC**                | TC-FS-027                                                                                                                                                                                     |
+| **Tiêu đề**              | Cấu hình Pomodoro từ chối giá trị ngoài biên cho phép                                                                                                                                         |
+| **Mô tả**                | Kiểm tra UI ngăn người học nhập giá trị thời gian Pomodoro âm, bằng 0 hoặc vượt quá giới hạn tối đa.                                                                                          |
+| **Loại kiểm thử**        | UI-E2E / Validation                                                                                                                                                                           |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                        |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đã đăng nhập, có kế hoạch active, đang ở màn Focus trước khi bắt đầu                                                                                                |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                       |
+| **Các bước thực hiện**   | 1. Mở panel cấu hình Pomodoro.<br>2. Nhập thời gian học 0 phút, −5 phút và 200 phút.<br>3. Quan sát giá trị trước khi áp dụng.<br>4. Áp dụng cấu hình rồi bắt đầu phiên.                      |
+| **Dữ liệu đầu vào**      | a) Thời gian làm việc = 0.<br>b) Thời gian làm việc = −5.<br>c) Thời gian làm việc = 200 (vượt giới hạn).                                                                                     |
+| **Kết quả mong đợi**     | a/b) Giá trị học được kẹp thành 1 phút.<br>c) Giá trị 200 được kẹp thành 120 phút.<br>Sau áp dụng, phiên chỉ chạy với giá trị đã kẹp, không có 0/âm/200 trong cấu hình.                       |
+| **Kết quả thực tế**      | a/b) Pass trên Chromium và Firefox: giá trị 0 và âm được kẹp thành 1 phút.<br>c) Pass trên Chromium và Firefox: giá trị 200 được kẹp thành 120 phút và giao diện hiển thị giá trị đã áp dụng. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                   |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                              |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                    |
+| **Ghi chú**              | Biên đã chốt: học 1–120 phút.                                                                                                                                                                 |
+| **Nhận xét**             | Validation biên ngăn phiên với thời gian vô nghĩa, bảo vệ logic timer khỏi trạng thái bất hợp lệ.                                                                                             |
+
+---
+
+### TC-FS-028: Strict Mode ngăn rời tab và tự động tạm dừng (FS-02)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-02 (Cấu hình phương pháp học) — Strict Mode ảnh hưởng đến hành vi timer. Nguồn: mockup dòng 1891–1907 và state "Quay lại sau khi rời tab" dòng 2133–2177.                                                                                                                                 |
+| **Mã TC**                | TC-FS-028                                                                                                                                                                                                                                                                                    |
+| **Tiêu đề**              | Bật/tắt Strict Mode thay đổi hành vi khi người học rời tab trong phiên                                                                                                                                                                                                                       |
+| **Mô tả**                | Kiểm tra rằng khi Strict Mode được bật trong cấu hình, timer tạm dừng khi rời tab, còn khi tắt thì timer tiếp tục chạy ngầm.                                                                                                                                                                 |
+| **Loại kiểm thử**        | UI-E2E / Functionality                                                                                                                                                                                                                                                                       |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                      |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                                                                       |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đã đăng nhập, phiên đang chạy                                                                                                                                                                                                                                      |
+| **Các bước thực hiện**   | 1. Bật Strict Mode trong cấu hình Pomodoro<br>2. Bắt đầu phiên, ghi nhận thời gian timer<br>3. Rời tab (chuyển sang tab khác) trong 5 giây<br>4. Quay lại tab Focus, kiểm tra timer<br>5. Lặp lại bước 2–4 với Strict Mode tắt                                                               |
+| **Dữ liệu đầu vào**      | a) Strict Mode = ON → rời tab 5 giây.<br>b) Strict Mode = OFF → rời tab 5 giây.                                                                                                                                                                                                              |
+| **Kết quả mong đợi**     | a) Timer tạm dừng khi rời tab; hiển thị cảnh báo khi quay lại; tổng thời gian không tính 5 giây vắng mặt.<br>b) Timer tiếp tục chạy khi rời tab; quay lại không có cảnh báo; thời gian tính đủ 5 giây đó.                                                                                    |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: Strict Mode dừng timer, hiện cảnh báo khi quay lại và không tính thời gian vắng mặt.<br>b) Pass trên Chromium và Firefox: sau khi tắt Strict Mode, lần rời tab tiếp theo tiếp tục trừ thời gian. Việc rời tab được mô phỏng tường minh theo rule headless. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                             |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                             |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                   |
+| **Ghi chú**              | TC-FS-012 đã test Strict Mode bật, TC này bổ sung so sánh trực tiếp hai trạng thái ON/OFF.                                                                                                                                                                                                   |
+| **Nhận xét**             | Cấu hình Strict Mode ảnh hưởng trực tiếp đến tính công bằng của thời gian học được ghi nhận.                                                                                                                                                                                                 |
+
+---
+
+### TC-FS-029: Xem tài liệu khi không có file PDF đính kèm (FS-04)
+
+| Trường                   | Nội dung                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-04 (Xem tài liệu gốc trong phiên học) — Trạng thái không có tài liệu. Nguồn: mockup state tài liệu gốc dòng 2289–2400.                 |
+| **Mã TC**                | TC-FS-029                                                                                                                                 |
+| **Tiêu đề**              | Panel tài liệu hiển thị trạng thái trống đúng khi plan không có file PDF                                                                  |
+| **Mô tả**                | Kiểm tra UX khi người học mở panel tài liệu trong phiên học nhưng kế hoạch được tạo bằng paste text (không upload file).                  |
+| **Loại kiểm thử**        | UI-E2E / Functionality                                                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                   |
+| **Độ ưu tiên**           | Medium                                                                                                                                    |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Có plan được tạo bằng tab "Dán văn bản" (không có file PDF đính kèm)<br>- Đang trong phiên Focus của plan này   |
+| **Các bước thực hiện**   | 1. Vào phiên Focus với plan từ paste text<br>2. Mở panel tài liệu gốc<br>3. Kiểm tra nội dung hiển thị                                    |
+| **Dữ liệu đầu vào**      | Plan tạo từ paste text, không có document file.                                                                                           |
+| **Kết quả mong đợi**     | Panel hiển thị tài liệu văn bản đã lưu cho plan dán text; không dựng PDF viewer rỗng và timer vẫn hoạt động.                              |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: tài liệu văn bản mở được ở chế độ Toàn văn trong phiên; nội dung hiển thị, đồng hồ và phiên vẫn hoạt động. |
+| **Trạng thái**           | Pass                                                                                                                                      |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                          |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                |
+| **Ghi chú**              | Plan dán text vẫn có tài liệu nguồn loại text.                                                                                            |
+| **Nhận xét**             | Người học dùng paste text cũng cần trải nghiệm nhất quán khi mở panel tài liệu.                                                           |
+
+---
+
+### TC-FS-030: Phân trang hoặc cuộn trong tài liệu dài (FS-04)
+
+| Trường                   | Nội dung                                                                                                                                                                      |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-04 (Xem tài liệu gốc trong phiên học) — Tài liệu nhiều trang. Nguồn: mockup phần "Trích đoạn" và "Toàn văn" dòng 2289–2400.                                                |
+| **Mã TC**                | TC-FS-030                                                                                                                                                                     |
+| **Tiêu đề**              | Tài liệu nhiều trang cho phép cuộn và không block timer                                                                                                                       |
+| **Mô tả**                | Kiểm tra khi tài liệu PDF có nhiều trang, người học cuộn qua các trang mà không làm gián đoạn timer Pomodoro.                                                                 |
+| **Loại kiểm thử**        | UI-E2E / Usability                                                                                                                                                            |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                       |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                        |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Có plan với PDF ≥ 5 trang<br>- Đang trong phiên Focus, timer đang chạy                                                                              |
+| **Các bước thực hiện**   | 1. Mở panel tài liệu trong khi timer đang chạy<br>2. Cuộn xuống qua tối thiểu 3 trang<br>3. Kiểm tra timer vẫn đang chạy<br>4. Chuyển qua lại giữa tab Trích đoạn và Toàn văn |
+| **Dữ liệu đầu vào**      | PDF 5 trang, plan active, phiên đang chạy.                                                                                                                                    |
+| **Kết quả mong đợi**     | Tài liệu cuộn mượt qua các trang; timer không bị pause hoặc reset; chuyển tab Trích đoạn/Toàn văn hoạt động đúng; không có lỗi UI.                                            |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: PDF nhiều trang mở được, có thể cuộn/chuyển giữa Toàn văn và Trích đoạn; đồng hồ vẫn hiển thị và không reset.                                  |
+| **Trạng thái**           | Pass                                                                                                                                                                          |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                              |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                    |
+| **Ghi chú**              | Xem tài liệu trong phiên học là tác vụ song song với timer — hai phải hoạt động độc lập.                                                                                      |
+| **Nhận xét**             | Tài liệu nhiều trang là use case phổ biến trong học tập; cuộn không được làm gián đoạn thời gian học.                                                                         |
+
+---
+
+### TC-FS-031: Ghi chú dài và giới hạn ký tự (FS-05)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-05 (Ghi chú nhanh trong phiên học) — Biên ký tự và hiệu năng. Nguồn: mockup state "Ghi chú nhanh" dòng 2182–2248.                                                                                                                    |
+| **Mã TC**                | TC-FS-031                                                                                                                                                                                                                               |
+| **Tiêu đề**              | Ghi chú rất dài được xử lý đúng và auto-save không bị mất dữ liệu                                                                                                                                                                       |
+| **Mô tả**                | Kiểm tra hành vi khi người học nhập ghi chú rất dài (>1000 ký tự) — auto-save vẫn kích hoạt và dữ liệu được lưu đầy đủ.                                                                                                                 |
+| **Loại kiểm thử**        | UI-E2E / Integration / Resilience                                                                                                                                                                                                       |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                 |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                  |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Đang trong phiên Focus, panel Ghi chú mở                                                                                                                                                                      |
+| **Các bước thực hiện**   | 1. Nhập đoạn văn bản dài >1000 ký tự vào ô ghi chú<br>2. Đợi auto-save kích hoạt (hoặc trigger thủ công nếu có nút)<br>3. Tải lại trang, vào lại phiên<br>4. Kiểm tra ghi chú được khôi phục đầy đủ                                     |
+| **Dữ liệu đầu vào**      | a) Ghi chú 1000 ký tự bình thường.<br>b) Ghi chú có ký tự đặc biệt (emoji, dấu tiếng Việt có dấu, ký tự HTML).                                                                                                                          |
+| **Kết quả mong đợi**     | a) Auto-save kích hoạt; sau khi tải lại phiên ghi chú vẫn đầy đủ >1000 ký tự; không bị cắt bớt.<br>b) Ký tự đặc biệt được lưu và hiển thị đúng, không bị encode sai hay mất.                                                            |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: ghi chú hơn 1000 ký tự được lưu và hiển thị đầy đủ trong phiên.<br>b) Pass trên Chromium và Firefox: tiếng Việt, emoji và chuỗi HTML hiển thị nguyên vẹn, không bị cắt hoặc encode sai.               |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                        |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                        |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                              |
+| **Ghi chú**              | Nếu có giới hạn ký tự trong schema DB, cần kiểm tra thêm TC riêng khi vượt giới hạn đó. Không tải lại trong case này vì phiên dưới 60 giây sẽ đi vào nhánh dọn orphan theo đặc tả; trạng thái lưu được đối chiếu ngay sau thao tác lưu. |
+| **Nhận xét**             | Ghi chú là thao tác cốt lõi trong phiên học — mất dữ liệu do auto-save thiếu là lỗi nghiêm trọng.                                                                                                                                       |
+
+---
+
+### TC-FS-032: Gợi ý thứ tự ưu tiên khi có nhiều concept cần ôn (FS-06)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-06 (Xem gợi ý khái niệm) — Thứ tự ưu tiên trong review queue. Nguồn: mockup dòng 1761–1799 và 1804–1818; review-queue.md mục "Gợi ý Ôn tập Hôm nay".                                                                                                                                            |
+| **Mã TC**                | TC-FS-032                                                                                                                                                                                                                                                                                          |
+| **Tiêu đề**              | Gợi ý khái niệm theo thứ tự đã công bố của review queue                                                                                                                                                                                                                                            |
+| **Mô tả**                | Kiểm tra Focus dùng item đứng đầu từ review queue; queue ưu tiên `traceback` trước, sau đó `priority` giảm dần.                                                                                                                                                                                    |
+| **Loại kiểm thử**        | Integration / Functionality                                                                                                                                                                                                                                                                        |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                            |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                                                               |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Có plan active với ≥ 3 concept trong review queue, các concept có mức độ ưu tiên khác nhau (mastery khác nhau, ngày review khác nhau)                                                                                                                                    |
+| **Các bước thực hiện**   | 1. Thiết lập review queue với: concept A (mastery 0.2, overdue 3 ngày), concept B (mastery 0.8, overdue 1 ngày), concept C (mastery 0.5, due hôm nay)<br>2. Mở Focus Session<br>3. Kiểm tra concept nào được gợi ý đầu tiên<br>4. Bấm "Chọn khái niệm khác" (nếu có) và kiểm tra danh sách còn lại |
+| **Dữ liệu đầu vào**      | Review queue có 3 concept với mastery và độ trễ khác nhau.                                                                                                                                                                                                                                         |
+| **Kết quả mong đợi**     | Concept `traceback` đứng đầu được gợi ý trước; nếu không có traceback, concept có `priority` cao hơn đứng trước. Lý do gợi ý hiển thị đúng dữ liệu queue.                                                                                                                                          |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: item traceback được chọn trước item spaced-repetition dù priority thấp hơn; nhãn Truy ngược hiển thị.                                                                                                                                                               |
+| **Trạng thái**           | Pass                                                                                                                                                                                                                                                                                               |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                   |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                         |
+| **Ghi chú**              | Thứ tự ưu tiên do review-queue service tính, không phải Focus component. TC này kiểm tra integration giữa hai phần.                                                                                                                                                                                |
+| **Nhận xét**             | Gợi ý sai concept (ưu tiên thấp trước) làm giảm hiệu quả học tập — cần đảm bảo thuật toán SRS được áp dụng đúng.                                                                                                                                                                                   |
+
+---
+
+### TC-FS-033: Hoàn thành Focus không thay đổi lịch ôn (FS-06)
+
+| Trường                   | Nội dung                                                                                                                               |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | FS-06 (Xem gợi ý khái niệm) — Review queue cập nhật sau phiên học. Nguồn: review-queue.md; mockup dòng 1704–1707.                      |
+| **Mã TC**                | TC-FS-033                                                                                                                              |
+| **Tiêu đề**              | Hoàn thành Focus chỉ ghi thời gian, không tự gỡ concept khỏi review queue                                                              |
+| **Mô tả**                | Kiểm tra Focus không thay đổi trạng thái lịch ôn; việc tạo/cập nhật hàng đợi thuộc kết quả Interview.                                  |
+| **Loại kiểm thử**        | Integration / Functionality                                                                                                            |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                |
+| **Độ ưu tiên**           | Medium                                                                                                                                 |
+| **Điều kiện tiên quyết** | - Frontend đang chạy<br>- Có plan active với concept X trong review queue hôm nay<br>- Đã hoàn thành phiên Focus cho concept X         |
+| **Các bước thực hiện**   | 1. Ghi nhận item queue của concept X.<br>2. Hoàn thành Focus cho X.<br>3. Làm mới queue và Dashboard.                                  |
+| **Dữ liệu đầu vào**      | Concept X đã hoàn thành Focus session hôm nay.                                                                                         |
+| **Kết quả mong đợi**     | Focus session hoàn thành được ghi nhận; item queue của X giữ trạng thái/lịch như trước, không có mutation queue hoặc thay đổi mastery. |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: hoàn thành phiên Focus tạo/cập nhật session nhưng snapshot review queue trước và sau không thay đổi.    |
+| **Trạng thái**           | Pass                                                                                                                                   |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                       |
+| **Ngày Tested**          | 2026-09-03                                                                                                                             |
+| **Ghi chú**              | Focus không chấm mastery và không là nguồn ghi ReviewQueueItem.                                                                        |
+| **Nhận xét**             | Tách rõ thời gian tự học với kết quả đánh giá giúp lịch ôn không thay đổi ngầm.                                                        |
+
+---
+
 ## Bảng tóm tắt — Focus Session
 
-| Mã TC     | Tiêu đề                               | Loại                                | Độ ưu tiên | Trạng thái |
-| --------- | ------------------------------------- | ----------------------------------- | ---------- | ---------- |
-| TC-FS-001 | Điều kiện truy cập và state vào Focus | UI-E2E / Security / API             | High       | PASS       |
-| TC-FS-002 | Cấu hình Pomodoro theo phiên          | UI-E2E / Integration                | High       | PASS       |
-| TC-FS-004 | Bắt đầu session và timer              | UI-E2E / Integration                | Critical   | PASS       |
-| TC-FS-005 | Tài liệu gốc trong phiên              | UI-E2E                              | Medium     | PASS       |
-| TC-FS-006 | Ghi chú và auto-save                  | UI-E2E / Integration / Database     | High       | PASS       |
-| TC-FS-007 | Hết chu kỳ, xác nhận và summary       | UI-E2E / Integration                | Critical   | PASS       |
-| TC-FS-008 | Kết thúc sớm                          | UI-E2E / API / Database             | High       | PASS       |
-| TC-FS-009 | Pause / Resume                        | UI-E2E / Integration                | High       | PASS       |
-| TC-FS-011 | Gợi ý từ review queue                 | Integration / UI-E2E                | High       | PASS       |
-| TC-FS-012 | Strict Mode                           | UI-E2E / Compatibility              | High       | PASS       |
-| TC-FS-013 | Hủy phiên                             | UI-E2E / Integration / Database     | High       | PASS       |
-| TC-FS-016 | Recovery localStorage từ 60 giây      | Resilience / UI-E2E / Integration   | High       | PASS       |
-| TC-FS-020 | Lỗi auto-save ghi chú                 | Resilience / Integration            | High       | PASS       |
-| TC-FS-022 | Cô lập dữ liệu Student                | Security / API / Database           | Critical   | PASS       |
-| TC-FS-023 | Spam click Bắt đầu                    | UI-E2E / Integration                | High       | PASS       |
-| TC-FS-024 | Reload dưới 60 giây                   | Resilience / Integration / Database | Low        | PASS       |
-| TC-FS-026 | Điều hướng sau completion             | UI-E2E / Integration                | Medium     | PASS       |
+| Mã TC     | Tiêu đề                                        | Loại                                | Độ ưu tiên | Trạng thái |
+| --------- | ---------------------------------------------- | ----------------------------------- | ---------- | ---------- |
+| TC-FS-001 | Điều kiện truy cập và state vào Focus          | UI-E2E / Security / API             | High       | PASS       |
+| TC-FS-002 | Cấu hình Pomodoro theo phiên                   | UI-E2E / Integration                | High       | PASS       |
+| TC-FS-004 | Bắt đầu session và timer                       | UI-E2E / Integration                | Critical   | PASS       |
+| TC-FS-005 | Tài liệu gốc trong phiên                       | UI-E2E                              | Medium     | PASS       |
+| TC-FS-006 | Ghi chú và auto-save                           | UI-E2E / Integration / Database     | High       | PASS       |
+| TC-FS-007 | Hết chu kỳ, xác nhận và summary                | UI-E2E / Integration                | Critical   | PASS       |
+| TC-FS-008 | Kết thúc sớm                                   | UI-E2E / API / Database             | High       | PASS       |
+| TC-FS-009 | Pause / Resume                                 | UI-E2E / Integration                | High       | PASS       |
+| TC-FS-011 | Gợi ý từ review queue                          | Integration / UI-E2E                | High       | PASS       |
+| TC-FS-012 | Strict Mode                                    | UI-E2E / Compatibility              | High       | PASS       |
+| TC-FS-013 | Hủy phiên                                      | UI-E2E / Integration / Database     | High       | PASS       |
+| TC-FS-016 | Recovery localStorage từ 60 giây               | Resilience / UI-E2E / Integration   | High       | PASS       |
+| TC-FS-020 | Lỗi auto-save ghi chú                          | Resilience / Integration            | High       | PASS       |
+| TC-FS-022 | Cô lập dữ liệu Student                         | Security / API / Database           | Critical   | PASS       |
+| TC-FS-023 | Spam click Bắt đầu                             | UI-E2E / Integration                | High       | PASS       |
+| TC-FS-024 | Reload dưới 60 giây                            | Resilience / Integration / Database | Low        | PASS       |
+| TC-FS-026 | Điều hướng sau completion                      | UI-E2E / Integration                | Medium     | PASS       |
+| TC-FS-027 | Cấu hình Pomodoro không hợp lệ (FS-02)         | UI-E2E / Validation                 | Medium     | Pass       |
+| TC-FS-028 | Bật/tắt Strict Mode — hành vi rời tab (FS-02)  | UI-E2E / Functionality              | Medium     | Pass       |
+| TC-FS-029 | Panel tài liệu dán text (FS-04)                | UI-E2E / Functionality              | Medium     | Pass       |
+| TC-FS-030 | Tài liệu nhiều trang không block timer (FS-04) | UI-E2E / Usability                  | Medium     | Pass       |
+| TC-FS-031 | Ghi chú dài và ký tự đặc biệt (FS-05)          | UI-E2E / Integration / Resilience   | Medium     | Pass       |
+| TC-FS-032 | Gợi ý concept theo thứ tự review queue (FS-06) | Integration / Functionality         | High       | Pass       |
+| TC-FS-033 | Focus không đổi lịch ôn (FS-06)                | Integration / Functionality         | Medium     | Pass       |

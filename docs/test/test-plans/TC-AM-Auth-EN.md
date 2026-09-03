@@ -731,3 +731,152 @@ TC-AM-02-05 (Use expired token)
 ```
 
 Independent validation TCs (01-02 ~ 01-08, 02-02 ~ 02-06, 02-09, 02-10) can be executed in any order.
+
+---
+
+## PA5 Additions — UC-03 (Personal Profile Management) and UC-04 (Logout)
+
+> Final sources: UC-01 Account Management, UC-03/UC-04, and the Profile mockup. PA5 cases are added after the PA4 content; previous results are unchanged.
+
+### TC-AM-03-01: View current profile information
+
+| Field                  | Content                                                                                                                                                                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | UC-03 (Personal Profile Management) — view name, email, and join date                                                                                                                                                                                                                           |
+| **TC ID**              | TC-AM-03-01                                                                                                                                                                                                                                                                                     |
+| **Title**              | Display the correct information for the currently signed-in learner                                                                                                                                                                                                                             |
+| **Description**        | Open Profile and reload to confirm that only the current session's data appears and that email cannot be edited.                                                                                                                                                                                |
+| **Test Type**          | Functionality / Security / UI-E2E                                                                                                                                                                                                                                                               |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                                                                         |
+| **Priority**           | High                                                                                                                                                                                                                                                                                            |
+| **Prerequisites**      | The primary learner is logged in; both named and unnamed states can be checked.                                                                                                                                                                                                                 |
+| **Steps to Reproduce** | 1. Open Profile.<br>2. Observe the name, email, join date, and locked-email state.<br>3. Reload in both name states.                                                                                                                                                                            |
+| **Test Data**          | a) Account with a display name.<br>b) Account without a display name.                                                                                                                                                                                                                           |
+| **Expected Result**    | a) The saved name is shown.<br>b) The name field is empty and is not replaced with the email.<br>The current learner's email and join date appear, and the email cannot be edited.                                                                                                              |
+| **Actual Result**      | a) Pass on Chromium and Firefox: the profile correctly displayed the current learner's name, email, and join date; the values remained after reload.<br>b) Pass on Chromium and Firefox: an unnamed account showed the empty field and the correct prompt, without replacing it with the email. |
+| **Status**             | a) Pass<br>b) Pass<br>Total: Pass                                                                                                                                                                                                                                                               |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                                                                                      |
+| **Notes**              | Compared with the main flow steps 1–2 of UC-03.                                                                                                                                                                                                                                                 |
+| **Comments**           | The learner can verify the account identity and still recognize the profile state when no name has been set.                                                                                                                                                                                    |
+
+### TC-AM-03-02: Update or clear display name
+
+| Field                  | Content                                                                                                                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | UC-03 (Personal Profile Management) — update information                                                                                                                                                                               |
+| **TC ID**              | TC-AM-03-02                                                                                                                                                                                                                            |
+| **Title**              | Save a valid name and allow the name to be left blank                                                                                                                                                                                  |
+| **Description**        | Save a name, reload and check the Dashboard greeting, then clear the name.                                                                                                                                                             |
+| **Test Type**          | Functionality / Interface / UI-E2E                                                                                                                                                                                                     |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                |
+| **Priority**           | High                                                                                                                                                                                                                                   |
+| **Prerequisites**      | The learner is logged in and Profile is open.                                                                                                                                                                                          |
+| **Steps to Reproduce** | 1. Enter a name and save.<br>2. Reload and open Dashboard.<br>3. Clear the name and save again.                                                                                                                                        |
+| **Test Data**          | a) `Ngọc An`.<br>b) `  Ngọc An  `.<br>c) Empty string.                                                                                                                                                                                 |
+| **Expected Result**    | a/b) The name is normalized, remains after reload, and appears on Dashboard.<br>c) The name is deleted; Dashboard does not concatenate the email as a name, and the profile email is unchanged.                                        |
+| **Actual Result**      | a/b) Pass on Chromium and Firefox: the valid name was normalized, persisted after reload, and appeared on Dashboard.<br>c) Pass on Chromium and Firefox: the name was successfully cleared and the greeting did not include the email. |
+| **Status**             | a) Pass<br>b) Pass<br>c) Pass<br>Total: Pass                                                                                                                                                                                           |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                       |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                             |
+| **Notes**              | Compared with the main flow of UC-03.                                                                                                                                                                                                  |
+| **Comments**           | The display name is synchronized between Profile and Dashboard, keeping the greeting consistent without exposing the email as a substitute for the name.                                                                               |
+
+### TC-AM-03-03: Change password and reject invalid data
+
+| Field                  | Content                                                                                                                                                                                                                                                                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | UC-03 (Personal Profile Management) — change password; E1/E2                                                                                                                                                                                                                                                                       |
+| **TC ID**              | TC-AM-03-03                                                                                                                                                                                                                                                                                                                        |
+| **Title**              | Change the password only when the data is valid                                                                                                                                                                                                                                                                                    |
+| **Description**        | Check success, an incorrect current password, and a short/mismatched new password.                                                                                                                                                                                                                                                 |
+| **Test Type**          | Functionality / Security / UI-E2E                                                                                                                                                                                                                                                                                                  |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                                                                                                                                                                            |
+| **Priority**           | Critical                                                                                                                                                                                                                                                                                                                           |
+| **Prerequisites**      | The learner has a valid current password and has opened the Change Password tab.                                                                                                                                                                                                                                                   |
+| **Steps to Reproduce** | 1. Enter the three password fields.<br>2. Submit the change.<br>3. Log out and log in again to verify.                                                                                                                                                                                                                             |
+| **Test Data**          | a) Correct current password; new password of 8+ characters with matching confirmation.<br>b) Incorrect current password.<br>c) Short new password or different confirmation.                                                                                                                                                       |
+| **Expected Result**    | a) Change succeeds; only the new password can log in.<br>b) An incorrect-current-password error is shown; data is not changed.<br>c) A field error is shown and the change is not submitted.                                                                                                                                       |
+| **Actual Result**      | a) Pass on Chromium and Firefox: the valid password was changed successfully and could be used to log in again.<br>b) Pass on Chromium and Firefox: an incorrect old password returned 400 and the password did not change.<br>c) Pass on Chromium and Firefox: mismatched confirmation/insufficient length was blocked by the UI. |
+| **Status**             | a) Pass<br>b) Pass<br>c) Pass<br>Total: Pass                                                                                                                                                                                                                                                                                       |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                                   |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                                                                                                                                                                         |
+| **Notes**              | Compared with UC-03 E1/E2.                                                                                                                                                                                                                                                                                                         |
+| **Comments**           | Input checks protect the account from unintended password changes and accept only valid authentication information.                                                                                                                                                                                                                |
+
+### TC-AM-04-01: Log out from Profile
+
+| Field                  | Content                                                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | UC-04 (Logout) — end the session                                                                                                             |
+| **TC ID**              | TC-AM-04-01                                                                                                                                  |
+| **Title**              | Logout redirects to Login and clears the local session                                                                                       |
+| **Description**        | Check that the Logout button in Profile ends the authenticated session.                                                                      |
+| **Test Type**          | Functionality / Security / UI-E2E                                                                                                            |
+| **Execution Method**   | Automation (Playwright)                                                                                                                      |
+| **Priority**           | High                                                                                                                                         |
+| **Prerequisites**      | The learner is logged in and Profile is open.                                                                                                |
+| **Steps to Reproduce** | 1. Click Logout.<br>2. Observe the destination page.<br>3. Reload.                                                                           |
+| **Test Data**          | Valid logged-in session.                                                                                                                     |
+| **Expected Result**    | Redirect to Login; the old session state is gone after reload.                                                                               |
+| **Actual Result**      | Pass on Chromium and Firefox: logout returned to Login and removed the access token; reload and protected routes did not reopen the session. |
+| **Status**             | Pass                                                                                                                                         |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                             |
+| **Date Tested**        | 2026-09-03                                                                                                                                   |
+| **Notes**              | Compared with UC-04 steps 1–3.                                                                                                               |
+| **Comments**           | The post-logout path is clear, so the learner knows the session ended and does not accidentally use the old account.                         |
+
+### TC-AM-04-02: Block protected routes after logout
+
+| Field                  | Content                                                                                                                                         |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature** | UC-04 (Logout) — do not reuse the ended session                                                                                                 |
+| **TC ID**              | TC-AM-04-02                                                                                                                                     |
+| **Title**              | Do not access Dashboard or Profile again after logout                                                                                           |
+| **Description**        | Access protected routes directly and use the Back button after the session ends.                                                                |
+| **Test Type**          | Security / UI-E2E                                                                                                                               |
+| **Execution Method**   | Automation (Playwright)                                                                                                                         |
+| **Priority**           | Critical                                                                                                                                        |
+| **Prerequisites**      | Logout has been completed.                                                                                                                      |
+| **Steps to Reproduce** | 1. Open Dashboard.<br>2. Open Profile.<br>3. Use Back.                                                                                          |
+| **Test Data**          | Protected URLs after the session has been removed.                                                                                              |
+| **Expected Result**    | Each action returns to Login without exposing the name, email, or learning data.                                                                |
+| **Actual Result**      | Pass on Chromium and Firefox: after logout, `/dashboard` and `/profile` both redirected to Login; going back in history did not restore access. |
+| **Status**             | Pass                                                                                                                                            |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                |
+| **Date Tested**        | 2026-09-03                                                                                                                                      |
+| **Notes**              | Compared with UC-04 and the protected route of UC-02.                                                                                           |
+| **Comments**           | Protected routes remain secured after logout, so personal data is not exposed by reopening a URL or using browser history.                      |
+
+### TC-AM-04-03: Log in again after logout
+
+| Field                  | Content                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature** | UC-04 (Logout) combined with UC-02 (Login) — create a new session                                                                                                                    |
+| **TC ID**              | TC-AM-04-03                                                                                                                                                                          |
+| **Title**              | Re-login does not use the previous learner's cache                                                                                                                                   |
+| **Description**        | Log out the current learner, log in as another learner, and verify the new session identity.                                                                                         |
+| **Test Type**          | Functionality / Security / UI-E2E                                                                                                                                                    |
+| **Execution Method**   | Automation (Playwright)                                                                                                                                                              |
+| **Priority**           | High                                                                                                                                                                                 |
+| **Prerequisites**      | Two accounts with different emails/names are available.                                                                                                                              |
+| **Steps to Reproduce** | 1. Log out the first learner.<br>2. Log in as the second learner.<br>3. Open Profile and Dashboard.                                                                                  |
+| **Test Data**          | Two independent accounts with different emails and display names.                                                                                                                    |
+| **Expected Result**    | The new session belongs only to the second learner; no email, name, or private data of the first learner remains.                                                                    |
+| **Actual Result**      | Pass on Chromium and Firefox: after the first learner logged out and the second logged in, Profile showed only the second learner's data, with no email/name from the first learner. |
+| **Status**             | Pass                                                                                                                                                                                 |
+| **Tester**             | Nguyễn Minh Phát                                                                                                                                                                     |
+| **Date Tested**        | 2026-09-03                                                                                                                                                                           |
+| **Notes**              | Client isolation check after UC-04.                                                                                                                                                  |
+| **Comments**           | Session isolation ensures that shared devices or account switching do not mix learners' personal data.                                                                               |
+
+## PA5 Additions Summary — Authentication
+
+| TC ID       | Title                                   | Type                     | Priority | Status |
+| ----------- | --------------------------------------- | ------------------------ | -------- | ------ |
+| TC-AM-03-01 | View current profile information        | Functionality / Security | High     | Pass   |
+| TC-AM-03-02 | Update or clear display name            | Functionality            | High     | Pass   |
+| TC-AM-03-03 | Change password and reject invalid data | Security                 | Critical | Pass   |
+| TC-AM-04-01 | Log out from Profile                    | Functionality            | High     | Pass   |
+| TC-AM-04-02 | Block protected routes after logout     | Security                 | Critical | Pass   |
+| TC-AM-04-03 | Log in again after logout               | Security                 | High     | Pass   |

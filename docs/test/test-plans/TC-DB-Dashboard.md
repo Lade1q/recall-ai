@@ -759,6 +759,30 @@
 
 ---
 
+### TC-DB-034: Tải thêm lịch sử phiên học và phiên kiểm tra (UC-18)
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-18 (Lịch sử) — Danh sách số lượng lớn phiên học/vấn đáp                                                                                                                                                                                                                                                      |
+| **Mã TC**                | TC-DB-034                                                                                                                                                                                                                                                                                                       |
+| **Tiêu đề**              | Danh sách Lịch sử & Tiến độ tải thêm đúng trang dữ liệu                                                                                                                                                                                                                                                         |
+| **Mô tả**                | Kiểm tra nút “Xem thêm” nạp trang kế tiếp cho cả hai tab Lịch sử & Tiến độ và giữ những hàng đã đọc.                                                                                                                                                                                                            |
+| **Loại kiểm thử**        | Functionality / Performance / API                                                                                                                                                                                                                                                                               |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                                                         |
+| **Độ ưu tiên**           | Medium                                                                                                                                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | Người học có ít nhất 21 phiên kiểm tra và 21 phiên học hoàn thành, với thời điểm bắt đầu phân biệt.                                                                                                                                                                                                             |
+| **Các bước thực hiện**   | 1. Mở Lịch sử & Tiến độ.<br>2. Ở tab Phiên kiểm tra, bấm “Xem thêm”.<br>3. Đổi sang tab Phiên học và bấm “Xem thêm”.<br>4. Đổi tab qua lại.                                                                                                                                                                     |
+| **Dữ liệu đầu vào**      | a) 21 phiên kiểm tra.<br>b) 21 phiên học.<br>c) Một trang cuối ít hơn 20 phiên.                                                                                                                                                                                                                                 |
+| **Kết quả mong đợi**     | a/b) Ban đầu hiện 20 phiên mới nhất; “Xem thêm” nạp phiên thứ 21 theo thứ tự giảm dần và giữ 20 hàng cũ.<br>c) Sau trang ngắn, không còn nút tải thêm; đổi tab không làm mất hàng đã nạp.                                                                                                                       |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: tab Phiên kiểm tra giữ 20 hàng cũ và nạp đủ phiên thứ 21.<br>b) Pass trên Chromium và Firefox: tab Phiên học nạp đủ phiên thứ 21 và giữ dữ liệu đã đọc.<br>c) Pass trên Chromium và Firefox: khi trang cuối ngắn, nút Xem thêm biến mất và đổi tab không làm mất hàng đã nạp. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                                                                                                                                     |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                                                                |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                                                      |
+| **Ghi chú**              | Đối chiếu UC-18 (Lịch sử & Tiến độ); không suy diễn infinite scroll.                                                                                                                                                                                                                                            |
+| **Nhận xét**             | Người học giữ được ngữ cảnh khi đọc lịch sử dài ở cả hai loại phiên.                                                                                                                                                                                                                                            |
+
+---
+
 ## Các điểm cần làm rõ trước khi chốt nghiệm thu
 
 1. **Cách tính “điểm trung bình phiên”** trong lịch sử phiên vấn đáp (TC-DB-013): khi một khái niệm được kiểm tra lần đầu, cần chốt có tính vào trung bình ra sao để expected result dứt khoát.
@@ -809,6 +833,7 @@
 | TC-DB-031 | Tên khái niệm rất dài trong đồ thị                | Usability / Security           | Medium     | Pass           |
 | TC-DB-032 | Chuyển kế hoạch đang xem đồ thị                   | Functionality / UI-E2E         | High       | Pass           |
 | TC-DB-033 | Bấm liên tục nút gợi ý hôm nay                    | Functionality / Resilience     | High       | Partial        |
+| TC-DB-034 | Tải thêm Lịch sử & Tiến độ (UC-18)                | Functionality / Performance    | Medium     | Pass           |
 
 ## Chú thích trạng thái
 

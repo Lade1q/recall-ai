@@ -761,3 +761,152 @@ TC-AM-02-05 (Dùng expired token)
 ```
 
 Các TC validate độc lập (01-02 ~ 01-08, 02-02 ~ 02-06, 02-09, 02-10) có thể chạy theo bất kỳ thứ tự nào.
+
+---
+
+## Bổ sung PA5 — UC-03 (Quản lý hồ sơ cá nhân) và UC-04 (Đăng xuất)
+
+> Nguồn chốt: UC-01 Account Management, UC-03/UC-04 và mockup Hồ sơ. Các case PA5 được thêm sau nội dung PA4, không thay đổi kết quả cũ.
+
+### TC-AM-03-01: Xem thông tin hồ sơ hiện tại
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                               |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Function / Feature**   | UC-03 (Quản lý hồ sơ cá nhân) — xem tên, email và ngày tham gia                                                                                                                                                                                        |
+| **Mã TC**                | TC-AM-03-01                                                                                                                                                                                                                                            |
+| **Tiêu đề**              | Hiển thị đúng thông tin của người học đang đăng nhập                                                                                                                                                                                                   |
+| **Mô tả**                | Mở Hồ sơ và tải lại để xác nhận chỉ dữ liệu của phiên hiện tại xuất hiện, email không thể sửa.                                                                                                                                                         |
+| **Loại kiểm thử**        | Functionality / Security / UI-E2E                                                                                                                                                                                                                      |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                |
+| **Độ ưu tiên**           | High                                                                                                                                                                                                                                                   |
+| **Điều kiện tiên quyết** | Người học chính đã đăng nhập; có thể kiểm tra cả trạng thái có tên và không có tên.                                                                                                                                                                    |
+| **Các bước thực hiện**   | 1. Mở Hồ sơ.<br>2. Quan sát tên, email, ngày tham gia và trạng thái khóa email.<br>3. Tải lại ở cả hai trạng thái tên.                                                                                                                                 |
+| **Dữ liệu đầu vào**      | a) Tài khoản có tên hiển thị.<br>b) Tài khoản chưa có tên hiển thị.                                                                                                                                                                                    |
+| **Kết quả mong đợi**     | a) Hiện tên đã lưu.<br>b) Ô tên trống, không thay bằng email.<br>Email/ngày tham gia của đúng người học hiện tại xuất hiện và email không thể sửa.                                                                                                     |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: hồ sơ hiển thị đúng tên, email và ngày tham gia của người học hiện tại, tải lại vẫn giữ nguyên.<br>b) Pass trên Chromium và Firefox: tài khoản chưa có tên hiển thị ô trống và lời nhắc đúng, không thay bằng email. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>Tổng: Pass                                                                                                                                                                                                                       |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                       |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                             |
+| **Ghi chú**              | Đối chiếu UC-03 luồng chính bước 1–2.                                                                                                                                                                                                                  |
+| **Nhận xét**             | Người học có thể đối chiếu đúng danh tính tài khoản và vẫn nhận diện được trạng thái hồ sơ khi chưa đặt tên.                                                                                                                                           |
+
+### TC-AM-03-02: Cập nhật hoặc xóa tên hiển thị
+
+| Trường                   | Nội dung                                                                                                                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-03 (Quản lý hồ sơ cá nhân) — cập nhật thông tin                                                                                                                                                 |
+| **Mã TC**                | TC-AM-03-02                                                                                                                                                                                        |
+| **Tiêu đề**              | Lưu tên hợp lệ và cho phép bỏ trống tên                                                                                                                                                            |
+| **Mô tả**                | Lưu tên, tải lại và kiểm tra lời chào Dashboard; sau đó xóa tên.                                                                                                                                   |
+| **Loại kiểm thử**        | Functionality / Interface / UI-E2E                                                                                                                                                                 |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                            |
+| **Độ ưu tiên**           | High                                                                                                                                                                                               |
+| **Điều kiện tiên quyết** | Người học đã đăng nhập, đang mở Hồ sơ.                                                                                                                                                             |
+| **Các bước thực hiện**   | 1. Nhập tên và lưu.<br>2. Tải lại, mở Dashboard.<br>3. Xóa tên và lưu lại.                                                                                                                         |
+| **Dữ liệu đầu vào**      | a) `Ngọc An`.<br>b) `  Ngọc An  `.<br>c) Chuỗi rỗng.                                                                                                                                               |
+| **Kết quả mong đợi**     | a/b) Tên chuẩn hóa, còn sau tải lại và xuất hiện trên Dashboard.<br>c) Tên bị xóa; Dashboard không ghép email làm tên, email hồ sơ không đổi.                                                      |
+| **Kết quả thực tế**      | a/b) Pass trên Chromium và Firefox: tên hợp lệ được chuẩn hóa, lưu bền sau tải lại và xuất hiện trên Dashboard.<br>c) Pass trên Chromium và Firefox: xóa tên thành công, lời chào không kèm email. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                        |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                   |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                         |
+| **Ghi chú**              | Đối chiếu UC-03 luồng chính.                                                                                                                                                                       |
+| **Nhận xét**             | Tên hiển thị được đồng bộ giữa Hồ sơ và Dashboard, giúp lời chào nhất quán mà không làm lộ email thay cho tên.                                                                                     |
+
+### TC-AM-03-03: Đổi mật khẩu và từ chối dữ liệu không hợp lệ
+
+| Trường                   | Nội dung                                                                                                                                                                                                                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-03 (Quản lý hồ sơ cá nhân) — đổi mật khẩu; E1/E2                                                                                                                                                                                                                          |
+| **Mã TC**                | TC-AM-03-03                                                                                                                                                                                                                                                                  |
+| **Tiêu đề**              | Đổi mật khẩu chỉ khi dữ liệu hợp lệ                                                                                                                                                                                                                                          |
+| **Mô tả**                | Kiểm tra thành công, mật khẩu hiện tại sai, và mật khẩu mới ngắn/không khớp.                                                                                                                                                                                                 |
+| **Loại kiểm thử**        | Functionality / Security / UI-E2E                                                                                                                                                                                                                                            |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                                                                                                      |
+| **Độ ưu tiên**           | Critical                                                                                                                                                                                                                                                                     |
+| **Điều kiện tiên quyết** | Người học có mật khẩu hiện tại hợp lệ và mở tab Đổi mật khẩu.                                                                                                                                                                                                                |
+| **Các bước thực hiện**   | 1. Nhập ba trường mật khẩu.<br>2. Gửi thay đổi.<br>3. Đăng xuất, đăng nhập lại để xác minh.                                                                                                                                                                                  |
+| **Dữ liệu đầu vào**      | a) Mật khẩu hiện tại đúng; mật khẩu mới 8+ ký tự, xác nhận khớp.<br>b) Mật khẩu hiện tại sai.<br>c) Mật khẩu mới ngắn hoặc xác nhận khác.                                                                                                                                    |
+| **Kết quả mong đợi**     | a) Đổi thành công; chỉ mật khẩu mới đăng nhập được.<br>b) Báo mật khẩu hiện tại không đúng; không đổi dữ liệu.<br>c) Báo lỗi tại trường và không gửi thay đổi.                                                                                                               |
+| **Kết quả thực tế**      | a) Pass trên Chromium và Firefox: mật khẩu hợp lệ đổi thành công và đăng nhập lại được.<br>b) Pass trên Chromium và Firefox: mật khẩu cũ sai trả lỗi 400 và mật khẩu không đổi.<br>c) Pass trên Chromium và Firefox: xác nhận không khớp/độ dài chưa đủ bị chặn ở giao diện. |
+| **Trạng thái**           | a) Pass<br>b) Pass<br>c) Pass<br>Tổng: Pass                                                                                                                                                                                                                                  |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                                                                                                             |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                                                                                                   |
+| **Ghi chú**              | Đối chiếu UC-03 E1/E2.                                                                                                                                                                                                                                                       |
+| **Nhận xét**             | Các kiểm tra đầu vào bảo vệ tài khoản khỏi thay đổi mật khẩu ngoài ý muốn và chỉ chấp nhận thông tin xác thực hợp lệ.                                                                                                                                                        |
+
+### TC-AM-04-01: Đăng xuất từ Hồ sơ
+
+| Trường                   | Nội dung                                                                                                             |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-04 (Đăng xuất) — kết thúc phiên                                                                                   |
+| **Mã TC**                | TC-AM-04-01                                                                                                          |
+| **Tiêu đề**              | Đăng xuất điều hướng về Đăng nhập và xóa phiên cục bộ                                                                |
+| **Mô tả**                | Kiểm tra nút Đăng xuất ở Hồ sơ kết thúc phiên xác thực.                                                              |
+| **Loại kiểm thử**        | Functionality / Security / UI-E2E                                                                                    |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                              |
+| **Độ ưu tiên**           | High                                                                                                                 |
+| **Điều kiện tiên quyết** | Người học đã đăng nhập, đang mở Hồ sơ.                                                                               |
+| **Các bước thực hiện**   | 1. Bấm Đăng xuất.<br>2. Quan sát trang đích.<br>3. Tải lại.                                                          |
+| **Dữ liệu đầu vào**      | Phiên đăng nhập hợp lệ.                                                                                              |
+| **Kết quả mong đợi**     | Điều hướng đến Đăng nhập; không còn trạng thái phiên cũ sau tải lại.                                                 |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: đăng xuất đưa về Đăng nhập và xóa access token; tải lại và route bảo vệ không mở lại. |
+| **Trạng thái**           | Pass                                                                                                                 |
+| **Tester**               | Nguyễn Minh Phát                                                                                                     |
+| **Ngày Tested**          | 2026-09-03                                                                                                           |
+| **Ghi chú**              | Đối chiếu UC-04 bước 1–3.                                                                                            |
+| **Nhận xét**             | Đường đi sau đăng xuất rõ ràng giúp người học biết phiên đã kết thúc và tránh sử dụng nhầm tài khoản cũ.             |
+
+### TC-AM-04-02: Chặn route bảo vệ sau đăng xuất
+
+| Trường                   | Nội dung                                                                                                                                       |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-04 (Đăng xuất) — không tái sử dụng phiên đã kết thúc                                                                                        |
+| **Mã TC**                | TC-AM-04-02                                                                                                                                    |
+| **Tiêu đề**              | Không truy cập lại Dashboard hoặc Hồ sơ sau đăng xuất                                                                                          |
+| **Mô tả**                | Truy cập trực tiếp route bảo vệ và dùng nút Quay lại sau khi kết thúc phiên.                                                                   |
+| **Loại kiểm thử**        | Security / UI-E2E                                                                                                                              |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                        |
+| **Độ ưu tiên**           | Critical                                                                                                                                       |
+| **Điều kiện tiên quyết** | Đã hoàn thành đăng xuất.                                                                                                                       |
+| **Các bước thực hiện**   | 1. Mở Dashboard.<br>2. Mở Hồ sơ.<br>3. Dùng Quay lại.                                                                                          |
+| **Dữ liệu đầu vào**      | Các URL bảo vệ sau phiên đã bị xóa.                                                                                                            |
+| **Kết quả mong đợi**     | Mỗi thao tác quay về Đăng nhập, không lộ tên, email hoặc dữ liệu học.                                                                          |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: sau đăng xuất, /dashboard và /profile đều chuyển về Đăng nhập; quay lại lịch sử không khôi phục quyền truy cập. |
+| **Trạng thái**           | Pass                                                                                                                                           |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                               |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                     |
+| **Ghi chú**              | Đối chiếu UC-04 và route bảo vệ của UC-02.                                                                                                     |
+| **Nhận xét**             | Route được bảo vệ sau đăng xuất, nên dữ liệu cá nhân không bị lộ khi người học mở lại URL hoặc dùng lịch sử trình duyệt.                       |
+
+### TC-AM-04-03: Đăng nhập lại sau đăng xuất
+
+| Trường                   | Nội dung                                                                                                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Function / Feature**   | UC-04 (Đăng xuất) kết hợp UC-02 (Đăng nhập) — tạo phiên mới                                                                                                                                   |
+| **Mã TC**                | TC-AM-04-03                                                                                                                                                                                   |
+| **Tiêu đề**              | Đăng nhập lại không lấy cache của người học trước                                                                                                                                             |
+| **Mô tả**                | Đăng xuất người học hiện tại, đăng nhập một người học khác và kiểm tra nhận diện phiên mới.                                                                                                   |
+| **Loại kiểm thử**        | Functionality / Security / UI-E2E                                                                                                                                                             |
+| **Phương thức thực thi** | Automation (Playwright)                                                                                                                                                                       |
+| **Độ ưu tiên**           | High                                                                                                                                                                                          |
+| **Điều kiện tiên quyết** | Có hai tài khoản với email/tên khác nhau.                                                                                                                                                     |
+| **Các bước thực hiện**   | 1. Đăng xuất người học thứ nhất.<br>2. Đăng nhập người học thứ hai.<br>3. Mở Hồ sơ và Dashboard.                                                                                              |
+| **Dữ liệu đầu vào**      | Hai tài khoản độc lập có email và tên hiển thị khác nhau.                                                                                                                                     |
+| **Kết quả mong đợi**     | Phiên mới chỉ thuộc người học thứ hai; không còn email, tên hay dữ liệu riêng của người học thứ nhất.                                                                                         |
+| **Kết quả thực tế**      | Pass trên Chromium và Firefox: sau khi người học thứ nhất đăng xuất và người học thứ hai đăng nhập, hồ sơ chỉ hiển thị dữ liệu người học thứ hai, không còn email/tên của người học thứ nhất. |
+| **Trạng thái**           | Pass                                                                                                                                                                                          |
+| **Tester**               | Nguyễn Minh Phát                                                                                                                                                                              |
+| **Ngày Tested**          | 2026-09-03                                                                                                                                                                                    |
+| **Ghi chú**              | Kiểm tra cô lập client sau UC-04.                                                                                                                                                             |
+| **Nhận xét**             | Việc cô lập phiên bảo đảm máy dùng chung hoặc chuyển tài khoản không làm lẫn dữ liệu cá nhân giữa người học.                                                                                  |
+
+## Bảng tóm tắt bổ sung PA5 — Authentication
+
+| Mã TC       | Tiêu đề                                      | Loại                     | Độ ưu tiên | Trạng thái |
+| ----------- | -------------------------------------------- | ------------------------ | ---------- | ---------- |
+| TC-AM-03-01 | Xem thông tin hồ sơ hiện tại                 | Functionality / Security | High       | Pass       |
+| TC-AM-03-02 | Cập nhật hoặc xóa tên hiển thị               | Functionality            | High       | Pass       |
+| TC-AM-03-03 | Đổi mật khẩu và từ chối dữ liệu không hợp lệ | Security                 | Critical   | Pass       |
+| TC-AM-04-01 | Đăng xuất từ Hồ sơ                           | Functionality            | High       | Pass       |
+| TC-AM-04-02 | Chặn route bảo vệ sau đăng xuất              | Security                 | Critical   | Pass       |
+| TC-AM-04-03 | Đăng nhập lại sau đăng xuất                  | Security                 | High       | Pass       |
