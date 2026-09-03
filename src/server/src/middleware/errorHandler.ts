@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { ZodError } from 'zod';
+import { MAX_FILES_PER_PLAN, UPLOAD_FILE_FIELDS } from '../config/upload-limits';
 
 /**
  * Custom application error class.
@@ -28,6 +29,21 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
         error: {
           code: 'FILE_TOO_LARGE',
           message: 'File size exceeds maximum limit of 10MB',
+        },
+      });
+    }
+    // `LIMIT_UNEXPECTED_FILE` on a field the route DOES accept means "too many files in that
+    // field" — multer reaches a field's `maxCount` before busboy's global count, so this, not
+    // `LIMIT_FILE_COUNT`, is what an over-long upload actually produces. On any other field it
+    // keeps its plain meaning and must not be relabelled.
+    const tooManyInAKnownField =
+      err.code === 'LIMIT_UNEXPECTED_FILE' && UPLOAD_FILE_FIELDS.includes(err.field ?? '');
+    if (err.code === 'LIMIT_FILE_COUNT' || tooManyInAKnownField) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'TOO_MANY_FILES',
+          message: `Too many files in one upload (maximum ${MAX_FILES_PER_PLAN})`,
         },
       });
     }

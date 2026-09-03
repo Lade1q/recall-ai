@@ -3,7 +3,7 @@ import { processAnalysisJob } from '../services/analysis.service';
 import prisma from '../config/prisma';
 import { extractConcepts } from '../services/gemini.service';
 import { pregenerateForPlan } from '../services/question-cache.service';
-import { MOCK_EXTRACT_RESULT } from '../utils/mock-ai';
+import { mockExtractForFile } from '../utils/mock-ai';
 
 // Mock Prisma client — $transaction chạy callback với cùng mock client, mô phỏng
 // đúng interactive transaction API của Prisma (giống pattern trong retry-plan.test.ts).
@@ -30,7 +30,8 @@ jest.mock('../config/prisma', () => {
       update: jest.fn(),
       createMany: jest.fn(),
     },
-    document: { findFirst: jest.fn() },
+    document: { findFirst: jest.fn(), findMany: jest.fn() },
+    documentEdge: { deleteMany: jest.fn(), createMany: jest.fn() },
     conceptSourceRef: { deleteMany: jest.fn(), createMany: jest.fn() },
     studyPlan: { update: jest.fn() },
     $transaction: jest.fn(),
@@ -45,6 +46,7 @@ jest.mock('../config/prisma', () => {
 // đụng Gemini/fs thật. USE_MOCK_AI=true (set bên dưới) đã bypass cả hai rồi.
 jest.mock('../services/gemini.service', () => ({
   extractConcepts: jest.fn(),
+  linkTopics: jest.fn(),
   uploadFile: jest.fn(),
 }));
 jest.mock('../services/graph.service', () => ({
@@ -65,6 +67,13 @@ const JOB_ID = 'job-uuid';
 const PLAN_ID = 'plan-uuid';
 const pendingJob = { id: JOB_ID, fileKey: 'notes.txt', planDraftId: PLAN_ID };
 
+/**
+ * `callAi`'s USE_MOCK_AI branch picks a mock bank from the fileKey, so the fixture has to be
+ * the bank THIS job's file maps to. Derived rather than hard-coded: hard-coding bank 0 would
+ * pass only for as long as 'notes.txt' happens to hash there.
+ */
+const MOCK_EXTRACT_RESULT = mockExtractForFile(pendingJob.fileKey);
+
 /** `data.status === 'failed'` chỉ có thể đến từ markFailed (dùng `analysisJob.updateMany`) —
  * phân biệt với claim (`status: 'processing'`) và finalize guard (`status: 'done'`), vốn cùng
  * gọi updateMany nhưng khác trạng thái. */
@@ -80,7 +89,7 @@ describe('processAnalysisJob', () => {
   /**
    * Chạy pipeline với đúng MỘT concept ('Variable') và trường `checkpoints` do test đặt.
    *
-   * USE_MOCK_AI trả về hằng `MOCK_EXTRACT_RESULT` nên không đổi payload được; phải đi qua
+   * USE_MOCK_AI trả về bank cố định theo fileKey nên không đổi payload được; phải đi qua
    * `extractConcepts` (đã mock). `readFile` bị chặn vì fileKey trỏ tệp không có thật trên đĩa.
    * Dọn trong `finally` để một assertion hỏng không rò env/spy sang test sau.
    */
@@ -118,7 +127,7 @@ describe('processAnalysisJob', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.USE_MOCK_AI = 'true'; // callAi trả thẳng MOCK_EXTRACT_RESULT, không gọi Gemini thật
+    process.env.USE_MOCK_AI = 'true'; // callAi trả thẳng bank mock của fileKey, không gọi Gemini thật
 
     (mockedPrisma.$transaction as jest.Mock).mockImplementation(
       (fn: (tx: typeof mockedPrisma) => Promise<unknown>) => fn(mockedPrisma)
@@ -141,6 +150,12 @@ describe('processAnalysisJob', () => {
     (mockedPrisma.conceptCheckpoint.update as jest.Mock).mockResolvedValue({});
     (mockedPrisma.conceptCheckpoint.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue(null);
+    // Mặc định: kế hoạch KHÔNG còn hàng `documents` nào. Đây là đường degrade -- job vẫn biết
+    // fileKey nên vẫn trích được khái niệm, chúng chỉ không thuộc chủ đề nào và không được neo.
+    // Giữ làm mặc định để mọi ca cũ (vốn viết cho một-tài-liệu-không-neo) không phải đổi.
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([]);
+    (mockedPrisma.documentEdge.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockedPrisma.documentEdge.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.conceptSourceRef.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.conceptSourceRef.createMany as jest.Mock).mockResolvedValue({ count: 0 });
     (mockedPrisma.studyPlan.update as jest.Mock).mockResolvedValue({});
@@ -191,9 +206,11 @@ describe('processAnalysisJob', () => {
 
     await processAnalysisJob(JOB_ID);
 
+    // `primaryDocumentId` is selected alongside the three the merge needs: append mode reads it
+    // to tell a concept that already belongs to a topic from one that does not (§4).
     expect(mockedPrisma.concept.findMany).toHaveBeenCalledWith({
       where: { planId: PLAN_ID },
-      select: { id: true, name: true, status: true },
+      select: { id: true, name: true, status: true, primaryDocumentId: true },
     });
     expect(mockedPrisma.concept.create).toHaveBeenCalled();
     expect(mockedPrisma.conceptEdge.create).toHaveBeenCalled();
@@ -431,7 +448,9 @@ describe('processAnalysisJob', () => {
   it('threads the real material text through to buildConceptSourceRows (sectionTitle guard)', async () => {
     (mockedPrisma.analysisJob.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
     (mockedPrisma.analysisJob.findUniqueOrThrow as jest.Mock).mockResolvedValue(pendingJob);
-    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue({ id: 'doc-1' });
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-1', filename: 'notes.txt', fileKey: pendingJob.fileKey },
+    ]);
     mockedExtractConcepts.mockResolvedValue({
       ...MOCK_EXTRACT_RESULT,
       concepts: [

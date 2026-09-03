@@ -189,7 +189,7 @@ function GraphNode({ data, selected }: NodeProps) {
  * bốn nút không nói mức zoom hiện tại là bao nhiêu — mockup yêu cầu đọc được con số đó.
  * Phải là con của `<ReactFlow>` để `useReactFlow()` thấy được store.
  */
-function ViewportControls() {
+export function ViewportControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
 

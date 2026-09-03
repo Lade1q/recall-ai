@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { startInterview } from '../services/interview.service';
 import prisma from '../config/prisma';
 import { generateQuestion, getPlanMaterial, uploadFile } from '../services/gemini.service';
@@ -109,7 +110,11 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     mockedPrisma.interviewTurn.count.mockResolvedValue(0);
     mockedPrisma.interviewTurn.findMany.mockResolvedValue([]);
     mockedPrisma.concept.findMany.mockResolvedValue([{ id: CONCEPT_ID }]);
-    mockedPrisma.concept.findFirst.mockResolvedValue({ id: CONCEPT_ID, name: 'Stack' });
+    mockedPrisma.concept.findFirst.mockResolvedValue({
+      id: CONCEPT_ID,
+      name: 'Stack',
+      primaryDocumentId: null,
+    });
     mockedPrisma.conceptSourceRef.findFirst.mockResolvedValue(null);
     mockedPrisma.document.findMany.mockResolvedValue([]);
     mockedPrisma.questionCache.findMany.mockResolvedValue([]);
@@ -234,8 +239,9 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     mockedPrisma.document.findFirst
       .mockResolvedValueOnce({ id: 'doc-uuid' })
       .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/missing-document.txt' });
-    mockedGetPlanMaterial.mockImplementationOnce((_planId: string, load: () => Promise<unknown>) =>
-      load()
+    mockedGetPlanMaterial.mockImplementationOnce(
+      // (planId, documentId, load) — the middle argument is the topic the concept is filed under.
+      (_planId: string, _documentId: string | null, load: () => Promise<unknown>) => load()
     );
 
     await expect(
@@ -256,8 +262,9 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     mockedPrisma.document.findFirst
       .mockResolvedValueOnce({ id: 'doc-uuid' })
       .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/missing-document.pdf' });
-    mockedGetPlanMaterial.mockImplementationOnce((_planId: string, load: () => Promise<unknown>) =>
-      load()
+    mockedGetPlanMaterial.mockImplementationOnce(
+      // (planId, documentId, load) — the middle argument is the topic the concept is filed under.
+      (_planId: string, _documentId: string | null, load: () => Promise<unknown>) => load()
     );
     mockedUploadFile.mockRejectedValueOnce(
       Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
@@ -355,6 +362,138 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     // own short-circuit, which returns MOCK_MATERIAL before touching prisma.document.
     expect(mockedPrisma.document.findFirst).not.toHaveBeenCalled();
     expect(mockedPrisma.interviewSession.delete).not.toHaveBeenCalled();
+  });
+
+  /**
+   * 🔴 Which FILE a question is generated from, once a plan holds a whole subject.
+   *
+   * `loadMaterial` used to take only a plan id and always resolved the plan's oldest document, so
+   * a concept from chapter 8 was quizzed out of chapter 2 — wrong question, and a C5 citation
+   * naming the wrong source. The topic travels with the concept now; these pin that it reaches
+   * the cache. They live in this describe because it is the one running in real-AI mode, which is
+   * the only mode where material is loaded at all.
+   */
+  it('loads the document the concept is filed under', async () => {
+    mockedPrisma.concept.findFirst.mockResolvedValue({
+      id: CONCEPT_ID,
+      name: 'Integration testing',
+      primaryDocumentId: 'doc-ln08',
+    });
+    // The plan-has-a-document pre-check runs before any material is loaded.
+    mockedPrisma.document.findFirst.mockResolvedValue({ id: 'doc-ln08' });
+    mockedGetPlanMaterial.mockResolvedValue({ kind: 'text', text: 'chapter 8' });
+
+    await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] });
+
+    expect(mockedGetPlanMaterial).toHaveBeenCalledWith(PLAN_ID, 'doc-ln08', expect.any(Function));
+  });
+
+  /**
+   * 🔴 The two cases above mock `getPlanMaterial`, so they prove the topic is PASSED — not that
+   * the loader honours it. Gutting the "look up the named document" branch left them green
+   * (mutation-checked 03/09). This one runs the real loader body and reads the file key it
+   * actually resolved.
+   */
+  it('reads the named document’s file, not the plan’s oldest', async () => {
+    mockedPrisma.concept.findFirst.mockResolvedValue({
+      id: CONCEPT_ID,
+      name: 'Integration testing',
+      primaryDocumentId: 'doc-ln08',
+    });
+    mockedPrisma.document.findFirst
+      // the plan-has-any-document pre-check
+      .mockResolvedValueOnce({ id: 'doc-ln08' })
+      // the loader's own lookup, scoped to the concept's topic
+      .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/ln08.txt' });
+    mockedGetPlanMaterial.mockImplementationOnce(
+      (_planId: string, _documentId: string | null, load: () => Promise<unknown>) => load()
+    );
+    mockedGenerateQuestion.mockResolvedValue({
+      question_text: 'Nêu định nghĩa?',
+      question_type: 'definition',
+    });
+    const readFile = jest
+      .spyOn(fs.promises, 'readFile')
+      .mockResolvedValue('chapter 8 material' as never);
+
+    let readPaths: string[];
+    try {
+      // This describe arranges the material path, not the turn-persistence path, so the call may
+      // reject after the material is loaded. That cannot make the assertions below pass by
+      // accident: both of them fail unless the loader actually ran and resolved a file.
+      await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] }).catch(
+        () => undefined
+      );
+      // Snapshot BEFORE restoring: `mockRestore` also wipes `mock.calls`, so asserting after the
+      // `finally` reads an empty history and reports "0 calls" no matter what happened.
+      readPaths = readFile.mock.calls.map((call) => String(call[0]));
+    } finally {
+      readFile.mockRestore();
+    }
+
+    expect(mockedPrisma.document.findFirst).toHaveBeenNthCalledWith(2, {
+      where: { id: 'doc-ln08', planId: PLAN_ID },
+      select: { fileKey: true },
+    });
+    expect(readPaths.some((p) => p.endsWith('plans/plan-uuid/ln08.txt'))).toBe(true);
+  });
+
+  /**
+   * The other half of the same branch: a topic id that does not belong to this plan (a stale
+   * client, a document deleted mid-session) must fall back to the plan's oldest file rather than
+   * failing the session with "no material".
+   */
+  it('falls back to the plan’s oldest file when the named topic is gone', async () => {
+    mockedPrisma.concept.findFirst.mockResolvedValue({
+      id: CONCEPT_ID,
+      name: 'Integration testing',
+      primaryDocumentId: 'doc-deleted',
+    });
+    mockedPrisma.document.findFirst
+      .mockResolvedValueOnce({ id: 'doc-a' })
+      // scoped lookup misses…
+      .mockResolvedValueOnce(null)
+      // …so the oldest document answers
+      .mockResolvedValueOnce({ fileKey: 'plans/plan-uuid/oldest.txt' });
+    mockedGetPlanMaterial.mockImplementationOnce(
+      (_planId: string, _documentId: string | null, load: () => Promise<unknown>) => load()
+    );
+    mockedGenerateQuestion.mockResolvedValue({
+      question_text: 'Nêu định nghĩa?',
+      question_type: 'definition',
+    });
+    const readFile = jest.spyOn(fs.promises, 'readFile').mockResolvedValue('oldest' as never);
+
+    let readPaths: string[];
+    try {
+      // This describe arranges the material path, not the turn-persistence path, so the call may
+      // reject after the material is loaded. That cannot make the assertions below pass by
+      // accident: both of them fail unless the loader actually ran and resolved a file.
+      await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] }).catch(
+        () => undefined
+      );
+      // Snapshot BEFORE restoring: `mockRestore` also wipes `mock.calls`, so asserting after the
+      // `finally` reads an empty history and reports "0 calls" no matter what happened.
+      readPaths = readFile.mock.calls.map((call) => String(call[0]));
+    } finally {
+      readFile.mockRestore();
+    }
+
+    expect(mockedPrisma.document.findFirst).toHaveBeenNthCalledWith(3, {
+      where: { planId: PLAN_ID },
+      orderBy: { createdAt: 'asc' },
+      select: { fileKey: true },
+    });
+    expect(readPaths.some((p) => p.endsWith('oldest.txt'))).toBe(true);
+  });
+
+  it('passes null for a concept no topic claims, keeping the old fallback', async () => {
+    mockedPrisma.document.findFirst.mockResolvedValue({ id: 'doc-only' });
+    mockedGetPlanMaterial.mockResolvedValue({ kind: 'text', text: 'the only file' });
+
+    await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] });
+
+    expect(mockedGetPlanMaterial).toHaveBeenCalledWith(PLAN_ID, null, expect.any(Function));
   });
 });
 

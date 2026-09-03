@@ -13,6 +13,7 @@ const CONCEPT_FIELDS = {
   source: true,
   status: true,
   createdAt: true,
+  primaryDocumentId: true,
 } as const;
 
 export interface DagValidationResult {
@@ -149,15 +150,34 @@ export async function replacePlanGraph(
       await tx.concept.deleteMany({ where: { id: { in: droppedIds } } });
     }
 
+    // Documents of THIS plan, so a `primaryDocumentId` from the client can only ever file a
+    // concept under a topic the plan actually holds. An unknown id is dropped rather than
+    // rejected: the concept is still worth creating, it just lands unfiled.
+    //
+    // Only fetched when the payload actually asks for a topic. Most calls are the editor's live
+    // DAG re-check, which adds nothing — they should not pay for a query whose answer they
+    // would never read.
+    const asksForATopic = input.concepts.some((c) => c.primaryDocumentId);
+    const planDocumentIds = asksForATopic
+      ? new Set(
+          (await tx.document.findMany({ where: { planId }, select: { id: true } })).map((d) => d.id)
+        )
+      : new Set<string>();
+
     const conceptIdByName = new Map(existing.map((c) => [c.name, c.id]));
     for (const concept of input.concepts) {
       if (conceptIdByName.has(concept.name)) continue;
+      const primaryDocumentId =
+        concept.primaryDocumentId && planDocumentIds.has(concept.primaryDocumentId)
+          ? concept.primaryDocumentId
+          : null;
       const created = await tx.concept.create({
         data: {
           planId,
           name: concept.name,
           difficulty: concept.difficulty ?? 1,
           source: 'manual',
+          primaryDocumentId,
         },
       });
       conceptIdByName.set(concept.name, created.id);
@@ -173,6 +193,48 @@ export async function replacePlanGraph(
           toConceptId: conceptIdByName.get(e.to) as string,
         })),
       });
+    }
+
+    // The topic layer, replaced wholesale — but ONLY when the caller sent the field. See the
+    // schema: `undefined` means "not my business", `[]` means "the student removed them all".
+    if (input.documentEdges) {
+      const planDocumentIds = new Set(
+        (await tx.document.findMany({ where: { planId }, select: { id: true } })).map((d) => d.id)
+      );
+      const seen = new Set<string>();
+      const rows = input.documentEdges
+        .filter((edge) => {
+          // Reject-by-dropping rather than 400, matching how an unknown `primaryDocumentId` is
+          // handled above: a stale arrow left over from a document that has since been replaced
+          // must not block the student from confirming the rest of their graph.
+          if (!planDocumentIds.has(edge.from) || !planDocumentIds.has(edge.to)) return false;
+          if (edge.from === edge.to) return false;
+          const key = `${edge.from}->${edge.to}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map((edge) => ({ planId, fromDocumentId: edge.from, toDocumentId: edge.to }));
+
+      // A cycle between topics IS rejected, unlike the drops above: it is a claim the student
+      // made on purpose ("study A before B" plus "B before A"), and silently discarding one of
+      // the two arrows would hide which half of their intent was thrown away.
+      const topicDag = validateAndFixDag(
+        [...planDocumentIds],
+        rows.map((row) => ({ from: row.fromDocumentId, to: row.toDocumentId }))
+      );
+      if (topicDag.removedEdges.length > 0) {
+        throw new AppError(
+          'Thứ tự giữa các chủ đề đang tạo thành vòng lặp. Hãy bỏ bớt một mũi tên.',
+          409,
+          'DAG_CYCLE'
+        );
+      }
+
+      await tx.documentEdge.deleteMany({ where: { planId } });
+      if (rows.length > 0) {
+        await tx.documentEdge.createMany({ data: rows });
+      }
     }
 
     // Confirming a graph is what makes a plan usable, so a draft becomes active here

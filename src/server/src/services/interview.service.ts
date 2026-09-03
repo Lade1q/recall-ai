@@ -140,6 +140,17 @@ const turnSelect = {
 type TurnRow = Prisma.InterviewTurnGetPayload<{ select: typeof turnSelect }>;
 
 /**
+ * The concept a turn is about, plus the document it is filed under. The topic is what decides
+ * which file the question is generated and graded against, so it travels with the concept
+ * rather than being looked up separately at each of the three call sites.
+ */
+interface ConceptForTurn {
+  id: string;
+  name: string;
+  primaryDocumentId: string | null;
+}
+
+/**
  * The transcript read, and ONLY it, also pulls the student's appeal (AE-10, #248).
  *
  * Kept separate from `turnSelect` on purpose: that constant is used at seven call sites, six of
@@ -170,7 +181,7 @@ interface SessionView {
   queue: QueueEntry[];
   conceptIndex: number;
   /** `null` once the queue is exhausted — the session has nothing left to ask. */
-  concept: { id: string; name: string } | null;
+  concept: ConceptForTurn | null;
   /** Every turn of the session, oldest first — the transcript. */
   turns: TranscriptTurnRow[];
   /** Turns of the current concept, by `turnIndex`. */
@@ -215,7 +226,7 @@ export async function loadSession(sessionId: string, userId: string): Promise<Se
 async function resolveCurrentConcept(
   session: SessionRow,
   queue: QueueEntry[]
-): Promise<{ concept: { id: string; name: string } | null; conceptIndex: number }> {
+): Promise<{ concept: ConceptForTurn | null; conceptIndex: number }> {
   let index = Math.max(session.currentConceptIdx, 0);
 
   while (index < queue.length) {
@@ -223,7 +234,9 @@ async function resolveCurrentConcept(
     const concept = conceptId
       ? await prisma.concept.findFirst({
           where: { id: conceptId, planId: session.planId },
-          select: { id: true, name: true },
+          // `primaryDocumentId` rides along so the turn can be grounded in the file that
+          // actually teaches this concept — see `loadMaterial`.
+          select: { id: true, name: true, primaryDocumentId: true },
         })
       : null;
 
@@ -355,23 +368,41 @@ function evidenceIsRequested(): boolean {
  * material a live interview turn would use, and reuses this module's `getPlanMaterial` cache
  * rather than uploading the document a second time.
  */
-export async function loadMaterial(planId: string): Promise<AiMaterial> {
+export async function loadMaterial(
+  planId: string,
+  documentId: string | null = null
+): Promise<AiMaterial> {
   if (!materialIsRequired()) {
     return MOCK_MATERIAL;
   }
 
-  return getPlanMaterial(planId, async () => {
-    const document = await prisma.document.findFirst({
-      where: { planId },
-      orderBy: { createdAt: 'asc' },
-      select: { fileKey: true },
-    });
-    if (!document) {
+  return getPlanMaterial(planId, documentId, async () => {
+    // The document the concept is filed under — its topic. Without this the interview quizzed
+    // every concept of a multi-file plan out of the file uploaded FIRST, so a question about
+    // chapter 8 was generated and graded against chapter 2, and its C5 citation named chapter 2
+    // as the source. Falls back to the plan's oldest document, which is both the historical
+    // behaviour and the right answer for a concept no topic claims.
+    // `??` rather than a `fallback` variable: short-circuiting is what guarantees the second
+    // query never runs once the topic's own document answered, and a reader cannot reintroduce
+    // the wasted round-trip by editing a condition.
+    const chosen =
+      (documentId
+        ? await prisma.document.findFirst({
+            where: { id: documentId, planId },
+            select: { fileKey: true },
+          })
+        : null) ??
+      (await prisma.document.findFirst({
+        where: { planId },
+        orderBy: { createdAt: 'asc' },
+        select: { fileKey: true },
+      }));
+    if (!chosen) {
       throw noMaterialError();
     }
 
-    const source = resolveMaterialSource(document.fileKey);
-    const absolutePath = path.join(UPLOAD_DIR, document.fileKey);
+    const source = resolveMaterialSource(chosen.fileKey);
+    const absolutePath = path.join(UPLOAD_DIR, chosen.fileKey);
 
     try {
       if (source.kind === 'text') {
@@ -622,7 +653,7 @@ function toAnchorSnapshot(anchor: ConceptAnchorRow) {
  */
 async function askQuestion(
   view: SessionView,
-  concept: { id: string; name: string },
+  concept: ConceptForTurn,
   turnIndex: number,
   mode: QuestionMode
 ): Promise<TurnRow> {
@@ -636,7 +667,7 @@ async function askQuestion(
     );
   }
 
-  const material = await loadMaterial(session.planId);
+  const material = await loadMaterial(session.planId, concept.primaryDocumentId);
   const question = await generateQuestion({
     conceptName: concept.name,
     material,
@@ -714,7 +745,7 @@ async function completeSession(session: SessionRow): Promise<SessionRow> {
  */
 async function finishConcept(
   view: SessionView,
-  concept: { id: string; name: string }
+  concept: ConceptForTurn
 ): Promise<ConceptCompletedResponse> {
   // Read the scores back from the database rather than from the view: the turn that triggered
   // this was graded after the view was built.
@@ -952,7 +983,7 @@ async function advanceToNextQuestion(
  */
 async function advanceFallback(
   view: SessionView,
-  concept: { id: string; name: string },
+  concept: ConceptForTurn,
   completed: ConceptCompletedResponse[]
 ): Promise<AdvanceResult> {
   const cached = await prisma.questionCache.findMany({
@@ -1020,7 +1051,7 @@ async function advanceFallback(
  */
 async function askCachedQuestion(
   view: SessionView,
-  concept: { id: string; name: string },
+  concept: ConceptForTurn,
   turnIndex: number,
   cacheRow: { questionText: string; questionType: string | null; generatedAt: Date }
 ): Promise<TurnRow> {
@@ -1298,7 +1329,7 @@ export async function getInterview(
 async function loadPendingTurnForAnswering(
   sessionId: string,
   userId: string
-): Promise<{ view: SessionView; concept: { id: string; name: string }; pending: TurnRow }> {
+): Promise<{ view: SessionView; concept: ConceptForTurn; pending: TurnRow }> {
   const session = await loadSession(sessionId, userId);
 
   if (session.status === 'paused') {
@@ -1382,7 +1413,7 @@ export async function submitAnswer(
   try {
     graded = await gradeAnswer({
       conceptName: concept.name,
-      material: await loadMaterial(session.planId),
+      material: await loadMaterial(session.planId, concept.primaryDocumentId),
       questionText: pending.questionText,
       answerText,
       language: session.plan.languageDetected ?? undefined,
@@ -1750,7 +1781,7 @@ export async function abandonInterview(
  */
 async function scoreConceptSoFar(
   view: SessionView,
-  concept: { id: string; name: string }
+  concept: ConceptForTurn
 ): Promise<ConceptCompletedResponse | null> {
   const turns = await prisma.interviewTurn.findMany({
     where: { sessionId: view.session.id, conceptId: concept.id },

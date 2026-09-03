@@ -139,10 +139,8 @@ describe('createPlanController — từ chối PDF mã hoá tại thời điểm
     const req = {
       userId: USER_ID,
       body: { name: 'Kế hoạch ôn thi', deadline: '2099-12-31' },
-      file: {
-        path: stagedPath,
-        originalname: 'de-thi-ma-hoa.pdf',
-        size,
+      files: {
+        file: [{ path: stagedPath, originalname: 'de-thi-ma-hoa.pdf', size }],
       },
     } as unknown as Request;
     const res = mockRes();
@@ -177,10 +175,8 @@ describe('createPlanController — từ chối PDF mã hoá tại thời điểm
     const req = {
       userId: USER_ID,
       body: { name: 'Kế hoạch ôn thi', deadline: '2099-12-31' },
-      file: {
-        path: stagedPath,
-        originalname: 'de-thi-hop-le.pdf',
-        size,
+      files: {
+        file: [{ path: stagedPath, originalname: 'de-thi-hop-le.pdf', size }],
       },
     } as unknown as Request;
     const res = mockRes();
@@ -188,8 +184,9 @@ describe('createPlanController — từ chối PDF mã hoá tại thời điểm
     await createPlanController(req, res);
 
     expect(mockedCreatePlanInDb).toHaveBeenCalledTimes(1);
-    const documentMeta = mockedCreatePlanInDb.mock.calls[0][3];
-    expect(documentMeta).toMatchObject({ kind: 'pdf', pageCount: 1 });
+    const documentMetas = mockedCreatePlanInDb.mock.calls[0][3];
+    expect(documentMetas).toHaveLength(1);
+    expect(documentMetas[0]).toMatchObject({ kind: 'pdf', pageCount: 1 });
     expect(storage.upload).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(201);
 

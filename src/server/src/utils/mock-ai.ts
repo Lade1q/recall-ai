@@ -6,13 +6,20 @@ import type {
   QuestionMode,
 } from '../schemas/ai-interview.schema';
 
-// Fixed sample DAG (Variable -> Loop -> Array -> {Sorting, Recursion}) used when
-// USE_MOCK_AI=true, so frontend/backend dev and demos don't consume Gemini quota.
+// Sample DAGs used when USE_MOCK_AI=true, so frontend/backend dev and demos don't consume
+// Gemini quota.
+//
+// There are three banks, not one, because a plan can now hold several documents and each is
+// extracted by its own call. A single shared constant would give every document the SAME
+// concepts, which renders as N topics where N-1 are duplicates and no ordering is visible —
+// i.e. the offline fallback would break exactly the two-level graph it exists to demo.
+// `mockExtractForFile` picks a bank deterministically from the file key, so the same upload
+// always yields the same graph and tests stay reproducible.
 //
 // `checkpoints` (#329) follows the same rule the real prompt asks for: the harder concept gets
 // more lines rather than a weight, so Recursion carries four where Variable carries two — which
 // also makes the mock exercise a range of `C` for the coverage formula.
-export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
+const BANK_PROGRAMMING: AiExtractResponse = {
   concepts: [
     {
       name: 'Variable',
@@ -85,7 +92,169 @@ export const MOCK_EXTRACT_RESULT: AiExtractResponse = {
     { from: 'Array', to: 'Recursion' },
   ],
   language_detected: 'en',
+  topic_edges: [],
 };
+
+const BANK_PROCESS: AiExtractResponse = {
+  concepts: [
+    {
+      name: 'Software Process',
+      difficulty: 1,
+      description: 'The structured set of activities that produce a software system',
+      source_page: 2,
+      source_excerpt:
+        'A software process is a structured set of activities required to develop a software system.',
+      checkpoints: [
+        'Say that a software process is a structured set of development activities',
+        'Name two activities every process includes',
+      ],
+    },
+    {
+      name: 'Waterfall Model',
+      difficulty: 2,
+      description: 'A plan-driven process with separate, sequential phases',
+      source_page: 8,
+      source_excerpt:
+        'The waterfall model has separate and distinct phases of specification and development.',
+      checkpoints: [
+        'List the phases of the waterfall model in order',
+        'Explain why a phase must finish before the next one starts',
+        'Say which kind of project the model suits',
+      ],
+    },
+    {
+      name: 'Incremental Development',
+      difficulty: 3,
+      description: 'Specification, development and validation interleaved',
+      source_page: 14,
+      source_excerpt:
+        'In incremental development, specification, development and validation are interleaved.',
+      checkpoints: [
+        'Say what is interleaved in incremental development',
+        'Give one advantage over a plan-driven process',
+        'Give one situation where it is a poor fit',
+      ],
+    },
+  ],
+  edges: [
+    { from: 'Software Process', to: 'Waterfall Model' },
+    { from: 'Software Process', to: 'Incremental Development' },
+  ],
+  language_detected: 'en',
+  topic_edges: [],
+};
+
+const BANK_TESTING: AiExtractResponse = {
+  concepts: [
+    {
+      name: 'Software Testing',
+      difficulty: 1,
+      description: 'Showing that a program does what it is intended to do',
+      source_page: 3,
+      source_excerpt:
+        'Testing is intended to show that a program does what it is intended to do and to discover defects.',
+      checkpoints: ['State the two goals of testing', 'Distinguish a defect from a failure'],
+    },
+    {
+      name: 'Development Testing',
+      difficulty: 2,
+      description: 'Testing carried out by the team building the system',
+      source_page: 9,
+      source_excerpt:
+        'Development testing includes all testing activities carried out by the team developing the system.',
+      checkpoints: [
+        'Say who performs development testing',
+        'Name the three levels it is usually split into',
+        'Explain why it happens before release testing',
+      ],
+    },
+    {
+      name: 'Release Testing',
+      difficulty: 3,
+      description: 'Testing a release intended for use outside the team',
+      source_page: 21,
+      source_excerpt:
+        'Release testing is the process of testing a particular release of a system intended for use outside of the development team.',
+      checkpoints: [
+        'Say what distinguishes release testing from development testing',
+        'Explain who the audience of a release is',
+        'Give one thing release testing checks that unit tests cannot',
+      ],
+    },
+  ],
+  edges: [
+    { from: 'Software Testing', to: 'Development Testing' },
+    { from: 'Development Testing', to: 'Release Testing' },
+  ],
+  language_detected: 'en',
+  topic_edges: [],
+};
+
+const MOCK_EXTRACT_BANKS = [BANK_PROGRAMMING, BANK_PROCESS, BANK_TESTING] as const;
+
+/**
+ * Bank 0, kept as a named export because several tests assert against this exact graph.
+ * `mockExtractForFile` is what production code should call.
+ */
+export const MOCK_EXTRACT_RESULT: AiExtractResponse = BANK_PROGRAMMING;
+
+/**
+ * Deterministic bank per document: same input, same graph, every run.
+ *
+ * PASS `index` WHENEVER THE CALLER KNOWS THE DOCUMENT'S POSITION IN ITS PLAN. Hashing the file
+ * key alone does not spread reliably over so few banks: measured on the three CNPM PDFs in the
+ * dev database (2026-09-03) their keys hash to banks 1, 1 and 0 — two of the three documents
+ * would draw the SAME concepts, which is exactly the failure this table exists to avoid.
+ * `index` makes the first `MOCK_EXTRACT_BANKS.length` documents of a plan distinct by
+ * construction; beyond that they wrap, which is fine for a demo fallback.
+ *
+ * The hash is only the single-document fallback, where nothing can collide.
+ */
+export function mockExtractForFile(fileKey: string, index?: number): AiExtractResponse {
+  let slot: number;
+  if (index !== undefined) {
+    slot =
+      ((index % MOCK_EXTRACT_BANKS.length) + MOCK_EXTRACT_BANKS.length) % MOCK_EXTRACT_BANKS.length;
+  } else {
+    let sum = 0;
+    for (let i = 0; i < fileKey.length; i++) sum += fileKey.charCodeAt(i);
+    slot = sum % MOCK_EXTRACT_BANKS.length;
+  }
+  // `slot` is always in range; the fallback is only here because `noUncheckedIndexedAccess`
+  // widens every index to `| undefined`.
+  return MOCK_EXTRACT_BANKS[slot] ?? BANK_PROGRAMMING;
+}
+
+/** How many distinct mock graphs exist — a plan with more documents than this repeats them. */
+export const MOCK_EXTRACT_BANK_COUNT = MOCK_EXTRACT_BANKS.length;
+
+/**
+ * The topic order phase 2 would return, for `USE_MOCK_AI=true`.
+ *
+ * Exists because the offline fallback was not actually offline: `runPhaseTwo` called the real
+ * `linkTopics` regardless of the flag, so with no API key the call threw, the catch swallowed it,
+ * and the plan rendered as N unconnected topics. That looked like "the mock has no topic edges
+ * yet" — a missing feature — when it was a live call failing quietly on the offline path.
+ *
+ * A chain in upload order is the honest answer for a mock: it is the only ordering derivable
+ * without reading a single page, and it is what a student implicitly asserts by picking the files
+ * in that order. It never invents an order the caller did not already supply.
+ *
+ * Returns filenames, matching what the real `linkTopics` returns — the caller maps them to ids.
+ */
+export function mockTopicEdgesForDocuments(
+  filenames: readonly string[]
+): { from: string; to: string }[] {
+  const edges: { from: string; to: string }[] = [];
+  for (let i = 0; i + 1 < filenames.length; i++) {
+    const from = filenames[i];
+    const to = filenames[i + 1];
+    // Two documents uploaded under one name would make a self-loop, which the DAG fixer drops
+    // anyway — skipping here keeps the mock from producing an edge it knows is nonsense.
+    if (from && to && from !== to) edges.push({ from, to });
+  }
+  return edges;
+}
 
 // --- AI Examiner mocks (I6.2 / #114) ---------------------------------------------
 // USE_MOCK_AI=true must exercise the whole interview flow without spending quota, so

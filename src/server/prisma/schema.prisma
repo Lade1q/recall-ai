@@ -37,14 +37,29 @@ enum AnalysisJobStatus {
   failed
 }
 
+/// Xem docstring `AnalysisJob.scope` — nghĩa đầy đủ của hai giá trị này nằm ở đó, cạnh cột
+/// `scopeDocumentIds` mà `new_only` phụ thuộc vào.
+enum AnalysisJobScope {
+  all
+  new_only
+}
+
 /// Sub-step within a `processing` AnalysisJob (Issue #186, SP-06 mockup's 4-phase progress).
 /// The mockup's first phase ("tải tệp lên kho lưu trữ") is already done by the time a job
 /// exists at all — the Document is created in the same transaction as the job — so it has
-/// no value here; these three cover what actually happens inside `processAnalysisJob`.
+/// no value here; these cover what actually happens inside `processAnalysisJob`.
 enum AnalysisJobPhase {
   sending_to_ai
   extracting
   validating
+  /// Pha 2: một lượt gọi AI xếp thứ tự học GIỮA các tài liệu. Là một pha riêng chứ không gộp
+  /// vào `validating` vì nó là lời gọi mạng ~6s, không phải kiểm tra cục bộ -- gộp lại thì
+  /// panel tiến độ nói dối về việc đang chờ cái gì.
+  ///
+  /// Đứng CUỐI danh sách để khớp thứ tự thật trong Postgres (`ALTER TYPE ... ADD VALUE` nối vào
+  /// đuôi), nếu không `prisma migrate dev` báo drift. Thứ tự khai báo không mang nghĩa thời gian:
+  /// pha này chạy TRƯỚC `validating`.
+  linking
 }
 
 // --- Sprint 4: AI Examiner + Focus + Review Queue (I6.1 / #113) ---
@@ -207,6 +222,7 @@ model StudyPlan {
   focusSessions     FocusSession[]
   reviewQueueItems  ReviewQueueItem[]
   documents         Document[]
+  documentEdges     DocumentEdge[]
 
   @@index([userId])
   @@map("study_plans")
@@ -215,18 +231,33 @@ model StudyPlan {
 /// Khái niệm trong đồ thị kiến thức
 /// Lưu ý: difficulty range [1-5], mastery_score range [0.0-1.0] -- enforce tại application layer (Zod)
 model Concept {
-  id           String        @id @default(uuid()) @db.Uuid
-  planId       String        @map("plan_id") @db.Uuid
-  name         String        @db.VarChar(255)
-  difficulty   Int?          @default(1)
-  masteryScore Float?        @map("mastery_score")
-  lastTestedAt DateTime?     @map("last_tested_at")
-  source       ConceptSource @default(ai_generated)
-  status       ConceptStatus @default(active)
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
+  id                String        @id @default(uuid()) @db.Uuid
+  planId            String        @map("plan_id") @db.Uuid
+  /// Tài liệu mà khái niệm này được nhóm dưới -- tức "chủ đề" của nó ở tầng trên của đồ thị.
+  ///
+  /// Gán TẤT ĐỊNH từ phía gọi, không hỏi AI: pha 1 của trích xuất gửi đúng MỘT tệp mỗi lượt,
+  /// nên mọi khái niệm trong kết quả lượt đó thuộc về tệp đó. Hỏi model một câu mà mình đã
+  /// biết chắc câu trả lời chỉ chế thêm một nguồn sai.
+  ///
+  /// Khác `ConceptSourceRef` (N:M, mang excerpt + số trang, phục vụ trích dẫn C5): cột này là
+  /// quan hệ N:1 phục vụ ĐIỀU HƯỚNG. Một khái niệm dạy ở hai tệp có 2 hàng `concept_sources`
+  /// nhưng chỉ nằm dưới MỘT chủ đề -- tệp đầu tiên theo `documents.createdAt asc`.
+  ///
+  /// NULLABLE, và NULL là trạng thái có thật chứ không phải chỉ di sản: khái niệm do người
+  /// dùng tự THÊM ở màn kiểm chứng đi qua `replacePlanGraph`, nơi không có tài liệu nào để
+  /// gán. UI phải có rổ "Chưa xếp chủ đề" cho chúng.
+  primaryDocumentId String?       @map("primary_document_id") @db.Uuid
+  name              String        @db.VarChar(255)
+  difficulty        Int?          @default(1)
+  masteryScore      Float?        @map("mastery_score")
+  lastTestedAt      DateTime?     @map("last_tested_at")
+  source            ConceptSource @default(ai_generated)
+  status            ConceptStatus @default(active)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
 
   plan              StudyPlan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  primaryDocument   Document?           @relation("ConceptPrimaryDocument", fields: [primaryDocumentId], references: [id], onDelete: SetNull)
   edgesFrom         ConceptEdge[]       @relation("EdgeFrom")
   edgesTo           ConceptEdge[]       @relation("EdgeTo")
   questionCaches    QuestionCache[]
@@ -238,7 +269,44 @@ model Concept {
   interviewEvidence InterviewEvidence[]
 
   @@index([planId])
+  @@index([primaryDocumentId])
   @@map("concepts")
+}
+
+/// Thứ tự nên học giữa hai TÀI LIỆU của cùng một kế hoạch -- tầng trên của đồ thị hai tầng.
+///
+/// MỘT TỆP = MỘT CHỦ ĐỀ, nên node của tầng này chính là hàng `documents` đã có; bảng này chỉ
+/// chở các CẠNH. Không có bảng `topics` 1:1 với `documents`, vì đó là đặt tên thứ hai cho cùng
+/// một hàng rồi phải giữ hai hàng đồng bộ qua mọi đường sửa tài liệu.
+///
+/// Vì sao là bảng riêng chứ không suy ra từ `concept_edges`: không cạnh khái niệm nào bắc qua
+/// giữa hai tệp (pha 1 chỉ nhìn một tệp mỗi lượt), nên KHÔNG CÓ GÌ để suy. Thứ tự này chỉ pha 2
+/// biết, và nó là thứ DUY NHẤT pha 2 được phép sinh ra.
+///
+/// KHÔNG có cột `source`: mọi hàng ở đây đều do pha 2 suy từ mô tả khái niệm -- pha 1 về nguyên
+/// tắc không thể sinh cạnh giữa hai tệp. Một cột enum mà mọi hàng cùng giá trị không khoá bất
+/// biến nào; nó chỉ mời người đọc sau tin rằng có hàng `ai_extracted` tồn tại. Tính chất "cả
+/// bảng này là AI suy" được UI thể hiện bằng cách vẽ TẤT CẢ cạnh tầng chủ đề bằng nét đứt.
+///
+/// 🔴 C4 mệnh đề 1 (AI không được làm orchestrator): bảng này chỉ vào TẦNG VẼ. Ngày nào có
+/// người cho `document_edges` vào thứ tự ôn tập -- `scheduling.service`, `concept-schedule`,
+/// `traceback` -- ngày đó C4 bị vi phạm thật. `document-edges-stay-out-of-scheduling.test.ts`
+/// canh đúng chuyện đó bằng grep định danh.
+model DocumentEdge {
+  id             String @id @default(uuid()) @db.Uuid
+  planId         String @map("plan_id") @db.Uuid
+  fromDocumentId String @map("from_document_id") @db.Uuid
+  toDocumentId   String @map("to_document_id") @db.Uuid
+
+  plan         StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  fromDocument Document  @relation("DocumentEdgeFrom", fields: [fromDocumentId], references: [id], onDelete: Cascade)
+  toDocument   Document  @relation("DocumentEdgeTo", fields: [toDocumentId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, fromDocumentId, toDocumentId])
+  @@index([planId])
+  @@index([fromDocumentId])
+  @@index([toDocumentId])
+  @@map("document_edges")
 }
 
 /// Điểm-kiểm của một khái niệm — thước đo của Interview v2 (#329, INV-1).
@@ -295,20 +363,48 @@ model ConceptEdge {
 /// Job phân tích tài liệu bất đồng bộ (SP-06)
 /// Lưu ý: planDraftId không có FK constraint vì plan draft có thể chưa tồn tại (async flow)
 model AnalysisJob {
-  id           String            @id @default(uuid()) @db.Uuid
-  planDraftId  String?           @map("plan_draft_id") @db.Uuid
-  fileKey      String?           @map("file_key")
-  status       AnalysisJobStatus @default(pending)
+  id               String            @id @default(uuid()) @db.Uuid
+  planDraftId      String?           @map("plan_draft_id") @db.Uuid
+  fileKey          String?           @map("file_key")
+  status           AnalysisJobStatus @default(pending)
   /// Null until the job starts `processing`; not reset on completion or failure — a caller
   /// only reads it while status is `processing` (Issue #186).
-  phase        AnalysisJobPhase?
-  retryCount   Int               @default(0) @map("retry_count")
+  phase            AnalysisJobPhase?
+  /// Tiến độ pha 1, để panel phân tích nói được "đã đọc k/N tệp" thay vì một thanh mù.
+  /// Null cho job đã chạy trước khi có nhiều tài liệu; client đọc null là "không biết" và rơi
+  /// về thanh tiến độ theo pha như cũ.
+  documentsTotal   Int?              @map("documents_total")
+  documentsDone    Int?              @map("documents_done")
+  /// Phạm vi của lượt phân tích này.
+  ///
+  /// `all` (mặc định) = đọc lại MỌI tài liệu của kế hoạch — đường của tạo mới, retry, reanalyze
+  /// và chế độ "đọc lại toàn bộ" khi thêm tài liệu.
+  ///
+  /// `new_only` = pha 1 CHỈ chạy trên các tài liệu liệt kê ở `scopeDocumentIds`. BỐN khác biệt,
+  /// cả bốn đều là lỗi IM LẶNG nếu quên: (1) bỏ qua `toDeprecate`, vì AI chỉ thấy tệp mới nên
+  /// MỌI khái niệm cũ đều "vắng mặt" và sẽ bị khai tử sạch; (2) cạnh khái niệm CỘNG THÊM chứ
+  /// không dựng lại; (3) `document_edges` thì VẪN thay trọn, vì pha 2 luôn chạy trên toàn bộ
+  /// tài liệu nên nó trả về thứ tự đầy đủ — giữ cạnh cũ rồi cộng thêm để lại thứ tự mâu thuẫn;
+  /// (4) khái niệm đã có `primary_document_id` giữ NGUYÊN chủ đề/tên/độ khó và không được dựng
+  /// lại checkpoint.
+  ///
+  /// Khác biệt (4) không được lường trước — nó lộ ra khi chạy thật 03/09: thêm `LN09` vào kế
+  /// hoạch đã có `LN08` làm khái niệm dùng chung `Test Automation` bị chuyển chủ đề sang LN09,
+  /// vì pha 1 không thấy LN08 nên `mergeExtractions` khai tệp mới là chủ sở hữu. Cùng lý do,
+  /// checkpoint của nó là thước đã dùng để chấm mọi câu trả lời trước đó (INV-1), nên dựng lại
+  /// từ một tệp đọc riêng lẻ là chấm lại lịch sử bằng một cái thước khác.
+  scope            AnalysisJobScope  @default(all)
+  /// Id các tài liệu pha 1 được phép đọc khi `scope = new_only`. `Json` chứ không phải
+  /// `String[]`: schema này chưa có scalar list nào (mọi mảng khác đều là `Json`), và fake
+  /// Prisma trong test chưa từng xử lý mảng Postgres.
+  scopeDocumentIds Json?             @map("scope_document_ids")
+  retryCount       Int               @default(0) @map("retry_count")
   /// Truncated, safe reason for the last `failed` transition (Issue #183) — set only by
   /// `markFailed()`'s real-error path, never by the stale-job sweep or the retry/reanalyze
   /// force-fail paths, which have no underlying error to report.
-  errorMessage String?           @map("error_message")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  completedAt  DateTime?         @map("completed_at")
+  errorMessage     String?           @map("error_message")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  completedAt      DateTime?         @map("completed_at")
 
   @@index([planDraftId])
   @@index([status])
@@ -548,8 +644,11 @@ model Document {
   /// là thứ không kiểm được, và trích dẫn cũ sẽ trỏ sang tệp mới mà vẫn trông hợp lệ.
   updatedAt DateTime     @updatedAt @map("updated_at")
 
-  plan           StudyPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
-  conceptSources ConceptSourceRef[]
+  plan            StudyPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  conceptSources  ConceptSourceRef[]
+  primaryConcepts Concept[]          @relation("ConceptPrimaryDocument")
+  edgesFrom       DocumentEdge[]     @relation("DocumentEdgeFrom")
+  edgesTo         DocumentEdge[]     @relation("DocumentEdgeTo")
 
   @@index([planId])
   @@map("documents")

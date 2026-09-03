@@ -6,6 +6,7 @@ import {
   ListChecks,
   MoreHorizontal,
   RefreshCw,
+  FilePlus,
   Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -112,6 +113,7 @@ interface PlanCardProps {
   onArchive: (plan: PlanSummary) => void;
   onRestore: (plan: PlanSummary) => void;
   onReanalyze: (plan: PlanSummary) => void;
+  onAddDocuments: (plan: PlanSummary) => void;
   onDelete: (plan: PlanSummary) => void;
   isBusy: boolean;
 }
@@ -122,6 +124,7 @@ export function PlanCard({
   onArchive,
   onRestore,
   onReanalyze,
+  onAddDocuments,
   onDelete,
   isBusy,
 }: PlanCardProps) {
@@ -129,6 +132,12 @@ export function PlanCard({
   const isDraft = plan.status === 'draft';
   const isArchived = plan.status === 'archived';
   const isReanalyzeDraft = isDraft && hasPriorProgress(plan.masteryDistribution);
+  /**
+   * A draft whose analysis finished and is waiting for the user to confirm the graph (#265) —
+   * the most common draft state, not an error one. Named up here because two different branches
+   * need it: the menu below and the draft card's own copy.
+   */
+  const awaitingConfirmation = isDraft && !isAnalysing && plan.analysisStatus !== 'failed';
 
   const actions = (
     <DropdownMenu>
@@ -164,7 +173,19 @@ export function PlanCard({
         )}
 
         {/* SP-05 re-reads the document the plan was built from; a draft has no graph to
-            refresh yet, and an archived plan is restored first. */}
+            refresh yet, and an archived plan is restored first. §4 adds files to that same graph,
+            so it lives under the same condition — and next to it, because "phân tích lại" and
+            "thêm tài liệu" are the two ways a confirmed plan's material can change. */}
+        {/* "Thêm tài liệu" also reaches a draft that has finished analysing and is waiting to be
+            confirmed — the server accepts exactly that state, and it is the one where a student
+            who forgot a file most wants it: making them confirm a graph they are about to replace
+            would be busywork. It stays off a FAILED draft, which belongs to retry / đổi tài liệu. */}
+        {(plan.status === 'active' || awaitingConfirmation) && (
+          <DropdownMenuItem onSelect={() => onAddDocuments(plan)} disabled={isAnalysing}>
+            <FilePlus />
+            Thêm tài liệu
+          </DropdownMenuItem>
+        )}
         {plan.status === 'active' && (
           <DropdownMenuItem onSelect={() => onReanalyze(plan)} disabled={isAnalysing}>
             <RefreshCw />
@@ -189,10 +210,13 @@ export function PlanCard({
     // không đang chạy" không còn đồng nghĩa với lỗi. Trạng thái thứ ba này mới là trạng thái
     // phổ biến nhất của một bản nháp: AI xong việc, đang chờ bước kiểm chứng của SP-01.
     const analysisFailed = plan.analysisStatus === 'failed';
-    const awaitingConfirmation = !isAnalysing && !analysisFailed;
     const elapsed = plan.analysisStartedAt ? formatElapsed(plan.analysisStartedAt, now) : null;
+    // A plan can hold a whole subject now. The card still names one file — the first — but says
+    // how many more there are; listing just one of five would be a lie by omission.
+    const extraDocuments = (plan.documentCount ?? 0) - 1;
     const meta = [
       plan.document?.filename,
+      extraDocuments > 0 ? `+${extraDocuments} tệp khác` : null,
       plan.document?.pageCount ? `${plan.document.pageCount} trang` : null,
       isAnalysing ? elapsed : null,
       awaitingConfirmation && plan.conceptCount ? `${plan.conceptCount} khái niệm` : null,
@@ -259,6 +283,9 @@ export function PlanCard({
   // ---------- Active or archived: a graph the student can open ----------
   const meta = [
     `${plan.conceptCount} khái niệm`,
+    // With one file = one topic, the document count IS the topic count — a fact about the shape
+    // of the graph behind the card, not just about storage. Hidden at 1, where it says nothing.
+    (plan.documentCount ?? 0) > 1 ? `${plan.documentCount} chủ đề` : null,
     plan.deadline ? `hạn ${formatDeadlineShort(plan.deadline)}` : null,
     plan.deadline && !isArchived ? formatTimeLeft(plan.deadline, now) : null,
   ].filter(Boolean);

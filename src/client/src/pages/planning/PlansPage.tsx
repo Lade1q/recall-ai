@@ -16,7 +16,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScheduleView } from '@/features/schedule/components/ScheduleView';
 import { PlanCard } from '@/features/study-planner/components/PlanCard';
-import { getPlanActionErrorMessage, planApi } from '@/features/study-planner/api/plan.api';
+import {
+  getPlanActionErrorMessage,
+  getAddDocumentsErrorMessage,
+  planApi,
+} from '@/features/study-planner/api/plan.api';
+import {
+  AddDocumentsDialog,
+  type AddDocumentsMode,
+} from '@/features/study-planner/components/AddDocumentsDialog';
 import { PlanStatus, PlanSummary } from '@/features/study-planner/types/concept';
 
 /**
@@ -86,6 +94,8 @@ export default function PlansPage() {
   const [isRetryingPlans, setIsRetryingPlans] = useState(false);
   const [busyPlanId, setBusyPlanId] = useState<string | null>(null);
   const [planPendingDelete, setPlanPendingDelete] = useState<PlanSummary | null>(null);
+  const [planPendingDocuments, setPlanPendingDocuments] = useState<PlanSummary | null>(null);
+  const [isAddingDocuments, setIsAddingDocuments] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   /** Refresh used by polling and by every mutation; the mount fetch below shares its shape. */
@@ -198,6 +208,33 @@ export default function PlansPage() {
       () => planApi.reanalyzePlan(plan.id),
       'Đang phân tích lại — điểm thành thạo của các khái niệm cũ được giữ nguyên.'
     );
+
+  /**
+   * §4. Not routed through `runPlanAction`: that helper reports with `getPlanActionErrorMessage`,
+   * which knows nothing about the upload-validation codes this endpoint can return — an encrypted
+   * PDF would come back as "Không thực hiện được. Vui lòng thử lại." and the student would never
+   * learn which file to remove. The dialog stays open on failure for the same reason.
+   */
+  const handleAddDocuments = async (files: File[], mode: AddDocumentsMode) => {
+    const plan = planPendingDocuments;
+    if (!plan) return;
+    setIsAddingDocuments(true);
+    try {
+      await planApi.addDocuments(plan.id, files, mode);
+      setPlanPendingDocuments(null);
+      await loadPlans();
+      toast.success(
+        mode === 'append'
+          ? 'Đang đọc tệp mới và nối vào đồ thị cũ — không khái niệm cũ nào bị thay đổi.'
+          : 'Đang đọc lại toàn bộ tài liệu — điểm thành thạo của khái niệm cũ được giữ nguyên.'
+      );
+    } catch (error) {
+      console.error('Add documents failed', error);
+      toast.error(getAddDocumentsErrorMessage(error));
+    } finally {
+      setIsAddingDocuments(false);
+    }
+  };
 
   const handleConfirmDelete = async () => {
     const plan = planPendingDelete;
@@ -330,6 +367,7 @@ export default function PlansPage() {
                         onArchive={handleArchive}
                         onRestore={handleRestore}
                         onReanalyze={handleReanalyze}
+                        onAddDocuments={setPlanPendingDocuments}
                         onDelete={setPlanPendingDelete}
                       />
                     ))}
@@ -365,6 +403,20 @@ export default function PlansPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* §4. `key` per plan: closing the dialog nulls the state below, which remounts it with a
+          clean file list and mode. Cheaper and more reliable than resetting inside it — that
+          would miss the close that follows a successful submit. */}
+      <AddDocumentsDialog
+        key={planPendingDocuments?.id ?? 'none'}
+        open={planPendingDocuments !== null}
+        onOpenChange={(open) => !open && setPlanPendingDocuments(null)}
+        planName={planPendingDocuments?.name ?? ''}
+        documentCount={planPendingDocuments?.documentCount ?? 0}
+        conceptCount={planPendingDocuments?.conceptCount ?? 0}
+        isSubmitting={isAddingDocuments}
+        onSubmit={(files, mode) => void handleAddDocuments(files, mode)}
+      />
     </div>
   );
 }

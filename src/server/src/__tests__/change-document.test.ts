@@ -9,7 +9,7 @@ jest.mock('../config/prisma', () => {
   const client = {
     studyPlan: { findUnique: jest.fn() },
     analysisJob: { findFirst: jest.fn(), create: jest.fn(), update: jest.fn() },
-    document: { findFirst: jest.fn(), update: jest.fn(), create: jest.fn() },
+    document: { findFirst: jest.fn(), findMany: jest.fn(), update: jest.fn(), create: jest.fn() },
     questionCache: { deleteMany: jest.fn() },
     $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn(),
@@ -151,10 +151,12 @@ describe('changePlanDocument', () => {
       status: 'processing',
       createdAt: staleCreatedAt,
     });
-    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue({
-      id: 'doc-uuid',
-      fileKey: OLD_FILE_KEY,
-    });
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'doc-uuid',
+        fileKey: OLD_FILE_KEY,
+      },
+    ]);
 
     const result = await changePlanDocument(PLAN_ID, OWNER_ID, newDocumentMeta);
 
@@ -172,10 +174,12 @@ describe('changePlanDocument', () => {
       status: 'failed',
       createdAt: new Date(),
     });
-    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue({
-      id: 'doc-uuid',
-      fileKey: OLD_FILE_KEY,
-    });
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'doc-uuid',
+        fileKey: OLD_FILE_KEY,
+      },
+    ]);
 
     const result = await changePlanDocument(PLAN_ID, OWNER_ID, newDocumentMeta);
 
@@ -228,7 +232,7 @@ describe('changePlanDocument', () => {
       status: 'failed',
       createdAt: new Date(),
     });
-    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([]);
 
     await changePlanDocument(PLAN_ID, OWNER_ID, newDocumentMeta);
 
@@ -254,14 +258,59 @@ describe('changePlanDocument', () => {
       status: 'failed',
       createdAt: new Date(),
     });
-    (mockedPrisma.document.findFirst as jest.Mock).mockResolvedValue({
-      id: 'doc-uuid',
-      fileKey: OLD_FILE_KEY,
-    });
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'doc-uuid',
+        fileKey: OLD_FILE_KEY,
+      },
+    ]);
     (storage.delete as jest.Mock).mockRejectedValue(new Error('disk error'));
 
     const result = await changePlanDocument(PLAN_ID, OWNER_ID, newDocumentMeta);
 
     expect(result.analysisStatus).toBe('pending');
+  });
+});
+
+/**
+ * 🔴 "Đổi tài liệu" UPDATES a document row in place, keeping its id. On a plan holding several
+ * files the old `findFirst asc` silently picked the OLDEST: a student replacing chapter 8 would
+ * have chapter 2 overwritten, and every `concept_sources` row citing chapter 2 would go on
+ * pointing at that id while naming the new file. Refuse rather than guess.
+ */
+describe('changePlanDocument — multi-document plans', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockedPrisma.$transaction as jest.Mock).mockImplementation(
+      (fn: (tx: typeof mockedPrisma) => Promise<unknown>) => fn(mockedPrisma)
+    );
+  });
+
+  it('refuses when the plan holds more than one document', async () => {
+    (mockedPrisma.studyPlan.findUnique as jest.Mock).mockResolvedValue({
+      id: PLAN_ID,
+      userId: OWNER_ID,
+      name: 'CNPM',
+      deadline: null,
+      status: 'draft',
+    });
+    (mockedPrisma.analysisJob.findFirst as jest.Mock).mockResolvedValue({
+      id: 'job-failed',
+      status: 'failed',
+      createdAt: new Date('2026-09-01'),
+    });
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([
+      { id: 'doc-1', fileKey: 'plans/p/ln02.pdf' },
+      { id: 'doc-2', fileKey: 'plans/p/ln08.pdf' },
+    ]);
+
+    const error = await changePlanDocument(PLAN_ID, OWNER_ID, newDocumentMeta).catch((e) => e);
+
+    expect(error).toMatchObject({ statusCode: 409, code: 'DOCUMENT_CHANGE_AMBIGUOUS' });
+    expect(error.message).toContain('2 tài liệu');
+    // Nothing may be written — least of all the update that would have hit the wrong row.
+    expect(mockedPrisma.document.update).not.toHaveBeenCalled();
+    expect(mockedPrisma.document.create).not.toHaveBeenCalled();
+    expect(mockedPrisma.analysisJob.create).not.toHaveBeenCalled();
   });
 });

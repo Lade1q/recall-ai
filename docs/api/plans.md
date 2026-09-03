@@ -12,10 +12,15 @@ Tất cả các API quản lý Study Plan đều có tiền tố `/api/v1/plans`
 - **Request Fields:**
   - `name` (string, required): Tên kế hoạch học tập (1 - 255 ký tự).
   - `deadline` (string, required): Thời hạn học tập dưới dạng ISO Date (phải là ngày trong tương lai).
-  - `file` (file upload): File tài liệu học tập đính kèm (hỗ trợ `.pdf`, `.txt`, `.png`, `.jpg`, tối đa 10MB).
+  - `files` (file upload, **lặp lại được**): Cả bộ tài liệu của môn học. Hỗ trợ `.pdf`, `.txt`, `.png`, `.jpg`; **tối đa 8 tệp, mỗi tệp 10 MB, tổng 25 MB**. 🔴 **Mỗi tệp là MỘT chủ đề** trên tầng trên của đồ thị — không cắt chủ đề theo heading bên trong tệp.
+  - `file` (file upload): Tên field CŨ, vẫn nhận đúng một tệp. Giữ lại để một client chưa deploy lại không 400; client mới dùng `files`. Hai field được đếm CHUNG cho trần 8 tệp.
   - `content` (string): Text dán trực tiếp thay cho việc upload file (UC-02 A3 "Dán text", tối đa 10,000 ký tự). Server tự lưu thành một Document `kind: "text"` (`pageCount: null`) và chạy đúng pipeline phân tích text hiện có — không cần thay đổi gì phía `extractConcepts`.
 
-  **Bắt buộc chọn đúng một trong hai:** `file` hoặc `content`. Thiếu cả hai → `FILE_REQUIRED`; có cả hai → `CONTENT_OR_FILE_CONFLICT` (HTTP 400). Vì luôn có đúng một trong hai, **`POST /plans` luôn tạo đúng 1 Document** cho plan mới — kịch bản "tạo plan chỉ bằng gõ concept, không file/text" (0 Document, không có `page_count`) không được mở qua endpoint này (Issue #172 chỉ phục vụ AF2 + dán text, xem mục 4). Đây là phát biểu về **endpoint này**, không phải bất biến toàn hệ thống: seed data và các đường tạo Plan khác vẫn có thể để plan không Document (xem guard `NO_MATERIAL` ở luồng Interview, #272/#303).
+  **Bắt buộc chọn đúng một trong hai:** tệp (ở `files` và/hoặc `file`) hoặc `content`. Thiếu cả hai → `FILE_REQUIRED`; có cả hai → `CONTENT_OR_FILE_CONFLICT` (HTTP 400). Quá 8 tệp → `TOO_MANY_FILES`; tổng quá 25 MB → `TOTAL_SIZE_EXCEEDED`. Một tệp hỏng (PDF mã hoá, quá cỡ) làm **cả lô** bị từ chối trước khi ghi bất cứ gì, và message kèm TÊN TỆP — bỏ im lặng một tệp trong năm nghĩa là kế hoạch thiếu một phần giáo trình mà không gì trên màn hình nói vậy.
+
+  Vì luôn có ít nhất một trong hai, **`POST /plans` luôn tạo ≥ 1 Document** cho plan mới — kịch bản "tạo plan chỉ bằng gõ concept, không file/text" (0 Document, không có `page_count`) không được mở qua endpoint này (Issue #172 chỉ phục vụ AF2 + dán text, xem mục 4). Đây là phát biểu về **endpoint này**, không phải bất biến toàn hệ thống: seed data và các đường tạo Plan khác vẫn có thể để plan không Document (xem guard `NO_MATERIAL` ở luồng Interview, #272/#303).
+
+  ⚠️ **`TOO_MANY_FILES` đến từ hai chỗ với cùng một nghĩa** (đo 03/09): controller đếm cả hai field cộng lại, và middleware map `LIMIT_UNEXPECTED_FILE` khi `err.field ∈ {files, file}`. Multer chạm `maxCount` của từng field TRƯỚC bộ đếm tổng của busboy, nên `LIMIT_FILE_COUNT` **không bao giờ nổ** trên route này — `err.field` mới là thứ phân biệt "tràn field" với "tên field lạ".
 
 - **Response thành công (HTTP 201 Created):**
 
@@ -132,6 +137,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
           "analysisStatus": "processing",
           "analysisStartedAt": "2026-07-20T21:00:12.000Z",
           "document": { "filename": "Chuong-4-Kiem-thu.pdf", "pageCount": 28 },
+          "documentCount": 1,
           "createdAt": "2026-07-20T21:00:00.000Z"
         }
       ]
@@ -158,7 +164,10 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
 
 - **`analysisStatus` / `analysisStartedAt`** lấy từ `AnalysisJob` gần nhất của Plan, cùng quy tắc "mới nhất theo `createdAt`" như mục 3; `null` khi Plan chưa có job nào. `analysisStartedAt` để client hiển thị đồng hồ đếm thời gian đã chạy.
 
-- **`document`** là tài liệu nguồn mới nhất của Plan, `null` nếu chưa có. `pageCount` là `null` với tài liệu không phân trang (text/ảnh).
+- **`document`** là tài liệu **ĐẦU TIÊN** của Plan (`createdAt` cũ nhất), `null` nếu chưa có. `pageCount` là `null` với tài liệu không phân trang (text/ảnh).
+  ⚠️ Trước khi một kế hoạch có nhiều tệp, trường này lấy `desc, take: 1` và tài liệu ấy được mô tả là "mới nhất". Đổi sang **cũ nhất** là cố ý: `createdAt asc` là tiêu chí đứt điểm mà cả tầng chủ đề dựng trên (neo `concept_sources`, chủ đề của khái niệm trùng tên, tệp mà phỏng vấn đọc), và thẻ kế hoạch chỉ ra vẻ đúng chừng nào chỉ có một tệp. Với kế hoạch nhiều tệp, con số cần đọc là `documentCount`, không phải cái tên này.
+
+- **`documentCount`** là số tài liệu của Plan — nguồn của dòng "**{n} chủ đề**" trên thẻ kế hoạch, vì **một tệp = một chủ đề**. Bằng `1` cho mọi kế hoạch cũ, và bằng `0` cho kế hoạch dán văn bản thất bại trước khi tạo được `Document`.
 
 ---
 
@@ -182,6 +191,9 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
       "deadline": "2026-08-30T00:00:00.000Z",
       "status": "draft",
       "analysisStatus": "pending",
+      "analysisPhase": null,
+      "analysisDocumentsTotal": 3,
+      "analysisDocumentsDone": 0,
       "dagAutoFixed": false,
       "tracebackEnabled": true,
       "createdAt": "2026-07-20T21:00:00.000Z",
@@ -206,6 +218,9 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
       "deadline": "2026-08-30T00:00:00.000Z",
       "status": "active",
       "analysisStatus": "done",
+      "analysisPhase": null,
+      "analysisDocumentsTotal": 3,
+      "analysisDocumentsDone": 3,
       "dagAutoFixed": false,
       "tracebackEnabled": true,
       "createdAt": "2026-07-20T21:00:00.000Z",
@@ -218,6 +233,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
           "masteryScore": null,
           "source": "ai_generated",
           "status": "active",
+          "primaryDocumentId": "d1...",
           "createdAt": "2026-07-20T21:00:05.000Z"
         },
         {
@@ -227,6 +243,7 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
           "masteryScore": null,
           "source": "ai_generated",
           "status": "active",
+          "primaryDocumentId": "d1...",
           "createdAt": "2026-07-20T21:00:05.000Z"
         },
         {
@@ -236,19 +253,36 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
           "masteryScore": null,
           "source": "ai_generated",
           "status": "active",
+          "primaryDocumentId": "d2...",
           "createdAt": "2026-07-20T21:00:05.000Z"
         }
       ],
       "edges": [
         { "id": "e1...", "fromConceptId": "a1...", "toConceptId": "a2..." },
         { "id": "e2...", "fromConceptId": "a2...", "toConceptId": "a3..." }
-      ]
+      ],
+      "documents": [
+        {
+          "id": "d1...",
+          "filename": "LN02 - Gioi han va dao ham.pdf",
+          "pageCount": 55,
+          "kind": "pdf"
+        },
+        { "id": "d2...", "filename": "LN04 - Tich phan.pdf", "pageCount": 36, "kind": "pdf" }
+      ],
+      "documentEdges": [{ "id": "t1...", "fromDocumentId": "d1...", "toDocumentId": "d2..." }]
     }
   }
   ```
 
   - `dagAutoFixed: true` nếu Gemini trả về đồ thị chứa chu trình và hệ thống đã tự loại cạnh gây lỗi.
   - `concepts[].masteryScore` luôn là `null` cho tới khi user hoàn thành phiên Interview đầu tiên trên khái niệm đó (Sprint 4 — AI Examiner).
+  - `documents` là **tầng chủ đề** — một tệp là một chủ đề, `createdAt` cũ nhất trước. Thứ tự này không trang trí: nó là tiêu chí đứt điểm cho chủ đề của khái niệm trùng tên, và `documents[0]` là tệp mà phiên phỏng vấn đọc khi khái niệm chưa có chủ đề.
+  - `documentEdges` là thứ tự nên học **giữa các tài liệu**, do pha 2 suy ra. Có thể là `[]` khi kế hoạch có nhiều tệp — nghĩa là _"chưa biết thứ tự"_, và client vẫn phải vẽ đủ N ô chủ đề rời. 🔴 **Điều kiện rẽ về đồ thị phẳng là `documents.length <= 1`, KHÔNG phải `documentEdges.length === 0`** — nhầm chỗ này là giấu mất việc kế hoạch có nhiều tệp.
+    🔴 **Mọi hàng ở đây đều là AI suy**, nên UI vẽ toàn bộ tầng này bằng nét đứt. Không có cột `source` để phân biệt: pha 1 chỉ nhìn MỘT tệp nên về nguyên tắc không thể sinh cạnh giữa hai tệp, và một cột mà mọi hàng cùng giá trị không khoá bất biến nào. Guard tương ứng nằm ở tầng code — pha 1 vẫn bị JSON Schema **ép** trả `topic_edges` (`.catch([])` không làm trường thành optional), và lượt chạy thật đầu tiên 03/09 đã vứt **22 hàng** nó bịa ra.
+  - `analysisPhase` là bước con bên trong một job `processing`: `"sending_to_ai"` | `"extracting"` | `"linking"` | `"validating"` | `null`. `"linking"` là pha 2 — một lời gọi mạng ~6–20s, tách riêng chứ không gộp vào `validating`, nếu không panel tiến độ nói dối về việc đang chờ cái gì.
+  - `analysisDocumentsTotal` / `analysisDocumentsDone` nuôi dòng "Đang đọc tệp k/N". `null` với job tạo trước khi có hai cột này.
+  - `concepts[].primaryDocumentId` là **chủ đề** của khái niệm — id một phần tử của `documents`, hoặc `null`. Khác `concept_sources` (N:M, mang excerpt/trang, phục vụ trích dẫn C5): cột này là N:1 và phục vụ **điều hướng**. Khái niệm dạy ở hai tệp có hai hàng source nhưng chỉ nằm dưới **một** chủ đề — tệp `createdAt` sớm nhất. `null` gom vào rổ "Chưa xếp chủ đề" trên UI; nguồn `null` có thật là khái niệm người dùng tự thêm ở màn kiểm chứng mà client quên gửi `primaryDocumentId` (mục 4).
   - `concepts` chỉ trả `status = 'active'`. Concept `deprecated` (re-analyze loại bỏ, mục 6) vẫn còn trong DB làm tombstone giữ lịch sử — hồi sinh lại nếu re-analyze sau này gặp lại đúng tên — nhưng không xuất hiện ở đây, vì đây là đồ thị hiện tại của Plan chứ không phải lịch sử chỉnh sửa.
 
 - **Lỗi ID không đúng định dạng UUID (HTTP 400 Bad Request):**
@@ -302,6 +336,10 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
 - **Semantics:** Đây là **full replace**, không phải patch từng phần. Body chứa toàn bộ tập concepts + edges mong muốn của đồ thị:
   - Concept được khớp theo **tên** (`name`) với concept đã có trong DB — tên trùng thì giữ nguyên `id`, `masteryScore` và lịch sử; tên biến mất thì bị xóa (cascade xóa các edge liên quan); tên mới thì được tạo với `source: "manual"`.
   - `edges[].from` / `edges[].to` tham chiếu tới `concepts[].name` (không phải id) — vì FE có thể vừa thêm 1 node mới chưa có id từ server.
+  - `concepts[].primaryDocumentId` (uuid, optional): chủ đề của một concept **MỚI**. Chỉ đọc cho tên plan chưa có; concept đã tồn tại luôn giữ chủ đề cũ, nên gửi lại toàn bộ đồ thị không thể xáo trộn tầng chủ đề. Thiếu trường này thì concept người dùng thêm khi đang mở một chủ đề sẽ rơi về `NULL` và biến khỏi đúng chủ đề vừa thêm nó vào — im lặng, vì nó chỉ hiện lại ở rổ "Chưa xếp chủ đề".
+  - `documentEdges` (array, **optional**): tầng chủ đề — thứ tự nên học giữa các TÀI LIỆU, `{from, to}` là **document id**.
+    🔴 **Vắng mặt ≠ rỗng.** Không gửi trường này nghĩa là _"đừng đụng vào tầng chủ đề"_; gửi `[]` nghĩa là _"người dùng đã bỏ hết mũi tên"_. Phân biệt này là toàn bộ tính an toàn của trường: trình soạn thảo gửi lại đồ thị khái niệm sau **mỗi** lần sửa để kiểm DAG trực tiếp và không biết gì về chủ đề — mặc định `[]` sẽ xoá sạch thứ tự học giữa các tài liệu ngay ở nét sửa đầu tiên, trong lúc các mũi tên đó thậm chí không ở trên màn hình.
+    Cạnh trỏ tài liệu không thuộc plan, tự trỏ, hoặc trùng cặp thì bị **bỏ lặng lẽ** (giống `primaryDocumentId` lạ) — một mũi tên cũ sót lại không được chặn cả thao tác xác nhận. Nhưng **chu trình thì BỊ TỪ CHỐI** (`DAG_CYCLE`, 409): đó là hai khẳng định người dùng cố ý đưa ra, bỏ bớt một nửa sẽ giấu mất nửa nào bị vứt.
 
 - **DAG validation (I3.3):** Trước khi ghi bất cứ gì vào DB, server chạy Kahn's Algorithm trên đồ thị gửi lên. Nếu tạo thành chu trình (kể cả self-loop) → **toàn bộ request bị từ chối**, DB giữ nguyên trạng thái cũ (không tự động loại cạnh như luồng AI extraction ở mục 1.1 — theo SDP §4.3.2 rủi ro R03: _"edges causing cycles are rejected with user notification and logged"_).
 
@@ -376,6 +414,22 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
     "error": {
       "code": "DUPLICATE_CONCEPT",
       "message": "Duplicate concept name: \"A\""
+    }
+  }
+  ```
+
+- **Lỗi kế hoạch có NHIỀU tài liệu (HTTP 409 Conflict), `code: "DOCUMENT_CHANGE_AMBIGUOUS"`:**
+
+  Endpoint này **ghi đè tại chỗ** đúng một hàng `Document`, nên với kế hoạch nhiều tệp nó không nói được là thay tệp nào. Trước khi có nhiều tệp, `findFirst(asc)` lặng lẽ chọn tệp đầu — tức người dùng gửi tệp thay thế và hệ thống thay **một tệp khác** với tệp họ nghĩ, giữ nguyên id và mọi hàng `concept_sources` của tệp cũ, nên từ đó mọi trích dẫn của chương 2 lại đề tên tệp mới. Nay là 409 tường minh.
+
+  🔴 **Không có đường thay một tệp trong kế hoạch nhiều tài liệu, và đừng chỉ người dùng sang mục 6 hay mục 10** — phân tích lại dùng **đúng bộ tệp cũ**, thêm tài liệu chỉ **cộng thêm**; không cái nào THAY được một tệp. `message` server trả về nói đúng đường duy nhất đang có, và client hiển thị nguyên văn:
+
+  ```json
+  {
+    "success": false,
+    "error": {
+      "code": "DOCUMENT_CHANGE_AMBIGUOUS",
+      "message": "Kế hoạch này có 3 tài liệu, không xác định được tệp cần thay. Hãy xoá kế hoạch và tạo lại với bộ tài liệu đúng."
     }
   }
   ```
@@ -700,3 +754,49 @@ Xóa vĩnh viễn study plan và tất cả dữ liệu liên quan. Không thể
   ```
 
 - **Lỗi ID không đúng định dạng UUID (HTTP 400)**, **không tìm thấy Plan (HTTP 404)** và **truy cập Plan người khác (HTTP 403)**: giống hệt mục 3.
+
+---
+
+### 10. Thêm tài liệu vào kế hoạch đã có (Add Documents)
+
+- **Endpoint:** `POST /api/v1/plans/:id/documents`
+- **Xác thực:** ✅ Yêu cầu Bearer Token
+- **Content-Type:** `multipart/form-data`
+- **Số nhiều, và KHÁC hẳn mục 9 (`POST /:id/document`, số ít).** Mục 9 **thay** tệp của một draft phân tích lỗi; endpoint này **cộng thêm** tệp vào một kế hoạch đang chạy. Hai đường dẫn cách nhau một chữ cái, nên chỗ nào nhắc tới chúng cũng phải nói rõ cái nào.
+- **Request Fields:**
+  - `files` (file upload, lặp lại được) — cùng giới hạn như mục 1, nhưng **trần 8 tệp / 25 MB tính TRÊN CẢ KẾ HOẠCH**, không phải trên request. Kế hoạch đang có 6 tệp chỉ thêm được 2.
+  - `mode` (string, **required, KHÔNG có mặc định**): `"full"` hoặc `"append"`.
+
+| `mode`   | AI đọc                          | Đồ thị cũ                                                                                                 |
+| -------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `full`   | Đọc lại **mọi** tệp (song song) | Dựng lại; `planConceptMerge` giữ id nên điểm thành thạo/lịch sử còn nguyên                                |
+| `append` | Chỉ đọc **tệp mới**             | **Chỉ cộng thêm.** Không khai tử, không xoá cạnh, không đổi chủ đề/tên/độ khó/checkpoint của khái niệm cũ |
+
+- 🔴 **`append` khác `full` ở BỐN chỗ, cả bốn đều là lỗi im lặng nếu quên** (ba chỗ đầu đã lường trước, chỗ thứ tư chỉ lộ ra khi chạy thật 03/09):
+  1. **Bỏ qua `toDeprecate`.** AI chỉ thấy tệp mới ⇒ mọi khái niệm cũ "vắng mặt" ⇒ khai tử sạch đồ thị.
+  2. **Cạnh khái niệm CỘNG THÊM**, không `deleteMany` rồi dựng lại.
+  3. **`document_edges` vẫn thay TRỌN** — đây là chỗ `append` _không_ append: pha 2 luôn chạy trên toàn bộ tài liệu nên nó trả về thứ tự đầy đủ.
+  4. **Khái niệm dùng chung giữ nguyên chủ đề cũ.** Đo thật: thêm `LN09 - Test Automation` vào kế hoạch đã có `LN08` làm khái niệm `Test Automation` bị chuyển chủ đề sang LN09, vì pha 1 không thấy LN08 đã sở hữu nó. Cùng lý do, checkpoint của khái niệm dùng chung cũng không được dựng lại — nó là thước đã dùng để chấm mọi câu trả lời trước đó (INV-1).
+- 🟢 **Chủ đề mới không thành một đảo, và điều đó ĐO ĐƯỢC.** Pha 2 luôn chạy trên toàn bộ tài liệu (khái niệm cũ đọc trích đoạn từ DB). Đo 03/09: thêm `LN07 - Software V&V` vào kế hoạch có LN02/LN04/LN08/LN09 → pha 2 xếp LN07 vào **GIỮA** LN04 và LN08. Nếu nó chỉ thấy tệp mới thì kết quả duy nhất có thể là "nối vào đuôi".
+  ⚠️ Nhưng **chỉ ở tầng chủ đề**: khái niệm của tệp mới không có cạnh sang khái niệm cũ. Câu quảng cáo đúng là _"nhanh và rẻ, không sửa gì của đồ thị cũ"_ — **không phải** _"nối liền hai đồ thị"_.
+- **Guard:** `active` ✅ · `draft` + job cuối `done` ✅ (kế hoạch chờ xác nhận — sinh viên quên một tệp) · job đang chạy ❌ 409 · `draft` + job `failed` ❌ 409 (địa hạt retry/mục 9) · `archived` ❌ 409. Mã: `ADD_DOCUMENTS_NOT_ALLOWED`. Job kẹt quá `STALE_JOB_THRESHOLD_MS` (10 phút) được giải phóng như ba endpoint kia (#178).
+- **Sau khi gọi:** kế hoạch quay về `draft` (qua đúng cổng xác nhận #265), cache chất liệu AI và cache câu hỏi bị xoá.
+- **Response (HTTP 202 Accepted):**
+
+  ```json
+  {
+    "success": true,
+    "data": {
+      "plan": {
+        "id": "c1f8a8b1-3e4d-4b5a-9a8b-1c2d3e4f5a6b",
+        "name": "Công nghệ phần mềm",
+        "deadline": "2026-12-31T23:59:59.999Z",
+        "status": "draft",
+        "analysisStatus": "pending",
+        "mode": "append",
+        "documentCount": 4
+      },
+      "message": "Documents added, analysis initiated"
+    }
+  }
+  ```

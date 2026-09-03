@@ -6,6 +6,7 @@ import { STALE_JOB_THRESHOLD_MS } from './analysis.service';
 import { ACTIVE_CONCEPT_WHERE, ON_SCHEDULE_WHERE } from './scheduling.service';
 import { clearQuestionCacheForPlan } from './question-cache.service';
 import { summariseMasteryDistribution } from '../utils/mastery';
+import { MAX_FILES_PER_PLAN, MAX_TOTAL_UPLOAD_SIZE } from '../config/upload-limits';
 import {
   CreatePlanResponse,
   PlanItemResponse,
@@ -15,21 +16,36 @@ import {
   ChangeDocumentResponse,
   UpdatePlanStatusResponse,
   DocumentMeta,
+  AddPlanDocumentsResponse,
 } from '../types/plan.types';
 
 const storageService = createStorageService();
 
 /**
- * Creates a new StudyPlan (draft), its source Document, and the pending AnalysisJob
- * atomically. The Document is the durable home for the uploaded file (it outlives the
- * transient AnalysisJob); concept_sources are anchored to it later during analysis.
+ * Creates a new StudyPlan (draft), its source Documents, and the pending AnalysisJob
+ * atomically. Documents are the durable home for the uploaded files (they outlive the
+ * transient AnalysisJob); concept_sources are anchored to them later during analysis, and with
+ * one file = one topic they are also the nodes of the graph's topic layer.
+ *
+ * `documents` is ordered as the student picked the files, and `createdAt` preserves that order —
+ * everything downstream that needs a deterministic tie-break (which document a shared concept is
+ * filed under, which file the interview reads) uses `createdAt asc`, so it must not be shuffled.
+ *
+ * The AnalysisJob still carries a single `fileKey`, the FIRST document's. It is no longer what
+ * drives extraction — that reads the plan's `documents` rows — but `retryPlanAnalysis` guards on
+ * the field being present, so it stays populated.
  */
 export async function createPlanInDb(
   userId: string,
   planId: string,
   input: CreatePlanInput,
-  document: DocumentMeta
+  documents: DocumentMeta[]
 ): Promise<CreatePlanResponse> {
+  const [firstDocument] = documents;
+  if (!firstDocument) {
+    throw new AppError('A plan needs at least one document', 400, 'FILE_REQUIRED');
+  }
+
   const dateStr = input.deadline.includes('T') ? input.deadline.split('T')[0] : input.deadline;
   const deadlineDate = new Date(`${dateStr}T23:59:59.999Z`);
 
@@ -44,21 +60,27 @@ export async function createPlanInDb(
       },
     });
 
-    await tx.document.create({
-      data: {
-        planId: plan.id,
-        filename: document.filename,
-        fileKey: document.fileKey,
-        kind: document.kind,
-        pageCount: document.pageCount,
-        byteSize: document.byteSize,
-      },
-    });
+    // Created one at a time, in order. `createMany` would be one round-trip fewer but leaves the
+    // `created_at` of all the rows identical to the millisecond, and `createdAt asc` is exactly
+    // the tie-break the topic layer depends on — a tie there makes which file "comes first"
+    // depend on whatever order Postgres happens to return.
+    for (const document of documents) {
+      await tx.document.create({
+        data: {
+          planId: plan.id,
+          filename: document.filename,
+          fileKey: document.fileKey,
+          kind: document.kind,
+          pageCount: document.pageCount,
+          byteSize: document.byteSize,
+        },
+      });
+    }
 
     await tx.analysisJob.create({
       data: {
         planDraftId: plan.id,
-        fileKey: document.fileKey,
+        fileKey: firstDocument.fileKey,
         status: 'pending',
       },
     });
@@ -99,10 +121,12 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
       // material to review — a card counting them would tell a student "4 khái niệm"
       // for a plan whose document currently only covers 3.
       concepts: { where: { status: 'active' }, select: { masteryScore: true } },
+      // Oldest first and NOT capped at one: the card names the first file and counts the rest.
+      // `desc, take: 1` used to mean "the only document"; with several it would name the newest,
+      // which is neither the one the interview reads nor the one the topic layer starts from.
       documents: {
         select: { filename: true, pageCount: true, kind: true },
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+        orderBy: { createdAt: 'asc' },
       },
     },
   });
@@ -164,6 +188,7 @@ export async function getUserPlans(userId: string): Promise<PlanItemResponse[]> 
       document: document
         ? { filename: document.filename, pageCount: document.pageCount, kind: document.kind }
         : null,
+      documentCount: p.documents.length,
       createdAt: p.createdAt,
     };
   });
@@ -193,6 +218,7 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
             source: true,
             status: true,
             createdAt: true,
+            primaryDocumentId: true,
           },
         },
         conceptEdges: {
@@ -202,19 +228,29 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
             toConceptId: true,
           },
         },
-        // Powers the SP-06 progress panel's "N trang" and filename (Issue #186) — same
-        // "latest document" pattern as getUserPlans.
+        // The nodes of the topic layer, and the source of the SP-06 progress panel's "N trang"
+        // and filename (Issue #186). Oldest first: that order is the tie-break the whole topic
+        // layer is built on, and the panel wants the first file, not the newest.
         documents: {
-          select: { filename: true, pageCount: true, kind: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+          select: { id: true, filename: true, pageCount: true, kind: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        documentEdges: {
+          select: { id: true, fromDocumentId: true, toDocumentId: true },
         },
       },
     }),
     prisma.analysisJob.findFirst({
       where: { planDraftId: planId },
       orderBy: { createdAt: 'desc' },
-      select: { status: true, phase: true, createdAt: true, errorMessage: true },
+      select: {
+        status: true,
+        phase: true,
+        createdAt: true,
+        errorMessage: true,
+        documentsTotal: true,
+        documentsDone: true,
+      },
     }),
     // "Đang ôn lại" for the DB-05 filter chip and the node outline (Issue #168). Only items
     // still on the schedule: one the student removed, or has finished, is history, and a node
@@ -251,11 +287,15 @@ export async function getPlanById(planId: string, userId: string): Promise<PlanD
     status: plan.status,
     analysisStatus: latestJob?.status ?? null,
     analysisPhase: latestJob?.phase ?? null,
+    analysisDocumentsTotal: latestJob?.documentsTotal ?? null,
+    analysisDocumentsDone: latestJob?.documentsDone ?? null,
     analysisStartedAt: latestJob?.createdAt ?? null,
     analysisErrorMessage: latestJob?.errorMessage ?? null,
     document: document
       ? { filename: document.filename, pageCount: document.pageCount, kind: document.kind }
       : null,
+    documents: plan.documents,
+    documentEdges: plan.documentEdges,
     dagAutoFixed: plan.dagAutoFixed,
     tracebackEnabled: plan.tracebackEnabled,
     createdAt: plan.createdAt,
@@ -491,11 +531,28 @@ export async function changePlanDocument(
       );
     }
 
-    const existingDocument = await tx.document.findFirst({
+    const existingDocuments = await tx.document.findMany({
       where: { planId },
       orderBy: { createdAt: 'asc' },
       select: { id: true, fileKey: true },
     });
+
+    // 🔴 "Đổi tài liệu" is one-file-in, one-file-out — it UPDATES a row in place. On a plan
+    // holding several documents there is no answer to "which one did you mean", and the old
+    // `findFirst asc` silently answered "the oldest": the student uploads a replacement for
+    // chapter 8 and chapter 2 is overwritten with it, keeping chapter 2's id, its concepts and
+    // its `concept_sources` rows — every citation of chapter 2 then names the new file.
+    // Refuse instead. The plan holds a whole subject now; deleting one document of it is a
+    // feature this endpoint was never asked to be.
+    if (existingDocuments.length > 1) {
+      throw new AppError(
+        `Kế hoạch này có ${existingDocuments.length} tài liệu, không xác định được tệp cần thay. ` +
+          'Hãy xoá kế hoạch và tạo lại với bộ tài liệu đúng.',
+        409,
+        'DOCUMENT_CHANGE_AMBIGUOUS'
+      );
+    }
+    const [existingDocument] = existingDocuments;
 
     let oldFileKey: string | null = null;
     if (existingDocument) {
@@ -634,9 +691,13 @@ export async function reanalyzePlan(
       });
     }
 
+    // The FIRST document, matching what `createPlanInDb` puts on a job and what
+    // `processAnalysisJob` falls back to. `desc` was harmless while a plan held one file; with a
+    // whole subject in one plan it made the job's `fileKey` name a different document depending
+    // on whether the plan was created or re-analysed — a difference nothing reconciles.
     const document = await tx.document.findFirst({
       where: { planId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: 'asc' },
       select: { fileKey: true },
     });
 
@@ -738,4 +799,183 @@ export async function deletePlan(planId: string, userId: string): Promise<void> 
       `[deletePlan] Failed to cleanup ${failures.length}/${fileKeys.length} storage files for plan ${planId}`
     );
   }
+}
+
+/**
+ * Adds one or more documents to a plan that already exists, and queues the analysis that folds
+ * them into the graph (§4 of the multi-document plan, Issue flow "Thêm tài liệu vào kế hoạch").
+ *
+ * Distinct from all three neighbours it looks like:
+ *   - `createPlanInDb` — a new plan, nothing to preserve;
+ *   - `changePlanDocument` (POST /:id/document, singular) — *replaces* the file of a draft whose
+ *     analysis failed, and updates the existing `documents` row in place;
+ *   - `reanalyzePlan` — same files, read again.
+ * This one is the only path that makes a plan hold MORE documents than it did, so it is also the
+ * only path where "one file = one topic" turns into "one more node on the topic graph".
+ *
+ * `mode` is the user's choice and is carried on the job, not decided here:
+ *   - `full`   → `scope: 'all'`. The exact code path a first analysis takes, over more files.
+ *     `planConceptMerge` keeps the id of every concept that comes back, so mastery survives.
+ *   - `append` → `scope: 'new_only'` + `scopeDocumentIds` naming ONLY the rows created here.
+ *     Phase 1 reads just those; `processAnalysisJob` then skips deprecation and adds concept
+ *     edges instead of rebuilding them. Phase 2 still runs over every document, so the new
+ *     topic is not an island.
+ *
+ * Both modes drop the plan back to `draft`: the merged graph goes through the same confirmation
+ * gate (#265) a first analysis does, and the review schedule pauses until the user confirms.
+ */
+export async function addPlanDocuments(
+  planId: string,
+  userId: string,
+  documents: DocumentMeta[],
+  mode: 'full' | 'append'
+): Promise<AddPlanDocumentsResponse> {
+  const [firstNewDocument] = documents;
+  if (!firstNewDocument) {
+    throw new AppError('At least one document is required', 400, 'FILE_REQUIRED');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM study_plans WHERE id = ${planId}::uuid FOR UPDATE`;
+
+    const plan = await tx.studyPlan.findUnique({
+      where: { id: planId },
+      select: { id: true, userId: true, name: true, deadline: true, status: true },
+    });
+
+    if (!plan) {
+      throw new AppError('Study plan not found', 404, 'NOT_FOUND');
+    }
+
+    if (plan.userId !== userId) {
+      throw new AppError('Access denied to this study plan', 403, 'FORBIDDEN');
+    }
+
+    if (plan.status === 'archived') {
+      throw new AppError(
+        'Kế hoạch đã lưu trữ không nhận thêm tài liệu. Hãy khôi phục kế hoạch trước.',
+        409,
+        'ADD_DOCUMENTS_NOT_ALLOWED'
+      );
+    }
+
+    const latestJob = await tx.analysisJob.findFirst({
+      where: { planDraftId: planId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, status: true, createdAt: true },
+    });
+
+    // Same stale-job release as retry / changeDocument / reanalyze (#178): a job wedged in
+    // `pending`/`processing` by a server restart would otherwise lock this plan out forever.
+    if (latestJob?.status === 'pending' || latestJob?.status === 'processing') {
+      const isStale = Date.now() - latestJob.createdAt.getTime() > STALE_JOB_THRESHOLD_MS;
+      if (!isStale) {
+        throw new AppError(
+          'Kế hoạch này đang được phân tích. Hãy chờ quá trình hiện tại hoàn tất.',
+          409,
+          'ADD_DOCUMENTS_NOT_ALLOWED'
+        );
+      }
+      await tx.analysisJob.update({
+        where: { id: latestJob.id },
+        data: { status: 'failed', completedAt: new Date() },
+      });
+    }
+
+    // A `draft` whose analysis FAILED has no graph to add to, and it already has two endpoints
+    // built for it — retry (#106) and change-document (#187). Sending it here instead would run
+    // the merge against an empty graph and quietly turn "my analysis failed" into "my plan now
+    // holds a file I never got results for". The stale branch above rewrites `latestJob.status`
+    // in the database but not in this local copy, so re-read the effective status from it.
+    const effectiveJobStatus =
+      latestJob?.status === 'pending' || latestJob?.status === 'processing'
+        ? 'failed'
+        : latestJob?.status;
+    if (plan.status === 'draft' && effectiveJobStatus !== 'done') {
+      throw new AppError(
+        'Kế hoạch này chưa phân tích xong. Hãy thử lại hoặc đổi tài liệu trước khi thêm tệp mới.',
+        409,
+        'ADD_DOCUMENTS_NOT_ALLOWED'
+      );
+    }
+
+    // The ceiling counts what the plan ALREADY holds. Checking only the upload would let a plan
+    // grow past the published limit one file at a time — and the limit is not cosmetic: it is
+    // what bounds a single analysis to a number of parallel AI calls we have measured.
+    const existing = await tx.document.findMany({ where: { planId }, select: { byteSize: true } });
+    const existingCount = existing.length;
+    if (existingCount + documents.length > MAX_FILES_PER_PLAN) {
+      throw new AppError(
+        `Kế hoạch này đang có ${existingCount} tài liệu; thêm ${documents.length} tệp nữa sẽ vượt ` +
+          `giới hạn ${MAX_FILES_PER_PLAN} tệp cho một kế hoạch.`,
+        400,
+        'TOO_MANY_FILES'
+      );
+    }
+
+    // The byte ceiling is plan-wide for the same reason the count is: the controller can only
+    // see this request, so a per-request check lets a plan reach any size in small steps.
+    const existingBytes = existing.reduce((sum, document) => sum + (document.byteSize ?? 0), 0);
+    const incomingBytes = documents.reduce((sum, document) => sum + (document.byteSize ?? 0), 0);
+    if (existingBytes + incomingBytes > MAX_TOTAL_UPLOAD_SIZE) {
+      throw new AppError(
+        `Tổng dung lượng tài liệu của kế hoạch sẽ là ` +
+          `${Math.round((existingBytes + incomingBytes) / 1024 / 1024)}MB, vượt giới hạn ` +
+          `${Math.round(MAX_TOTAL_UPLOAD_SIZE / 1024 / 1024)}MB.`,
+        400,
+        'TOTAL_SIZE_EXCEEDED'
+      );
+    }
+
+    // One at a time, same reason as createPlanInDb: `createdAt asc` is the tie-break the topic
+    // layer uses, and `createMany` leaves every row on the same millisecond.
+    const createdIds: string[] = [];
+    for (const document of documents) {
+      const row = await tx.document.create({
+        data: {
+          planId,
+          filename: document.filename,
+          fileKey: document.fileKey,
+          kind: document.kind,
+          pageCount: document.pageCount,
+          byteSize: document.byteSize,
+        },
+        select: { id: true },
+      });
+      createdIds.push(row.id);
+    }
+
+    // Issue #216, same as reanalyze: the merge keeps concept ids, so a cached question written
+    // from the old material would survive pregenerateForPlan's idempotency check and go on being
+    // served against a graph that has changed under it.
+    await clearQuestionCacheForPlan(tx, planId);
+
+    await tx.analysisJob.create({
+      data: {
+        planDraftId: planId,
+        // Still the plan's FIRST document, not the newly added one — `retryPlanAnalysis` guards
+        // on this field and `processAnalysisJob` only falls back to it when the plan has no
+        // `documents` rows at all, which cannot happen here.
+        fileKey: firstNewDocument.fileKey,
+        status: 'pending',
+        scope: mode === 'append' ? 'new_only' : 'all',
+        // Written for BOTH modes. In `full` it is ignored by the job, but it is the only record
+        // of which files this request brought in — without it, a plan that was added to three
+        // times looks exactly like one uploaded with six files at once.
+        scopeDocumentIds: createdIds,
+      },
+    });
+
+    await tx.studyPlan.update({ where: { id: planId }, data: { status: 'draft' } });
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      deadline: plan.deadline,
+      status: 'draft' as const,
+      analysisStatus: 'pending' as const,
+      mode,
+      documentCount: existingCount + documents.length,
+    };
+  });
 }

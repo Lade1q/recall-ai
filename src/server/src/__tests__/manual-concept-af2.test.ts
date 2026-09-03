@@ -63,7 +63,16 @@ describe('replacePlanGraph — AF2: nhập tay concept sau khi AI phân tích th
     });
 
     expect(mockedPrisma.concept.create).toHaveBeenCalledWith({
-      data: { planId: PLAN_ID, name: 'Giới hạn', difficulty: 2, source: 'manual' },
+      // `primaryDocumentId: null` is explicit, not incidental: this payload names no topic, so
+      // the concept lands in the "Chưa xếp chủ đề" bucket instead of being attached to whichever
+      // document happens to be first.
+      data: {
+        planId: PLAN_ID,
+        name: 'Giới hạn',
+        difficulty: 2,
+        source: 'manual',
+        primaryDocumentId: null,
+      },
     });
     expect(mockedPrisma.studyPlan.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: 'active' } })

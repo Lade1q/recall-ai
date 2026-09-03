@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import apiClient from '@/lib/apiClient';
-import { getPlanActionErrorMessage, planApi } from './plan.api';
+import { getPlanActionErrorMessage, getAddDocumentsErrorMessage, planApi } from './plan.api';
 
 vi.mock('@/lib/apiClient', () => ({
   __esModule: true,
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn() },
 }));
 
 const mockedGet = apiClient.get as unknown as ReturnType<typeof vi.fn>;
+const mockedPost = apiClient.post as unknown as ReturnType<typeof vi.fn>;
 
 const axiosErr = (status: number, code?: string, message?: string) => ({
   isAxiosError: true,
@@ -140,6 +141,77 @@ describe('planApi.getDocumentFile — giữ charset của server (#203)', () => 
     expect(mockedGet).toHaveBeenCalledWith(
       '/api/v1/plans/plan-1/documents/doc-1',
       expect.objectContaining({ responseType: 'blob', timeout: 60000 })
+    );
+  });
+});
+
+describe('planApi.addDocuments', () => {
+  beforeEach(() => {
+    mockedPost.mockReset();
+    mockedPost.mockResolvedValue({ data: { success: true } });
+  });
+
+  /**
+   * Every file goes on the SAME `files` key. Appending them under distinct names (`files[0]`…)
+   * is the shape multer's `upload.fields` silently drops as unknown fields, and the request would
+   * come back "File is required" with all the bytes already transferred.
+   */
+  it('posts every file under the repeated `files` field, plus the mode', async () => {
+    const a = new File(['x'], 'LN09.pdf', { type: 'application/pdf' });
+    const b = new File(['y'], 'LN10.pdf', { type: 'application/pdf' });
+
+    await planApi.addDocuments('plan-1', [a, b], 'append');
+
+    const [url, body] = mockedPost.mock.calls[0] as [string, FormData];
+    expect(url).toBe('/api/v1/plans/plan-1/documents');
+    expect(body.getAll('files')).toEqual([a, b]);
+    expect(body.get('mode')).toBe('append');
+  });
+
+  it('never invents a default mode — the server requires the field', async () => {
+    await planApi.addDocuments('plan-1', [new File(['x'], 'a.pdf')], 'full');
+
+    const body = (mockedPost.mock.calls[0] as [string, FormData])[1];
+    expect(body.get('mode')).toBe('full');
+  });
+});
+
+describe('getAddDocumentsErrorMessage', () => {
+  /**
+   * ADD_DOCUMENTS_NOT_ALLOWED covers four different refusals and the server writes a different
+   * Vietnamese sentence for each. Replacing them with one generic line is the `PLAN_NOT_ACTIVE`
+   * (#350) failure again: the reason the user could act on gets swallowed.
+   */
+  it('passes the server’s own reason through for a refused add', () => {
+    expect(
+      getAddDocumentsErrorMessage(
+        axiosErr(
+          409,
+          'ADD_DOCUMENTS_NOT_ALLOWED',
+          'Kế hoạch này đang được phân tích. Hãy chờ quá trình hiện tại hoàn tất.'
+        )
+      )
+    ).toBe('Kế hoạch này đang được phân tích. Hãy chờ quá trình hiện tại hoàn tất.');
+  });
+
+  it('falls back to a neutral line when that code arrives with no message', () => {
+    expect(getAddDocumentsErrorMessage(axiosErr(409, 'ADD_DOCUMENTS_NOT_ALLOWED'))).toBe(
+      'Không thể thêm tài liệu vào kế hoạch này lúc này. Vui lòng tải lại trang.'
+    );
+  });
+
+  /** An encrypted PDF has to name the file; the generic toast would leave five files to guess from. */
+  it('keeps the upload-validation message, which names the offending file', () => {
+    expect(
+      getAddDocumentsErrorMessage(
+        axiosErr(400, 'ENCRYPTED_PDF', 'LN09.pdf: PDF này được đặt mật khẩu.')
+      )
+    ).toBe('LN09.pdf: PDF này được đặt mật khẩu.');
+  });
+
+  it('does not pretend to know an unrelated failure', () => {
+    expect(getAddDocumentsErrorMessage(axiosErr(500, 'INTERNAL_ERROR'))).toBe(
+      'Không thêm được tài liệu. Vui lòng thử lại.'
     );
   });
 });

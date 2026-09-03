@@ -4,6 +4,7 @@ import {
   aiExtractResponseSchema,
   aiExtractJsonSchema,
   AiExtractResponse,
+  EdgeExtract,
 } from '../schemas/ai-extract.schema';
 import {
   generateQuestionResponseSchema,
@@ -35,6 +36,40 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: { timeout: GEMINI_TIMEOUT_MS },
 });
+
+/**
+ * How much the model is allowed to think, per call surface, configurable without a redeploy.
+ *
+ * Validated against an allowlist rather than passed through, for the same reason
+ * GEMINI_TIMEOUT_MS guards its parse: the SDK types `thinking_level` as
+ * `'minimal' | 'low' | 'medium' | 'high' | (string & {})`, so that trailing `string & {}`
+ * means a typo like "meduim" compiles fine and only fails at call time — with an HTTP 400
+ * on EVERY AI call, which reads as "the whole AI is down" rather than "one env var is wrong".
+ * An unrecognised value falls back to the built-in default and warns once at import.
+ */
+const THINKING_LEVELS = ['minimal', 'low', 'medium', 'high'] as const;
+type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+
+function resolveThinkingLevel(envVar: string, fallback: ThinkingLevel): ThinkingLevel {
+  const raw = process.env[envVar]?.trim().toLowerCase();
+  if (!raw) return fallback;
+  if ((THINKING_LEVELS as readonly string[]).includes(raw)) return raw as ThinkingLevel;
+  console.warn(
+    `[gemini] ${envVar}="${raw}" is not one of ${THINKING_LEVELS.join('|')}; using "${fallback}"`
+  );
+  return fallback;
+}
+
+/** Phase 1 of analysis: one call per uploaded file, reading the document itself. */
+const THINKING_EXTRACT = resolveThinkingLevel('GEMINI_THINKING_EXTRACT', 'low');
+/**
+ * Phase 2 of analysis: one call that orders the documents. Defaults higher than extract
+ * because it reasons over structure rather than reading, and its input is ~1 KB — measured
+ * 2026-09-03 at 6.0s on `medium`, well inside GEMINI_TIMEOUT_MS.
+ */
+const THINKING_LINK = resolveThinkingLevel('GEMINI_THINKING_LINK', 'medium');
+/** generate_question / grade_answer: inside a live conversation, so latency beats depth. */
+const THINKING_INTERVIEW = resolveThinkingLevel('GEMINI_THINKING_INTERVIEW', 'low');
 /**
  * Both calls fall back to the rolling `-latest` alias, never a pinned name: Google retires
  * dated model IDs for new API keys with little notice, and a retired ID fails the call with
@@ -53,6 +88,10 @@ Rules:
 - "edges": {from, to} means "from" is a prerequisite of "to" (learn 'from' before 'to').
 - The graph MUST be acyclic. Do not create cycles.
 - "difficulty" is an integer from 1 (easiest) to 5 (hardest).
+- "description": one sentence saying what this concept is, in the language of the material and
+  grounded in what the material actually says about it. This is what a later call sees INSTEAD of
+  the document when it works out which document to study first, so write it to stand on its own —
+  but stay inside the material: no outside knowledge, no comparisons to things not present here.
 - "source_excerpt": a short verbatim quote (a sentence or two, at most ~300 characters) copied
   exactly from the material, containing the clause that DEFINES this concept — what it is, what it
   does, or how it works. Do not paraphrase.
@@ -80,6 +119,36 @@ Rules:
 - Return ONLY the JSON object matching the provided schema.`;
 
 const EXTRACT_PROMPT = 'Extract the concept prerequisite graph from this document.';
+
+/**
+ * The phase-2 instruction. Prepended to the derived material inside `linkTopics`.
+ *
+ * The two odd-looking demands — echo the concept names, return an empty "edges" — exist because
+ * `aiExtractResponseSchema` marks both fields required (`concepts` even carries `minItems: 1`)
+ * and that schema is deliberately shared with phase 1. Telling the model to omit them makes the
+ * response fail `safeParse`, which becomes AI_BAD_FORMAT, which after 3 retries fails the entire
+ * job (measured 2026-09-03: "return only topic_edges" -> invalid_type; "concepts: []" ->
+ * too_small; echoing the names -> passes). Echoing back names it was just handed invents nothing,
+ * and the caller throws the echo away regardless.
+ */
+const LINK_PROMPT = `Below are the DOCUMENTS of one university course, and the concepts already
+extracted from each document.
+
+Your task is to fill "topic_edges": the order in which these documents should be studied.
+- {from, to} means "from" should be studied before "to".
+- "from" and "to" MUST be document names, copied EXACTLY as written in the "##" headings below.
+- Only assert an order the descriptions and quotes below actually imply — that one document
+  builds on what another establishes. If you are not sure, leave the pair out. Returning fewer
+  edges is better than guessing.
+- The order MUST be acyclic.
+
+Two fields are required by the response schema but are NOT your task here:
+- "concepts": copy back exactly the concept names listed below, no additions, no removals, no
+  renaming. Difficulty 1 and null/empty for every other field is fine.
+- "edges": return an empty list. Do NOT propose relationships between individual concepts — you
+  are not reading the documents themselves, only these summaries.
+
+`;
 
 /** How a study document is handed to Gemini: inline text, or a File API URI. */
 export type AiMaterial =
@@ -181,7 +250,7 @@ export async function extractConcepts(source: AiMaterial): Promise<AiExtractResp
           mime_type: 'application/json',
           schema: aiExtractJsonSchema,
         },
-        generation_config: { thinking_level: 'low' },
+        generation_config: { thinking_level: THINKING_EXTRACT },
       },
       { timeout: GEMINI_TIMEOUT_MS }
     ),
@@ -204,6 +273,74 @@ export async function extractConcepts(source: AiMaterial): Promise<AiExtractResp
     throw new AppError('AI JSON does not match schema', 502, 'AI_BAD_FORMAT');
   }
   return result.data;
+}
+
+/**
+ * Phase 2 of analysis: ONE call that orders the uploaded documents relative to each other.
+ *
+ * Why this exists at all: phase 1 sends one file per call, so no single call ever sees two
+ * documents and none of them can say which should be studied first. That ordering is the only
+ * thing this call is allowed to produce.
+ *
+ * Three things about the contract are load-bearing and easy to get wrong:
+ *
+ * 1. It reuses `extract_concepts` / `aiExtractResponseSchema` on purpose — a second response
+ *    schema would be a fifth AI call surface, which is what C4 constrains.
+ * 2. Because that schema requires `concepts` (with `minItems: 1`) and `edges`, the prompt CANNOT
+ *    say "return neither". It asks the model to echo back the concept names it was handed;
+ *    echoing names it was just given is not invention, and the caller discards them anyway.
+ *    Telling it to omit them instead makes `safeParse` fail → AI_BAD_FORMAT → the whole job
+ *    fails after 3 retries (measured 2026-09-03).
+ * 3. The material is derived text — verbatim excerpts and descriptions carried over from phase
+ *    1, never the PDFs. So this call is strictly weaker evidence than phase 1, and every edge
+ *    it produces is drawn dashed and flagged for review in the UI.
+ *
+ * Returns ONLY the topic edges. `concepts` / `edges` from the response are dropped here so no
+ * caller can accidentally persist them.
+ */
+export async function linkTopics(material: string): Promise<EdgeExtract[]> {
+  const interaction = await withTimeout(
+    ai.interactions.create(
+      {
+        model: MODEL,
+        input: `${LINK_PROMPT}${material}`,
+        system_instruction: SYSTEM_INSTRUCTION,
+        response_format: {
+          type: 'text',
+          mime_type: 'application/json',
+          schema: aiExtractJsonSchema,
+        },
+        generation_config: { thinking_level: THINKING_LINK },
+      },
+      { timeout: GEMINI_TIMEOUT_MS }
+    ),
+    'link_topics'
+  );
+
+  if (!interaction.output_text) {
+    throw new AppError('AI returned an empty response', 502, 'AI_EMPTY_RESPONSE');
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(interaction.output_text);
+  } catch {
+    throw new AppError('AI returned malformed JSON', 502, 'AI_BAD_FORMAT');
+  }
+
+  const result = aiExtractResponseSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new AppError('AI JSON does not match schema', 502, 'AI_BAD_FORMAT');
+  }
+
+  if (result.data.concepts.length > 0 || result.data.edges.length > 0) {
+    // Expected: the prompt asks for the concept echo. Logged so a prompt change that starts
+    // producing real new concepts here is visible instead of silently discarded.
+    console.warn(
+      `[link_topics] discarding ${result.data.concepts.length} concepts / ${result.data.edges.length} edges from the linking pass`
+    );
+  }
+  return result.data.topic_edges;
 }
 
 // ===================================================================================
@@ -312,7 +449,7 @@ async function callStructured<T>(
               schema: jsonSchema,
             },
             // Both calls sit inside a live conversation, so latency beats depth here.
-            generation_config: { thinking_level: 'low' },
+            generation_config: { thinking_level: THINKING_INTERVIEW },
           },
           { timeout: GEMINI_TIMEOUT_MS }
         ),
@@ -565,22 +702,48 @@ const PLAN_MATERIAL_TTL_MS = 12 * 60 * 60 * 1000;
 
 const planMaterialCache = new Map<string, { material: AiMaterial; expiresAt: number }>();
 
-/** Returns the plan's material, loading and caching it on first use in this process. */
+/**
+ * Cache key. A plan holds a whole subject now, so its material is not one thing: an interview
+ * about a concept from chapter 8 must be grounded in chapter 8's file, and caching per plan would
+ * hand it whichever file happened to be loaded first.
+ */
+function materialCacheKey(planId: string, documentId: string | null): string {
+  return `${planId}::${documentId ?? 'default'}`;
+}
+
+/**
+ * Returns the material for one document of a plan, loading and caching it on first use.
+ *
+ * `documentId` is the topic the concept under discussion belongs to; `null` means "whichever
+ * document this plan falls back to", which is what every single-document plan uses and what the
+ * pre-topic-layer behaviour was.
+ */
 export async function getPlanMaterial(
   planId: string,
+  documentId: string | null,
   load: () => Promise<AiMaterial>
 ): Promise<AiMaterial> {
-  const cached = planMaterialCache.get(planId);
+  const key = materialCacheKey(planId, documentId);
+  const cached = planMaterialCache.get(key);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.material;
   }
 
   const material = await load();
-  planMaterialCache.set(planId, { material, expiresAt: Date.now() + PLAN_MATERIAL_TTL_MS });
+  planMaterialCache.set(key, { material, expiresAt: Date.now() + PLAN_MATERIAL_TTL_MS });
   return material;
 }
 
-/** Drops a cached upload — call when a plan's documents change. */
+/**
+ * Drops every cached upload for a plan — call when a plan's documents change.
+ *
+ * Iterates rather than deleting one key: the cache is keyed per DOCUMENT, so a plan that has been
+ * interviewed across three topics holds three entries, and deleting only the plan-level one would
+ * leave two stale uploads answering questions about files that have since been replaced.
+ */
 export function invalidatePlanMaterial(planId: string): void {
-  planMaterialCache.delete(planId);
+  const prefix = `${planId}::`;
+  for (const key of planMaterialCache.keys()) {
+    if (key.startsWith(prefix)) planMaterialCache.delete(key);
+  }
 }
