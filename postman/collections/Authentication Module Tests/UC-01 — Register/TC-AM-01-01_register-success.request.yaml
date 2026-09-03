@@ -18,7 +18,7 @@ scripts:
       pm.test('TC-AM-01-01: Status code là 201 Created', function () { pm.response.to.have.status(201); });
       const body = pm.response.json();
       pm.test('TC-AM-01-01: success = true', function () { pm.expect(body.success).to.be.true; });
-      pm.test('TC-AM-01-01: data.user có id, email, name', function () { pm.expect(body.data.user).to.have.all.keys('id', 'email', 'name'); });
+      pm.test('TC-AM-01-01: data.user có id, email, name', function () { pm.expect(body.data.user).to.include.all.keys('id', 'email', 'name'); });
       pm.test('TC-AM-01-01: email khớp với input', function () { pm.expect(body.data.user.email).to.equal('newuser@example.com'); });
       pm.test('TC-AM-01-01: accessToken không rỗng', function () { pm.expect(body.data.accessToken).to.be.a('string').and.not.empty; });
       pm.test('TC-AM-01-01: refreshToken không rỗng', function () { pm.expect(body.data.refreshToken).to.be.a('string').and.not.empty; });

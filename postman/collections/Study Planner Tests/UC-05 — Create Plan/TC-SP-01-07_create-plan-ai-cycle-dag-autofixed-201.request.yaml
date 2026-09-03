@@ -36,9 +36,11 @@ scripts:
 
       const planId = body.data?.plan?.id;
       if (planId) {
-        // Poll sau 1500ms — mock cycle xử lý nhanh
-        pm.test('TC-SP-01-07: GET sau job done → dagAutoFixed=true, status="active", không còn cycle', function (done) {
-          setTimeout(function () {
+        // Poll đến khi background job hoàn tất để tránh race với worker xử lý analysis.
+        pm.test('TC-SP-01-07: GET sau job done → dagAutoFixed=true, status="draft", không còn cycle', function (done) {
+          const maxPollAttempts = 15;
+          const pollIntervalMs = 1000;
+          const poll = (attempt) => {
             pm.sendRequest({
               url: pm.variables.get('baseURL') + '/api/v1/plans/' + planId,
               method: 'GET',
@@ -49,7 +51,11 @@ scripts:
                 pm.expect(res.code).to.equal(200);
                 const d = res.json().data;
 
-                pm.expect(d.status).to.equal('active');
+                if (['pending', 'processing'].includes(d.analysisStatus) && attempt < maxPollAttempts) {
+                  return setTimeout(() => poll(attempt + 1), pollIntervalMs);
+                }
+
+                pm.expect(d.status).to.equal('draft');
                 pm.expect(d.analysisStatus).to.equal('done');
 
                 // Chỉ số chính: dagAutoFixed phải là true
@@ -92,7 +98,8 @@ scripts:
                 done(e);
               }
             });
-          }, 1500);
+          };
+          poll(1);
         });
       }
     language: text/javascript

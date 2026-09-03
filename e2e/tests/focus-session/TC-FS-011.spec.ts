@@ -21,6 +21,7 @@ interface ReviewSuggestion {
 interface ReviewQueueResponse {
   items: ReviewSuggestion[];
   message: string | null;
+  noScheduleNote: string | null;
   totalEstimatedMinutes: number;
 }
 
@@ -143,6 +144,7 @@ test.describe('TC-FS-011: Focus dùng trực tiếp gợi ý từ review queue',
         data: {
           items: [],
           message: completedTodayMessage,
+          noScheduleNote: null,
           totalEstimatedMinutes: 0,
         },
       });

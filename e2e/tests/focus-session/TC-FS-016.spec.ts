@@ -229,7 +229,21 @@ test.describe('TC-FS-016: Khôi phục phiên bị gián đoạn sau khi đóng 
           patchRequests.push(request);
         }
       });
+      // Chờ các request khởi tạo của màn Focus hoàn tất trước khi tương tác với portal Dialog.
+      // Nếu click đúng lúc entry state vừa được commit, Radix có thể thay node nút và làm locator
+      // bị detached giữa bước kiểm tra actionability và lần click.
+      const queueResponsePromise = recoveryPage.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname === '/api/v1/review-queue/today'
+      );
+      const configResponsePromise = recoveryPage.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname === '/api/v1/users/me/pomodoro-config'
+      );
       await recoveryPage.goto('/focus');
+      await Promise.all([queueResponsePromise, configResponsePromise]);
 
       // 2. Hộp khôi phục xuất hiện; chọn nhãn thực tế Bỏ qua (tương đương Không ghi nhận).
       const dialog = recoveryPage.getByRole('dialog', {
@@ -237,7 +251,9 @@ test.describe('TC-FS-016: Khôi phục phiên bị gián đoạn sau khi đóng 
         exact: true,
       });
       await expect(dialog).toBeVisible();
-      await dialog.getByRole('button', { name: 'Bỏ qua', exact: true }).click();
+      const discardButton = dialog.getByRole('button', { name: 'Bỏ qua', exact: true });
+      await expect(discardButton).toBeEnabled();
+      await discardButton.click();
       await expect(dialog).toHaveCount(0);
 
       // 3. Không tạo completed; implementation có thể giữ running hoặc cleanup thành cancelled.

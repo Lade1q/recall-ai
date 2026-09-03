@@ -17,7 +17,7 @@ test.afterAll(async () => {
 });
 
 test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duyệt', () => {
-  test('Tab thứ hai nhận mastery mới sau reload; sáu request Focus song song đều được tạo', async ({
+  test('Tab thứ hai nhận mastery mới sau reload; sáu request Focus song song được khử trùng lặp', async ({
     page,
     request,
   }) => {
@@ -67,7 +67,7 @@ test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duy�
       await expect(secondTabC1.locator('.concept-node__score')).toHaveText('0.90');
       await expect(secondTab.getByText('2/3', { exact: true })).toBeVisible();
 
-      // 5. Gửi sáu POST song song cho cùng Student/plan/concept để xác minh hành vi không dedup hiện tại.
+      // 5. Gửi sáu POST song song cho cùng Student/plan/concept để xác minh API khử trùng lặp.
       const token = await page.evaluate(() => localStorage.getItem('access_token'));
       expect(token).toBeTruthy();
       const focusResponses = await Promise.all(
@@ -78,25 +78,25 @@ test.describe('TC-DB-029: Dashboard mở đồng thời nhiều tab trình duy�
           })
         )
       );
-      for (const response of focusResponses) {
-        expect(response.status()).toBe(201);
-      }
+      const statusCodes = focusResponses.map((response) => response.status());
+      expect(statusCodes.every((status) => status === 200 || status === 201)).toBe(true);
+      expect(statusCodes.filter((status) => status === 201)).toHaveLength(1);
       const focusBodies = await Promise.all(
         focusResponses.map((response) => response.json() as Promise<{ data: { id: string } }>)
       );
-      expect(new Set(focusBodies.map((body) => body.data.id)).size).toBe(6);
+      expect(new Set(focusBodies.map((body) => body.data.id)).size).toBe(1);
 
-      // 6. Đối chiếu DB: chỉ đọc không tạo phiên, còn sáu POST độc lập tạo sáu Focus running.
+      // 6. Đối chiếu DB: sáu POST chỉ tạo một Focus running ngoài phiên completed ban đầu.
       await expect
         .poll(() => prisma.focusSession.count({ where: { userId: seed.user.id } }))
-        .toBe(7);
+        .toBe(2);
       await expect
         .poll(() =>
           prisma.focusSession.count({
             where: { userId: seed.user.id, planId: p1.id, status: 'running' },
           })
         )
-        .toBe(6);
+        .toBe(1);
       await expect
         .poll(() => prisma.interviewSession.count({ where: { userId: seed.user.id } }))
         .toBe(1);

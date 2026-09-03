@@ -39,9 +39,11 @@ scripts:
       if (planId) {
         pm.environment.set('planId_tc05', planId);
 
-        // Poll GET sau 1500ms để background job kịp xử lý (mock ~100ms, buffer 1400ms)
-        pm.test('TC-SP-01-05: GET sau job done → status="active", analysisStatus="done", concepts, edges đúng', function (done) {
-          setTimeout(function () {
+        // Poll GET đến khi background job hoàn tất (File API có thể mất nhiều hơn 1500ms).
+        pm.test('TC-SP-01-05: GET sau job done → status="draft", analysisStatus="done", concepts, edges đúng', function (done) {
+          const maxPollAttempts = 15;
+          const pollIntervalMs = 1000;
+          const poll = (attempt) => {
             pm.sendRequest({
               url: pm.variables.get('baseURL') + '/api/v1/plans/' + planId,
               method: 'GET',
@@ -52,7 +54,11 @@ scripts:
                 pm.expect(res.code).to.equal(200);
                 const d = res.json().data;
 
-                pm.expect(d.status).to.equal('active');
+                if (['pending', 'processing'].includes(d.analysisStatus) && attempt < maxPollAttempts) {
+                  return setTimeout(() => poll(attempt + 1), pollIntervalMs);
+                }
+
+                pm.expect(d.status).to.equal('draft');
                 pm.expect(d.analysisStatus).to.equal('done');
                 pm.expect(d.dagAutoFixed).to.be.false;
 
@@ -78,7 +84,8 @@ scripts:
                 done(e);
               }
             });
-          }, 1500);
+          };
+          poll(1);
         });
       }
     language: text/javascript

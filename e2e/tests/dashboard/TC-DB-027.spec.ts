@@ -17,7 +17,7 @@ test.afterAll(async () => {
 });
 
 test.describe('TC-DB-027: Plan bị archived trong khi Student đang mở Dashboard', () => {
-  test('Giữ dữ liệu cũ, vẫn cho tạo Focus Session rồi loại plan archived sau khi reload', async ({
+  test('Giữ dữ liệu cũ, chặn tạo Focus Session và loại plan archived sau khi reload', async ({
     page,
     request,
   }) => {
@@ -44,17 +44,17 @@ test.describe('TC-DB-027: Plan bị archived trong khi Student đang mở Dashbo
       await expect(p1Card).toBeVisible();
       await expect(page.locator('.react-flow__node')).toHaveCount(3);
 
-      // 4. Hành vi hiện tại cho phép tạo Focus từ dữ liệu cũ: API không guard plan archived.
+      // 4. API phải chặn tạo Focus từ snapshot cũ vì plan đã archived.
       const token = await page.evaluate(() => localStorage.getItem('access_token'));
       expect(token).toBeTruthy();
       const createResponse = await request.post(`${API_BASE_URL}/api/v1/focus-sessions`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { planId: p1.id, conceptIds: [concept.id] },
       });
-      expect(createResponse.status()).toBe(201);
+      expect(createResponse.status()).toBe(409);
       await expect(createResponse.json()).resolves.toMatchObject({
-        success: true,
-        data: { planId: p1.id, conceptIds: [concept.id], status: 'running' },
+        success: false,
+        error: { code: 'PLAN_NOT_ACTIVE' },
       });
 
       // 5. Reload, chờ danh sách plan thật trả về rồi xác nhận Dashboard loại P1 archived.
@@ -74,10 +74,10 @@ test.describe('TC-DB-027: Plan bị archived trong khi Student đang mở Dashbo
         page.getByRole('heading', { name: 'Đồ thị khái niệm', exact: true })
       ).toHaveCount(0);
 
-      // 6. Đối chiếu DB: request từ dữ liệu cũ tạo đúng một phiên đang chạy và plan vẫn archived.
+      // 6. Đối chiếu DB: request bị chặn, không tạo phiên mới và plan vẫn archived.
       await expect
         .poll(() => prisma.focusSession.count({ where: { userId: seed.user.id } }))
-        .toBe(1);
+        .toBe(0);
       await expect
         .poll(() => prisma.studyPlan.findUniqueOrThrow({ where: { id: p1.id } }))
         .toMatchObject({ status: 'archived' });

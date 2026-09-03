@@ -54,7 +54,14 @@ test.describe('TC-FS-020: Auto-save ghi chú gặp lỗi máy chủ có kiểm s
     try {
       // 1. Bắt đầu một phiên thật và lấy session ID từ response tạo phiên.
       await loginViaUi(page, seed.user.email);
+      // Chờ queue thật trả về trước khi tìm nút Start để không chạy đua với entry state của Focus.
+      const queueResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname === '/api/v1/review-queue/today'
+      );
       await page.goto('/focus');
+      expect((await queueResponsePromise).status()).toBe(200);
       const startResponsePromise = page.waitForResponse(
         (response) =>
           response.request().method() === 'POST' &&
