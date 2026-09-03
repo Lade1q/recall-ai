@@ -41,6 +41,19 @@ const MAX_CONCURRENT_EXTRACT = (() => {
 // A `pending`/`processing` AnalysisJob older than this is considered stuck (server
 // restart mid-job, fire-and-forget never picked up, Gemini hang outside
 // callAiWithRetry) — shared with plan.service's retry staleness check (Issue #178).
+/**
+ * Ceiling on the single write transaction at the end of a job, and the wait for a connection.
+ *
+ * Prisma's interactive-transaction default is **5 s**, which was sized for the world where a
+ * plan held one document. Counted on this branch by wrapping `tx` in a proxy: 1 document × 10
+ * concepts issues **37** statements, 8 × 10 issues **254** — every concept costs an update plus
+ * its checkpoints and its source anchors, all sequential. Overrunning throws P2028, and it does
+ * so AFTER the run has already paid for every Gemini call, so this sits far above the measured
+ * work rather than just above it.
+ */
+const ANALYSIS_TRANSACTION_TIMEOUT_MS = 60 * 1000;
+const ANALYSIS_TRANSACTION_MAX_WAIT_MS = 15 * 1000;
+
 export const STALE_JOB_THRESHOLD_MS = 10 * 60 * 1000;
 
 /** Reports which real sub-step of `callAi` is running, for the UI's 4-phase progress (#186). */
@@ -374,11 +387,29 @@ async function loadStoredExtraction(document: {
  * exactly true. Failing the job instead would throw away a complete concept graph to punish a
  * missing convenience.
  */
+/**
+ * The outcome of phase 2, and `produced` is the field that matters.
+ *
+ * 🔴 `edges: []` is NOT enough to decide what to write. It means either "the model looked and
+ * found no order" or "there was nothing to ask / the call failed" — and those want OPPOSITE
+ * writes. Phase 2 is one `linkTopics` call with no retry wrapper, so a single blip inside its
+ * 6-20s window used to land in the catch below, return `[]`, and let the caller `deleteMany`
+ * the plan's whole topic order while the job still reported `done`. Those arrows are the only
+ * part of the graph a student can edit but not re-create: the UI offers removal and no add,
+ * so the loss was silent and permanent short of a re-analysis that discards their edits.
+ */
+interface TopicOrder {
+  edges: { from: string; to: string }[];
+  autoFixed: boolean;
+  /** True only when a linking pass actually ran and returned an answer for THIS plan. */
+  produced: boolean;
+}
+
 async function runPhaseTwo(
   extractions: readonly CompletedExtraction[],
   documents: readonly { id: string; filename: string }[]
-): Promise<{ edges: { from: string; to: string }[]; autoFixed: boolean }> {
-  if (documents.length < 2) return { edges: [], autoFixed: false };
+): Promise<TopicOrder> {
+  if (documents.length < 2) return { edges: [], autoFixed: false, produced: false };
 
   let topicEdges;
   try {
@@ -392,11 +423,11 @@ async function runPhaseTwo(
         : await linkTopics(buildTopicLinkMaterial(extractions));
   } catch (error) {
     console.warn(
-      '[analysis] topic linking failed; the plan keeps its concepts but gets no study order ' +
-        'between documents:',
+      '[analysis] topic linking failed; the plan keeps its concepts and whatever study order ' +
+        'it already had:',
       error
     );
-    return { edges: [], autoFixed: false };
+    return { edges: [], autoFixed: false, produced: false };
   }
 
   const mapped = mapTopicEdgesToDocumentIds(topicEdges, documents);
@@ -417,7 +448,7 @@ async function runPhaseTwo(
     console.warn(`[analysis] broke a cycle in the topic order, dropped ${dag.removedEdges.length}`);
   }
 
-  return { edges: dag.edges, autoFixed: mapped.autoFixed || dag.autoFixed };
+  return { edges: dag.edges, autoFixed: mapped.autoFixed || dag.autoFixed, produced: true };
 }
 
 /**
@@ -549,207 +580,227 @@ export async function processAnalysisJob(jobId: string): Promise<void> {
       merged.edges
     );
 
-    await prisma.$transaction(async (tx) => {
-      // Merge rather than insert, so a re-analysis (SP-05) keeps the ids the student's
-      // mastery scores and interview history hang off. On a first analysis the plan holds
-      // no concepts, so the merge degenerates to inserting everything — one path for both.
-      const existing = await tx.concept.findMany({
-        where: { planId },
-        // `primaryDocumentId` is not part of the merge — it is read so append mode can tell a
-        // concept that already belongs to a topic from one that does not.
-        select: { id: true, name: true, status: true, primaryDocumentId: true },
-      });
-      const filedUnder = new Map(existing.map((c) => [c.id, c.primaryDocumentId]));
-      const mergePlan = planConceptMerge(existing, merged.concepts);
-
-      // Keyed by normalized name so edge endpoints, which the AI gives by name, resolve
-      // through the same identity the merge used.
-      const conceptIdByKey = new Map<string, string>();
-
-      // Which document each concept is filed under. Assigned from the CALL SITE — phase 1 sends
-      // one file per call, so the answer is known without asking the model. Left untouched when
-      // the merge has no answer (the no-documents path above), rather than written as null, so a
-      // degraded re-analysis cannot strip a topic off concepts that already had one.
-      const topicOf = (name: string): { primaryDocumentId: string } | Record<string, never> => {
-        const documentId = merged.primaryDocumentIdByKey.get(normalizeConceptKey(name));
-        return documentId ? { primaryDocumentId: documentId } : {};
-      };
-
-      for (const kept of mergePlan.toKeep) {
-        // 🔴 A concept the new file ALSO teaches. In append mode this extraction saw one file, so
-        // it is not entitled to rewrite what the old graph says about a concept it shares:
-        //
-        //   - `primaryDocumentId` — MEASURED on real material 2026-09-03. Adding "LN09 - Test
-        //     Automation" to a plan already holding LN08 re-filed the concept "Test Automation"
-        //     from LN08 to LN09, because phase 1 never saw LN08's claim on it. That breaks the
-        //     documented rule (the EARLIEST document owns a shared concept), and it does it
-        //     silently: LN08's topic quietly lost a node.
-        //   - `name` / `difficulty` — same argument, and the dialog promises the mode "chỉ thêm,
-        //     không sửa … gì của đồ thị cũ". Rewriting either would make that copy false.
-        //
-        // `status` is the one field append does touch: a file that teaches a concept is evidence
-        // it belongs, and reviving a tombstone grows the graph rather than editing it.
-        const keepsItsPlace = appendOnly && filedUnder.get(kept.id) != null;
-        await tx.concept.update({
-          where: { id: kept.id },
-          data: keepsItsPlace
-            ? { status: 'active' }
-            : {
-                name: kept.name,
-                difficulty: kept.difficulty,
-                status: 'active',
-                ...topicOf(kept.name),
-              },
+    // 🔴 Not the default 5s — see `ANALYSIS_TRANSACTION_TIMEOUT_MS`. What changed is not this
+    // transaction but the size of a plan: it can now hold eight files instead of one.
+    await prisma.$transaction(
+      async (tx) => {
+        // Merge rather than insert, so a re-analysis (SP-05) keeps the ids the student's
+        // mastery scores and interview history hang off. On a first analysis the plan holds
+        // no concepts, so the merge degenerates to inserting everything — one path for both.
+        const existing = await tx.concept.findMany({
+          where: { planId },
+          // `primaryDocumentId` is not part of the merge — it is read so append mode can tell a
+          // concept that already belongs to a topic from one that does not.
+          select: { id: true, name: true, status: true, primaryDocumentId: true },
         });
-        conceptIdByKey.set(normalizeConceptKey(kept.name), kept.id);
-      }
+        const filedUnder = new Map(existing.map((c) => [c.id, c.primaryDocumentId]));
+        const mergePlan = planConceptMerge(existing, merged.concepts);
 
-      const created = await Promise.all(
-        mergePlan.toCreate.map((c) =>
-          tx.concept.create({
-            data: {
-              planId,
-              name: c.name,
-              difficulty: c.difficulty,
-              source: 'ai_generated',
-              ...topicOf(c.name),
-            },
-          })
-        )
-      );
-      for (const c of created) {
-        conceptIdByKey.set(normalizeConceptKey(c.name), c.id);
-      }
+        // Keyed by normalized name so edge endpoints, which the AI gives by name, resolve
+        // through the same identity the merge used.
+        const conceptIdByKey = new Map<string, string>();
 
-      // 🔴 In append mode the AI only saw the NEW files, so EVERY concept of the old ones is
-      // "absent" from this extraction. Deprecating them would empty the student's whole graph —
-      // the single most destructive silent failure this mode can have. `planConceptMerge` stays
-      // untouched (it is a pure function with its own tests); the caller ignores its verdict.
-      if (!appendOnly && mergePlan.toDeprecate.length > 0) {
-        await tx.concept.updateMany({
-          where: { id: { in: mergePlan.toDeprecate } },
-          data: { status: 'deprecated' },
-        });
-      }
+        // Which document each concept is filed under. Assigned from the CALL SITE — phase 1 sends
+        // one file per call, so the answer is known without asking the model. Left untouched when
+        // the merge has no answer (the no-documents path above), rather than written as null, so a
+        // degraded re-analysis cannot strip a topic off concepts that already had one.
+        const topicOf = (name: string): { primaryDocumentId: string } | Record<string, never> => {
+          const documentId = merged.primaryDocumentIdByKey.get(normalizeConceptKey(name));
+          return documentId ? { primaryDocumentId: documentId } : {};
+        };
 
-      // The ruler each concept will be graded against, committed here and nowhere else (INV-1).
-      //
-      // Append mode commits it only for the concepts it CREATED. A concept the new file shares
-      // with an old one already has a ruler, derived from the file that first taught it and used
-      // to grade every answer the student has given about it; `planCheckpointMerge` would replace
-      // that ruler with one derived from a file phase 1 read in isolation. Same reasoning as the
-      // fields left alone above, with a sharper edge: this one changes how answers are scored.
-      const createdKeys = new Set(created.map((c) => normalizeConceptKey(c.name)));
-      const checkpointScope = appendOnly
-        ? merged.concepts.filter((c) => createdKeys.has(normalizeConceptKey(c.name)))
-        : merged.concepts;
-      await persistCheckpoints(tx, checkpointScope, conceptIdByKey);
-
-      // Edges are rebuilt wholesale: the new extraction is the whole truth about structure,
-      // and an edge carries no student data worth preserving. No-op on a first analysis.
-      //
-      // Except in append mode, where this extraction is NOT the whole truth — it saw one file.
-      // The existing edges are added to, not replaced; the `create` loop below already skips a
-      // pair that is already stored, so no `@@unique` violation can fail the transaction.
-      if (!appendOnly) {
-        await tx.conceptEdge.deleteMany({ where: { planId } });
-      }
-      const storedEdgeKeys = appendOnly
-        ? new Set(
-            (
-              await tx.conceptEdge.findMany({
-                where: { planId },
-                select: { fromConceptId: true, toConceptId: true },
-              })
-            ).map((e) => `${e.fromConceptId}->${e.toConceptId}`)
-          )
-        : new Set<string>();
-
-      // `edges` was de-duplicated by exact name upstream; two spellings of one concept can
-      // still collapse onto the same id pair here, which the [planId, from, to] unique index
-      // would reject — and a rejected insert fails the whole job.
-      const seenEdges = new Set<string>();
-      for (const edge of edges) {
-        const fromId = conceptIdByKey.get(normalizeConceptKey(edge.from));
-        const toId = conceptIdByKey.get(normalizeConceptKey(edge.to));
-        if (!fromId || !toId || fromId === toId) continue;
-        const edgeKey = `${fromId}->${toId}`;
-        if (seenEdges.has(edgeKey) || storedEdgeKeys.has(edgeKey)) continue;
-        seenEdges.add(edgeKey);
-        await tx.conceptEdge.create({ data: { planId, fromConceptId: fromId, toConceptId: toId } });
-      }
-
-      // Anchor each concept to the passage it came from (concept_sources), ONE DOCUMENT AT A
-      // TIME. Each phase-1 result already knows which file produced it, so nothing has to be
-      // guessed here: no `resolveSourceDocumentId`, no matching by name. A concept taught in two
-      // files legitimately gets an anchor row in each — that table is N:M and both are true —
-      // even though it sits under only one topic. Page/excerpt are best-effort from the AI; a
-      // concept with neither is simply not anchored.
-      for (const extraction of extractions) {
-        if (!extraction.documentId) continue;
-        // Anchors cite pages of the previous extraction, so they are replaced, not appended.
-        await tx.conceptSourceRef.deleteMany({ where: { documentId: extraction.documentId } });
-        const conceptIdByName = new Map(
-          extraction.result.concepts.flatMap((c) => {
-            const id = conceptIdByKey.get(normalizeConceptKey(c.name));
-            return id ? [[c.name, id] as [string, string]] : [];
-          })
-        );
-        const anchors = buildConceptSourceRows(
-          extraction.result.concepts,
-          conceptIdByName,
-          extraction.documentId,
-          extraction.materialText
-        );
-        if (anchors.length > 0) {
-          await tx.conceptSourceRef.createMany({ data: anchors });
+        for (const kept of mergePlan.toKeep) {
+          // 🔴 A concept the new file ALSO teaches. In append mode this extraction saw one file, so
+          // it is not entitled to rewrite what the old graph says about a concept it shares:
+          //
+          //   - `primaryDocumentId` — MEASURED on real material 2026-09-03. Adding "LN09 - Test
+          //     Automation" to a plan already holding LN08 re-filed the concept "Test Automation"
+          //     from LN08 to LN09, because phase 1 never saw LN08's claim on it. That breaks the
+          //     documented rule (the EARLIEST document owns a shared concept), and it does it
+          //     silently: LN08's topic quietly lost a node.
+          //   - `name` / `difficulty` — same argument, and the dialog promises the mode "chỉ thêm,
+          //     không sửa … gì của đồ thị cũ". Rewriting either would make that copy false.
+          //
+          // `status` is the one field append does touch: a file that teaches a concept is evidence
+          // it belongs, and reviving a tombstone grows the graph rather than editing it.
+          // `name`/`difficulty` are never rewritten in append mode — not even for a concept that
+          // has no topic yet. `planConceptMerge` matches case-insensitively, so "SOFTWARE PROCESS"
+          // in a new file matches a stored "Software Process" and would overwrite the student's
+          // own casing and their difficulty with one file's guess. A concept can genuinely hold
+          // `primary_document_id = NULL` today — a single-document plan edits through the flat
+          // editor, which sends no topic — so "unfiled" must not be read as "not really theirs".
+          // Filing it IS allowed: giving a home to a concept that has none only adds information.
+          const filedAlready = filedUnder.get(kept.id) != null;
+          await tx.concept.update({
+            where: { id: kept.id },
+            data: appendOnly
+              ? { status: 'active', ...(filedAlready ? {} : topicOf(kept.name)) }
+              : {
+                  name: kept.name,
+                  difficulty: kept.difficulty,
+                  status: 'active',
+                  ...topicOf(kept.name),
+                },
+          });
+          conceptIdByKey.set(normalizeConceptKey(kept.name), kept.id);
         }
-      }
 
-      // The topic layer, replaced wholesale like concept edges: phase 2 always runs over ALL the
-      // plan's documents, so what it returns is the complete order, and keeping older rows
-      // alongside it would leave contradictory arrows nobody ever deletes.
-      await tx.documentEdge.deleteMany({ where: { planId } });
-      if (topicOrder.edges.length > 0) {
-        await tx.documentEdge.createMany({
-          data: topicOrder.edges.map((edge) => ({
-            planId,
-            fromDocumentId: edge.from,
-            toDocumentId: edge.to,
-          })),
-        });
-      }
-
-      // `status` stays `draft` on purpose (Issue #265): analysis produces a *proposal*, and
-      // SP-01 requires the user to check it against the source before the plan is usable.
-      // The plan becomes `active` in `replacePlanGraph` when the user confirms the graph
-      // (`shouldActivate`) — activating here made that step unreachable, since the client
-      // only navigates to the verification screen once analysis has finished.
-      await tx.studyPlan.update({
-        where: { id: planId },
-        data: {
-          // One flag for both layers: the banner text ("we adjusted the graph, please check")
-          // is true either way, and a student has no use for knowing which layer moved.
-          dagAutoFixed: autoFixed || topicOrder.autoFixed,
-          // Append mode saw one file; letting its verdict overwrite the plan's language would
-          // let a single English appendix re-label a Vietnamese course.
-          ...(appendOnly ? {} : { languageDetected: merged.languageDetected }),
-        },
-      });
-      // Guard mirroring the initial claim: if this job was pulled out from under us
-      // (e.g. cleanupStaleJobs marked it failed while Gemini was still hanging), don't
-      // let a late 'done' write resurrect it — abort so the whole transaction (including
-      // the concepts/edges just created) rolls back.
-      const finalized = await tx.analysisJob.updateMany({
-        where: { id: jobId, status: 'processing' },
-        data: { status: 'done', completedAt: new Date() },
-      });
-      if (finalized.count === 0) {
-        throw new JobClaimLostError(
-          `[analysis] job ${jobId} no longer processing, aborting commit`
+        const created = await Promise.all(
+          mergePlan.toCreate.map((c) =>
+            tx.concept.create({
+              data: {
+                planId,
+                name: c.name,
+                difficulty: c.difficulty,
+                source: 'ai_generated',
+                ...topicOf(c.name),
+              },
+            })
+          )
         );
-      }
-    });
+        for (const c of created) {
+          conceptIdByKey.set(normalizeConceptKey(c.name), c.id);
+        }
+
+        // 🔴 In append mode the AI only saw the NEW files, so EVERY concept of the old ones is
+        // "absent" from this extraction. Deprecating them would empty the student's whole graph —
+        // the single most destructive silent failure this mode can have. `planConceptMerge` stays
+        // untouched (it is a pure function with its own tests); the caller ignores its verdict.
+        if (!appendOnly && mergePlan.toDeprecate.length > 0) {
+          await tx.concept.updateMany({
+            where: { id: { in: mergePlan.toDeprecate } },
+            data: { status: 'deprecated' },
+          });
+        }
+
+        // The ruler each concept will be graded against, committed here and nowhere else (INV-1).
+        //
+        // Append mode commits it only for the concepts it CREATED. A concept the new file shares
+        // with an old one already has a ruler, derived from the file that first taught it and used
+        // to grade every answer the student has given about it; `planCheckpointMerge` would replace
+        // that ruler with one derived from a file phase 1 read in isolation. Same reasoning as the
+        // fields left alone above, with a sharper edge: this one changes how answers are scored.
+        const createdKeys = new Set(created.map((c) => normalizeConceptKey(c.name)));
+        const checkpointScope = appendOnly
+          ? merged.concepts.filter((c) => createdKeys.has(normalizeConceptKey(c.name)))
+          : merged.concepts;
+        await persistCheckpoints(tx, checkpointScope, conceptIdByKey);
+
+        // Edges are rebuilt wholesale: the new extraction is the whole truth about structure,
+        // and an edge carries no student data worth preserving. No-op on a first analysis.
+        //
+        // Except in append mode, where this extraction is NOT the whole truth — it saw one file.
+        // The existing edges are added to, not replaced; the `create` loop below already skips a
+        // pair that is already stored, so no `@@unique` violation can fail the transaction.
+        if (!appendOnly) {
+          await tx.conceptEdge.deleteMany({ where: { planId } });
+        }
+        const storedEdgeKeys = appendOnly
+          ? new Set(
+              (
+                await tx.conceptEdge.findMany({
+                  where: { planId },
+                  select: { fromConceptId: true, toConceptId: true },
+                })
+              ).map((e) => `${e.fromConceptId}->${e.toConceptId}`)
+            )
+          : new Set<string>();
+
+        // `edges` was de-duplicated by exact name upstream; two spellings of one concept can
+        // still collapse onto the same id pair here, which the [planId, from, to] unique index
+        // would reject — and a rejected insert fails the whole job.
+        const seenEdges = new Set<string>();
+        for (const edge of edges) {
+          const fromId = conceptIdByKey.get(normalizeConceptKey(edge.from));
+          const toId = conceptIdByKey.get(normalizeConceptKey(edge.to));
+          if (!fromId || !toId || fromId === toId) continue;
+          const edgeKey = `${fromId}->${toId}`;
+          if (seenEdges.has(edgeKey) || storedEdgeKeys.has(edgeKey)) continue;
+          seenEdges.add(edgeKey);
+          await tx.conceptEdge.create({
+            data: { planId, fromConceptId: fromId, toConceptId: toId },
+          });
+        }
+
+        // Anchor each concept to the passage it came from (concept_sources), ONE DOCUMENT AT A
+        // TIME. Each phase-1 result already knows which file produced it, so nothing has to be
+        // guessed here: no `resolveSourceDocumentId`, no matching by name. A concept taught in two
+        // files legitimately gets an anchor row in each — that table is N:M and both are true —
+        // even though it sits under only one topic. Page/excerpt are best-effort from the AI; a
+        // concept with neither is simply not anchored.
+        for (const extraction of extractions) {
+          if (!extraction.documentId) continue;
+          // Anchors cite pages of the previous extraction, so they are replaced, not appended.
+          await tx.conceptSourceRef.deleteMany({ where: { documentId: extraction.documentId } });
+          const conceptIdByName = new Map(
+            extraction.result.concepts.flatMap((c) => {
+              const id = conceptIdByKey.get(normalizeConceptKey(c.name));
+              return id ? [[c.name, id] as [string, string]] : [];
+            })
+          );
+          const anchors = buildConceptSourceRows(
+            extraction.result.concepts,
+            conceptIdByName,
+            extraction.documentId,
+            extraction.materialText
+          );
+          if (anchors.length > 0) {
+            await tx.conceptSourceRef.createMany({ data: anchors });
+          }
+        }
+
+        // The topic layer, replaced wholesale like concept edges — but ONLY when phase 2 actually
+        // answered. Replacing is right because phase 2 always runs over ALL the plan's documents,
+        // so what it returns is the complete order and older rows alongside it would be
+        // contradictory arrows nobody ever deletes. Guarding on `produced` rather than on
+        // `edges.length` is the whole point: an empty list from a call that RAN is a real answer
+        // ("no order"), while an empty list from a call that failed or never happened is not an
+        // answer at all, and letting it delete would destroy edges the student curated by hand.
+        if (topicOrder.produced) {
+          await tx.documentEdge.deleteMany({ where: { planId } });
+          if (topicOrder.edges.length > 0) {
+            await tx.documentEdge.createMany({
+              data: topicOrder.edges.map((edge) => ({
+                planId,
+                fromDocumentId: edge.from,
+                toDocumentId: edge.to,
+              })),
+            });
+          }
+        }
+
+        // `status` stays `draft` on purpose (Issue #265): analysis produces a *proposal*, and
+        // SP-01 requires the user to check it against the source before the plan is usable.
+        // The plan becomes `active` in `replacePlanGraph` when the user confirms the graph
+        // (`shouldActivate`) — activating here made that step unreachable, since the client
+        // only navigates to the verification screen once analysis has finished.
+        await tx.studyPlan.update({
+          where: { id: planId },
+          data: {
+            // One flag for both layers: the banner text ("we adjusted the graph, please check")
+            // is true either way, and a student has no use for knowing which layer moved.
+            dagAutoFixed: autoFixed || topicOrder.autoFixed,
+            // Append mode saw one file; letting its verdict overwrite the plan's language would
+            // let a single English appendix re-label a Vietnamese course.
+            ...(appendOnly ? {} : { languageDetected: merged.languageDetected }),
+          },
+        });
+        // Guard mirroring the initial claim: if this job was pulled out from under us
+        // (e.g. cleanupStaleJobs marked it failed while Gemini was still hanging), don't
+        // let a late 'done' write resurrect it — abort so the whole transaction (including
+        // the concepts/edges just created) rolls back.
+        const finalized = await tx.analysisJob.updateMany({
+          where: { id: jobId, status: 'processing' },
+          data: { status: 'done', completedAt: new Date() },
+        });
+        if (finalized.count === 0) {
+          throw new JobClaimLostError(
+            `[analysis] job ${jobId} no longer processing, aborting commit`
+          );
+        }
+      },
+      { timeout: ANALYSIS_TRANSACTION_TIMEOUT_MS, maxWait: ANALYSIS_TRANSACTION_MAX_WAIT_MS }
+    );
   } catch (error) {
     if (error instanceof JobClaimLostError) {
       // Benign: the thief already wrote its own terminal state (failed, or a fresh retry

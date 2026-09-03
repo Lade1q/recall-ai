@@ -299,3 +299,93 @@ describe('phase 2 (topic linking)', () => {
     ]);
   });
 });
+
+/**
+ * 🔴 The topic order is the ONE part of the graph a student can edit but cannot re-create:
+ * the verify screen offers "bỏ" on an arrow and no way to draw one. So the question "when may
+ * analysis delete `document_edges`?" is a data-loss question, not a tidiness one.
+ *
+ * `runPhaseTwo` answers with an empty list in three different situations, and only ONE of them
+ * is an answer: the model looked and found no order. The other two — the call failed, or there
+ * were fewer than two documents to ask about — are silence. Until 03/09 the caller could not
+ * tell them apart and deleted on all three, so one transient blip inside `linkTopics`' 6–20s
+ * window wiped every arrow the student had curated while the job still reported `done`.
+ *
+ * These cases pin the distinction from both sides. Deleting the guard makes the failure case
+ * red; hard-coding it makes the success case red.
+ */
+describe('a phase 2 that produced nothing must not speak for the topic layer', () => {
+  beforeEach(() => {
+    mockedExtract.mockReset();
+    let call = 0;
+    mockedExtract.mockImplementation(() => {
+      const doc = DOCS[call++ % DOCS.length];
+      return Promise.resolve(extractionFor(doc?.fileKey ?? ''));
+    });
+    jest.spyOn(fs.promises, 'readFile').mockResolvedValue('material');
+  });
+
+  it('CONTROL — a linking pass that answers does replace the order wholesale', async () => {
+    mockedLinkTopics.mockResolvedValue([{ from: 'LN02.pdf', to: 'LN04.pdf' }]);
+
+    await processAnalysisJob(JOB_ID);
+
+    expect(mockedPrisma.documentEdge.deleteMany).toHaveBeenCalledWith({
+      where: { planId: PLAN_ID },
+    });
+    expect(committedTopicEdges()).toEqual([
+      { planId: PLAN_ID, fromDocumentId: 'doc-a', toDocumentId: 'doc-b' },
+    ]);
+  });
+
+  it('CONTROL — an answer of "no order at all" still clears the old arrows', async () => {
+    // The empty list that IS an answer. Without this case the guard could be written as
+    // `edges.length > 0` and the failure case below would still pass, which would put us
+    // back where we started: unable to tell silence from a verdict.
+    mockedLinkTopics.mockResolvedValue([]);
+
+    await processAnalysisJob(JOB_ID);
+
+    expect(mockedPrisma.documentEdge.deleteMany).toHaveBeenCalledWith({
+      where: { planId: PLAN_ID },
+    });
+    expect(committedTopicEdges()).toEqual([]);
+  });
+
+  it('keeps every existing arrow when the linking call throws, and still reports done', async () => {
+    mockedLinkTopics.mockRejectedValue(new Error('AI_UNAVAILABLE'));
+
+    await processAnalysisJob(JOB_ID);
+
+    expect(mockedPrisma.documentEdge.deleteMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.documentEdge.createMany).not.toHaveBeenCalled();
+    // The concepts still commit — a lost study order must not cost the student the analysis
+    // they just paid for. `linkTopics` has no retry wrapper, so this is one blip, not three.
+    expect(createdConceptNames().length).toBeGreaterThan(0);
+  });
+
+  it('keeps them when there is no second document to order against', async () => {
+    (mockedPrisma.document.findMany as jest.Mock).mockResolvedValue([DOCS[0]]);
+
+    await processAnalysisJob(JOB_ID);
+
+    expect(mockedLinkTopics).not.toHaveBeenCalled();
+    expect(mockedPrisma.documentEdge.deleteMany).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Prisma's interactive-transaction default is 5s; this callback issues ~254 statements for a
+   * plan of 8 documents. Blowing it throws P2028 *after* every Gemini call of the run has been
+   * paid for. The assertion is on the options object because that is the entire fix — there is
+   * no observable behaviour to measure without a real database and a real clock.
+   */
+  it('gives the commit transaction a ceiling sized for a multi-document plan', async () => {
+    mockedLinkTopics.mockResolvedValue([]);
+
+    await processAnalysisJob(JOB_ID);
+
+    const options = (mockedPrisma.$transaction as jest.Mock).mock.calls[0]?.[1];
+    expect(options?.timeout).toBeGreaterThanOrEqual(30_000);
+    expect(options?.maxWait).toBeGreaterThanOrEqual(10_000);
+  });
+});

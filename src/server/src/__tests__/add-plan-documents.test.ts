@@ -356,6 +356,13 @@ describe('processAnalysisJob — append scope', () => {
   const SHARED_CONCEPT = mockExtractForFile('plans/p/ln09.pdf', 1).concepts[0]!;
 
   /**
+   * A second shared concept, but one the plan holds with **no topic yet** — the case the
+   * `primary_document_id != null` guard used to fall through. Same bank, same run, so it is a
+   * real collision and not a name nobody mentions.
+   */
+  const UNFILED_CONCEPT = mockExtractForFile('plans/p/ln09.pdf', 1).concepts[1]!;
+
+  /**
    * Khái niệm cũ của LN02, đã có mastery, KHÔNG được xuất hiện trong kết quả pha 1 lần này.
    *
    * ⚠️ Tên phải nằm NGOÀI cả ba bank của `mock-ai.ts`. Bản đầu của tệp này dùng "Waterfall
@@ -376,6 +383,17 @@ describe('processAnalysisJob — append scope', () => {
     // document's fileKey maps to, not written out — hard-coding it would let a bank edit turn
     // this whole case into "a concept nobody mentions", which is a different test that passes.
     { id: 'c-shared', name: SHARED_CONCEPT.name, status: 'active', primaryDocumentId: DOC_OLD },
+    // 🔴 Stored SHOUTING and at a different difficulty on purpose. `planConceptMerge` matches on
+    // `normalizeConceptKey` (trim + lowercase), so this row matches the new file's extraction —
+    // which means any code path that writes the extracted `name`/`difficulty` back would be
+    // visible here as a casing change and a number change, and invisible in production.
+    {
+      id: 'c-unfiled',
+      name: UNFILED_CONCEPT.name.toUpperCase(),
+      difficulty: 5,
+      status: 'active',
+      primaryDocumentId: null,
+    },
   ];
 
   function arrangeJob(scope: 'all' | 'new_only') {
@@ -554,6 +572,51 @@ describe('processAnalysisJob — append scope', () => {
       (call) => call[0].where.id === 'c-shared'
     );
     expect(sharedUpdate[0].data).toEqual({ status: 'active' });
+  });
+
+  /**
+   * 🔴 Khác biệt append thứ tư, nửa còn lại: khái niệm cũ **chưa có chủ đề**.
+   *
+   * `primary_document_id = NULL` không có nghĩa "khái niệm này không thật sự của sinh viên". Nó
+   * là trạng thái đạt tới được: kế hoạch một tài liệu sửa đồ thị bằng trình soạn thảo PHẲNG, mà
+   * trình đó không gửi chủ đề nào, nên `replacePlanGraph` lưu `null`. Đọc "chưa xếp chủ đề"
+   * thành "được phép ghi đè" là làm hộp thoại nói dối đúng ở ca nó hứa nhiều nhất.
+   *
+   * Xếp chủ đề cho nó thì ĐƯỢC — cho một khái niệm vô gia cư một mái nhà chỉ là thêm thông tin.
+   * Ghi đè tên và độ khó thì KHÔNG.
+   */
+  it('files an unfiled concept but does not rewrite its name or difficulty', async () => {
+    arrangeJob('new_only');
+
+    await processAnalysisJob(JOB_ID);
+
+    const update = (mockedPrisma.concept.update as jest.Mock).mock.calls.find(
+      (call) => call[0].where.id === 'c-unfiled'
+    );
+    expect(update).toBeDefined();
+    expect(update[0].data).toHaveProperty('primaryDocumentId', DOC_NEW);
+    expect(update[0].data).not.toHaveProperty('name');
+    expect(update[0].data).not.toHaveProperty('difficulty');
+  });
+
+  /**
+   * Đối chứng cho ca ngay trên, và nó phải nằm ở đây: nếu bank đổi và `UNFILED_CONCEPT` không
+   * còn va với khái niệm cũ nào thì `concept.update` cho `c-unfiled` **không được gọi**, cả hai
+   * `not.toHaveProperty` ở trên thành vô nghĩa — nhưng ca này sẽ đỏ và nói ra điều đó.
+   */
+  it('DOES rewrite that same concept under scope all', async () => {
+    arrangeJob('all');
+
+    await processAnalysisJob(JOB_ID);
+
+    const update = (mockedPrisma.concept.update as jest.Mock).mock.calls.find(
+      (call) => call[0].where.id === 'c-unfiled'
+    );
+    expect(update).toBeDefined();
+    expect(update[0].data).toMatchObject({
+      name: UNFILED_CONCEPT.name,
+      difficulty: UNFILED_CONCEPT.difficulty,
+    });
   });
 
   /** Đối chứng: ở `full` thì pha 1 ĐÃ đọc mọi tệp, nên nó có quyền xếp lại chủ đề. */

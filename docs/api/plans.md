@@ -420,14 +420,16 @@ Response 201 ở trên trả về **ngay lập tức** với `status: "draft"` v
 
 - **Lỗi kế hoạch có NHIỀU tài liệu (HTTP 409 Conflict), `code: "DOCUMENT_CHANGE_AMBIGUOUS"`:**
 
-  Endpoint này **ghi đè tại chỗ** đúng một hàng `Document`, nên với kế hoạch nhiều tệp nó không nói được là thay tệp nào. Trước khi có nhiều tệp, `findFirst(asc)` lặng lẽ chọn tệp đầu — tức người dùng gửi tệp thay thế và hệ thống thay **một tệp khác** với tệp họ nghĩ. Nay là 409 tường minh; đường đúng cho kế hoạch nhiều tệp là phân tích lại (mục 6) hoặc thêm tài liệu (mục 10).
+  Endpoint này **ghi đè tại chỗ** đúng một hàng `Document`, nên với kế hoạch nhiều tệp nó không nói được là thay tệp nào. Trước khi có nhiều tệp, `findFirst(asc)` lặng lẽ chọn tệp đầu — tức người dùng gửi tệp thay thế và hệ thống thay **một tệp khác** với tệp họ nghĩ, giữ nguyên id và mọi hàng `concept_sources` của tệp cũ, nên từ đó mọi trích dẫn của chương 2 lại đề tên tệp mới. Nay là 409 tường minh.
+
+  🔴 **Không có đường thay một tệp trong kế hoạch nhiều tài liệu, và đừng chỉ người dùng sang mục 6 hay mục 10** — phân tích lại dùng **đúng bộ tệp cũ**, thêm tài liệu chỉ **cộng thêm**; không cái nào THAY được một tệp. `message` server trả về nói đúng đường duy nhất đang có, và client hiển thị nguyên văn:
 
   ```json
   {
     "success": false,
     "error": {
       "code": "DOCUMENT_CHANGE_AMBIGUOUS",
-      "message": "This plan has multiple documents; changing a single document is not supported"
+      "message": "Kế hoạch này có 3 tài liệu, không xác định được tệp cần thay. Hãy xoá kế hoạch và tạo lại với bộ tài liệu đúng."
     }
   }
   ```
