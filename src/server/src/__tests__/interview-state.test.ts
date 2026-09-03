@@ -233,12 +233,38 @@ describe('decideNextStep — live traceback', () => {
     expect(questionModeForStep(afterDetour(1))).toBe('probe');
   });
 
-  it('the concept the chain returns to closes normally, because the flag is false by then', () => {
-    // `planTracebackInsert` refuses to re-queue a concept already in the queue, so a concept the
-    // chain walks back onto has nothing left to insert. That is what stops the loop — not the
-    // turn budget.
-    expect(step('wrong', MAX_TURNS, 1)).toBe('finish_concept');
-    expect(step('wrong', 1)).toBe('ask_hint');
+  it('the concept the chain returns to closes normally once there is nothing left to insert', () => {
+    // Named for the state a concept is in AFTER its detour, so it has to be given that state:
+    // `tracedBackAlready: true`. The version this replaces called the plain `step()` helper,
+    // which leaves the flag at its `false` default — it asserted the pre-detour table under a
+    // post-detour name, and both of its expectations were already made by tests above it. It
+    // would have stayed green with `planTracebackInsert` and `hasTracedBackFrom` deleted.
+    const returned = (turnIndex: number) =>
+      decideNextStep({
+        verdict: 'wrong',
+        turnIndex,
+        maxTurns: MAX_TURNS,
+        remainingConcepts: 1,
+        tracebackAvailable: false,
+        tracedBackAlready: true,
+      });
+
+    // Out of turns: it closes, and the session moves on rather than hopping again.
+    expect(returned(MAX_TURNS)).toBe('finish_concept');
+    // Turns left: it re-tests instead of hinting, so the answer can still move the score.
+    expect(returned(1)).toBe('ask_probe');
+    // The half that makes this about the RETURN and not about the flag: while a hop is still
+    // available the same input traces back instead of closing, at the very last turn too.
+    expect(
+      decideNextStep({
+        verdict: 'wrong',
+        turnIndex: MAX_TURNS,
+        maxTurns: MAX_TURNS,
+        remainingConcepts: 1,
+        tracebackAvailable: true,
+        tracedBackAlready: true,
+      })
+    ).toBe('trace_back');
   });
 });
 

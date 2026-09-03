@@ -598,6 +598,7 @@ export default function InterviewSessionPage() {
         onOpenChange={setShowPauseConfirm}
         isSubmitting={isPausing}
         conceptName={currentConcept?.name ?? 'khái niệm đang dở'}
+        tracedBackInSession={(session?.queue ?? []).some((item) => item.hop > 0)}
         gradedTurnsForConcept={gradedTurnsForConcept}
         turnIndex={turnIndex}
         onConfirm={() => void confirmPause()}
@@ -611,6 +612,8 @@ interface PauseConfirmDialogProps {
   onOpenChange: (open: boolean) => void;
   isSubmitting: boolean;
   conceptName: string;
+  /** Phiên đã truy ngược ít nhất một lần chưa — suy từ hàng đợi, không từ transcript. */
+  tracedBackInSession: boolean;
   gradedTurnsForConcept: number;
   turnIndex: number | null;
   onConfirm: () => void;
@@ -638,6 +641,7 @@ interface PauseConfirmDialogProps {
 function PauseConfirmDialog({
   open,
   onOpenChange,
+  tracedBackInSession,
   isSubmitting,
   conceptName,
   gradedTurnsForConcept,
@@ -687,9 +691,23 @@ function PauseConfirmDialog({
               className="text-muted-foreground mt-0.75 size-3.5 shrink-0"
               aria-hidden="true"
             />
+            {/* Chủ ngữ là LỊCH ÔN (AE-07 ghi `ReviewQueueItem` lúc chốt điểm), không phải
+                động tác truy ngược — từ 03/09 truy ngược còn là việc chạy NGAY trong phiên,
+                nên câu cũ ("Truy ngược lỗ hổng chưa chạy") phủ định đúng thứ mà transcript và
+                rail bên cạnh vừa hiện ra. Mệnh đề cũ không sai, nhưng đọc như một mâu thuẫn. */}
             <span>
-              Truy ngược lỗ hổng chưa chạy vì{' '}
-              <strong className="text-foreground">{conceptName}</strong> chưa chốt điểm.
+              {tracedBackInSession ? (
+                <>
+                  Phần nền đã kiểm trong phiên vẫn được giữ, nhưng{' '}
+                  <strong className="text-foreground">lịch ôn</strong> chưa được tạo vì{' '}
+                  <strong className="text-foreground">{conceptName}</strong> chưa chốt điểm.
+                </>
+              ) : (
+                <>
+                  <strong className="text-foreground">Lịch ôn</strong> cho lỗ hổng chưa được tạo vì{' '}
+                  <strong className="text-foreground">{conceptName}</strong> chưa chốt điểm.
+                </>
+              )}
             </span>
           </li>
         </ul>

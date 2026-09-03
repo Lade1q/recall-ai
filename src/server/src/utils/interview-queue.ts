@@ -17,6 +17,8 @@
  * `traceback.service.ts`. This file only decides what the queue becomes.
  */
 
+import { MAX_CONCEPTS_PER_SESSION } from './interview-state';
+
 /** One concept the session will ask about, and how it got into the queue. */
 export interface QueueEntry {
   conceptId: string;
@@ -66,6 +68,23 @@ export const MAX_TRACEBACK_HOPS = 3;
  * runs long.
  */
 export const MAX_LIVE_TRACEBACK_INSERTS = 4;
+
+/**
+ * The most concepts one sitting can end up covering, inserts included — the ceiling that used to
+ * exist only as arithmetic nobody performed.
+ *
+ * `MAX_CONCEPTS_PER_SESSION` is checked by the Zod schema on the way in, and live traceback then
+ * grew the queue past it with no code anywhere comparing the two numbers. The worst case was
+ * reachable from the product, not just in theory: the graph panel deep-links every root concept
+ * at once, so five seeds each with its own weak chain reached nine concepts — 27 turns, 54 Gemini
+ * calls — against a constant whose own docstring claimed to keep a session "inside a sitting and
+ * inside the API budget".
+ *
+ * Derived rather than typed out, so lowering either input moves the ceiling and cannot leave a
+ * third number stale. `planTracebackInsert` enforces it directly, which makes it hold even for a
+ * queue that arrived over-long from an older row rather than from an insert.
+ */
+export const MAX_CONCEPTS_IN_QUEUE = MAX_CONCEPTS_PER_SESSION + MAX_LIVE_TRACEBACK_INSERTS;
 
 /**
  * Reads the stored queue, accepting both the legacy `string[]` and the widened object form.
@@ -184,9 +203,18 @@ export interface TracebackInsertResult {
  *      nothing, so it is free of both budgets.
  *   3. **At or BEHIND the cursor** → skipped, and this is not negotiable. That concept has been
  *      asked; its turns are spent and its score is written, so pulling it forward would re-open
- *      it with no turn budget left and close it again on the spot. It is also what stops a cycle
- *      in a malformed graph, and what stops the chain bouncing between two concepts forever:
- *      after a detour the base sits behind the cursor, so it can never be pulled again.
+ *      it with no turn budget left and close it again on the spot.
+ *
+ * ⚠️ Bucket 3 is NOT what terminates the chain, and four comments used to say it was. The claim
+ * was "after a detour the base sits behind the cursor, so it can never be pulled again" — but
+ * the cursor does not advance on a hop, so each insert pushes the concept being asked *behind*
+ * the front of the queue and therefore *ahead* of the cursor, which is bucket 2's territory.
+ * Measured on a cycle a→b→c→a with the queue opened on [a]: `a` was asked at turn 1 and was
+ * still pulled back to the cursor two hops later, giving the ask order
+ * `a#1 c#1 b#1 a#2 a#3 b#2 b#3 c#2 c#3`. It terminated — but on the hop budget, not on this
+ * bucket. What actually bounds it is the pair of budgets below (and C6 keeps any one concept to
+ * three turns however often it is revisited). Raise `MAX_TRACEBACK_HOPS` believing the old
+ * comment and the cycling comes back.
  *
  * Two budgets, both on bucket 1 only:
  *   - **Hop budget** — a prerequisite inherits `parent.hop + 1` and is dropped past
@@ -196,6 +224,9 @@ export interface TracebackInsertResult {
  *     so it survives a crash and a resume the same way every other piece of this state does.
  *     It must be `added` and not `hop > 0`: a move stamps a hop too, and counting those spent
  *     the whole budget on the common deep-link shape before a single concept had been added.
+ *   - **Sitting ceiling** — the queue may not pass `MAX_CONCEPTS_IN_QUEUE` however few inserts
+ *     have been spent. The insert budget alone bounds the *growth*, not the *total*, and the
+ *     total is what a student sits through.
  *
  * An empty `inserted` is the caller's signal that there is nothing to hop to — the state
  * machine then falls back to the hint ladder, which is still the best remaining move.
@@ -215,7 +246,15 @@ export function planTracebackInsert(input: TracebackInsertInput): TracebackInser
   // the queue, and charging it here is what made the budget run out on sessions that had added
   // nothing (see `QueueEntry.added`).
   const addedSoFar = entries.filter((entry) => entry.added).length;
-  let addBudget = MAX_LIVE_TRACEBACK_INSERTS - addedSoFar;
+  // Two ceilings, and the smaller one wins. The first is the session's own insert budget; the
+  // second is the length of the whole sitting, which the insert budget alone does not bound —
+  // a five-concept session that spent nothing yet would otherwise still be allowed to reach
+  // nine. `Math.max(0, …)` because a queue can arrive already over-length (an older row, or a
+  // lowered constant), and a negative budget must read as "no room", not as an insert.
+  let addBudget = Math.max(
+    0,
+    Math.min(MAX_LIVE_TRACEBACK_INSERTS - addedSoFar, MAX_CONCEPTS_IN_QUEUE - entries.length)
+  );
 
   const front: QueueEntry[] = [];
   const movedFrom = new Set<number>();

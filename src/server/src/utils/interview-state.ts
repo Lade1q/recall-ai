@@ -83,9 +83,15 @@ export const DEFAULT_MAX_TURNS_PER_CONCEPT = 3;
 export const MAX_TURNS_PER_CONCEPT = TURN_WEIGHTS.length;
 
 /**
- * How many concepts one session may cover ("Số khái niệm tối đa mỗi phiên" — UC-11's
- * State Machine limits). Every concept costs up to `maxTurns` pairs of Gemini calls, so this
- * is what keeps a session inside a sitting and inside the API budget.
+ * How many concepts one session may be OPENED with ("Số khái niệm tối đa mỗi phiên" — UC-11's
+ * State Machine limits). Every concept costs up to `maxTurns` pairs of Gemini calls.
+ *
+ * Read the name literally: since live traceback this bounds the concepts a client may *ask for*,
+ * not the concepts a session ends up covering — the queue grows mid-session when an answer
+ * traces back. What bounds a whole sitting is `MAX_CONCEPTS_IN_QUEUE` in
+ * `utils/interview-queue.ts`, which is derived from this constant plus the insert budget and is
+ * enforced on every insert. Lower either number and that ceiling follows; there is no third
+ * place to keep in sync.
  */
 export const MAX_CONCEPTS_PER_SESSION = 5;
 
@@ -113,10 +119,13 @@ export const DEFAULT_CONCEPTS_PER_SESSION = 3;
  * **`trace_back` is checked first, and it is not gated on `turnIndex`** — it spends no turn of
  * the current concept, so the C6 ceiling below is untouched by it. A `wrong` on the last allowed
  * turn therefore still visits the base before the concept closes, which is the case that needs it
- * most. Termination does not rely on the turn budget: the caller sets `tracebackAvailable` from
- * `planTracebackInsert`, which refuses to queue a concept already in the queue, so when the chain
- * walks back onto this concept there is nothing left to insert, the flag is `false`, and the rows
- * below take over.
+ * most.
+ *
+ * Termination does not rely on the turn budget, and it does not rely on "a concept already in
+ * the queue is never queued again" either — that was the wrong explanation and it is corrected
+ * in `planTracebackInsert`'s docstring, with the cycle that disproves it. `tracebackAvailable`
+ * goes `false` when `planTracebackInsert` runs out of hops or of insert budget; the rows below
+ * then take over, and C6 caps any one concept at three turns however often it is revisited.
  *
  * Ordering `trace_back` above `ask_hint` is the substance of the change (Quân, 03/09): a wrong
  * answer means "check what this is built on", and only when there is nothing to check does

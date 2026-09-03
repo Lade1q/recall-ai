@@ -1,4 +1,5 @@
 import {
+  MAX_CONCEPTS_IN_QUEUE,
   MAX_LIVE_TRACEBACK_INSERTS,
   MAX_TRACEBACK_HOPS,
   hasTracedBackFrom,
@@ -8,6 +9,7 @@ import {
   type QueueEntry,
 } from '../utils/interview-queue';
 import { MAX_TRACEBACK_DEPTH } from '../services/traceback.service';
+import { MAX_CONCEPTS_PER_SESSION, MAX_TURNS_PER_CONCEPT } from '../utils/interview-state';
 
 /**
  * Pure-function tests for the live-traceback queue rules. No Prisma, no Gemini, no clock —
@@ -320,5 +322,76 @@ describe('the two depth limits are separate numbers with separate jobs', () => {
     // Pinned as an inequality too: collapsing them would silently retune the review queue that
     // the offline path writes for the NEXT session.
     expect(MAX_TRACEBACK_HOPS).not.toBe(MAX_TRACEBACK_DEPTH);
+  });
+});
+
+describe('the sitting ceiling', () => {
+  /**
+   * `MAX_CONCEPTS_PER_SESSION` is enforced by the Zod schema on the way in, and live traceback
+   * then grew the queue past it with nothing in code comparing the two numbers. These pin the
+   * total a student can be made to sit through, and the cost that follows from it, so that
+   * raising either input has to come past a number written down here.
+   */
+  const fullSession = () =>
+    Array.from({ length: MAX_CONCEPTS_PER_SESSION }, (_, i) => root(`seed-${i}`));
+
+  it('🔴 a full session cannot be grown past MAX_CONCEPTS_IN_QUEUE, however few inserts are spent', () => {
+    let entries: QueueEntry[] = fullSession();
+
+    // Ask for far more than either budget allows, hop after hop, always from the cursor.
+    for (let hop = 0; hop < MAX_TRACEBACK_HOPS; hop += 1) {
+      entries = planTracebackInsert({
+        entries,
+        cursor: 0,
+        prerequisites: Array.from({ length: 4 }, (_, i) => ({ conceptId: `p-${hop}-${i}` })),
+      }).entries;
+    }
+
+    expect(entries.length).toBeLessThanOrEqual(MAX_CONCEPTS_IN_QUEUE);
+    // Stated as the number, not just as an inequality: an inequality stays true if the ceiling
+    // is later raised by accident, which is the whole failure being guarded.
+    expect(MAX_CONCEPTS_IN_QUEUE).toBe(MAX_CONCEPTS_PER_SESSION + MAX_LIVE_TRACEBACK_INSERTS);
+
+    // The cost that ceiling buys, spelled out: `generate_question` + `grade_answer` per turn.
+    const worstCaseGeminiCalls = MAX_CONCEPTS_IN_QUEUE * MAX_TURNS_PER_CONCEPT * 2;
+    expect(worstCaseGeminiCalls).toBe(54);
+  });
+
+  it('🔴 the ceiling binds before the insert budget when the session opened full', () => {
+    // Nothing has been added yet, so the insert budget alone would allow four more.
+    const result = planTracebackInsert({
+      entries: fullSession(),
+      cursor: 0,
+      prerequisites: Array.from({ length: MAX_LIVE_TRACEBACK_INSERTS }, (_, i) => ({
+        conceptId: `p-${i}`,
+      })),
+    });
+
+    expect(result.inserted).toHaveLength(MAX_CONCEPTS_IN_QUEUE - MAX_CONCEPTS_PER_SESSION);
+
+    // Control in the same test: a session that opened with room takes the full insert budget,
+    // so the assertion above is measuring the ceiling and not some unrelated refusal.
+    const roomy = planTracebackInsert({
+      entries: [root('only')],
+      cursor: 0,
+      prerequisites: Array.from({ length: MAX_LIVE_TRACEBACK_INSERTS }, (_, i) => ({
+        conceptId: `q-${i}`,
+      })),
+    });
+    expect(roomy.inserted).toHaveLength(MAX_LIVE_TRACEBACK_INSERTS);
+  });
+
+  it('🔴 a queue that arrived over-long is not grown further, and does not throw', () => {
+    // Reachable without a bug: lowering either constant leaves older rows above the new ceiling.
+    const overlong = Array.from({ length: MAX_CONCEPTS_IN_QUEUE + 2 }, (_, i) => root(`old-${i}`));
+
+    const result = planTracebackInsert({
+      entries: overlong,
+      cursor: 0,
+      prerequisites: [{ conceptId: 'new' }],
+    });
+
+    expect(result.inserted).toEqual([]);
+    expect(result.entries).toHaveLength(overlong.length);
   });
 });

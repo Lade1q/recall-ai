@@ -357,3 +357,136 @@ describe('startInterview — no-material and first-question failures (#272)', ()
     expect(mockedPrisma.interviewSession.delete).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The other half of the 03/09 change, and the one the mock above deliberately switches off for
+ * every test in the file before this point: a deep link carrying ONE concept id opens a session
+ * about a set of related concepts. `conceptEdge.findMany → []` keeps those suites one-concept,
+ * which is right for them — but it also meant the headline behaviour of the commit had no
+ * assertion anywhere. These give it one.
+ */
+describe('startInterview — a one-concept deep link is filled from the graph', () => {
+  const NEIGHBOUR_A = 'neighbour-a';
+  const NEIGHBOUR_B = 'neighbour-b';
+  const originalUseMockAi = process.env.USE_MOCK_AI;
+
+  /** The queue as `interviewSession.create` was asked to store it. */
+  const createdQueue = (): string[] => {
+    const call = mockedPrisma.interviewSession.create.mock.calls[0]?.[0] as
+      { data: { conceptQueue: { conceptId: string }[] } } | undefined;
+    return (call?.data.conceptQueue ?? []).map((entry) => entry.conceptId);
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.USE_MOCK_AI = 'true';
+
+    mockedPrisma.studyPlan.findUnique.mockResolvedValue({
+      id: PLAN_ID,
+      userId: USER_ID,
+      status: 'active',
+    });
+    mockedPrisma.interviewSession.findFirst.mockResolvedValue(null);
+    mockedPrisma.interviewSession.create.mockResolvedValue(sessionRow());
+    mockedPrisma.interviewSession.findUnique.mockResolvedValue(sessionRow());
+    mockedPrisma.interviewTurn.count.mockResolvedValue(0);
+    mockedPrisma.interviewTurn.findMany.mockResolvedValue([]);
+    mockedPrisma.interviewTurn.create.mockResolvedValue({
+      id: 'turn-uuid',
+      sessionId: SESSION_ID,
+      conceptId: CONCEPT_ID,
+      turnIndex: 1,
+      questionText: 'q',
+      questionType: 'recall',
+      mode: null,
+      answerText: null,
+      score: null,
+      feedback: null,
+      verdict: null,
+      source: 'ai',
+      sourceDocumentId: null,
+      sourcePageFrom: null,
+      sourcePageTo: null,
+      askedAt: new Date('2026-08-09T10:00:01.000Z'),
+      answeredAt: null,
+      concept: { name: 'Stack' },
+    });
+    mockedPrisma.concept.findFirst.mockResolvedValue({ id: CONCEPT_ID, name: 'Stack' });
+    mockedPrisma.conceptSourceRef.findFirst.mockResolvedValue(null);
+    mockedPrisma.document.findMany.mockResolvedValue([]);
+    mockedPrisma.questionCache.findMany.mockResolvedValue([]);
+    mockedGenerateQuestion.mockResolvedValue({ question_text: 'q', question_type: 'recall' });
+
+    const names: Record<string, number | null> = {
+      [CONCEPT_ID]: 0.5,
+      [NEIGHBOUR_A]: 0.1,
+      [NEIGHBOUR_B]: 0.9,
+    };
+    mockedPrisma.concept.findMany.mockImplementation(
+      async ({ where }: { where: { id?: { in: string[] } } }) =>
+        (where.id?.in ?? Object.keys(names))
+          .filter((id) => id in names)
+          .map((id) => ({ id, name: `name-${id}`, masteryScore: names[id] ?? null }))
+    );
+  });
+
+  afterAll(() => {
+    process.env.USE_MOCK_AI = originalUseMockAi;
+  });
+
+  it('🔴 opens with the seed plus its graph neighbours, prerequisite first', async () => {
+    mockedPrisma.conceptEdge.findMany.mockResolvedValue([
+      { fromConceptId: NEIGHBOUR_A, toConceptId: CONCEPT_ID }, // a prerequisite of the seed
+      { fromConceptId: CONCEPT_ID, toConceptId: NEIGHBOUR_B }, // built on the seed
+    ]);
+
+    await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] });
+
+    // The clicked concept stays first — the student asked for it, and the fill is a supplement.
+    expect(createdQueue()).toEqual([CONCEPT_ID, NEIGHBOUR_A, NEIGHBOUR_B]);
+  });
+
+  it('🔴 stays a one-concept session when the seed has no neighbours', async () => {
+    mockedPrisma.conceptEdge.findMany.mockResolvedValue([]);
+
+    await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] });
+
+    // Said as the exact list: "did not throw" is not the claim, "asked for nothing extra" is.
+    expect(createdQueue()).toEqual([CONCEPT_ID]);
+  });
+
+  it('🔴 a deep link naming TWO concepts is respected as-is, not padded', async () => {
+    mockedPrisma.conceptEdge.findMany.mockResolvedValue([
+      { fromConceptId: NEIGHBOUR_A, toConceptId: CONCEPT_ID },
+    ]);
+
+    await startInterview(USER_ID, {
+      planId: PLAN_ID,
+      conceptIds: [CONCEPT_ID, NEIGHBOUR_B],
+    });
+
+    expect(createdQueue()).toEqual([CONCEPT_ID, NEIGHBOUR_B]);
+    // And the graph is not even consulted, so a multi-concept link costs no extra query.
+    expect(mockedPrisma.conceptEdge.findMany).not.toHaveBeenCalled();
+  });
+
+  it('🔴 every opened concept is stored as hop 0 and as NOT added, so none charges the budget', async () => {
+    mockedPrisma.conceptEdge.findMany.mockResolvedValue([
+      { fromConceptId: NEIGHBOUR_A, toConceptId: CONCEPT_ID },
+    ]);
+
+    await startInterview(USER_ID, { planId: PLAN_ID, conceptIds: [CONCEPT_ID] });
+
+    const call = mockedPrisma.interviewSession.create.mock.calls[0]?.[0] as {
+      data: { conceptQueue: { hop: number; added: boolean; viaConceptId: string | null }[] };
+    };
+    expect(call.data.conceptQueue).toEqual(
+      call.data.conceptQueue.map(() => ({
+        conceptId: expect.any(String),
+        hop: 0,
+        viaConceptId: null,
+        added: false,
+      }))
+    );
+  });
+});

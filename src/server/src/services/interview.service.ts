@@ -779,12 +779,12 @@ interface AdvanceResult {
  *     already honours; a student who turned remediation off must not have their session
  *     re-ordered by it either. Nothing downstream re-checks it.
  *   - `hasTracedBackFrom` is **cost only**, and saying otherwise would be wrong. Termination is
- *     owned by `planTracebackInsert`'s first rule: a prerequisite already in the queue is never
- *     queued again, and a hop never removes anything, so the concept the chain walks back onto
- *     can find nothing new to insert however many times it is asked. Deleting this line changes
- *     no outcome — measured, by removing it and watching every test stay green. What it does buy
- *     is the two queries below, on every remaining wrong answer of a concept that already
- *     traced back (up to two more per concept once the hint ladder takes over).
+ *     owned by `planTracebackInsert`'s budgets — the hop count and the insert/sitting ceilings —
+ *     not by any rule about a concept already being queued; its docstring carries the cycle that
+ *     disproves the tidier explanation. Deleting this line changes no outcome — measured, by
+ *     removing it and watching every test stay green. What it does buy is the two queries below,
+ *     on every remaining wrong answer of a concept that already traced back (up to two more per
+ *     concept once the hint ladder takes over).
  */
 async function planTracebackHop(
   view: SessionView,

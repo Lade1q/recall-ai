@@ -219,6 +219,25 @@ function SystemNote({
   const hop = nextTurn === null ? undefined : viaByConceptId.get(nextTurn.conceptId);
   const isTracebackHop = hop !== undefined && hop.viaConceptId === conceptId;
 
+  // Chiều ngược lại: khái niệm NÀY là nền do truy ngược kéo vào, và lượt kế thuộc đúng khái
+  // niệm đã kéo nó vào ⇒ đây là cú QUAY LẠI mà dòng truy ngược đã hứa. Nhánh mặc định bên dưới
+  // ("chuyển sang khái niệm tiếp theo") không sai ở đây — nền thật sự vừa chốt điểm — nhưng nó
+  // bỏ rơi lời hứa, và tiêu đề khái niệm cũ hiện lại kèm "Lượt 2" mà không có Lượt 1 kề bên
+  // trông như một lỗi hiển thị.
+  const pulledInBy = viaByConceptId.get(conceptId);
+  const isReturnHop =
+    pulledInBy !== undefined && nextTurn !== null && nextTurn.conceptId === pulledInBy.viaConceptId;
+
+  if (isReturnHop && nextTurn) {
+    return (
+      <SystemMessage variant="remediate" isLive={isLatest}>
+        Đã chốt điểm khái niệm nền → quay lại{' '}
+        <strong className="font-medium">{nextTurn.conceptName}</strong> ở lượt {nextTurn.turnIndex}/
+        {maxTurns}, đúng chỗ đang dở.
+      </SystemMessage>
+    );
+  }
+
   if (isTracebackHop && nextTurn) {
     return (
       <SystemMessage variant="remediate" isLive={isLatest}>

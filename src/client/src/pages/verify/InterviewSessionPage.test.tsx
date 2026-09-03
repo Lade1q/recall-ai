@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 import { render, screen } from '@/utils/test-utils';
 import InterviewSessionPage from './InterviewSessionPage';
@@ -312,5 +313,56 @@ describe('InterviewSessionPage — hàng đợi khái niệm bám theo chỉ s�
     mountQueue(1);
 
     expect(screen.getByText(`nền của ${CONCEPT.name}`)).toBeInTheDocument();
+  });
+});
+
+describe('InterviewSessionPage — dialog Tạm dừng nói đúng thứ CHƯA chạy', () => {
+  /**
+   * Câu cũ là "Truy ngược lỗ hổng chưa chạy vì {khái niệm} chưa chốt điểm". Mệnh đề không sai —
+   * `ReviewQueueItem` của AE-07 chỉ được ghi lúc chốt điểm — nhưng từ 03/09 động từ "truy ngược"
+   * còn là việc chạy NGAY trong phiên, nên câu ấy phủ định đúng thứ mà rail và transcript bên
+   * cạnh vừa hiện ra. Chủ ngữ đổi sang LỊCH ÔN; ca đã truy ngược nói thêm phần nền được giữ.
+   */
+  const QUEUE_AFTER_HOP = [
+    {
+      conceptId: 'c-base',
+      name: 'Danh sách kề',
+      hop: 1,
+      viaConceptId: CONCEPT.id,
+      viaConceptName: CONCEPT.name,
+    },
+    {
+      conceptId: CONCEPT.id,
+      name: CONCEPT.name,
+      hop: 0,
+      viaConceptId: null,
+      viaConceptName: null,
+    },
+  ];
+
+  async function openPauseDialog() {
+    // `userEvent`, không phải `element.click()`: nút mở dialog là Radix và bỏ qua click thô.
+    await userEvent.click(screen.getByRole('button', { name: /Tạm dừng/ }));
+  }
+
+  it('🔴 không còn nói "truy ngược … chưa chạy" khi phiên VỪA truy ngược xong', async () => {
+    mountWith([makeTurn('t1', 1, true)], 1, { queue: QUEUE_AFTER_HOP });
+    await openPauseDialog();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).not.toHaveTextContent(/[Tt]ruy ngược lỗ hổng chưa chạy/);
+    expect(dialog).toHaveTextContent(/lịch ôn/i);
+    expect(dialog).toHaveTextContent(/Phần nền đã kiểm trong phiên vẫn được giữ/);
+  });
+
+  it('🔴 phiên CHƯA truy ngược thì không hứa hẹn phần nền nào cả', async () => {
+    // Đối chứng đổi đúng một biến — `queue` — nên câu khác nhau là do trạng thái phiên, không
+    // phải do dialog luôn in cùng một câu.
+    mountWith([makeTurn('t1', 1, true)], 1);
+    await openPauseDialog();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/lịch ôn/i);
+    expect(dialog).not.toHaveTextContent(/Phần nền đã kiểm trong phiên/);
   });
 });

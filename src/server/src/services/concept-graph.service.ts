@@ -94,8 +94,13 @@ export async function findRelatedConcepts(
     // mirrors). So an edge pointing AT the seed names a prerequisite of it.
     if (edge.toConceptId === conceptId) relationById.set(edge.fromConceptId, 'prerequisite');
     // A concept can be both, in a graph that has a cycle the DAG check let through. Prerequisite
-    // wins, because that is the relation the interview acts on.
-    else if (!relationById.has(edge.fromConceptId)) {
+    // wins, because that is the relation the interview acts on — so the guard has to ask about
+    // the concept being written (`toConceptId`), not about the seed. Asking about
+    // `edge.fromConceptId` here was always true: this branch is only reached when
+    // `edge.fromConceptId === conceptId` (the `where` above only matches edges touching the
+    // seed), and the seed is only ever a key of this map through a self-loop. The guard read as
+    // if it protected the rule stated one line above it while protecting nothing.
+    else if (!relationById.has(edge.toConceptId)) {
       relationById.set(edge.toConceptId, 'dependent');
     }
   }
