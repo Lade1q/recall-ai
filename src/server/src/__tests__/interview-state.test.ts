@@ -31,6 +31,22 @@ function step(
   return decideNextStep({ verdict, turnIndex, maxTurns, remainingConcepts });
 }
 
+/** Same table, but with a weak prerequisite waiting to be asked (live traceback, 03/09). */
+function stepWithTraceback(
+  verdict: Verdict,
+  turnIndex: number,
+  remainingConcepts = 1,
+  maxTurns = MAX_TURNS
+): NextStep {
+  return decideNextStep({
+    verdict,
+    turnIndex,
+    maxTurns,
+    remainingConcepts,
+    tracebackAvailable: true,
+  });
+}
+
 describe('decideNextStep — continuing the same concept', () => {
   it('asks a deeper question after a deep answer while turns remain', () => {
     expect(step('deep', 1)).toBe('ask_deeper');
@@ -112,6 +128,11 @@ describe('decideNextStep — the whole table (C6 hard limit)', () => {
       for (let remaining = 0; remaining <= 2; remaining++) {
         const decision = step(verdict, MAX_TURNS, remaining);
         expect(['finish_concept', 'finish_session']).toContain(decision);
+        // With a prerequisite waiting the answer may be `trace_back`, which is a queue move and
+        // not a question of this concept — but it must still never be an `ask_*` of it.
+        expect(['finish_concept', 'finish_session', 'trace_back']).toContain(
+          stepWithTraceback(verdict, MAX_TURNS, remaining)
+        );
       }
     }
   });
@@ -123,7 +144,10 @@ describe('decideNextStep — the whole table (C6 hard limit)', () => {
     expect(questionModeForStep(step('wrong', MAX_TURNS))).toBeNull();
   });
 
-  it('has no traceback branch — that decision belongs to finalizeConceptResult (audit A5)', () => {
+  it('with no prerequisite to offer, the table is exactly what it was before live traceback', () => {
+    // This used to assert "has no traceback branch (audit A5)". Live traceback added one, so the
+    // claim it can still honestly make is the regression: `tracebackAvailable` defaults to false,
+    // and on that path nothing about the old decision table moved.
     const decisions = new Set<NextStep>();
     for (const verdict of verdicts) {
       for (let turnIndex = 1; turnIndex <= MAX_TURNS; turnIndex++) {
@@ -138,6 +162,109 @@ describe('decideNextStep — the whole table (C6 hard limit)', () => {
       'finish_concept',
       'finish_session',
     ]);
+    expect(decisions.has('trace_back')).toBe(false);
+  });
+});
+
+/**
+ * Live traceback (Quân, 03/09): a wrong answer means "go and check what this is built on", and
+ * the hint ladder becomes the fallback for when there is nothing to check.
+ */
+describe('decideNextStep — live traceback', () => {
+  const verdicts: Verdict[] = ['deep', 'shallow', 'wrong'];
+
+  it('routes a wrong answer to trace_back instead of ask_hint when a prerequisite is available', () => {
+    expect(stepWithTraceback('wrong', 1)).toBe('trace_back');
+    // Control: the same turn with nothing to trace back to is still the #392 hint ladder.
+    expect(step('wrong', 1)).toBe('ask_hint');
+  });
+
+  it('traces back even on the last allowed turn — the hop spends no turn of this concept', () => {
+    expect(stepWithTraceback('wrong', MAX_TURNS)).toBe('trace_back');
+    expect(stepWithTraceback('wrong', MAX_TURNS, 0)).toBe('trace_back');
+    // Control: without a prerequisite that same turn ends the concept, C6 unchanged.
+    expect(step('wrong', MAX_TURNS)).toBe('finish_concept');
+  });
+
+  it('never diverts a deep or shallow answer — only a wrong one goes to the base', () => {
+    for (let turnIndex = 1; turnIndex <= MAX_TURNS; turnIndex++) {
+      expect(stepWithTraceback('deep', turnIndex)).toBe(step('deep', turnIndex));
+      expect(stepWithTraceback('shallow', turnIndex)).toBe(step('shallow', turnIndex));
+    }
+  });
+
+  it('asks no question of the current concept while tracing back', () => {
+    expect(questionModeForStep('trace_back')).toBeNull();
+  });
+
+  it('adds exactly one new decision to the table and takes none away', () => {
+    const decisions = new Set<NextStep>();
+    for (const verdict of verdicts) {
+      for (let turnIndex = 1; turnIndex <= MAX_TURNS; turnIndex++) {
+        decisions.add(stepWithTraceback(verdict, turnIndex, 1));
+        decisions.add(stepWithTraceback(verdict, turnIndex, 0));
+      }
+    }
+    expect([...decisions].sort()).toEqual([
+      'ask_deeper',
+      'ask_probe',
+      'finish_concept',
+      'finish_session',
+      'trace_back',
+    ]);
+  });
+
+  it('a concept that has been to its base is PROBED on a later wrong answer, not hinted', () => {
+    const afterDetour = (turnIndex: number) =>
+      decideNextStep({
+        verdict: 'wrong',
+        turnIndex,
+        maxTurns: MAX_TURNS,
+        remainingConcepts: 1,
+        tracedBackAlready: true,
+      });
+
+    expect(afterDetour(1)).toBe('ask_probe');
+    expect(afterDetour(2)).toBe('ask_probe');
+    // Control: the same turn on a concept that never traced back is still the hint ladder.
+    expect(step('wrong', 1)).toBe('ask_hint');
+    // The distinction is not cosmetic: `hint` is the one mode `countsTowardMastery` drops, so
+    // routing here to `hint` would make remediation unable to change the score.
+    expect(questionModeForStep(afterDetour(1))).toBe('probe');
+  });
+
+  it('the concept the chain returns to closes normally once there is nothing left to insert', () => {
+    // Named for the state a concept is in AFTER its detour, so it has to be given that state:
+    // `tracedBackAlready: true`. The version this replaces called the plain `step()` helper,
+    // which leaves the flag at its `false` default — it asserted the pre-detour table under a
+    // post-detour name, and both of its expectations were already made by tests above it. It
+    // would have stayed green with `planTracebackInsert` and `hasTracedBackFrom` deleted.
+    const returned = (turnIndex: number) =>
+      decideNextStep({
+        verdict: 'wrong',
+        turnIndex,
+        maxTurns: MAX_TURNS,
+        remainingConcepts: 1,
+        tracebackAvailable: false,
+        tracedBackAlready: true,
+      });
+
+    // Out of turns: it closes, and the session moves on rather than hopping again.
+    expect(returned(MAX_TURNS)).toBe('finish_concept');
+    // Turns left: it re-tests instead of hinting, so the answer can still move the score.
+    expect(returned(1)).toBe('ask_probe');
+    // The half that makes this about the RETURN and not about the flag: while a hop is still
+    // available the same input traces back instead of closing, at the very last turn too.
+    expect(
+      decideNextStep({
+        verdict: 'wrong',
+        turnIndex: MAX_TURNS,
+        maxTurns: MAX_TURNS,
+        remainingConcepts: 1,
+        tracebackAvailable: true,
+        tracedBackAlready: true,
+      })
+    ).toBe('trace_back');
   });
 });
 

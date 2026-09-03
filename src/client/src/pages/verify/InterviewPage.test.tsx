@@ -54,6 +54,9 @@ const SESSION: InterviewSessionState = {
   fallbackMode: false,
   startedAt: '2026-09-01T08:00:00.000Z',
   endedAt: null,
+  queue: [
+    { conceptId: 'c-old', name: 'Mô hình OSI', hop: 0, viaConceptId: null, viaConceptName: null },
+  ],
   currentConcept: { id: 'c-old', name: 'Mô hình OSI' },
   progress: {
     conceptIndex: 0,

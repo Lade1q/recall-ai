@@ -1,6 +1,6 @@
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
-import { parseConceptQueue } from './interview.service';
+import { parseConceptQueue } from '../utils/interview-queue';
 import { sessionMasteryScore, conceptMasteryForSession } from '../utils/mastery';
 import type {
   InterviewSessionListItem,

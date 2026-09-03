@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 import { render, screen } from '@/utils/test-utils';
 import InterviewSessionPage from './InterviewSessionPage';
@@ -80,6 +81,15 @@ function session(turnIndex: number | null): InterviewSessionState {
     fallbackMode: false,
     startedAt: '2026-08-30T10:00:00.000Z',
     endedAt: null,
+    queue: [
+      {
+        conceptId: CONCEPT.id,
+        name: CONCEPT.name,
+        hop: 0,
+        viaConceptId: null,
+        viaConceptName: null,
+      },
+    ],
     currentConcept: CONCEPT,
     progress: {
       conceptIndex: 0,
@@ -91,9 +101,13 @@ function session(turnIndex: number | null): InterviewSessionState {
   };
 }
 
-function mountWith(turns: InterviewTurnResponse[], turnIndex: number | null) {
+function mountWith(
+  turns: InterviewTurnResponse[],
+  turnIndex: number | null,
+  sessionOverride?: Partial<InterviewSessionState>
+) {
   vi.mocked(useInterviewSession).mockReturnValue({
-    session: session(turnIndex),
+    session: { ...session(turnIndex), ...sessionOverride },
     currentQuestion: null,
     turns,
     fallback: null,
@@ -224,5 +238,131 @@ describe('InterviewSessionPage — vai tiêu đề của trạng thái đang ki�
 
     expect(screen.getByText('Kiểm tra vấn đáp')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Kiểm tra vấn đáp' })).toBeNull();
+  });
+});
+
+describe('InterviewSessionPage — hàng đợi khái niệm bám theo chỉ số của hàng đợi ĐÃ LƯU', () => {
+  /**
+   * `progress.conceptIndex` là chỉ số vào hàng đợi **đã lưu**, còn rail vẽ theo `session.queue`.
+   * Chừng nào server còn trả đúng một dòng cho mỗi entry thì hai thứ đó không thể lệch — nên
+   * hợp đồng phải được ghim ở đây, không phải ghim ở "server nhớ đừng lọc".
+   *
+   * Ca kích hoạt: `PUT /graph` xoá CỨNG một hàng Concept giữa phiên. Server trả `name: null`
+   * cho entry đó thay vì bỏ nó đi; bỏ đi thì rail đánh lại chỉ số và tô sáng lệch một dòng.
+   */
+  /** Các dòng của rail, lấy qua tiêu đề mục thay vì qua chuỗi class — class Tailwind có ngoặc
+   *  vuông nên không dùng được trong selector thuộc tính, và một selector không khớp sẽ trả
+   *  mảng ngắn ĐÚNG BẰNG cái bug đang tìm. */
+  const rows = () => {
+    const heading = screen.getByText('Hàng đợi khái niệm');
+    const list = heading.nextElementSibling as HTMLElement;
+    return [...list.children];
+  };
+
+  function mountQueue(conceptIndex: number) {
+    mountWith([makeTurn('t1', 1, true)], 1, {
+      queue: [
+        { conceptId: 'gone', name: null, hop: 0, viaConceptId: null, viaConceptName: null },
+        {
+          conceptId: CONCEPT.id,
+          name: CONCEPT.name,
+          hop: 0,
+          viaConceptId: null,
+          viaConceptName: null,
+        },
+        {
+          conceptId: 'c3',
+          name: 'Hàng đợi',
+          hop: 1,
+          viaConceptId: CONCEPT.id,
+          viaConceptName: CONCEPT.name,
+        },
+      ],
+      progress: {
+        conceptIndex,
+        conceptTotal: 3,
+        completedConcepts: conceptIndex,
+        turnIndex: 1,
+        maxTurnsPerConcept: 3,
+      },
+    });
+  }
+
+  it('🔴 tô sáng đúng dòng mà `conceptIndex` trỏ tới, kể cả khi dòng TRƯỚC nó mất tên', () => {
+    mountQueue(1);
+
+    const current = rows().filter((row) => row.getAttribute('aria-current') === 'step');
+    expect(current).toHaveLength(1);
+    // Đọc riêng DÒNG TÊN chứ không đọc `textContent` cả hàng: hàng của `c3` mang phụ đề
+    // "nền của Ngăn xếp", nên `toContain(CONCEPT.name)` trên cả hàng sẽ XANH kể cả khi tô sáng
+    // nhảy sang đúng hàng đó — đo được: assert cũ sống sót qua đột biến "lọc bỏ entry mất tên".
+    const nameLine = current[0]?.querySelectorAll('span')[1]?.textContent;
+    expect(nameLine).toBe(CONCEPT.name);
+  });
+
+  it('🔴 entry mất tên VẪN chiếm một dòng, và dòng đó nói ra là nó sẽ bị bỏ qua', () => {
+    mountQueue(1);
+
+    // Ghim SỐ DÒNG: đây chính là thứ mà việc lọc ở server làm hụt đi, và cũng là thứ khiến
+    // "Khái niệm 2/3" đứng trên một rail 2 dòng.
+    expect(rows()).toHaveLength(3);
+    expect(screen.getByText(/Khái niệm đã bị xoá khỏi kế hoạch/)).toBeInTheDocument();
+  });
+
+  it('🔴 dòng do truy ngược kéo vào nói rõ nó là nền của khái niệm nào', () => {
+    mountQueue(1);
+
+    expect(screen.getByText(`nền của ${CONCEPT.name}`)).toBeInTheDocument();
+  });
+});
+
+describe('InterviewSessionPage — dialog Tạm dừng nói đúng thứ CHƯA chạy', () => {
+  /**
+   * Câu cũ là "Truy ngược lỗ hổng chưa chạy vì {khái niệm} chưa chốt điểm". Mệnh đề không sai —
+   * `ReviewQueueItem` của AE-07 chỉ được ghi lúc chốt điểm — nhưng từ 03/09 động từ "truy ngược"
+   * còn là việc chạy NGAY trong phiên, nên câu ấy phủ định đúng thứ mà rail và transcript bên
+   * cạnh vừa hiện ra. Chủ ngữ đổi sang LỊCH ÔN; ca đã truy ngược nói thêm phần nền được giữ.
+   */
+  const QUEUE_AFTER_HOP = [
+    {
+      conceptId: 'c-base',
+      name: 'Danh sách kề',
+      hop: 1,
+      viaConceptId: CONCEPT.id,
+      viaConceptName: CONCEPT.name,
+    },
+    {
+      conceptId: CONCEPT.id,
+      name: CONCEPT.name,
+      hop: 0,
+      viaConceptId: null,
+      viaConceptName: null,
+    },
+  ];
+
+  async function openPauseDialog() {
+    // `userEvent`, không phải `element.click()`: nút mở dialog là Radix và bỏ qua click thô.
+    await userEvent.click(screen.getByRole('button', { name: /Tạm dừng/ }));
+  }
+
+  it('🔴 không còn nói "truy ngược … chưa chạy" khi phiên VỪA truy ngược xong', async () => {
+    mountWith([makeTurn('t1', 1, true)], 1, { queue: QUEUE_AFTER_HOP });
+    await openPauseDialog();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).not.toHaveTextContent(/[Tt]ruy ngược lỗ hổng chưa chạy/);
+    expect(dialog).toHaveTextContent(/lịch ôn/i);
+    expect(dialog).toHaveTextContent(/Phần nền đã kiểm trong phiên vẫn được giữ/);
+  });
+
+  it('🔴 phiên CHƯA truy ngược thì không hứa hẹn phần nền nào cả', async () => {
+    // Đối chứng đổi đúng một biến — `queue` — nên câu khác nhau là do trạng thái phiên, không
+    // phải do dialog luôn in cùng một câu.
+    mountWith([makeTurn('t1', 1, true)], 1);
+    await openPauseDialog();
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent(/lịch ôn/i);
+    expect(dialog).not.toHaveTextContent(/Phần nền đã kiểm trong phiên/);
   });
 });

@@ -1,6 +1,7 @@
 import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
-import { loadSession, parseConceptQueue } from './interview.service';
+import { loadSession } from './interview.service';
+import { parseConceptQueue } from '../utils/interview-queue';
 import { summarizeSession, type SessionConceptSummaryInput } from './gemini.service';
 import { countsTowardMastery, sessionMasteryScore } from '../utils/mastery';
 import type { Verdict } from '../schemas/ai-interview.schema';

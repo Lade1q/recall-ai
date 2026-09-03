@@ -42,6 +42,15 @@ export interface InterviewSessionState {
   startedAt: Date;
   endedAt: Date | null;
   currentConcept: { id: string; name: string } | null;
+  /**
+   * Every concept of the session, in queue order — names included, so the queue rail can show
+   * what the sitting actually covers instead of a column of dashes, and can label a concept live
+   * traceback pulled in as "nền của X".
+   *
+   * Grows mid-session when traceback hops, which is why `progress.conceptTotal` is not a fixed
+   * number the client may cache.
+   */
+  queue: InterviewQueueItemResponse[];
   progress: InterviewProgress;
 }
 
@@ -165,6 +174,47 @@ export interface InterviewPrerequisiteResponse {
 }
 
 /**
+ * One hop of live traceback: the session put the weak foundations of `fromConcept` in front of
+ * it and is now asking about them instead (03/09).
+ *
+ * Distinct from `ConceptCompletedResponse.prerequisites`, which reports the same graph walk done
+ * for the OPPOSITE reason — that one runs when a concept has been scored and its prerequisites
+ * go on the calendar for a later session. This one runs *before* any score, and the concepts in
+ * it are being asked right now. No `depth`: every entry here is a direct prerequisite, because
+ * the live chain is built by hopping again rather than by walking two levels at once.
+ */
+export interface TracebackHopResponse {
+  fromConceptId: string;
+  fromConceptName: string;
+  prerequisites: {
+    conceptId: string;
+    name: string;
+    reason: TracebackReason;
+    masteryScore: number | null;
+  }[];
+}
+
+/** One concept of the session's queue, as the screen needs to draw it. */
+export interface InterviewQueueItemResponse {
+  conceptId: string;
+  /**
+   * `null` when the Concept row is gone — a re-analysis or a `PUT /graph` can delete it while
+   * the session is open (`graph.service.ts` hard-deletes; `resolveCurrentConcept` then skips
+   * the entry). The entry is still reported rather than dropped: `progress.conceptIndex` and
+   * `conceptTotal` are indices into the *stored* queue, so a filtered list would make the
+   * screen highlight the wrong row and count rows it does not show.
+   */
+  name: string | null;
+  /** 0 = opened with the session; 1+ = pulled in by live traceback, `via*` says from where. */
+  hop: number;
+  /** Both the id and the name: the screen shows the name, but matches on the id — two concepts
+   *  of one plan can share a name, and a transcript line that pairs the wrong two is worse than
+   *  no line at all. */
+  viaConceptId: string | null;
+  viaConceptName: string | null;
+}
+
+/**
  * What `finalizeConceptResult()` (I7.2) decided when a concept ended: its mastery score, when
  * it comes back, and which foundations were queued before it.
  */
@@ -266,6 +316,12 @@ export interface SubmitAnswerResponse {
   nextQuestion: InterviewQuestionResponse | null;
   /** Set only on the request that ended a concept. */
   conceptCompleted: ConceptCompletedResponse | null;
+  /**
+   * Set only on the request that hopped to a prerequisite instead of asking again about the
+   * concept the student was on. Reported once, by the request that did it — a later `GET` finds
+   * the prerequisite already in the queue and says nothing.
+   */
+  tracedBack: TracebackHopResponse | null;
   sessionCompleted: boolean;
   /**
    * True when this answer had already been graded and the stored result is being replayed

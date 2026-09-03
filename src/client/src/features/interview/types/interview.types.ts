@@ -38,6 +38,40 @@ export interface InterviewProgress {
   maxTurnsPerConcept: number;
 }
 
+/** Một khái niệm trong hàng đợi của phiên, kèm lý do nó có mặt. Gương của server. */
+export interface InterviewQueueItemResponse {
+  conceptId: string;
+  /**
+   * `null` khi hàng Concept đã bị xoá giữa chừng (`PUT /graph`). Server VẪN trả entry đó chứ
+   * không lọc bỏ, vì `progress.conceptIndex` đánh trên hàng đợi ĐÃ LƯU — lọc đi thì rail tô
+   * sáng lệch một dòng.
+   */
+  name: string | null;
+  /** 0 = mở phiên đã có; 1+ = truy ngược trong phiên kéo vào, `via*` cho biết từ đâu. */
+  hop: number;
+  viaConceptId: string | null;
+  viaConceptName: string | null;
+}
+
+/**
+ * Một cú truy ngược TRONG phiên: hệ thống xếp nền của `fromConcept` lên trước nó và đang hỏi
+ * phần nền đó ngay bây giờ.
+ *
+ * Khác hẳn khối truy ngược ở màn kết quả (`TracebackPanel`), vốn là cùng một phép duyệt đồ thị
+ * nhưng chạy SAU khi khái niệm đã chốt điểm và hẹn các khái niệm nền cho phiên SAU. Cái này chạy
+ * TRƯỚC mọi điểm số, và các khái niệm trong đó đang được hỏi — nên câu chữ hai chỗ không được
+ * dùng chung.
+ *
+ * Hẹp hơn kiểu của server (không mang `reason`, `masteryScore`, `depth`), đúng như
+ * `ConceptCompletedResponse` phía dưới cũng hẹp hơn bản server: màn hình chỉ cần tên. Thêm
+ * trường vào đây là thêm thứ phải giữ đồng bộ mà không ai đọc.
+ */
+export interface TracebackHopResponse {
+  fromConceptId: string;
+  fromConceptName: string;
+  prerequisites: { conceptId: string; name: string }[];
+}
+
 export interface InterviewSessionState {
   id: string;
   planId: string;
@@ -47,6 +81,14 @@ export interface InterviewSessionState {
   startedAt: string;
   endedAt: string | null;
   currentConcept: { id: string; name: string } | null;
+  /**
+   * Toàn bộ khái niệm của phiên theo thứ tự hàng đợi, CÓ TÊN — để thanh hàng đợi hiện được
+   * phiên này gồm những gì thay vì một cột gạch ngang, và gọi tên được "nền của X".
+   *
+   * Dài ra giữa phiên khi truy ngược hop, nên `progress.conceptTotal` không phải con số client
+   * được phép nhớ.
+   */
+  queue: InterviewQueueItemResponse[];
   progress: InterviewProgress;
 }
 
@@ -170,6 +212,8 @@ export interface SubmitAnswerResponse {
   gradedTurnId: string;
   nextQuestion: InterviewQuestionResponse | null;
   conceptCompleted: ConceptCompletedResponse | null;
+  /** Chỉ có ở đúng request đã hop sang tiên quyết. Request sau đọc lại sẽ KHÔNG báo lại. */
+  tracedBack: TracebackHopResponse | null;
   sessionCompleted: boolean;
   /** True khi câu trả lời này đã được chấm trước đó và kết quả cũ đang được phát lại. */
   replayed: boolean;

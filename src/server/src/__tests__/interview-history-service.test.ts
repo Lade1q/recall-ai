@@ -3,9 +3,13 @@ import prisma from '../config/prisma';
 import { AppError } from '../middleware/errorHandler';
 
 /**
- * SPEC_DB-03 — `listInterviews()` against mocked Prisma. `interview.service.ts` is mocked down
- * to `parseConceptQueue`, the only thing this module reuses from it (same pattern as
- * `session-summary-service.test.ts`).
+ * SPEC_DB-03 — `listInterviews()` against mocked Prisma.
+ *
+ * Nothing from `interview.service.ts` is mocked any more: the one thing this module reused from
+ * it, `parseConceptQueue`, is pure and now lives in `utils/interview-queue.ts`, so the real
+ * function runs here. The mock it replaces was a hand-written copy carrying the pre-traceback
+ * `typeof id === 'string'` filter — this suite would have stayed green while the history tab
+ * listed no concepts for every session written in the object form.
  */
 jest.mock('../config/prisma', () => ({
   __esModule: true,
@@ -15,11 +19,6 @@ jest.mock('../config/prisma', () => ({
     concept: { findMany: jest.fn() },
     interviewTurn: { findMany: jest.fn() },
   },
-}));
-jest.mock('../services/interview.service', () => ({
-  parseConceptQueue: jest.fn((value: unknown) =>
-    Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : []
-  ),
 }));
 
 const mockedPrisma = prisma as unknown as {
@@ -46,7 +45,8 @@ function sessionRow(overrides: {
   endedAt?: Date | null;
   status?: string;
   fallbackMode?: boolean;
-  conceptQueue?: string[];
+  /** `unknown[]`, not `string[]`: the column holds the object form since live traceback. */
+  conceptQueue?: unknown[];
 }) {
   return {
     id: overrides.id,
@@ -54,7 +54,11 @@ function sessionRow(overrides: {
     endedAt: overrides.endedAt ?? null,
     status: overrides.status ?? 'completed',
     fallbackMode: overrides.fallbackMode ?? false,
-    conceptQueue: overrides.conceptQueue ?? [CONCEPT_A],
+    // Object form by default — the shape every session written since live traceback stores.
+    // Call sites that pass a plain `string[]` keep covering the legacy shape.
+    conceptQueue: overrides.conceptQueue ?? [
+      { conceptId: CONCEPT_A, hop: 0, viaConceptId: null, added: false },
+    ],
     plan: { id: PLAN_ID, name: 'Cấu trúc dữ liệu & Giải thuật' },
   };
 }
@@ -149,6 +153,33 @@ describe('listInterviews', () => {
       },
     ]);
     expect(item?.averageMasteryScore).toBe(0.8);
+  });
+
+  /**
+   * The history tab reads the concepts of a session out of `conceptQueue`, which has had two
+   * shapes. Every other test here passes the legacy `string[]`, so none of them can tell whether
+   * the object form — what every session written since live traceback stores — is understood.
+   * Without this, `parseConceptQueue` could go back to a `typeof id === 'string'` filter and the
+   * whole tab would list zero concepts per session with the suite still green.
+   */
+  it('🔴 reads a queue stored in the OBJECT form, so post-traceback sessions still list concepts', async () => {
+    mockedPrisma.interviewSession.findMany.mockResolvedValue([
+      sessionRow({
+        id: SESSION_NEW,
+        startedAt: STARTED_NEW,
+        conceptQueue: [{ conceptId: CONCEPT_A, hop: 1, viaConceptId: CONCEPT_B, added: true }],
+      }),
+    ]);
+    mockedPrisma.concept.findMany.mockResolvedValue([{ id: CONCEPT_A, name: 'Ngăn xếp' }]);
+    mockedPrisma.interviewTurn.findMany.mockResolvedValue([
+      turnRow(SESSION_NEW, STARTED_NEW, CONCEPT_A, 0.8),
+    ]);
+
+    const [item] = await listInterviews(USER_ID, {});
+
+    // The number stated outright: 0 is the regression, so "not empty" is not enough of a claim.
+    expect(item?.concepts).toHaveLength(1);
+    expect(item?.concepts[0]?.conceptId).toBe(CONCEPT_A);
   });
 
   it("takes masteryBefore from the prior session that graded this concept, not the concept's current live score", async () => {
